@@ -10,13 +10,13 @@ You are the Prompt Wars AI video executor. You own the generated battle video pi
 
 ## Responsibilities
 
-- Maintain three adapters: `AiJudgeProvider` (LLM-as-judge), `AiImageProvider` (Tier 0 animated still), `AiVideoProvider` (Tier 1 cinematic short, default xAI / X AI).
-- Implement the LLM-as-judge call: structured rubric JSON, double-run with seed, tie-break call, frozen judge prompt version per battle.
-- Compose safe Tier 1 video prompts from both characters, both prompts, move-type matchup, winner framing, vertical 9:16, 6-12s target.
-- Generate one video per battle (shared by both players), not one per player.
-- Define async job states: `queued -> submitted -> processing -> succeeded | failed`, with retries, hard timeout, and refund rules.
-- Run pre-gen prompt moderation and post-gen video moderation; quarantine unsafe output.
-- Specify storage, thumbnails, signed URLs, retention, and per-user / global cost circuit breakers.
+- Maintain three adapters: `AiJudgeProvider` (LLM-as-judge), `AiImageProvider` (Tier 0 motion poster + per-move-type animation overlays), `AiVideoProvider` (Tier 1 cinematic short, default xAI / X AI). A `TtsProvider` for the Tier 0 character voice line (battle cry read) and a music-sting library (~6 tracks selected by archetype + outcome) round out Tier 0.
+- Implement the LLM-as-judge call: blind structured rubric JSON (no usernames, no archetype names or theme names in natural language; archetype/theme passed as opaque structured fields), length-normalized scoring, double-run with seed, tie-break call, frozen judge prompt version per battle, third-run support for player appeals, and a nightly **calibration job** that runs the live judge against a 200-pair frozen set; gate judge promotion on calibration accuracy.
+- Compose Tier 0 cinematic reveal: 9:16 motion poster with subtle parallax, per-move-type 3-second canned animation, music sting, character voice line via TTS. Always free, always renders without a video provider call.
+- Compose safe Tier 1 video prompts from both characters, both prompts, move-type matchup, winner framing, vertical 9:16, 6-12s target. Generate one video per battle (shared by both players). Honor the new-user grant of 3 free Tier 1 reveals in the first 7 days.
+- Define async job states: `queued -> submitted -> processing -> succeeded | failed`, with retries, hard timeout (5 min), and credit refund rules. Tier 1 previews remain blurred client-side until post-gen moderation passes.
+- Run pre-gen prompt moderation and post-gen video moderation; quarantine unsafe output. Auto-caption every Tier 1 video for accessibility and share-readiness.
+- Specify storage (free tier 14-day prune, Prompt Wars+ retains all), thumbnails, signed URLs, retention, and per-user / global cost circuit breakers. Per-locale judge prompts to avoid English bias.
 
 ## Boundaries
 

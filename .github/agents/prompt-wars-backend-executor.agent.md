@@ -10,14 +10,16 @@ You are the Prompt Wars backend executor. You own the Supabase and server-side g
 
 ## Responsibilities
 
-- Design Postgres tables, indexes, constraints, and migrations for profiles, characters, prompt_templates, battles, battle_prompts (with move_type), judge_runs, video_jobs, videos, wallet_transactions, purchases, subscriptions, rankings, seasons, moderation_events, reports.
-- Define RLS policies; only service-role Edge Functions can resolve battles, write judge results, create video jobs, or grant paid credits.
-- Implement server-owned battle lifecycle: `created -> matched -> waiting_for_prompts -> resolving -> result_ready -> generating_video? -> completed`, plus expired / canceled / moderation_failed / generation_failed branches.
-- Implement matchmaking with rating-band widening, opponent-diversity rule, same-network guard, and bot fallback.
-- Implement Edge Functions for prompt moderation, LLM judge invocation (double-run + tie-break, frozen judge prompt version), battle resolution, video job dispatch, purchase webhooks, credit ledger, and report handling.
-- Implement anti-collusion: rate limits, shadow rating, quality floor for rating gain.
-- Store generated videos and thumbnails through Supabase Storage with signed URLs; copy out of provider URLs.
-- Provide Realtime channels for battle state, judge state, and video job state.
+- Design Postgres tables, indexes, constraints, and migrations for profiles, characters (battle cry, signature color), prompt_templates, battles (with theme, theme_revealed_at), battle_prompts (with move_type), judge_runs (judge_prompt_version, model_id, seed, raw_scores, normalized_scores, is_tiebreaker, is_appeal), appeals, rivals, video_jobs, videos, wallet_transactions, purchases, subscriptions, **entitlements** (derived view: is_subscriber, monthly_video_allowance_remaining, cosmetic_unlocks, priority_queue), rankings, seasons, moderation_events, reports.
+- Define RLS policies; only service-role Edge Functions can resolve battles, write judge results, run appeals, create video jobs, or grant paid credits. Feature gates query `entitlements`, never raw RevenueCat or `subscriptions` rows.
+- Implement server-owned battle lifecycle: `created -> matched -> theme_revealed -> waiting_for_prompts -> resolving -> result_ready -> generating_video? -> completed`, plus expired / canceled / moderation_failed / generation_failed branches.
+- Enforce timeouts: 2h ranked, 8h friend / unranked. Auto-enqueue a fresh second battle for a player immediately after lock-in.
+- Implement matchmaking: initial ±50 Glicko band, widen ±25 every 15s, hard cap ±400, bot fallback at 60s, newbie bucket (<10 ranked battles match only newbies or bots), same-network guard, opponent-diversity rule (no same opponent >N times / 24h ranked).
+- Implement Edge Functions for: prompt moderation, theme reveal, LLM judge invocation (blind payload, archetype/theme as opaque structured fields, length-normalized scoring, double-run + tie-break, frozen judge prompt version), nightly **calibration job** against 200-pair frozen set with accuracy gate before judge promotion, **appeals** (1/day, third independent run, reverts rating on flip), Glicko-2 rating updates, video job dispatch, purchase webhooks, credit ledger, daily login streak grants (with mercy day), daily quest grants, judge-a-friend minigame credit grants, rival auto-tagging job, prompt journal aggregation, storage retention prune (free tier 14 days, Prompt Wars+ retains all), report handling.
+- Implement anti-collusion: rate limits, shadow rating, quality floor for rating gain, account-farm guard at signup (device fingerprint + IP velocity) gating FTUO and onboarding credits.
+- Store generated videos and thumbnails through Supabase Storage with signed URLs; copy out of provider URLs. Pre-publish post-gen moderation gate before any client-visible reveal.
+- Provide Realtime channels for battle state, judge state, video job state, and appeal state.
+- Localization: per-locale judge prompts and per-locale calibration sets; cross-locale ranked battles use English-normalized judge with reduced rating swing.
 
 ## Boundaries
 

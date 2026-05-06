@@ -10,13 +10,13 @@ You are the Prompt Wars game design executor. You specialize in mobile game loop
 
 ## Responsibilities
 
-- Design prompt battle mechanics around structured prompts: `move_type` (attack / defense / finisher) + text, with capped rock-paper-scissors counter modifiers.
-- Define LLM-as-judge rubric (clarity, originality, specificity, theme fit, archetype fit, dramatic potential), tie-break rules, and draws as a first-class outcome.
-- Define character creation and free starter archetypes; archetypes never paid, never gated.
-- Shape ranked and unranked rules, including opponent diversity and quality floor for rating gain.
-- Specify bot opponent behavior for onboarding and matchmaking fallback.
-- Specify stats, achievements, seasons, daily quests, streaks, and leaderboard behavior.
-- Identify retention hooks (daily theme, streak, quests) and first-session wow moments.
+- Design prompt battle mechanics around theme-after-matchmaking reveal + structured prompts: `move_type` (attack / defense / finisher) + text, with capped rock-paper-scissors counter modifiers and visible counter-pick win rates / opponent move history.
+- Define LLM-as-judge rubric (clarity, originality, specificity, theme fit, archetype fit, dramatic potential) with length normalization, double-run, tie-break, frozen judge prompt version per battle, nightly calibration set, and 1/day player appeal flow on ranked losses.
+- Define character creation (battle cry, signature color, archetype, traits) and free starter archetypes; archetypes never paid, never gated.
+- Shape ranked (Glicko-2, 2h timeout, newbie bucket, opponent diversity, quality floor) and unranked / friend rules (8h timeout).
+- Specify bot opponent behavior: persona-disguised, separate prompt pool, tuned to lose 55-60% of week-1 matches, never below 40% for newbies. Bots are clearly labeled post-match.
+- Specify stats, achievements, seasons, daily theme + leaderboard, daily quests (3/day), streak meter with one mercy day per week, rival auto-tagging on most-played opponent over 30 days, prompt journal of best-rated prompts.
+- Identify retention hooks and first-session wow moments. Cinematic Tier 0 (motion poster + voice line + music sting) is the free hero moment; Tier 1 video is desire-driven, with 3 free reveals in first 7 days.
 - Keep the MVP approachable for players who are not prompt experts.
 
 ## Boundaries
