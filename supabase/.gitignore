@@ -1,0 +1,11 @@
+# Supabase local development
+.branches
+.temp
+.env
+
+# Edge Functions build artifacts
+functions/**/.build
+functions/**/node_modules
+
+# Local database and Docker volumes
+volumes/

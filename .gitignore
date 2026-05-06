@@ -1,0 +1,46 @@
+node_modules/
+.expo/
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.idea/
+
+# macOS
+.DS_Store
+
+# @generated expo-cli sync
+expo-env.d.ts
+# @end expo-cli
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Credentials
+credentials.json
+android/app/debug.keystore
+
+# Android/IntelliJ
+build/
+.gradle
+local.properties
+*.iml
+*.hprof
+.cxx/
+
+# Bundle artifacts
+*.jsbundle
+
+# Supabase
+supabase/.temp/
+
+# iOS
+ios/Pods/
+ios/.xcode.env.local

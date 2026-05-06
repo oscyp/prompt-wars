@@ -1,0 +1,90 @@
+{
+  "name": "prompt-wars",
+  "main": "expo-router/entry",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "test": "jest",
+    "test:ci": "jest --ci --passWithNoTests",
+    "test:watch": "jest --watchAll",
+    "lint": "expo lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "supabase:login": "supabase login",
+    "supabase:init": "supabase init",
+    "supabase:link": "supabase link",
+    "supabase:new-migration": "supabase migration new",
+    "supabase:migrate": "supabase db push",
+    "supabase:reset": "supabase db reset"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "setupFiles": [
+      "./jest.setup.js"
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg))"
+    ]
+  },
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": []
+      },
+      "nativeProjectCheck": {
+        "exclude": true
+      }
+    }
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^15.1.1",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@supabase/supabase-js": "^2.99.2",
+    "expo": "^55.0.6",
+    "expo-apple-authentication": "^55.0.8",
+    "expo-application": "~55.0.10",
+    "expo-constants": "~55.0.7",
+    "expo-dev-client": "^55.0.16",
+    "expo-font": "~55.0.4",
+    "expo-haptics": "~55.0.8",
+    "expo-linking": "~55.0.7",
+    "expo-notifications": "^55.0.12",
+    "expo-router": "~55.0.5",
+    "expo-sharing": "~55.0.14",
+    "expo-splash-screen": "^55.0.10",
+    "expo-status-bar": "~55.0.4",
+    "expo-system-ui": "~55.0.9",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-native": "0.83.2",
+    "react-native-gesture-handler": "~2.30.0",
+    "react-native-purchases": "^9.12.0",
+    "react-native-reanimated": "4.2.1",
+    "react-native-safe-area-context": "~5.6.2",
+    "react-native-screens": "~4.23.0",
+    "react-native-svg": "15.15.3",
+    "react-native-svg-transformer": "^1.5.3",
+    "react-native-url-polyfill": "^3.0.0",
+    "react-native-web": "~0.21.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.0",
+    "@eslint/eslintrc": "^3.3.5",
+    "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "29.5.14",
+    "@types/react": "~19.2.14",
+    "@types/react-test-renderer": "^19.1.0",
+    "dotenv": "^17.3.1",
+    "eslint": "^9.18.0",
+    "eslint-config-expo": "~55.0.0",
+    "jest": "~29.7.0",
+    "jest-expo": "~55.0.9",
+    "prettier": "3.8.1",
+    "react-test-renderer": "19.2.4",
+    "supabase": "^2.78.1",
+    "typescript": "~5.9.3"
+  },
+  "private": true
+}

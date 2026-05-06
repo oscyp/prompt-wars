@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.window", "dom", "deno.ns"],
+    "strict": true
+  },
+  "tasks": {
+    "test": "deno test --allow-all _tests/"
+  }
+}
