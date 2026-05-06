@@ -6,7 +6,7 @@ ALTER TABLE appeals ADD COLUMN IF NOT EXISTS reversion_payload JSONB;
 
 -- Judge calibration runs (nightly accuracy checks)
 CREATE TABLE IF NOT EXISTS judge_calibration_runs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   
   -- Judge configuration
   judge_prompt_version TEXT NOT NULL,

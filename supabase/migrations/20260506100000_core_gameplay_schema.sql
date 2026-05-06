@@ -125,7 +125,7 @@ CREATE TABLE profiles (
 
 -- Characters (players can have multiple, one active per battle)
 CREATE TABLE characters (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   name TEXT NOT NULL CHECK (char_length(name) >= 1 AND char_length(name) <= 40),
   archetype archetype NOT NULL,
@@ -137,15 +137,12 @@ CREATE TABLE characters (
   level INTEGER NOT NULL DEFAULT 1,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  
-  CONSTRAINT one_active_character_per_profile UNIQUE (profile_id, is_active) 
-    WHERE (is_active = TRUE)
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Prompt templates (curated safe prompts)
 CREATE TABLE prompt_templates (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   body TEXT NOT NULL CHECK (char_length(body) >= 20 AND char_length(body) <= 800),
   category TEXT NOT NULL, -- opening_attack, defense_reversal, final_move, taunt, etc.
@@ -161,7 +158,7 @@ CREATE TABLE prompt_templates (
 
 -- Bot personas (server-only prompt library for bot opponents)
 CREATE TABLE bot_personas (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   archetype archetype NOT NULL,
   avatar_url TEXT,
@@ -174,7 +171,7 @@ CREATE TABLE bot_personas (
 
 -- Bot prompt library (separate from human templates, not memorizable)
 CREATE TABLE bot_prompt_library (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bot_persona_id UUID NOT NULL REFERENCES bot_personas(id) ON DELETE CASCADE,
   prompt_text TEXT NOT NULL CHECK (char_length(prompt_text) >= 20 AND char_length(prompt_text) <= 800),
   move_type move_type NOT NULL,
@@ -185,7 +182,7 @@ CREATE TABLE bot_prompt_library (
 
 -- Battles (core gameplay state)
 CREATE TABLE battles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   mode battle_mode NOT NULL,
   status battle_status NOT NULL DEFAULT 'created',
   
@@ -237,7 +234,7 @@ CREATE TABLE battles (
 
 -- Battle prompts (immutable after lock)
 CREATE TABLE battle_prompts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   battle_id UUID NOT NULL REFERENCES battles(id) ON DELETE CASCADE,
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   
@@ -271,7 +268,7 @@ CREATE TABLE battle_prompts (
 
 -- Judge runs (one or more per battle for scoring)
 CREATE TABLE judge_runs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   battle_id UUID NOT NULL REFERENCES battles(id) ON DELETE CASCADE,
   
   -- Judge metadata
@@ -305,7 +302,7 @@ CREATE TABLE judge_runs (
 
 -- Appeals (capped 1/day on ranked losses)
 CREATE TABLE appeals (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   battle_id UUID NOT NULL REFERENCES battles(id) ON DELETE CASCADE,
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   
@@ -331,7 +328,7 @@ CREATE TABLE appeals (
 
 -- Judge calibration sets (frozen ground truth for nightly accuracy checks)
 CREATE TABLE judge_calibration_sets (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   locale TEXT NOT NULL DEFAULT 'en',
   prompt_one_text TEXT NOT NULL,
   prompt_one_move_type move_type NOT NULL,
@@ -357,7 +354,7 @@ CREATE TABLE rivals (
 
 -- Prompt journal (personal best-rated prompts)
 CREATE TABLE prompt_journal (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   battle_prompt_id UUID NOT NULL REFERENCES battle_prompts(id) ON DELETE CASCADE,
   normalized_score NUMERIC(5, 2) NOT NULL,
@@ -378,6 +375,7 @@ CREATE INDEX idx_profiles_rival ON profiles(rival_profile_id) WHERE rival_profil
 
 -- Characters
 CREATE INDEX idx_characters_profile_active ON characters(profile_id, is_active);
+CREATE UNIQUE INDEX one_active_character_per_profile ON characters(profile_id) WHERE is_active = TRUE;
 
 -- Battles
 CREATE INDEX idx_battles_status ON battles(status);

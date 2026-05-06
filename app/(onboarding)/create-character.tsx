@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Platform,
   View,
   Text,
   TextInput,
@@ -16,7 +17,9 @@ import { Spacing, Typography } from '@/constants/DesignTokens';
 import { useAuth } from '@/providers/AuthProvider';
 import { supabase } from '@/utils/supabase';
 import { checkAccountEligibility, getDeviceFingerprint } from '@/utils/safety';
-import { Platform } from 'react-native';
+
+const getDefaultUsername = (userId: string) =>
+  `user_${userId.replace(/-/g, '').slice(0, 15)}`;
 
 export default function CreateCharacterScreen() {
   const router = useRouter();
@@ -29,29 +32,49 @@ export default function CreateCharacterScreen() {
   const [isCreating, setIsCreating] = useState(false);
 
   const handleCreate = async () => {
-    if (!user || !archetype) return;
+    const trimmedName = name.trim();
+    const trimmedBattleCry = battleCry.trim();
+
+    if (
+      !user ||
+      !archetype ||
+      trimmedName.length < 3 ||
+      trimmedBattleCry.length < 3
+    ) {
+      return;
+    }
 
     setIsCreating(true);
 
     try {
       // First check if user already has a profile
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', user.id)
-        .single();
+      const { data: existingProfile, error: profileLookupError } =
+        await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (profileLookupError) {
+        throw new Error(profileLookupError.message);
+      }
 
       // Create or update profile if needed
-      if (!existingProfile) {
-        const username = user.email?.split('@')[0] || `user_${user.id.slice(0, 8)}`;
-        
+      if (existingProfile) {
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert({
-            id: user.id,
-            username,
-            display_name: name,
-          });
+          .update({ display_name: trimmedName })
+          .eq('id', user.id);
+
+        if (profileError) {
+          throw new Error(profileError.message);
+        }
+      } else {
+        const { error: profileError } = await supabase.from('profiles').insert({
+          id: user.id,
+          username: getDefaultUsername(user.id),
+          display_name: trimmedName,
+        });
 
         if (profileError) {
           throw new Error(profileError.message);
@@ -78,9 +101,9 @@ export default function CreateCharacterScreen() {
         .from('characters')
         .insert({
           profile_id: user.id,
-          name,
+          name: trimmedName,
           archetype,
-          battle_cry: battleCry,
+          battle_cry: trimmedBattleCry,
           signature_color: ARCHETYPES[archetype].color,
         })
         .select()
@@ -98,14 +121,20 @@ export default function CreateCharacterScreen() {
       console.error('Failed to create character:', err);
       Alert.alert(
         'Error',
-        err instanceof Error ? err.message : 'Failed to create character. Please try again.'
+        err instanceof Error
+          ? err.message
+          : 'Failed to create character. Please try again.',
       );
     } finally {
       setIsCreating(false);
     }
   };
 
-  const canCreate = name.length >= 3 && archetype && battleCry.length >= 3 && !isCreating;
+  const canCreate =
+    name.trim().length >= 3 &&
+    Boolean(archetype) &&
+    battleCry.trim().length >= 3 &&
+    !isCreating;
 
   return (
     <ScrollView
@@ -164,11 +193,16 @@ export default function CreateCharacterScreen() {
               </Text>
             </View>
             <Text
-              style={[styles.archetypeDescription, { color: colors.textSecondary }]}
+              style={[
+                styles.archetypeDescription,
+                { color: colors.textSecondary },
+              ]}
             >
               {arch.description}
             </Text>
-            <Text style={[styles.archetypeTrait, { color: colors.textTertiary }]}>
+            <Text
+              style={[styles.archetypeTrait, { color: colors.textTertiary }]}
+            >
               Trait: {arch.trait}
             </Text>
           </TouchableOpacity>
@@ -176,9 +210,7 @@ export default function CreateCharacterScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.text }]}>
-          Battle Cry
-        </Text>
+        <Text style={[styles.label, { color: colors.text }]}>Battle Cry</Text>
         <Text style={[styles.sublabel, { color: colors.textSecondary }]}>
           A short phrase shown on every result (max 60 characters)
         </Text>

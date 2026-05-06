@@ -7,7 +7,7 @@
 
 -- Account abuse signals (server-side only, never exposed to client)
 CREATE TABLE account_abuse_signals (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   
   -- Signup metadata
@@ -113,7 +113,7 @@ ALTER TABLE videos ADD COLUMN IF NOT EXISTS moderation_confidence NUMERIC(3, 2);
 
 -- Track opponent pairs for diversity enforcement
 CREATE TABLE opponent_history (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   opponent_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   battle_id UUID NOT NULL REFERENCES battles(id) ON DELETE CASCADE,
@@ -130,8 +130,7 @@ CREATE INDEX idx_opponent_history_diversity ON opponent_history(profile_id, oppo
   WHERE battle_mode = 'ranked';
 
 -- Index for rival detection (most-played opponent in last 30 days)
-CREATE INDEX idx_opponent_history_rival ON opponent_history(profile_id, created_at DESC)
-  WHERE created_at > NOW() - INTERVAL '30 days';
+CREATE INDEX idx_opponent_history_rival ON opponent_history(profile_id, created_at DESC);
 
 -- Shadow rating for anomaly review
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS shadow_rating NUMERIC(8, 2);

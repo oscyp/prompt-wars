@@ -18,7 +18,7 @@ CREATE INDEX IF NOT EXISTS idx_battles_tier0_reveal ON battles (id) WHERE tier0_
 
 -- Auto-generated captions for Tier 1 videos (accessibility + share-readiness)
 CREATE TABLE IF NOT EXISTS video_captions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
   
   -- Caption formats
@@ -43,7 +43,7 @@ CREATE INDEX IF NOT EXISTS idx_video_captions_video_id ON video_captions (video_
 
 -- Track provider webhook callbacks to prevent duplicate processing
 CREATE TABLE IF NOT EXISTS provider_callbacks (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   provider TEXT NOT NULL, -- xai | openai | mock
   callback_type TEXT NOT NULL, -- video_complete | moderation_result
   idempotency_key TEXT NOT NULL UNIQUE,

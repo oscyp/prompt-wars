@@ -123,7 +123,7 @@ supabase gen types typescript --local > lib/database.types.ts
 ## Notes
 
 - All timestamps use `timestamptz`.
-- UUIDs use `uuid_generate_v4()` defaults.
+- UUIDs use `gen_random_uuid()` defaults.
 - JSONB columns for flexible payload storage (score_payload, cosmetic_config, metadata).
 - Soft deletes where audit trail required (reports, moderation_events).
 - Foreign keys with `ON DELETE CASCADE` where appropriate (battle_prompts -> battles).

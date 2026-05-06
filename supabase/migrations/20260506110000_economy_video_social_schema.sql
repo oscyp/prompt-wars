@@ -7,7 +7,7 @@
 
 -- Video generation jobs (async provider pipeline)
 CREATE TABLE video_jobs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   battle_id UUID NOT NULL UNIQUE REFERENCES battles(id) ON DELETE CASCADE,
   
   -- Provider tracking
@@ -36,7 +36,7 @@ CREATE TABLE video_jobs (
 
 -- Generated videos (storage references)
 CREATE TABLE videos (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   battle_id UUID NOT NULL UNIQUE REFERENCES battles(id) ON DELETE CASCADE,
   video_job_id UUID NOT NULL REFERENCES video_jobs(id) ON DELETE CASCADE,
   
@@ -66,7 +66,7 @@ CREATE TABLE videos (
 
 -- Wallet transactions (immutable ledger)
 CREATE TABLE wallet_transactions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   
   -- Transaction data
@@ -93,7 +93,7 @@ CREATE TABLE wallet_transactions (
 
 -- Purchases (RevenueCat mirrored via webhook)
 CREATE TABLE purchases (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   
   -- RevenueCat data
@@ -114,7 +114,7 @@ CREATE TABLE purchases (
 
 -- Subscriptions (RevenueCat mirrored via webhook)
 CREATE TABLE subscriptions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   
   -- RevenueCat data
@@ -167,7 +167,7 @@ LEFT JOIN subscriptions s ON s.profile_id = p.id AND s.status = 'active'
 
 -- Seasons
 CREATE TABLE seasons (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   season_number INTEGER NOT NULL UNIQUE,
   starts_at TIMESTAMPTZ NOT NULL,
@@ -176,13 +176,12 @@ CREATE TABLE seasons (
   rewards_config JSONB, -- placement rewards, cosmetics, etc.
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   
-  CONSTRAINT one_active_season UNIQUE (is_active) WHERE (is_active = TRUE),
   CONSTRAINT valid_season_dates CHECK (ends_at > starts_at)
 );
 
 -- Rankings snapshot (updated post-battle)
 CREATE TABLE rankings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   season_id UUID NOT NULL REFERENCES seasons(id) ON DELETE CASCADE,
   
@@ -205,7 +204,7 @@ CREATE TABLE rankings (
 
 -- Daily quests (curated tasks)
 CREATE TABLE daily_quests (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   description TEXT NOT NULL,
   quest_type TEXT NOT NULL, -- win_battle, complete_3_battles, use_finisher_move, etc.
@@ -219,7 +218,7 @@ CREATE TABLE daily_quests (
 
 -- Player quest progress
 CREATE TABLE player_daily_quests (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   daily_quest_id UUID NOT NULL REFERENCES daily_quests(id) ON DELETE CASCADE,
   
@@ -235,7 +234,7 @@ CREATE TABLE player_daily_quests (
 
 -- Daily themes (shared global prompt constraint)
 CREATE TABLE daily_themes (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   theme_text TEXT NOT NULL,
   theme_date DATE NOT NULL UNIQUE,
   leaderboard_snapshot JSONB, -- top 10 at end of day
@@ -248,7 +247,7 @@ CREATE TABLE daily_themes (
 
 -- Moderation events (audit log)
 CREATE TABLE moderation_events (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   
   -- Target
   target_type TEXT NOT NULL, -- battle_prompt | video | profile | report
@@ -268,7 +267,7 @@ CREATE TABLE moderation_events (
 
 -- User reports
 CREATE TABLE reports (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reporter_profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   
   -- Target
@@ -304,7 +303,7 @@ CREATE TABLE blocks (
 
 -- Push tokens (device registration)
 CREATE TABLE push_tokens (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   platform TEXT NOT NULL, -- ios | android | web
   token TEXT NOT NULL UNIQUE,
@@ -338,7 +337,7 @@ CREATE TABLE notification_preferences (
 
 -- Notification send log (for frequency cap enforcement)
 CREATE TABLE notification_sends (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   category TEXT NOT NULL,
   sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -372,6 +371,7 @@ CREATE INDEX idx_subscriptions_revenuecat_id ON subscriptions(revenuecat_subscri
 -- Rankings
 CREATE INDEX idx_rankings_season_rank ON rankings(season_id, rank NULLS LAST);
 CREATE INDEX idx_rankings_profile_season ON rankings(profile_id, season_id);
+CREATE UNIQUE INDEX one_active_season ON seasons(is_active) WHERE is_active = TRUE;
 
 -- Daily quests
 CREATE INDEX idx_daily_quests_active_date ON daily_quests(active_date) WHERE is_active = TRUE;
