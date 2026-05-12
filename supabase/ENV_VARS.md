@@ -11,9 +11,9 @@ Phase 0: Documentation for all required environment variables.
 # Supabase project URL (public, safe to bundle in app)
 EXPO_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 
-# Supabase anon/public key (public, safe to bundle in app)
+# Supabase publishable key (public, safe to bundle in app)
 # Used for client-side auth and RLS-protected queries
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
 # Deep link scheme for auth redirects (e.g., "promptwars://")
 EXPO_PUBLIC_AUTH_REDIRECT_SCHEME=promptwars
@@ -24,9 +24,12 @@ EXPO_PUBLIC_APP_URL=https://promptwars.app
 
 ### Server-Side (Edge Functions Only)
 ```bash
-# Supabase service role key (NEVER expose to client)
+# Supabase publishable keys dictionary for Edge Functions
+SUPABASE_PUBLISHABLE_KEYS={"default":"sb_publishable_..."}
+
+# Supabase secret keys dictionary (NEVER expose to client)
 # Used by Edge Functions for server-owned writes (battle resolution, credit grants)
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SECRET_KEYS={"default":"sb_secret_..."}
 
 # Database direct connection string (for migrations and admin tasks)
 SUPABASE_DB_URL=postgresql://postgres:your-password@db.your-project.supabase.co:5432/postgres
@@ -189,7 +192,7 @@ DEBUG_MODE=true
 
 # Local development Supabase (from `supabase start`)
 EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
 # Test mode flags (skip real provider calls in tests)
 SKIP_VIDEO_GENERATION=true
@@ -201,7 +204,7 @@ USE_MOCK_JUDGE=false  # set true for deterministic test battles
 
 1. **Client vs Server**: Only `EXPO_PUBLIC_*` prefixed vars are safe to bundle in the mobile app.
 2. **Edge Function Secrets**: Store provider API keys using `supabase secrets set KEY=value`.
-3. **RLS Enforcement**: Even with service-role key, RLS protects tables when accessed via anon key.
+3. **RLS Enforcement**: Even with secret keys, RLS protects tables when accessed via publishable keys.
 4. **Rotation**: Rotate all provider keys quarterly and on any suspected compromise.
 5. **.env.local**: Never commit `.env.local` or `.env.production`. Use `.env.example` as template.
 

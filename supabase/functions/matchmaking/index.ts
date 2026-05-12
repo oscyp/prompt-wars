@@ -341,6 +341,11 @@ Deno.serve(async (req) => {
     
   } catch (error) {
     console.error('Matchmaking error:', error);
+
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return errorResponse('Unauthorized', 401);
+    }
+
     return errorResponse(error instanceof Error ? error.message : 'Internal error', 500);
   }
 });

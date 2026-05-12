@@ -1,17 +1,13 @@
 require('dotenv').config();
 
-const IS_DEV = process.env.APP_VARIANT === 'development';
-
 module.exports = ({ config: _config }) => {
   return {
-    name: IS_DEV ? 'Prompt Wars Dev' : 'Prompt Wars',
+    name: 'Prompt Wars',
     slug: 'prompt-wars',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
-    scheme: IS_DEV
-      ? 'com.promptwars.promptwars.dev'
-      : 'com.promptwars.promptwars',
+    scheme: 'com.promptwars.promptwars',
     userInterfaceStyle: 'automatic',
     splash: {
       image: './assets/images/splash-screen.png',
@@ -20,9 +16,7 @@ module.exports = ({ config: _config }) => {
     },
     ios: {
       supportsTablet: false,
-      bundleIdentifier: IS_DEV
-        ? 'com.promptwars.promptwars.dev'
-        : 'com.promptwars.promptwars',
+      bundleIdentifier: 'com.promptwars.promptwars',
       useAppleSignIn: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
@@ -33,9 +27,7 @@ module.exports = ({ config: _config }) => {
         foregroundImage: './assets/images/adaptive-icon.png',
         backgroundColor: '#000000',
       },
-      package: IS_DEV
-        ? 'com.promptwars.promptwars.dev'
-        : 'com.promptwars.promptwars',
+      package: 'com.promptwars.promptwars',
     },
     web: {
       bundler: 'metro',

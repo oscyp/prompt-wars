@@ -1,7 +1,7 @@
 // Resolve Appeal Edge Function
 // Processes pending appeals and runs independent judge re-evaluation (service-role only)
 
-import { createServiceClient, corsHeaders, errorResponse, successResponse } from '../_shared/utils.ts';
+import { createServiceClient, corsHeaders, errorResponse, hasSupabaseSecretAuthorization, successResponse } from '../_shared/utils.ts';
 import { runJudgePipeline, JUDGE_PROMPT_VERSION } from '../_shared/judge.ts';
 import { createJudgeProvider } from '../_shared/providers.ts';
 
@@ -17,9 +17,8 @@ Deno.serve(async (req) => {
   
   // Service-role only
   const authHeader = req.headers.get('Authorization');
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   
-  if (!authHeader?.includes(serviceKey || 'invalid')) {
+  if (!hasSupabaseSecretAuthorization(authHeader)) {
     return errorResponse('Service role required', 403);
   }
   

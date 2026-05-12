@@ -2,7 +2,7 @@
 // Handles Tier 1 video generation lifecycle: submit, poll, store, refund on failure
 // Designed for async queue processing or scheduled invocation
 
-import { createServiceClient, corsHeaders, errorResponse, successResponse } from '../_shared/utils.ts';
+import { createServiceClient, corsHeaders, errorResponse, getSupabaseSecretKey, hasSupabaseSecretAuthorization, successResponse } from '../_shared/utils.ts';
 import { createVideoProvider } from '../_shared/providers.ts';
 import { VideoModerationProvider } from '../_shared/moderation.ts';
 
@@ -22,9 +22,8 @@ Deno.serve(async (req) => {
 
   // Service-role only (server/scheduled execution)
   const authHeader = req.headers.get('Authorization');
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   
-  if (!authHeader?.includes(serviceKey || 'invalid')) {
+  if (!hasSupabaseSecretAuthorization(authHeader)) {
     return errorResponse('Service role required', 403);
   }
 
@@ -628,7 +627,7 @@ async function moderateVideo(
 ): Promise<{ status: string; reason?: string }> {
   // Call moderate-video Edge Function with service-role authority
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const serviceKey = getSupabaseSecretKey();
   
   if (!supabaseUrl || !serviceKey) {
     throw new Error('Missing Supabase environment variables');

@@ -2,14 +2,15 @@
 // Tests for automatic battle resolution after prompt lock
 // NOTE: This is an integration test that requires:
 //   - SUPABASE_URL environment variable
-//   - SUPABASE_SERVICE_ROLE_KEY environment variable
+//   - SUPABASE_SECRET_KEYS environment variable
 //   - Running Supabase instance
 
 import { assertEquals, assertExists } from 'https://deno.land/std@0.192.0/testing/asserts.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { getSupabaseSecretKey } from '../_shared/utils.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const supabaseServiceKey = getSupabaseSecretKey();
 
 // Skip tests if environment variables not set
 const skipIntegrationTests = !supabaseUrl || !supabaseServiceKey;

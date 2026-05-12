@@ -3,7 +3,7 @@
  * Client-safe wrappers for battle Edge Functions
  */
 
-import { supabase } from './supabase';
+import { invokeAuthenticatedFunction, supabase } from './supabase';
 
 export type BattleStatus =
   | 'created'
@@ -18,7 +18,12 @@ export type BattleStatus =
   | 'moderation_failed'
   | 'generation_failed';
 
-export type BattleMode = 'ranked' | 'unranked' | 'friend_challenge' | 'daily_theme' | 'bot';
+export type BattleMode =
+  | 'ranked'
+  | 'unranked'
+  | 'friend_challenge'
+  | 'daily_theme'
+  | 'bot';
 export type MoveType = 'attack' | 'defense' | 'finisher';
 
 export interface MatchmakingResult {
@@ -45,24 +50,30 @@ export interface AppealBattleResult {
   error?: string;
 }
 
+export interface ResolveBattleResult {
+  battle_id?: string;
+  winner_id?: string | null;
+  is_draw?: boolean;
+  explanation?: string;
+  score_diff?: number;
+  error?: string;
+}
+
 /**
  * Start matchmaking for a battle
  */
 export async function startMatchmaking(
   characterId: string,
-  mode: BattleMode = 'ranked'
+  mode: BattleMode = 'ranked',
 ): Promise<MatchmakingResult> {
   try {
-    const { data, error } = await supabase.functions.invoke('matchmaking', {
-      body: {
+    const data = await invokeAuthenticatedFunction<MatchmakingResult>(
+      'matchmaking',
+      {
         character_id: characterId,
         mode,
       },
-    });
-
-    if (error) {
-      throw new Error(error.message || 'Matchmaking failed');
-    }
+    );
 
     return {
       battle_id: data.battle_id,
@@ -83,24 +94,18 @@ export async function submitPrompt(
   battleId: string,
   moveType: MoveType,
   promptTemplateId?: string,
-  customPromptText?: string
+  customPromptText?: string,
 ): Promise<SubmitPromptResult> {
   try {
-    const { data, error } = await supabase.functions.invoke('submit-prompt', {
-      body: {
+    const data = await invokeAuthenticatedFunction<SubmitPromptResult>(
+      'submit-prompt',
+      {
         battle_id: battleId,
         move_type: moveType,
         prompt_template_id: promptTemplateId,
         custom_prompt_text: customPromptText,
       },
-    });
-
-    if (error) {
-      return {
-        success: false,
-        error: error.message || 'Failed to submit prompt',
-      };
-    }
+    );
 
     return {
       success: data.success ?? false,
@@ -119,20 +124,16 @@ export async function submitPrompt(
 /**
  * Appeal a battle result (ranked losses only, 1/day cap)
  */
-export async function appealBattle(battleId: string): Promise<AppealBattleResult> {
+export async function appealBattle(
+  battleId: string,
+): Promise<AppealBattleResult> {
   try {
-    const { data, error } = await supabase.functions.invoke('appeal-battle', {
-      body: {
+    const data = await invokeAuthenticatedFunction<AppealBattleResult>(
+      'appeal-battle',
+      {
         battle_id: battleId,
       },
-    });
-
-    if (error) {
-      return {
-        success: false,
-        error: error.message || 'Failed to appeal battle',
-      };
-    }
+    );
 
     return {
       success: data.success ?? false,
@@ -144,6 +145,26 @@ export async function appealBattle(battleId: string): Promise<AppealBattleResult
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Retry server-side battle resolution for a stuck resolving battle.
+ */
+export async function retryBattleResolution(
+  battleId: string,
+): Promise<ResolveBattleResult> {
+  try {
+    return await invokeAuthenticatedFunction<ResolveBattleResult>(
+      'resolve-battle',
+      {
+        battle_id: battleId,
+      },
+    );
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : 'Failed to resolve battle',
     };
   }
 }
@@ -169,15 +190,19 @@ export async function getBattle(battleId: string) {
  * Get battles for current user
  */
 export async function getMyBattles(limit = 20) {
-  const { data: { user } } = await supabase.auth.getUser();
-  
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) {
     throw new Error('Not authenticated');
   }
 
   const { data, error } = await supabase
     .from('battles')
-    .select('*, player_one:profiles!battles_player_one_id_fkey(username, display_name), player_two:profiles!battles_player_two_id_fkey(username, display_name)')
+    .select(
+      '*, player_one:profiles!battles_player_one_id_fkey(username, display_name), player_two:profiles!battles_player_two_id_fkey(username, display_name)',
+    )
     .or(`player_one_id.eq.${user.id},player_two_id.eq.${user.id}`)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -193,10 +218,7 @@ export async function getMyBattles(limit = 20) {
  * Get prompt templates
  */
 export async function getPromptTemplates(category?: string) {
-  let query = supabase
-    .from('prompt_templates')
-    .select('*')
-    .order('category');
+  let query = supabase.from('prompt_templates').select('*').order('category');
 
   if (category) {
     query = query.eq('category', category);
@@ -234,8 +256,10 @@ export async function getDailyTheme() {
  * Get daily quests for current user
  */
 export async function getDailyQuests() {
-  const { data: { user } } = await supabase.auth.getUser();
-  
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) {
     return [];
   }

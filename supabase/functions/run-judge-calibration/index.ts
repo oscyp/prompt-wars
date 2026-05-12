@@ -1,7 +1,7 @@
 // Run Judge Calibration Edge Function
 // Runs nightly accuracy checks against frozen calibration sets (service-role only)
 
-import { createServiceClient, corsHeaders, errorResponse, successResponse } from '../_shared/utils.ts';
+import { createServiceClient, corsHeaders, errorResponse, hasSupabaseSecretAuthorization, successResponse } from '../_shared/utils.ts';
 import { runJudgePipeline, JUDGE_PROMPT_VERSION } from '../_shared/judge.ts';
 import { createJudgeProvider } from '../_shared/providers.ts';
 
@@ -28,9 +28,8 @@ Deno.serve(async (req) => {
   
   // Service-role only
   const authHeader = req.headers.get('Authorization');
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   
-  if (!authHeader?.includes(serviceKey || 'invalid')) {
+  if (!hasSupabaseSecretAuthorization(authHeader)) {
     return errorResponse('Service role required', 403);
   }
   

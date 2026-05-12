@@ -6,6 +6,7 @@ import {
   createServiceClient,
   corsHeaders,
   errorResponse,
+  hasSupabaseSecretAuthorization,
   successResponse,
 } from '../_shared/utils.ts';
 import { VideoModerationProvider } from '../_shared/moderation.ts';
@@ -31,9 +32,8 @@ Deno.serve(async (req) => {
   try {
     // Service-role only (called by video generation pipeline, not client)
     const authHeader = req.headers.get('Authorization');
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    if (!authHeader?.includes(serviceKey || 'invalid')) {
+    if (!hasSupabaseSecretAuthorization(authHeader)) {
       return errorResponse('Service role required', 403);
     }
 

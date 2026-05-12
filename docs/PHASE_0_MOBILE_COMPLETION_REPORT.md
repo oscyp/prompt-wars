@@ -12,7 +12,7 @@ Successfully implemented Phase 0 mobile scaffolding for Prompt Wars. The Expo Re
 
 ### Core Configuration (15 files)
 - [package.json](package.json) - Dependencies matching Expo SDK 55, React Native 0.83.2
-- [app.config.js](app.config.js) - Expo config with APP_VARIANT switch, plugins, newArchEnabled
+- [app.config.js](app.config.js) - Expo config with static app identifiers, plugins, newArchEnabled
 - [babel.config.js](babel.config.js) - Babel preset for Expo
 - [metro.config.js](metro.config.js) - Metro bundler config with SVG support
 - [tsconfig.json](tsconfig.json) - Strict TypeScript with @ path alias
@@ -243,7 +243,7 @@ yarn android  # Requires Android SDK
 ✅ **Suggested Tabs**: Home, Battles, Create, Rankings, Profile per spec  
 ✅ **Scripts**: All recommended scripts from concept doc implemented  
 ✅ **Jest Setup**: jest-expo preset with jest.setup.js  
-✅ **EAS Config**: dev, preview, prod profiles with APP_VARIANT  
+✅ **EAS Config**: dev, preview, prod profiles  
 ✅ **Prettier/ESLint**: Matches Remedy conventions  
 ✅ **Accessibility**: Dynamic type, labels, roles, semantic colors from day one  
 ✅ **No Secrets in Mobile**: Only EXPO_PUBLIC_* vars; service-role keys stay server-side

@@ -12,9 +12,6 @@
       },
       "ios": {
         "buildConfiguration": "Debug"
-      },
-      "env": {
-        "APP_VARIANT": "development"
       }
     },
     "preview": {
@@ -24,9 +21,6 @@
       }
     },
     "production": {
-      "env": {
-        "APP_VARIANT": "production"
-      },
       "autoIncrement": true
     }
   },

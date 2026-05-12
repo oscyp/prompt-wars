@@ -218,13 +218,14 @@ See [`supabase/ENV_VARS.md`](./ENV_VARS.md) for comprehensive documentation.
 
 **Client-side** (safe to bundle in app):
 - `EXPO_PUBLIC_SUPABASE_URL`
-- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `EXPO_PUBLIC_AUTH_REDIRECT_SCHEME`
 - `EXPO_PUBLIC_REVENUECAT_IOS_KEY`
 - `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY`
 
 **Server-side** (Edge Functions only, NEVER expose to client):
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_PUBLISHABLE_KEYS`
+- `SUPABASE_SECRET_KEYS`
 - `JUDGE_API_KEY` (OpenAI/Anthropic/xAI for LLM judge)
 - `XAI_API_KEY` (video generation)
 - `IMAGE_API_KEY` (Tier 0 motion poster)

@@ -9,7 +9,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Prompt Wars Dev</string>
+	<string>Prompt Wars</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -29,8 +29,8 @@
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.promptwars.promptwars.dev</string>
-				<string>com.promptwars.promptwars.dev</string>
+				<string>com.promptwars.promptwars</string>
+				<string>com.promptwars.promptwars</string>
 			</array>
 		</dict>
 		<dict>

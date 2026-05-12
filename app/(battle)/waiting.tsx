@@ -1,11 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import { useAuth } from '@/providers/AuthProvider';
-import { startMatchmaking } from '@/utils/battles';
+import { retryBattleResolution, startMatchmaking } from '@/utils/battles';
 
 export default function WaitingScreen() {
   const colors = useThemedColors();
@@ -15,6 +21,8 @@ export default function WaitingScreen() {
 
   const { battle, prompts, isSubscribed } = useRealtimeBattle(battleId || null);
   const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const resolveRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasRetriedResolutionRef = useRef(false);
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
 
   const myPrompt = prompts.find((p) => p.profile_id === user?.id);
@@ -30,7 +38,15 @@ export default function WaitingScreen() {
         clearTimeout(retryTimerRef.current);
         retryTimerRef.current = null;
       }
+      if (resolveRetryTimerRef.current) {
+        clearTimeout(resolveRetryTimerRef.current);
+        resolveRetryTimerRef.current = null;
+      }
     };
+  }, [battleId]);
+
+  useEffect(() => {
+    hasRetriedResolutionRef.current = false;
   }, [battleId]);
 
   // Handle queued battle fallback retry
@@ -58,11 +74,16 @@ export default function WaitingScreen() {
       retryTimerRef.current = setTimeout(async () => {
         try {
           setRetryMessage('Checking for bot match...');
-          const result = await startMatchmaking(battle.player_one_character_id, battle.mode as any);
+          const result = await startMatchmaking(
+            battle.player_one_character_id,
+            battle.mode as any,
+          );
 
           if (result.matched) {
             // Navigate to prompt entry with the returned battle_id
-            router.replace(`/(battle)/prompt-entry?battleId=${result.battle_id}`);
+            router.replace(
+              `/(battle)/prompt-entry?battleId=${result.battle_id}`,
+            );
           } else {
             // Update message and keep waiting
             if (result.message) {
@@ -85,64 +106,129 @@ export default function WaitingScreen() {
     if (!battle) return;
 
     // Navigate to result screen when ready or if generation failed
-    if (battle.status === 'result_ready' || battle.status === 'completed' || battle.status === 'generation_failed') {
+    if (
+      battle.status === 'result_ready' ||
+      battle.status === 'completed' ||
+      battle.status === 'generation_failed'
+    ) {
       router.replace(`/(battle)/result?battleId=${battleId}`);
       return;
     }
 
     // If battle becomes matched/waiting_for_prompts and user hasn't submitted, navigate to prompt entry
-    if ((battle.status === 'matched' || battle.status === 'waiting_for_prompts') && !myPromptLocked) {
+    if (
+      (battle.status === 'matched' ||
+        battle.status === 'waiting_for_prompts') &&
+      !myPromptLocked
+    ) {
       router.replace(`/(battle)/prompt-entry?battleId=${battleId}`);
     }
   }, [battle, myPromptLocked, battleId, router]);
 
+  useEffect(() => {
+    if (!battleId || !battle || battle.status !== 'resolving') return;
+    if (hasRetriedResolutionRef.current || resolveRetryTimerRef.current) return;
+
+    resolveRetryTimerRef.current = setTimeout(async () => {
+      hasRetriedResolutionRef.current = true;
+      resolveRetryTimerRef.current = null;
+
+      try {
+        setRetryMessage('Still resolving. Asking the judge to retry...');
+        const result = await retryBattleResolution(battleId);
+
+        if (result.error) {
+          console.error('Battle resolution retry failed:', result.error);
+          setRetryMessage('Judge retry failed. Waiting for updates...');
+          return;
+        }
+
+        setRetryMessage('Judge finished. Loading result...');
+      } catch (err) {
+        console.error('Battle resolution retry failed:', err);
+        setRetryMessage('Judge retry failed. Waiting for updates...');
+      }
+    }, 5000);
+  }, [battle, battleId]);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.content}>
-        <ActivityIndicator size="large" color={colors.primary} style={styles.spinner} />
+        <ActivityIndicator
+          size="large"
+          color={colors.primary}
+          style={styles.spinner}
+        />
 
         <Text style={[styles.title, { color: colors.text }]}>
-          {battle?.status === 'resolving' ? 'Battle Resolving' : 'Waiting for Opponent'}
+          {battle?.status === 'resolving'
+            ? 'Battle Resolving'
+            : 'Waiting for Opponent'}
         </Text>
 
         {battle?.theme && (
           <View style={[styles.themeCard, { backgroundColor: colors.card }]}>
-            <Text style={[styles.themeLabel, { color: colors.textSecondary }]}>Theme</Text>
-            <Text style={[styles.themeText, { color: colors.primary }]}>{battle.theme}</Text>
+            <Text style={[styles.themeLabel, { color: colors.textSecondary }]}>
+              Theme
+            </Text>
+            <Text style={[styles.themeText, { color: colors.primary }]}>
+              {battle.theme}
+            </Text>
           </View>
         )}
 
         {/* Status Checklist */}
         <View style={[styles.statusCard, { backgroundColor: colors.card }]}>
           <View style={styles.statusRow}>
-            <Text style={[styles.statusIcon, { color: myPromptLocked ? colors.success : colors.textSecondary }]}>
+            <Text
+              style={[
+                styles.statusIcon,
+                {
+                  color: myPromptLocked ? colors.success : colors.textSecondary,
+                },
+              ]}
+            >
               {myPromptLocked ? '✓' : '○'}
             </Text>
-            <Text style={[styles.statusText, { color: colors.text }]}>Your prompt submitted</Text>
+            <Text style={[styles.statusText, { color: colors.text }]}>
+              Your prompt submitted
+            </Text>
           </View>
 
           <View style={styles.statusRow}>
             <Text
               style={[
                 styles.statusIcon,
-                { color: opponentPromptLocked ? colors.success : colors.textSecondary },
+                {
+                  color: opponentPromptLocked
+                    ? colors.success
+                    : colors.textSecondary,
+                },
               ]}
             >
               {opponentPromptLocked ? '✓' : '○'}
             </Text>
-            <Text style={[styles.statusText, { color: colors.text }]}>Opponent's prompt submitted</Text>
+            <Text style={[styles.statusText, { color: colors.text }]}>
+              Opponent's prompt submitted
+            </Text>
           </View>
 
           {battle?.status === 'resolving' && (
             <View style={styles.statusRow}>
-              <Text style={[styles.statusIcon, { color: colors.warning }]}>⚡</Text>
-              <Text style={[styles.statusText, { color: colors.text }]}>Judge is scoring...</Text>
+              <Text style={[styles.statusIcon, { color: colors.warning }]}>
+                ⚡
+              </Text>
+              <Text style={[styles.statusText, { color: colors.text }]}>
+                Judge is scoring...
+              </Text>
             </View>
           )}
         </View>
 
         {!isSubscribed && (
-          <Text style={[styles.realtimeWarning, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.realtimeWarning, { color: colors.textSecondary }]}
+          >
             Realtime updates connecting...
           </Text>
         )}
@@ -155,12 +241,17 @@ export default function WaitingScreen() {
 
         {/* Back to Home */}
         <TouchableOpacity
-          style={[styles.homeButton, { backgroundColor: colors.backgroundTertiary }]}
+          style={[
+            styles.homeButton,
+            { backgroundColor: colors.backgroundTertiary },
+          ]}
           onPress={() => router.push('/(tabs)/home')}
           accessibilityLabel="Return to home"
           accessibilityRole="button"
         >
-          <Text style={[styles.homeButtonText, { color: colors.text }]}>Return to Home</Text>
+          <Text style={[styles.homeButtonText, { color: colors.text }]}>
+            Return to Home
+          </Text>
         </TouchableOpacity>
 
         <Text style={[styles.hint, { color: colors.textTertiary }]}>
