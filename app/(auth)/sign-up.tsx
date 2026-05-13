@@ -1,39 +1,41 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/utils/supabase';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
+import {
+  GlassInput,
+  GlowGradientButton,
+  HapticPressable,
+  NeonGridBackground,
+  ScreenContainer,
+} from '@/components';
 
 export default function SignUpScreen() {
+  const router = useRouter();
+  const colors = useThemedColors();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const router = useRouter();
-  const colors = useThemedColors();
 
   const handleSignUp = async () => {
     setError('');
     setLoading(true);
-
     try {
       const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
       });
-
       if (error) throw error;
-
-      // Navigation is handled by _layout.tsx
     } catch (err: any) {
       setError(err.message || 'Failed to sign up');
     } finally {
@@ -42,150 +44,144 @@ export default function SignUpScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
-      <View style={styles.content}>
-        <Text style={[styles.title, { color: colors.text }]}>
-          Join Prompt Wars
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Create your account
-        </Text>
-
-        <View style={styles.form}>
-          <TextInput
-            style={[
-              styles.input,
-              { backgroundColor: colors.card, color: colors.text },
-            ]}
-            placeholder="Email"
-            placeholderTextColor={colors.textTertiary}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            editable={!loading}
-            accessibilityLabel="Email input"
-          />
-
-          <TextInput
-            style={[
-              styles.input,
-              { backgroundColor: colors.card, color: colors.text },
-            ]}
-            placeholder="Password (min 8 characters)"
-            placeholderTextColor={colors.textTertiary}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            editable={!loading}
-            accessibilityLabel="Password input"
-          />
-
-          {error ? (
-            <Text style={[styles.error, { color: colors.error }]}>
-              {error}
+    <ScreenContainer padded={false}>
+      <NeonGridBackground />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.brand}>
+            <Text style={[styles.eyebrow, { color: colors.accentAlt }]}>
+              FORGE YOUR LEGEND
             </Text>
-          ) : null}
-
-          <Text style={[styles.disclaimer, { color: colors.textTertiary }]}>
-            By signing up, you confirm you are 18+ years old and agree to our
-            Terms of Service.
-          </Text>
-
-          <TouchableOpacity
-            style={[
-              styles.button,
-              { backgroundColor: colors.primary },
-              loading && styles.buttonDisabled,
-            ]}
-            onPress={handleSignUp}
-            disabled={loading}
-            accessibilityLabel="Sign up button"
-            accessibilityRole="button"
-          >
-            <Text style={styles.buttonText}>
-              {loading ? 'Creating account...' : 'Sign Up'}
+            <Text
+              style={[
+                styles.wordmark,
+                {
+                  color: colors.text,
+                  textShadowColor: colors.accentAlt,
+                },
+              ]}
+              accessibilityRole="header"
+            >
+              JOIN THE{'\n'}WAR
             </Text>
-          </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity
-            onPress={() => router.back()}
-            disabled={loading}
-            accessibilityLabel="Go back to sign in"
-            accessibilityRole="button"
-          >
-            <Text style={[styles.link, { color: colors.link }]}>
-              Already have an account? Sign in
+          <View style={styles.form}>
+            <GlassInput
+              label="Email"
+              iconLeft="email-outline"
+              placeholder="warrior@prompt.gg"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              editable={!loading}
+              accessibilityLabel="Email input"
+            />
+            <View style={{ height: Spacing.md }} />
+            <GlassInput
+              label="Password"
+              helper="Minimum 8 characters"
+              iconLeft="lock-outline"
+              placeholder="Forge a passphrase"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              editable={!loading}
+              accessibilityLabel="Password input"
+              errorText={error || undefined}
+            />
+            <Text style={[styles.disclaimer, { color: colors.textTertiary }]}>
+              By signing up, you confirm you are 18+ and agree to our Terms of
+              Service.
             </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
+            <GlowGradientButton
+              title={loading ? 'Creating…' : 'Create Account'}
+              onPress={handleSignUp}
+              variant="primary"
+              size="lg"
+              loading={loading}
+              fullWidth
+              iconRight="arrow-right"
+              accessibilityLabel="Sign up"
+            />
+            <HapticPressable
+              onPress={() => router.back()}
+              disabled={loading}
+              haptic="selection"
+              accessibilityRole="link"
+              accessibilityLabel="Go back to sign in"
+              style={styles.linkRow}
+            >
+              <Text style={[styles.linkMuted, { color: colors.textSecondary }]}>
+                Already enlisted?{' '}
+              </Text>
+              <Text style={[styles.linkAccent, { color: colors.accent }]}>
+                Sign in →
+              </Text>
+            </HapticPressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
+  flex: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.xxl,
   },
-  title: {
-    fontSize: Typography.sizes.xxxl,
-    fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.sm,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: Typography.sizes.lg,
-    marginBottom: Spacing.xl,
-    textAlign: 'center',
-  },
-  form: {
-    width: '100%',
-  },
-  input: {
-    height: 48,
-    borderRadius: 8,
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    fontSize: Typography.sizes.base,
-  },
-  button: {
-    height: 48,
-    borderRadius: 8,
-    justifyContent: 'center',
+  brand: {
     alignItems: 'center',
-    marginTop: Spacing.md,
+    marginBottom: Spacing.xxl,
   },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
-  },
-  link: {
-    fontSize: Typography.sizes.sm,
-    textAlign: 'center',
-    marginTop: Spacing.lg,
-  },
-  error: {
-    fontSize: Typography.sizes.sm,
-    marginTop: Spacing.sm,
-    textAlign: 'center',
-  },
-  disclaimer: {
+  eyebrow: {
+    fontFamily: Typography.fonts.bodyBold,
     fontSize: Typography.sizes.xs,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.sm,
+    letterSpacing: Typography.letterSpacing.widest,
+    marginBottom: Spacing.md,
+  },
+  wordmark: {
+    fontFamily: Typography.fonts.displayBlack,
+    fontSize: Typography.sizes.hero,
+    lineHeight: Typography.sizes.hero,
+    letterSpacing: Typography.letterSpacing.wider,
     textAlign: 'center',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 18,
+  },
+  form: {},
+  disclaimer: {
+    fontFamily: Typography.fonts.body,
+    fontSize: Typography.sizes.xs,
+    textAlign: 'center',
+    marginTop: Spacing.md,
+    marginBottom: Spacing.lg,
+    lineHeight: Typography.sizes.xs * 1.5,
+  },
+  linkRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.sm,
+  },
+  linkMuted: {
+    fontFamily: Typography.fonts.body,
+    fontSize: Typography.sizes.sm,
+  },
+  linkAccent: {
+    fontFamily: Typography.fonts.bodyBold,
+    fontSize: Typography.sizes.sm,
   },
 });

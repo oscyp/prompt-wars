@@ -1,21 +1,35 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  TouchableOpacity,
-} from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import {
+  BorderRadius,
+  Spacing,
+  Typography,
+} from '@/constants/DesignTokens';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import { useAuth } from '@/providers/AuthProvider';
 import { retryBattleResolution, startMatchmaking } from '@/utils/battles';
+import {
+  Card,
+  GlowGradientButton,
+  NeonGridBackground,
+  ScreenContainer,
+} from '@/components';
 
 export default function WaitingScreen() {
   const colors = useThemedColors();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { battleId } = useLocalSearchParams<{ battleId: string }>();
 
@@ -27,21 +41,26 @@ export default function WaitingScreen() {
 
   const myPrompt = prompts.find((p) => p.profile_id === user?.id);
   const opponentPrompt = prompts.find((p) => p.profile_id !== user?.id);
-
   const myPromptLocked = myPrompt?.is_locked || false;
   const opponentPromptLocked = opponentPrompt?.is_locked || false;
 
-  // Cleanup retry timer on unmount or battle change
+  const spin = useSharedValue(0);
+  useEffect(() => {
+    spin.value = withRepeat(
+      withTiming(1, { duration: 2200, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, [spin]);
+
+  const spinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spin.value * 360}deg` }],
+  }));
+
   useEffect(() => {
     return () => {
-      if (retryTimerRef.current) {
-        clearTimeout(retryTimerRef.current);
-        retryTimerRef.current = null;
-      }
-      if (resolveRetryTimerRef.current) {
-        clearTimeout(resolveRetryTimerRef.current);
-        resolveRetryTimerRef.current = null;
-      }
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      if (resolveRetryTimerRef.current) clearTimeout(resolveRetryTimerRef.current);
     };
   }, [battleId]);
 
@@ -49,17 +68,12 @@ export default function WaitingScreen() {
     hasRetriedResolutionRef.current = false;
   }, [battleId]);
 
-  // Handle queued battle fallback retry
   useEffect(() => {
     if (!battle || !user) return;
-
-    // Clear existing timer when battle changes
     if (retryTimerRef.current) {
       clearTimeout(retryTimerRef.current);
       retryTimerRef.current = null;
     }
-
-    // Schedule retry for created battles where user is player_one
     if (
       battle.status === 'created' &&
       battle.player_one_id === user.id &&
@@ -67,36 +81,28 @@ export default function WaitingScreen() {
       battle.mode
     ) {
       const createdAt = new Date(battle.created_at).getTime();
-      const fallbackTime = createdAt + 60000; // 60 seconds after creation
-      const now = Date.now();
-      const delay = Math.max(0, fallbackTime - now);
-
+      const fallbackTime = createdAt + 60000;
+      const delay = Math.max(0, fallbackTime - Date.now());
       retryTimerRef.current = setTimeout(async () => {
         try {
-          setRetryMessage('Checking for bot match...');
+          setRetryMessage('Checking for bot match…');
           const result = await startMatchmaking(
             battle.player_one_character_id,
-            battle.mode as any,
+            battle.mode as any
           );
-
           if (result.matched) {
-            // Navigate to prompt entry with the returned battle_id
             router.replace(
-              `/(battle)/prompt-entry?battleId=${result.battle_id}`,
+              `/(battle)/prompt-entry?battleId=${result.battle_id}`
             );
           } else {
-            // Update message and keep waiting
-            if (result.message) {
-              setRetryMessage(result.message);
-            }
-            // If backend returned a different battle_id while unmatched, replace waiting screen
+            if (result.message) setRetryMessage(result.message);
             if (result.battle_id !== battleId) {
               router.replace(`/(battle)/waiting?battleId=${result.battle_id}`);
             }
           }
         } catch (err) {
           console.error('Matchmaking retry failed:', err);
-          setRetryMessage('Retry failed, waiting for updates...');
+          setRetryMessage('Retry failed, waiting for updates…');
         }
       }, delay);
     }
@@ -104,8 +110,6 @@ export default function WaitingScreen() {
 
   useEffect(() => {
     if (!battle) return;
-
-    // Navigate to result screen when ready or if generation failed
     if (
       battle.status === 'result_ready' ||
       battle.status === 'completed' ||
@@ -114,8 +118,6 @@ export default function WaitingScreen() {
       router.replace(`/(battle)/result?battleId=${battleId}`);
       return;
     }
-
-    // If battle becomes matched/waiting_for_prompts and user hasn't submitted, navigate to prompt entry
     if (
       (battle.status === 'matched' ||
         battle.status === 'waiting_for_prompts') &&
@@ -128,216 +130,280 @@ export default function WaitingScreen() {
   useEffect(() => {
     if (!battleId || !battle || battle.status !== 'resolving') return;
     if (hasRetriedResolutionRef.current || resolveRetryTimerRef.current) return;
-
     resolveRetryTimerRef.current = setTimeout(async () => {
       hasRetriedResolutionRef.current = true;
       resolveRetryTimerRef.current = null;
-
       try {
-        setRetryMessage('Still resolving. Asking the judge to retry...');
+        setRetryMessage('Still resolving. Asking the judge to retry…');
         const result = await retryBattleResolution(battleId);
-
         if (result.error) {
-          console.error('Battle resolution retry failed:', result.error);
-          setRetryMessage('Judge retry failed. Waiting for updates...');
+          setRetryMessage('Judge retry failed. Waiting for updates…');
           return;
         }
-
-        setRetryMessage('Judge finished. Loading result...');
+        setRetryMessage('Judge finished. Loading result…');
       } catch (err) {
         console.error('Battle resolution retry failed:', err);
-        setRetryMessage('Judge retry failed. Waiting for updates...');
+        setRetryMessage('Judge retry failed. Waiting for updates…');
       }
     }, 5000);
   }, [battle, battleId]);
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.content}>
-        <ActivityIndicator
-          size="large"
-          color={colors.primary}
-          style={styles.spinner}
-        />
+  const isResolving = battle?.status === 'resolving';
 
-        <Text style={[styles.title, { color: colors.text }]}>
-          {battle?.status === 'resolving'
-            ? 'Battle Resolving'
-            : 'Waiting for Opponent'}
+  return (
+    <ScreenContainer padded={false}>
+      <NeonGridBackground />
+      <View
+        style={[
+          styles.content,
+          {
+            paddingTop: insets.top + Spacing.xl,
+            paddingBottom: insets.bottom + Spacing.xl,
+          },
+        ]}
+      >
+        <View style={styles.spinnerWrap}>
+          <Animated.View
+            style={[
+              styles.ring,
+              {
+                borderColor: colors.accent,
+                borderTopColor: 'transparent',
+              },
+              spinStyle,
+            ]}
+          />
+          <MaterialCommunityIcons
+            name={isResolving ? 'scale-balance' : 'timer-sand'}
+            size={40}
+            color={colors.accent}
+          />
+        </View>
+
+        <Text
+          style={[
+            styles.title,
+            {
+              color: colors.text,
+              textShadowColor: colors.glowAccent,
+            },
+          ]}
+        >
+          {isResolving ? 'JUDGING' : 'STAND BY'}
+        </Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          {isResolving
+            ? 'Our judges weigh your prompts…'
+            : 'Waiting for both warriors to lock in.'}
         </Text>
 
         {battle?.theme && (
-          <View style={[styles.themeCard, { backgroundColor: colors.card }]}>
-            <Text style={[styles.themeLabel, { color: colors.textSecondary }]}>
-              Theme
+          <Card variant="neon" style={styles.themeCard}>
+            <Text style={[styles.themeEyebrow, { color: colors.accent }]}>
+              THEME
             </Text>
-            <Text style={[styles.themeText, { color: colors.primary }]}>
-              {battle.theme}
+            <Text style={[styles.themeText, { color: colors.text }]}>
+              "{battle.theme}"
             </Text>
-          </View>
+          </Card>
         )}
 
-        {/* Status Checklist */}
-        <View style={[styles.statusCard, { backgroundColor: colors.card }]}>
-          <View style={styles.statusRow}>
-            <Text
-              style={[
-                styles.statusIcon,
-                {
-                  color: myPromptLocked ? colors.success : colors.textSecondary,
-                },
-              ]}
-            >
-              {myPromptLocked ? '✓' : '○'}
-            </Text>
-            <Text style={[styles.statusText, { color: colors.text }]}>
-              Your prompt submitted
-            </Text>
-          </View>
-
-          <View style={styles.statusRow}>
-            <Text
-              style={[
-                styles.statusIcon,
-                {
-                  color: opponentPromptLocked
-                    ? colors.success
-                    : colors.textSecondary,
-                },
-              ]}
-            >
-              {opponentPromptLocked ? '✓' : '○'}
-            </Text>
-            <Text style={[styles.statusText, { color: colors.text }]}>
-              Opponent's prompt submitted
-            </Text>
-          </View>
-
-          {battle?.status === 'resolving' && (
-            <View style={styles.statusRow}>
-              <Text style={[styles.statusIcon, { color: colors.warning }]}>
-                ⚡
-              </Text>
-              <Text style={[styles.statusText, { color: colors.text }]}>
-                Judge is scoring...
-              </Text>
-            </View>
-          )}
+        <View style={styles.lockGrid}>
+          <LockTile
+            label="You"
+            locked={myPromptLocked}
+            color={colors.accent}
+            colors={colors}
+          />
+          <LockTile
+            label="Opponent"
+            locked={opponentPromptLocked}
+            color={colors.accentAlt}
+            colors={colors}
+          />
         </View>
 
         {!isSubscribed && (
-          <Text
-            style={[styles.realtimeWarning, { color: colors.textSecondary }]}
-          >
-            Realtime updates connecting...
+          <Text style={[styles.hint, { color: colors.textTertiary }]}>
+            Realtime updates connecting…
           </Text>
         )}
-
         {retryMessage && (
-          <Text style={[styles.retryMessage, { color: colors.textSecondary }]}>
+          <Text style={[styles.retryMsg, { color: colors.textSecondary }]}>
             {retryMessage}
           </Text>
         )}
 
-        {/* Back to Home */}
-        <TouchableOpacity
-          style={[
-            styles.homeButton,
-            { backgroundColor: colors.backgroundTertiary },
-          ]}
-          onPress={() => router.push('/(tabs)/home')}
-          accessibilityLabel="Return to home"
-          accessibilityRole="button"
-        >
-          <Text style={[styles.homeButtonText, { color: colors.text }]}>
-            Return to Home
+        <View style={styles.bottomActions}>
+          <GlowGradientButton
+            title="Return Home"
+            onPress={() => router.push('/(tabs)/home')}
+            variant="ghost"
+            size="md"
+            fullWidth
+            iconLeft="home-outline"
+          />
+          <Text style={[styles.notifyHint, { color: colors.textTertiary }]}>
+            You'll be notified when the result is ready
           </Text>
-        </TouchableOpacity>
-
-        <Text style={[styles.hint, { color: colors.textTertiary }]}>
-          You'll be notified when the result is ready
-        </Text>
+        </View>
       </View>
-    </View>
+    </ScreenContainer>
+  );
+}
+
+function LockTile({
+  label,
+  locked,
+  color,
+  colors,
+}: {
+  label: string;
+  locked: boolean;
+  color: string;
+  colors: ReturnType<typeof useThemedColors>;
+}) {
+  return (
+    <Card
+      variant="glass"
+      style={[
+        styles.lockTile,
+        locked && {
+          borderColor: color,
+          shadowColor: color,
+          shadowOpacity: 0.5,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: 0 },
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.lockIconWrap,
+          { backgroundColor: locked ? `${color}33` : colors.surface2 },
+        ]}
+      >
+        <MaterialCommunityIcons
+          name={locked ? 'lock-check' : 'lock-open-variant-outline'}
+          size={28}
+          color={locked ? color : colors.textTertiary}
+        />
+      </View>
+      <Text style={[styles.lockLabel, { color: colors.text }]}>{label}</Text>
+      <Text
+        style={[
+          styles.lockStatus,
+          { color: locked ? color : colors.textTertiary },
+        ]}
+      >
+        {locked ? 'LOCKED IN' : 'WAITING'}
+      </Text>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   content: {
     flex: 1,
-    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
     alignItems: 'center',
-    padding: Spacing.lg,
   },
-  spinner: {
-    marginBottom: Spacing.xl,
+  spinnerWrap: {
+    width: 120,
+    height: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.xl,
+    marginBottom: Spacing.lg,
+  },
+  ring: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
   },
   title: {
-    fontSize: Typography.sizes.xxxl,
-    fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.lg,
+    fontFamily: Typography.fonts.displayBlack,
+    fontSize: Typography.sizes.display2,
+    letterSpacing: Typography.letterSpacing.wider,
     textAlign: 'center',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 18,
+    marginBottom: Spacing.xs,
+  },
+  subtitle: {
+    fontFamily: Typography.fonts.bodyMedium,
+    fontSize: Typography.sizes.base,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
   },
   themeCard: {
-    padding: Spacing.md,
-    borderRadius: 12,
-    marginBottom: Spacing.lg,
     width: '100%',
+    marginBottom: Spacing.lg,
   },
-  themeLabel: {
-    fontSize: Typography.sizes.sm,
+  themeEyebrow: {
+    fontFamily: Typography.fonts.bodyBold,
+    fontSize: Typography.sizes.xs,
+    letterSpacing: Typography.letterSpacing.widest,
     marginBottom: Spacing.xs,
   },
   themeText: {
+    fontFamily: Typography.fonts.display,
     fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.bold,
+    lineHeight: Typography.sizes.lg * 1.3,
   },
-  statusCard: {
-    padding: Spacing.lg,
-    borderRadius: 12,
+  lockGrid: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
     width: '100%',
     marginBottom: Spacing.lg,
   },
-  statusRow: {
-    flexDirection: 'row',
+  lockTile: {
+    flex: 1,
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    paddingVertical: Spacing.lg,
   },
-  statusIcon: {
-    fontSize: Typography.sizes.xl,
-    marginRight: Spacing.md,
-    width: 32,
-    textAlign: 'center',
+  lockIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
   },
-  statusText: {
+  lockLabel: {
+    fontFamily: Typography.fonts.bodyBold,
     fontSize: Typography.sizes.base,
+    marginBottom: 2,
   },
-  realtimeWarning: {
-    fontSize: Typography.sizes.sm,
-    marginBottom: Spacing.lg,
-    textAlign: 'center',
-  },
-  retryMessage: {
-    fontSize: Typography.sizes.sm,
-    marginBottom: Spacing.lg,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  homeButton: {
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    borderRadius: 8,
-    marginBottom: Spacing.md,
-  },
-  homeButtonText: {
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
+  lockStatus: {
+    fontFamily: Typography.fonts.bodyBold,
+    fontSize: 10,
+    letterSpacing: Typography.letterSpacing.widest,
   },
   hint: {
-    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.fonts.body,
+    fontSize: Typography.sizes.xs,
     textAlign: 'center',
+    marginBottom: Spacing.xs,
+  },
+  retryMsg: {
+    fontFamily: Typography.fonts.body,
+    fontSize: Typography.sizes.sm,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  bottomActions: {
+    width: '100%',
+    marginTop: 'auto',
+  },
+  notifyHint: {
+    fontFamily: Typography.fonts.body,
+    fontSize: Typography.sizes.xs,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
   },
 });

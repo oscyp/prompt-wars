@@ -1,13 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import {
+  BorderRadius,
+  Gradients,
+  Spacing,
+  Typography,
+} from '@/constants/DesignTokens';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import { getMyBattles } from '@/utils/battles';
+import {
+  AnimatedNumber,
+  Card,
+  HapticPressable,
+  ProgressBar,
+  ScreenContainer,
+  SectionHeader,
+  StatGrid,
+  type StatItem,
+} from '@/components';
 
 export default function StatsScreen() {
   const colors = useThemedColors();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [recentBattles, setRecentBattles] = useState<any[]>([]);
@@ -16,26 +43,24 @@ export default function StatsScreen() {
 
   const getOpponentName = (battle: any): string => {
     if (!user) return 'opponent';
-    
     if (battle.player_one_id === user.id) {
-      return battle.player_two?.display_name || (battle.is_player_two_bot ? 'Bot' : 'Waiting...');
-    } else {
-      return battle.player_one?.display_name || 'opponent';
+      return (
+        battle.player_two?.display_name ||
+        (battle.is_player_two_bot ? 'Bot' : 'Waiting…')
+      );
     }
+    return battle.player_one?.display_name || 'opponent';
   };
 
   const loadStats = async () => {
     if (!user) return;
-
     try {
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
-
       setProfile(profileData);
-
       const battles = await getMyBattles(10);
       setRecentBattles(battles || []);
     } catch (err) {
@@ -57,178 +82,248 @@ export default function StatsScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }, styles.centered]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <ScreenContainer padded={false}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </ScreenContainer>
     );
   }
 
-  const winRate = profile?.total_battles > 0 
-    ? ((profile.wins / profile.total_battles) * 100).toFixed(1)
-    : 0;
+  const total = profile?.total_battles || 0;
+  const wins = profile?.wins || 0;
+  const losses = profile?.losses || 0;
+  const draws = profile?.draws || 0;
+  const winRate = total > 0 ? wins / total : 0;
+  const rating = Math.round(profile?.rating ?? 1500);
+
+  const stats: StatItem[] = [
+    { label: 'Battles', value: total, accent: colors.text },
+    { label: 'Wins', value: wins, accent: colors.success },
+    { label: 'Losses', value: losses, accent: colors.error },
+    { label: 'Draws', value: draws, accent: colors.warning },
+  ];
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-      }
-    >
-      <Text style={[styles.title, { color: colors.text }]}>Your Stats</Text>
+    <ScreenContainer padded={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + Spacing.md,
+            paddingBottom: insets.bottom + Spacing.xxl,
+          },
+        ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        <HapticPressable
+          onPress={() => router.back()}
+          haptic="selection"
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          style={styles.backBtn}
+        >
+          <MaterialCommunityIcons
+            name="chevron-left"
+            size={28}
+            color={colors.text}
+          />
+          <Text style={[styles.backText, { color: colors.text }]}>Back</Text>
+        </HapticPressable>
 
-      {/* Overall Stats */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Overall Record</Text>
-        <View style={styles.statsGrid}>
-          <View style={styles.statBox}>
-            <Text style={[styles.statValue, { color: colors.primary }]}>
-              {profile?.total_battles || 0}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Battles</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={[styles.statValue, { color: colors.success }]}>
-              {profile?.wins || 0}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Wins</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={[styles.statValue, { color: colors.error }]}>
-              {profile?.losses || 0}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Losses</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={[styles.statValue, { color: colors.warning }]}>
-              {profile?.draws || 0}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Draws</Text>
-          </View>
-        </View>
-        <View style={styles.winRateRow}>
-          <Text style={[styles.winRateLabel, { color: colors.textSecondary }]}>Win Rate</Text>
-          <Text style={[styles.winRateValue, { color: colors.primary }]}>{winRate}%</Text>
-        </View>
-      </View>
+        <SectionHeader
+          title="Battle Stats"
+          eyebrow="Your warrior's tale"
+          size="hero"
+        />
 
-      {/* Rating */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Rating</Text>
-        <Text style={[styles.ratingValue, { color: colors.primary }]}>
-          {Math.round(profile?.rating || 1500)}
-        </Text>
-        <Text style={[styles.ratingLabel, { color: colors.textSecondary }]}>Glicko-2 Rating</Text>
-      </View>
+        {/* Rating hero */}
+        <Card variant="neon" style={styles.ratingCard}>
+          <Text style={[styles.ratingLabel, { color: colors.textSecondary }]}>
+            GLICKO-2 RATING
+          </Text>
+          <View style={styles.ratingRow}>
+            <MaterialCommunityIcons
+              name="trophy"
+              size={28}
+              color={colors.gold}
+            />
+            <AnimatedNumber
+              value={rating}
+              style={[styles.ratingValue, { color: colors.text }]}
+            />
+          </View>
+        </Card>
 
-      {/* Recent Battles */}
-      {recentBattles.length > 0 && (
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Recent Battles</Text>
-          {recentBattles.map((battle) => (
-            <View key={battle.id} style={styles.battleRow}>
-              <Text style={[styles.battleOpponent, { color: colors.text }]}>
-                vs {getOpponentName(battle)}
-              </Text>
-              <Text
-                style={[
-                  styles.battleResult,
-                  {
-                    color: battle.is_draw
-                      ? colors.warning
-                      : battle.winner_id === user?.id
-                      ? colors.success
-                      : colors.error,
-                  },
-                ]}
-              >
-                {battle.is_draw ? 'Draw' : battle.winner_id === user?.id ? 'Win' : 'Loss'}
-              </Text>
-            </View>
-          ))}
+        {/* Stats grid */}
+        <View style={styles.section}>
+          <StatGrid stats={stats} columns={2} />
         </View>
-      )}
-    </ScrollView>
+
+        {/* Win rate */}
+        <Card variant="glass" style={styles.section}>
+          <View style={styles.winRateHeader}>
+            <Text style={[styles.winRateLabel, { color: colors.text }]}>
+              Win Rate
+            </Text>
+            <Text style={[styles.winRatePercent, { color: colors.accent }]}>
+              {Math.round(winRate * 100)}%
+            </Text>
+          </View>
+          <ProgressBar
+            progress={winRate}
+            gradient={Gradients.heroPrimary as unknown as readonly [string, string]}
+          />
+        </Card>
+
+        {/* Recent battles */}
+        {recentBattles.length > 0 && (
+          <View style={styles.section}>
+            <SectionHeader title="Recent Battles" size="md" />
+            <Card variant="glass" style={{ padding: 0 }}>
+              {recentBattles.map((battle, idx) => {
+                const isWin = battle.winner_id === user?.id;
+                const isDraw = battle.is_draw;
+                const tint = isDraw
+                  ? colors.warning
+                  : isWin
+                  ? colors.success
+                  : colors.error;
+                const label = isDraw ? 'DRAW' : isWin ? 'WIN' : 'LOSS';
+                return (
+                  <View
+                    key={battle.id}
+                    style={[
+                      styles.battleRow,
+                      idx < recentBattles.length - 1 && {
+                        borderBottomWidth: StyleSheet.hairlineWidth,
+                        borderBottomColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[styles.battleOpponent, { color: colors.text }]}
+                        numberOfLines={1}
+                      >
+                        vs {getOpponentName(battle)}
+                      </Text>
+                      <Text
+                        style={[styles.battleDate, { color: colors.textTertiary }]}
+                      >
+                        {new Date(battle.created_at).toLocaleDateString()}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.resultPill,
+                        {
+                          backgroundColor: `${tint}26`,
+                          borderColor: tint,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.resultText, { color: tint }]}>
+                        {label}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </Card>
+          </View>
+        )}
+      </ScrollView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: Spacing.lg,
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  content: {
+    paddingHorizontal: Spacing.lg,
   },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: Typography.sizes.xxxl,
-    fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.lg,
-  },
-  card: {
-    padding: Spacing.lg,
-    borderRadius: 12,
-    marginBottom: Spacing.md,
-  },
-  cardTitle: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.semibold,
-    marginBottom: Spacing.md,
-  },
-  statsGrid: {
+  backBtn: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: Spacing.md,
-  },
-  statBox: {
     alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingVertical: Spacing.sm,
+    paddingRight: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
-  statValue: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.bold,
+  backText: {
+    fontFamily: Typography.fonts.bodyMedium,
+    fontSize: Typography.sizes.base,
   },
-  statLabel: {
+  ratingCard: {
+    alignItems: 'center',
+    marginTop: Spacing.md,
+  },
+  ratingLabel: {
+    fontFamily: Typography.fonts.bodyBold,
     fontSize: Typography.sizes.xs,
-    marginTop: Spacing.xs,
+    letterSpacing: Typography.letterSpacing.widest,
+    marginBottom: Spacing.xs,
   },
-  winRateRow: {
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  ratingValue: {
+    fontFamily: Typography.fonts.displayBlack,
+    fontSize: Typography.sizes.hero,
+    lineHeight: Typography.sizes.hero,
+  },
+  section: {
+    marginTop: Spacing.lg,
+  },
+  winRateHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
+    marginBottom: Spacing.sm,
   },
   winRateLabel: {
+    fontFamily: Typography.fonts.bodyBold,
     fontSize: Typography.sizes.base,
   },
-  winRateValue: {
+  winRatePercent: {
+    fontFamily: Typography.fonts.displayBlack,
     fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.bold,
-  },
-  ratingValue: {
-    fontSize: Typography.sizes.xxxl,
-    fontWeight: Typography.weights.bold,
-    textAlign: 'center',
-    marginBottom: Spacing.xs,
-  },
-  ratingLabel: {
-    fontSize: Typography.sizes.sm,
-    textAlign: 'center',
   },
   battleRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
   },
   battleOpponent: {
+    fontFamily: Typography.fonts.bodyBold,
     fontSize: Typography.sizes.base,
   },
-  battleResult: {
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
+  battleDate: {
+    fontFamily: Typography.fonts.body,
+    fontSize: Typography.sizes.xs,
+    marginTop: 2,
+  },
+  resultPill: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.pill,
+    borderWidth: 1,
+  },
+  resultText: {
+    fontFamily: Typography.fonts.bodyBold,
+    fontSize: 10,
+    letterSpacing: Typography.letterSpacing.wider,
   },
 });

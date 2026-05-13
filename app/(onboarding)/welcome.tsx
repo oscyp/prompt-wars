@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import { Gradients, Spacing, Typography } from '@/constants/DesignTokens';
+import {
+  ArchetypeBadge,
+  GlowGradientButton,
+  NeonGridBackground,
+  ScreenContainer,
+} from '@/components';
+import { ARCHETYPE_LIST } from '@/constants/Archetypes';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -21,115 +30,177 @@ export default function WelcomeScreen() {
     }
   };
 
-  const handleContinue = () => {
-    if (ageConfirmed) {
-      router.push('/(onboarding)/create-character');
-    }
-  };
-
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <ScreenContainer padded={false}>
+      <NeonGridBackground glowColors={[`${Gradients.heroPrimary[0]}AA`, `${colors.background}00`, `${colors.background}00`]} />
       <View style={styles.content}>
-        <Text style={[styles.title, { color: colors.text }]}>
-          Welcome to Prompt Wars
-        </Text>
-        <Text style={[styles.description, { color: colors.textSecondary }]}>
-          Battle through prompts. Create your character and enter the arena.
-        </Text>
-
-        {!ageConfirmed ? (
-          <View style={styles.ageGate}>
-            <Text style={[styles.ageQuestion, { color: colors.text }]}>
-              Are you 18 years or older?
-            </Text>
-            <View style={styles.ageButtons}>
-              <TouchableOpacity
-                style={[styles.ageButton, { backgroundColor: colors.primary }]}
-                onPress={() => handleAgeConfirmation(true)}
-                accessibilityLabel="Confirm you are 18 or older"
-                accessibilityRole="button"
-              >
-                <Text style={styles.buttonText}>Yes, I'm 18+</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.ageButton, { backgroundColor: colors.error }]}
-                onPress={() => handleAgeConfirmation(false)}
-                accessibilityLabel="Indicate you are under 18"
-                accessibilityRole="button"
-              >
-                <Text style={styles.buttonText}>No</Text>
-              </TouchableOpacity>
+        <Animated.View entering={FadeIn.duration(600)} style={styles.sigilRow}>
+          {ARCHETYPE_LIST.slice(0, 5).map((arch, i) => (
+            <View
+              key={arch.id}
+              style={{
+                marginLeft: i === 0 ? 0 : -16,
+                transform: [{ translateY: i % 2 === 0 ? -6 : 6 }],
+                opacity: 0.85,
+              }}
+            >
+              <ArchetypeBadge archetypeId={arch.id} size="sm" />
             </View>
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary }]}
-            onPress={handleContinue}
-            accessibilityLabel="Create your character"
-            accessibilityRole="button"
+          ))}
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.duration(700).delay(150)}>
+          <Text style={[styles.eyebrow, { color: colors.accent }]}>
+            WORDS · STRATEGY · GLORY
+          </Text>
+          <Text
+            style={[
+              styles.wordmark,
+              {
+                color: colors.text,
+                textShadowColor: colors.glowPrimary,
+              },
+            ]}
+            accessibilityRole="header"
           >
-            <Text style={styles.buttonText}>Create Your Character</Text>
-          </TouchableOpacity>
-        )}
+            PROMPT{'\n'}WARS
+          </Text>
+          <Text style={[styles.description, { color: colors.textSecondary }]}>
+            Craft prompts. Outwit opponents. Climb the ranks.
+          </Text>
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.duration(700).delay(300)}
+          style={styles.actions}
+        >
+          {!ageConfirmed ? (
+            <>
+              <Text style={[styles.gateQuestion, { color: colors.text }]}>
+                Are you 18 or older?
+              </Text>
+              <View style={styles.ageRow}>
+                <GlowGradientButton
+                  title="Yes, I'm 18+"
+                  onPress={() => handleAgeConfirmation(true)}
+                  variant="primary"
+                  size="lg"
+                  iconLeft="check-circle-outline"
+                  style={styles.ageBtn}
+                  accessibilityLabel="Confirm you are 18 or older"
+                />
+                <GlowGradientButton
+                  title="No"
+                  onPress={() => handleAgeConfirmation(false)}
+                  variant="ghost"
+                  size="lg"
+                  style={styles.ageBtn}
+                  accessibilityLabel="Indicate you are under 18"
+                />
+              </View>
+            </>
+          ) : (
+            <Animated.View entering={FadeIn.duration(400)}>
+              <View style={styles.confirmed}>
+                <MaterialCommunityIcons
+                  name="check-decagram"
+                  size={20}
+                  color={colors.success}
+                />
+                <Text
+                  style={[
+                    styles.confirmedText,
+                    { color: colors.success },
+                  ]}
+                >
+                  Verified
+                </Text>
+              </View>
+              <GlowGradientButton
+                title="Create Your Warrior"
+                onPress={() => router.push('/(onboarding)/create-character')}
+                variant="primary"
+                size="lg"
+                iconRight="sword"
+                fullWidth
+                accessibilityLabel="Create your character"
+              />
+            </Animated.View>
+          )}
+        </Animated.View>
       </View>
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   content: {
     flex: 1,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xxl,
+    paddingBottom: Spacing.xxl,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sigilRow: {
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.xl,
   },
-  title: {
-    fontSize: Typography.sizes.xxxl,
-    fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.md,
+  eyebrow: {
+    fontFamily: Typography.fonts.bodyBold,
+    fontSize: Typography.sizes.xs,
+    letterSpacing: Typography.letterSpacing.widest,
     textAlign: 'center',
+    marginBottom: Spacing.md,
+    marginTop: Spacing.xxl,
+  },
+  wordmark: {
+    fontFamily: Typography.fonts.displayBlack,
+    fontSize: Typography.sizes.hero,
+    lineHeight: Typography.sizes.hero,
+    letterSpacing: Typography.letterSpacing.wider,
+    textAlign: 'center',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 22,
   },
   description: {
-    fontSize: Typography.sizes.lg,
-    marginBottom: Spacing.xxl,
+    fontFamily: Typography.fonts.bodyMedium,
+    fontSize: Typography.sizes.base,
     textAlign: 'center',
-    maxWidth: 400,
+    marginTop: Spacing.lg,
+    maxWidth: 320,
+    alignSelf: 'center',
+    lineHeight: Typography.sizes.base * 1.5,
   },
-  ageGate: {
-    alignItems: 'center',
+  actions: {
     width: '100%',
   },
-  ageQuestion: {
+  gateQuestion: {
+    fontFamily: Typography.fonts.display,
     fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.semibold,
-    marginBottom: Spacing.lg,
+    letterSpacing: Typography.letterSpacing.wide,
     textAlign: 'center',
+    marginBottom: Spacing.lg,
   },
-  ageButtons: {
+  ageRow: {
     flexDirection: 'row',
     gap: Spacing.md,
   },
-  ageButton: {
-    height: 48,
-    borderRadius: 8,
-    paddingHorizontal: Spacing.xl,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 120,
+  ageBtn: {
+    flex: 1,
   },
-  button: {
-    height: 48,
-    borderRadius: 8,
-    paddingHorizontal: Spacing.xl,
-    justifyContent: 'center',
+  confirmed: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    marginBottom: Spacing.md,
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
+  confirmedText: {
+    fontFamily: Typography.fonts.bodyBold,
+    fontSize: Typography.sizes.sm,
+    letterSpacing: Typography.letterSpacing.wide,
   },
 });

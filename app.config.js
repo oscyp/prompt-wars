@@ -8,11 +8,11 @@ module.exports = ({ config: _config }) => {
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'com.promptwars.promptwars',
-    userInterfaceStyle: 'automatic',
+    userInterfaceStyle: 'dark',
     splash: {
       image: './assets/images/splash-screen.png',
       resizeMode: 'contain',
-      backgroundColor: '#000000',
+      backgroundColor: '#0A0A12',
     },
     ios: {
       supportsTablet: false,
@@ -25,7 +25,7 @@ module.exports = ({ config: _config }) => {
     android: {
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
-        backgroundColor: '#000000',
+        backgroundColor: '#0A0A12',
       },
       package: 'com.promptwars.promptwars',
     },

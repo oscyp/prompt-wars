@@ -1,22 +1,31 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
-  Platform,
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
   Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ARCHETYPES, ArchetypeId } from '@/constants/Archetypes';
+import { ARCHETYPES, ARCHETYPE_LIST, ArchetypeId } from '@/constants/Archetypes';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { useAuth } from '@/providers/AuthProvider';
 import { supabase } from '@/utils/supabase';
 import { checkAccountEligibility, getDeviceFingerprint } from '@/utils/safety';
+import {
+  ArchetypeCard,
+  GlassInput,
+  GlowGradientButton,
+  NeonGridBackground,
+  ScreenContainer,
+  SectionHeader,
+} from '@/components';
 
 const getDefaultUsername = (userId: string) =>
   `user_${userId.replace(/-/g, '').slice(0, 15)}`;
@@ -25,16 +34,28 @@ export default function CreateCharacterScreen() {
   const router = useRouter();
   const colors = useThemedColors();
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
 
   const [name, setName] = useState('');
-  const [archetype, setArchetype] = useState<ArchetypeId | null>(null);
+  const [archetype, setArchetype] = useState<ArchetypeId>(
+    ARCHETYPE_LIST[0].id
+  );
   const [battleCry, setBattleCry] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+
+  const cardWidth = Math.min(width - Spacing.xl * 2, 280);
+  const sidePad = (width - cardWidth) / 2;
+  const listRef = useRef<FlatList>(null);
+
+  const onMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const idx = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
+    const clamped = Math.max(0, Math.min(ARCHETYPE_LIST.length - 1, idx));
+    setArchetype(ARCHETYPE_LIST[clamped].id);
+  };
 
   const handleCreate = async () => {
     const trimmedName = name.trim();
     const trimmedBattleCry = battleCry.trim();
-
     if (
       !user ||
       !archetype ||
@@ -43,45 +64,31 @@ export default function CreateCharacterScreen() {
     ) {
       return;
     }
-
     setIsCreating(true);
-
     try {
-      // First check if user already has a profile
       const { data: existingProfile, error: profileLookupError } =
         await supabase
           .from('profiles')
           .select('id')
           .eq('id', user.id)
           .maybeSingle();
+      if (profileLookupError) throw new Error(profileLookupError.message);
 
-      if (profileLookupError) {
-        throw new Error(profileLookupError.message);
-      }
-
-      // Create or update profile if needed
       if (existingProfile) {
         const { error: profileError } = await supabase
           .from('profiles')
           .update({ display_name: trimmedName })
           .eq('id', user.id);
-
-        if (profileError) {
-          throw new Error(profileError.message);
-        }
+        if (profileError) throw new Error(profileError.message);
       } else {
         const { error: profileError } = await supabase.from('profiles').insert({
           id: user.id,
           username: getDefaultUsername(user.id),
           display_name: trimmedName,
         });
-
-        if (profileError) {
-          throw new Error(profileError.message);
-        }
+        if (profileError) throw new Error(profileError.message);
       }
 
-      // Check account eligibility for onboarding credits
       try {
         const deviceFp = getDeviceFingerprint();
         const eligibility = await checkAccountEligibility({
@@ -89,14 +96,11 @@ export default function CreateCharacterScreen() {
           deviceFingerprint: deviceFp,
           platform: Platform.OS as 'ios' | 'android',
         });
-
         console.log('Account eligibility:', eligibility);
       } catch (err) {
         console.warn('Account guard check failed:', err);
-        // Continue anyway - server will make final decision
       }
 
-      // Create character
       const { data: character, error: characterError } = await supabase
         .from('characters')
         .insert({
@@ -108,14 +112,9 @@ export default function CreateCharacterScreen() {
         })
         .select()
         .single();
-
-      if (characterError) {
-        throw new Error(characterError.message);
-      }
-
+      if (characterError) throw new Error(characterError.message);
       console.log('Character created:', character);
 
-      // Navigate to main app
       router.replace('/(tabs)/home');
     } catch (err) {
       console.error('Failed to create character:', err);
@@ -136,200 +135,166 @@ export default function CreateCharacterScreen() {
     battleCry.trim().length >= 3 &&
     !isCreating;
 
+  const selectedArch = ARCHETYPES[archetype];
+
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
-    >
-      <Text style={[styles.title, { color: colors.text }]}>
-        Create Your Character
-      </Text>
-
-      <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.text }]}>Name</Text>
-        <TextInput
-          style={[
-            styles.input,
-            { backgroundColor: colors.card, color: colors.text },
-          ]}
-          placeholder="Enter your warrior name"
-          placeholderTextColor={colors.textTertiary}
-          value={name}
-          onChangeText={setName}
-          maxLength={30}
-          accessibilityLabel="Character name input"
-        />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.text }]}>
-          Choose Your Archetype
-        </Text>
-        <Text style={[styles.sublabel, { color: colors.textSecondary }]}>
-          All archetypes are free and balanced
-        </Text>
-
-        {Object.values(ARCHETYPES).map((arch) => (
-          <TouchableOpacity
-            key={arch.id}
-            style={[
-              styles.archetypeCard,
-              { backgroundColor: colors.card },
-              archetype === arch.id && {
-                borderColor: arch.color,
-                borderWidth: 2,
-              },
-            ]}
-            onPress={() => setArchetype(arch.id)}
-            accessibilityLabel={`Select ${arch.name} archetype`}
-            accessibilityRole="button"
-          >
-            <View style={styles.archetypeHeader}>
-              <View
-                style={[styles.archetypeColor, { backgroundColor: arch.color }]}
-              />
-              <Text style={[styles.archetypeName, { color: colors.text }]}>
-                {arch.name}
-              </Text>
-            </View>
-            <Text
-              style={[
-                styles.archetypeDescription,
-                { color: colors.textSecondary },
-              ]}
-            >
-              {arch.description}
-            </Text>
-            <Text
-              style={[styles.archetypeTrait, { color: colors.textTertiary }]}
-            >
-              Trait: {arch.trait}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={[styles.label, { color: colors.text }]}>Battle Cry</Text>
-        <Text style={[styles.sublabel, { color: colors.textSecondary }]}>
-          A short phrase shown on every result (max 60 characters)
-        </Text>
-        <TextInput
-          style={[
-            styles.input,
-            { backgroundColor: colors.card, color: colors.text },
-          ]}
-          placeholder="e.g., Victory through wisdom!"
-          placeholderTextColor={colors.textTertiary}
-          value={battleCry}
-          onChangeText={setBattleCry}
-          maxLength={60}
-          accessibilityLabel="Battle cry input"
-        />
-        <Text style={[styles.characterCount, { color: colors.textTertiary }]}>
-          {battleCry.length}/60
-        </Text>
-      </View>
-
-      <TouchableOpacity
-        style={[
-          styles.button,
-          { backgroundColor: colors.primary },
-          !canCreate && styles.buttonDisabled,
-        ]}
-        onPress={handleCreate}
-        disabled={!canCreate}
-        accessibilityLabel="Create character button"
-        accessibilityRole="button"
+    <ScreenContainer padded={false}>
+      <NeonGridBackground
+        glowColors={[`${selectedArch.gradient[1]}88`, `${colors.background}00`, `${colors.background}00`]}
+      />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex}
       >
-        {isCreating ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text style={styles.buttonText}>
-            {canCreate ? 'Enter the Arena' : 'Complete All Fields'}
-          </Text>
-        )}
-      </TouchableOpacity>
-    </ScrollView>
+        <FlatList
+          data={[null]}
+          renderItem={null}
+          keyExtractor={(_, i) => `wrap-${i}`}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={
+            <>
+              <View style={{ paddingHorizontal: Spacing.lg }}>
+                <SectionHeader
+                  title="Forge Your Warrior"
+                  eyebrow="Step 1 of 1"
+                  subtitle="Choose your name, archetype, and battle cry."
+                  size="lg"
+                />
+                <View style={{ height: Spacing.md }} />
+                <GlassInput
+                  label="Warrior Name"
+                  iconLeft="account-edit-outline"
+                  placeholder="e.g., Nyx the Quiet"
+                  value={name}
+                  onChangeText={setName}
+                  maxLength={30}
+                  accessibilityLabel="Character name input"
+                />
+                <View style={{ height: Spacing.lg }} />
+                <Text style={[styles.label, { color: colors.text }]}>
+                  Choose Your Archetype
+                </Text>
+                <Text style={[styles.sublabel, { color: colors.textSecondary }]}>
+                  All archetypes are free and balanced.
+                </Text>
+              </View>
+
+              <FlatList
+                ref={listRef}
+                data={ARCHETYPE_LIST}
+                horizontal
+                pagingEnabled={false}
+                snapToInterval={cardWidth}
+                decelerationRate="fast"
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: sidePad }}
+                onMomentumScrollEnd={onMomentumScrollEnd}
+                initialScrollIndex={0}
+                getItemLayout={(_, idx) => ({
+                  length: cardWidth,
+                  offset: cardWidth * idx,
+                  index: idx,
+                })}
+                renderItem={({ item }) => (
+                  <View style={{ width: cardWidth, paddingHorizontal: Spacing.xs }}>
+                    <ArchetypeCard
+                      archetypeId={item.id}
+                      selected={item.id === archetype}
+                      onPress={() => {
+                        setArchetype(item.id);
+                        const idx = ARCHETYPE_LIST.findIndex(
+                          (a) => a.id === item.id
+                        );
+                        listRef.current?.scrollToIndex({
+                          index: idx,
+                          animated: true,
+                        });
+                      }}
+                    />
+                  </View>
+                )}
+                keyExtractor={(item) => item.id}
+              />
+
+              <View style={styles.dots}>
+                {ARCHETYPE_LIST.map((arch) => (
+                  <View
+                    key={arch.id}
+                    style={[
+                      styles.dot,
+                      {
+                        backgroundColor:
+                          arch.id === archetype ? arch.color : colors.borderStrong,
+                        width: arch.id === archetype ? 20 : 6,
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+
+              <View
+                style={{ paddingHorizontal: Spacing.lg, marginTop: Spacing.lg }}
+              >
+                <GlassInput
+                  label="Battle Cry"
+                  helper={`${battleCry.length}/60 · Shown on every result`}
+                  iconLeft="bullhorn-outline"
+                  placeholder="Victory through wisdom!"
+                  value={battleCry}
+                  onChangeText={setBattleCry}
+                  maxLength={60}
+                  accessibilityLabel="Battle cry input"
+                />
+                <View style={{ height: Spacing.xl }} />
+                <GlowGradientButton
+                  title={canCreate ? 'Enter the Arena' : 'Complete All Fields'}
+                  onPress={handleCreate}
+                  variant="primary"
+                  size="lg"
+                  loading={isCreating}
+                  disabled={!canCreate}
+                  fullWidth
+                  iconRight="arrow-right-bold"
+                  accessibilityLabel="Create character"
+                />
+              </View>
+            </>
+          }
+        />
+      </KeyboardAvoidingView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: Spacing.lg,
-  },
-  title: {
-    fontSize: Typography.sizes.xxxl,
-    fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.xl,
-    textAlign: 'center',
-  },
-  section: {
-    marginBottom: Spacing.xl,
+  flex: { flex: 1 },
+  scrollContent: {
+    paddingTop: Spacing.xxl,
+    paddingBottom: Spacing.xxxl * 2,
   },
   label: {
+    fontFamily: Typography.fonts.display,
     fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.semibold,
-    marginBottom: Spacing.sm,
+    letterSpacing: Typography.letterSpacing.wide,
+    marginBottom: Spacing.xs,
+    marginTop: Spacing.md,
   },
   sublabel: {
+    fontFamily: Typography.fonts.body,
     fontSize: Typography.sizes.sm,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.lg,
   },
-  input: {
-    height: 48,
-    borderRadius: 8,
-    paddingHorizontal: Spacing.md,
-    fontSize: Typography.sizes.base,
-  },
-  characterCount: {
-    fontSize: Typography.sizes.xs,
-    textAlign: 'right',
-    marginTop: Spacing.xs,
-  },
-  archetypeCard: {
-    padding: Spacing.md,
-    borderRadius: 8,
-    marginBottom: Spacing.sm,
-  },
-  archetypeHeader: {
+  dots: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.xs,
-  },
-  archetypeColor: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    marginRight: Spacing.sm,
-  },
-  archetypeName: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.semibold,
-  },
-  archetypeDescription: {
-    fontSize: Typography.sizes.sm,
-    marginBottom: Spacing.xs,
-  },
-  archetypeTrait: {
-    fontSize: Typography.sizes.xs,
-  },
-  button: {
-    height: 48,
-    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: Spacing.lg,
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
   },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
+  dot: {
+    height: 6,
+    borderRadius: 3,
   },
 });

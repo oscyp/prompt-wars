@@ -1,12 +1,15 @@
 import { Stack } from 'expo-router';
 import React from 'react';
+import { useThemedColors } from '@/hooks/useThemedColors';
 
 export default function OnboardingLayout() {
+  const colors = useThemedColors();
   return (
     <Stack
       screenOptions={{
         headerShown: false,
-        animation: 'slide_from_right',
+        animation: 'fade',
+        contentStyle: { backgroundColor: colors.background },
       }}
     >
       <Stack.Screen name="welcome" />

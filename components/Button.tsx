@@ -1,26 +1,20 @@
 import React from 'react';
-import {
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  TouchableOpacityProps,
-  ViewStyle,
-  TextStyle,
-} from 'react-native';
-import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { StyleProp, ViewStyle } from 'react-native';
+import GlowGradientButton from './GlowGradientButton';
 
-interface ButtonProps extends TouchableOpacityProps {
+interface LegacyButtonProps {
   title: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'danger';
   loading?: boolean;
   fullWidth?: boolean;
+  disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
 /**
- * Reusable button component with theme support and accessibility
+ * Back-compat wrapper preserving the legacy Button API while routing to
+ * the new GlowGradientButton. Prefer GlowGradientButton directly in new code.
  */
 export default function Button({
   title,
@@ -28,68 +22,20 @@ export default function Button({
   variant = 'primary',
   loading = false,
   fullWidth = false,
-  disabled,
+  disabled = false,
   style,
-  ...props
-}: ButtonProps) {
-  const colors = useThemedColors();
-
-  const getBackgroundColor = () => {
-    if (disabled || loading) return colors.border;
-    switch (variant) {
-      case 'primary':
-        return colors.primary;
-      case 'secondary':
-        return colors.backgroundTertiary;
-      case 'danger':
-        return colors.error;
-      default:
-        return colors.primary;
-    }
-  };
-
-  const getTextColor = () => {
-    if (variant === 'secondary') return colors.text;
-    return '#FFFFFF';
-  };
-
+}: LegacyButtonProps) {
+  const mapped: 'primary' | 'ghost' | 'danger' =
+    variant === 'primary' ? 'primary' : variant === 'danger' ? 'danger' : 'ghost';
   return (
-    <TouchableOpacity
-      style={[
-        styles.button,
-        { backgroundColor: getBackgroundColor() },
-        fullWidth && styles.fullWidth,
-        style as ViewStyle,
-      ]}
+    <GlowGradientButton
+      title={title}
       onPress={onPress}
-      disabled={disabled || loading}
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      accessibilityState={{ disabled: disabled || loading }}
-      {...props}
-    >
-      {loading ? (
-        <ActivityIndicator color={getTextColor()} />
-      ) : (
-        <Text style={[styles.text, { color: getTextColor() }]}>{title}</Text>
-      )}
-    </TouchableOpacity>
+      variant={mapped}
+      loading={loading}
+      fullWidth={fullWidth}
+      disabled={disabled}
+      style={style}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    height: 48,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.lg,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullWidth: {
-    width: '100%',
-  },
-  text: {
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
-  },
-});

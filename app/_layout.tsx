@@ -1,14 +1,25 @@
 import React, { useEffect } from 'react';
 import { useFonts } from 'expo-font';
+import {
+  Orbitron_700Bold,
+  Orbitron_900Black,
+} from '@expo-google-fonts/orbitron';
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { RevenueCatProvider } from '@/providers/RevenueCatProvider';
 import { supabase } from '@/utils/supabase';
+import { useThemedColors } from '@/hooks/useThemedColors';
 
 try {
   require('react-native-reanimated');
@@ -17,13 +28,15 @@ try {
 }
 
 // Prevent the splash screen from auto-hiding
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* ignore */
+});
 
 function RootLayoutNav() {
   const { session, loading, user } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-  const colorScheme = useColorScheme();
+  const colors = useThemedColors();
   const [checkingOnboarding, setCheckingOnboarding] = React.useState(true);
 
   useEffect(() => {
@@ -33,7 +46,6 @@ function RootLayoutNav() {
         return;
       }
 
-      // Check if user has an active character
       const { data: character } = await supabase
         .from('characters')
         .select('id')
@@ -47,14 +59,12 @@ function RootLayoutNav() {
       const inOnboardingGroup = segments[0] === '(onboarding)';
 
       if (session && inAuthGroup) {
-        // User just signed in - route based on character existence
         if (character) {
           router.replace('/(tabs)/home');
         } else {
           router.replace('/(onboarding)/welcome');
         }
       } else if (session && !inOnboardingGroup && !character) {
-        // User is authenticated but has no character and not in onboarding - send to onboarding
         router.replace('/(onboarding)/welcome');
       }
     }
@@ -70,36 +80,42 @@ function RootLayoutNav() {
     const inAuthGroup = segments[0] === '(auth)';
 
     if (!session && !inAuthGroup) {
-      // Redirect to sign-in if not authenticated
       router.replace('/(auth)/sign-in');
     }
   }, [session, loading, checkingOnboarding, segments, router]);
 
   return (
-    <>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar style="light" />
       <Slot />
-    </>
+    </View>
   );
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    // Add custom fonts here if needed
+  const [fontsLoaded, fontError] = useFonts({
+    Orbitron_700Bold,
+    Orbitron_900Black,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
   });
 
   useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync().catch(() => {
+        /* ignore */
+      });
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded && !fontError) {
     return null;
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0A0A12' }}>
       <SafeAreaProvider>
         <AuthProvider>
           <RevenueCatProvider>

@@ -1,156 +1,286 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import {
+  BorderRadius,
+  Spacing,
+  Typography,
+} from '@/constants/DesignTokens';
+import {
+  Card,
+  HapticPressable,
+  ScreenContainer,
+  SectionHeader,
+} from '@/components';
+
+type Item = {
+  key: string;
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  title: string;
+  description?: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+};
+
+function SettingsGroup({
+  title,
+  subtitle,
+  items,
+}: {
+  title: string;
+  subtitle?: string;
+  items: Item[];
+}) {
+  const colors = useThemedColors();
+  return (
+    <View style={styles.group}>
+      <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>
+        {title.toUpperCase()}
+      </Text>
+      {subtitle && (
+        <Text style={[styles.groupSubtitle, { color: colors.textTertiary }]}>
+          {subtitle}
+        </Text>
+      )}
+      <Card variant="glass" style={styles.groupCard}>
+        {items.map((item, idx) => (
+          <View
+            key={item.key}
+            style={[
+              styles.row,
+              idx < items.length - 1 && {
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: colors.border,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.iconWrap,
+                { backgroundColor: `${colors.accent}1F` },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={item.icon}
+                size={18}
+                color={colors.accent}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.rowTitle, { color: colors.text }]}>
+                {item.title}
+              </Text>
+              {item.description && (
+                <Text
+                  style={[styles.rowDesc, { color: colors.textSecondary }]}
+                >
+                  {item.description}
+                </Text>
+              )}
+            </View>
+            <Switch
+              value={item.value}
+              onValueChange={item.onChange}
+              trackColor={{ false: colors.surface2, true: colors.accent }}
+              thumbColor="#FFFFFF"
+              ios_backgroundColor={colors.surface2}
+              accessibilityLabel={`Toggle ${item.title}`}
+            />
+          </View>
+        ))}
+      </Card>
+    </View>
+  );
+}
 
 export default function SettingsScreen() {
   const colors = useThemedColors();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
 
-  // Local state for accessibility preferences
   const [dynamicType, setDynamicType] = useState(true);
   const [dyslexiaFont, setDyslexiaFont] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
 
-  // Notification preferences
   const [notifyResults, setNotifyResults] = useState(true);
   const [notifyQuests, setNotifyQuests] = useState(true);
   const [notifyChallenges, setNotifyChallenges] = useState(true);
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
-
-      {/* Accessibility */}
-      <View style={[styles.section, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Accessibility</Text>
-
-        <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Dynamic Type</Text>
-          <Switch
-            value={dynamicType}
-            onValueChange={setDynamicType}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            accessibilityLabel="Toggle dynamic type"
+    <ScreenContainer padded={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + Spacing.md,
+            paddingBottom: insets.bottom + Spacing.xxl,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <HapticPressable
+          onPress={() => router.back()}
+          haptic="selection"
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          style={styles.backBtn}
+        >
+          <MaterialCommunityIcons
+            name="chevron-left"
+            size={28}
+            color={colors.text}
           />
-        </View>
+          <Text style={[styles.backText, { color: colors.text }]}>Back</Text>
+        </HapticPressable>
 
-        <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Dyslexia-Friendly Font</Text>
-          <Switch
-            value={dyslexiaFont}
-            onValueChange={setDyslexiaFont}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            accessibilityLabel="Toggle dyslexia-friendly font"
-          />
-        </View>
+        <SectionHeader
+          title="Settings"
+          eyebrow="Tune your war room"
+          size="hero"
+        />
 
-        <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Reduced Motion</Text>
-          <Switch
-            value={reducedMotion}
-            onValueChange={setReducedMotion}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            accessibilityLabel="Toggle reduced motion"
-          />
-        </View>
+        <SettingsGroup
+          title="Accessibility"
+          items={[
+            {
+              key: 'dynamic',
+              icon: 'format-size',
+              title: 'Dynamic Type',
+              description: 'Scale text with system size',
+              value: dynamicType,
+              onChange: setDynamicType,
+            },
+            {
+              key: 'dyslexia',
+              icon: 'alphabetical-variant',
+              title: 'Dyslexia-Friendly Font',
+              value: dyslexiaFont,
+              onChange: setDyslexiaFont,
+            },
+            {
+              key: 'reduced-motion',
+              icon: 'motion-pause',
+              title: 'Reduce Motion',
+              value: reducedMotion,
+              onChange: setReducedMotion,
+            },
+            {
+              key: 'contrast',
+              icon: 'contrast-circle',
+              title: 'High Contrast',
+              value: highContrast,
+              onChange: setHighContrast,
+            },
+          ]}
+        />
 
-        <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>High Contrast Mode</Text>
-          <Switch
-            value={highContrast}
-            onValueChange={setHighContrast}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            accessibilityLabel="Toggle high contrast"
-          />
-        </View>
-      </View>
+        <SettingsGroup
+          title="Notifications"
+          subtitle="Max 2 per day, must-send only for results"
+          items={[
+            {
+              key: 'results',
+              icon: 'bell-alert-outline',
+              title: 'Battle Results',
+              description: 'Must-send',
+              value: notifyResults,
+              onChange: setNotifyResults,
+            },
+            {
+              key: 'quests',
+              icon: 'flag-checkered',
+              title: 'Daily Quests',
+              value: notifyQuests,
+              onChange: setNotifyQuests,
+            },
+            {
+              key: 'challenges',
+              icon: 'account-group-outline',
+              title: 'Friend Challenges',
+              value: notifyChallenges,
+              onChange: setNotifyChallenges,
+            },
+          ]}
+        />
 
-      {/* Notifications */}
-      <View style={[styles.section, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Notifications</Text>
-        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-          Max 2 per day, must-send only for results
+        <Text style={[styles.footer, { color: colors.textTertiary }]}>
+          Preferences stored locally. Server-side sync coming soon.
         </Text>
-
-        <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Battle Results (Must-Send)</Text>
-          <Switch
-            value={notifyResults}
-            onValueChange={setNotifyResults}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            accessibilityLabel="Toggle result notifications"
-          />
-        </View>
-
-        <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Daily Quests</Text>
-          <Switch
-            value={notifyQuests}
-            onValueChange={setNotifyQuests}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            accessibilityLabel="Toggle quest notifications"
-          />
-        </View>
-
-        <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Friend Challenges</Text>
-          <Switch
-            value={notifyChallenges}
-            onValueChange={setNotifyChallenges}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            accessibilityLabel="Toggle challenge notifications"
-          />
-        </View>
-      </View>
-
-      <Text style={[styles.note, { color: colors.textTertiary }]}>
-        Note: These preferences are stored locally. Server-side notification settings will be
-        implemented in a future update.
-      </Text>
-    </ScrollView>
+      </ScrollView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: Spacing.lg,
+  content: {
+    paddingHorizontal: Spacing.lg,
   },
-  title: {
-    fontSize: Typography.sizes.xxxl,
-    fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.lg,
-  },
-  section: {
-    padding: Spacing.lg,
-    borderRadius: 12,
-    marginBottom: Spacing.md,
-  },
-  sectionTitle: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.semibold,
-    marginBottom: Spacing.xs,
-  },
-  sectionSubtitle: {
-    fontSize: Typography.sizes.sm,
-    marginBottom: Spacing.md,
-  },
-  settingRow: {
+  backBtn: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    alignSelf: 'flex-start',
+    paddingVertical: Spacing.sm,
+    paddingRight: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
-  settingLabel: {
+  backText: {
+    fontFamily: Typography.fonts.bodyMedium,
     fontSize: Typography.sizes.base,
-    flex: 1,
   },
-  note: {
-    fontSize: Typography.sizes.sm,
-    textAlign: 'center',
+  group: {
     marginTop: Spacing.lg,
+  },
+  groupTitle: {
+    fontFamily: Typography.fonts.bodyBold,
+    fontSize: Typography.sizes.xs,
+    letterSpacing: Typography.letterSpacing.widest,
+    marginBottom: 4,
+  },
+  groupSubtitle: {
+    fontFamily: Typography.fonts.body,
+    fontSize: Typography.sizes.xs,
+    marginBottom: Spacing.sm,
+  },
+  groupCard: {
+    padding: 0,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+  },
+  iconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowTitle: {
+    fontFamily: Typography.fonts.bodyBold,
+    fontSize: Typography.sizes.base,
+  },
+  rowDesc: {
+    fontFamily: Typography.fonts.body,
+    fontSize: Typography.sizes.xs,
+    marginTop: 2,
+  },
+  footer: {
+    fontFamily: Typography.fonts.body,
+    fontSize: Typography.sizes.xs,
+    textAlign: 'center',
+    marginTop: Spacing.xl,
   },
 });

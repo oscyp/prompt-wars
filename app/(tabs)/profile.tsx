@@ -1,16 +1,50 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useThemedColors } from '@/hooks/useThemedColors';
+import {
+  Layout,
+  Spacing,
+  Typography,
+} from '@/constants/DesignTokens';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
-import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import { ARCHETYPES, ArchetypeId } from '@/constants/Archetypes';
+import {
+  ArchetypeBadge,
+  Card,
+  GlowGradientButton,
+  HapticPressable,
+  ScreenContainer,
+  StatGrid,
+  type StatItem,
+} from '@/components';
+
+function tierForRating(r: number) {
+  if (r >= 2200) return { label: 'GRANDMASTER', color: '#FFD700' };
+  if (r >= 1900) return { label: 'MASTER', color: '#C77DFF' };
+  if (r >= 1700) return { label: 'DIAMOND', color: '#22D3EE' };
+  if (r >= 1500) return { label: 'PLATINUM', color: '#A78BFA' };
+  if (r >= 1300) return { label: 'GOLD', color: '#FBBF24' };
+  if (r >= 1100) return { label: 'SILVER', color: '#94A3B8' };
+  return { label: 'BRONZE', color: '#A16207' };
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
   const colors = useThemedColors();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [profile, setProfile] = useState<any>(null);
+  const [character, setCharacter] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -19,19 +53,17 @@ export default function ProfileScreen() {
 
   const loadProfile = async () => {
     if (!user) return;
-
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error) {
-        console.error('Failed to load profile:', error);
-      } else {
-        setProfile(data);
-      }
+      const [{ data: prof }, { data: char }] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', user.id).single(),
+        supabase
+          .from('characters')
+          .select('*')
+          .eq('profile_id', user.id)
+          .maybeSingle(),
+      ]);
+      setProfile(prof);
+      setCharacter(char);
     } catch (err) {
       console.error('Profile load error:', err);
     } finally {
@@ -45,209 +77,243 @@ export default function ProfileScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }, styles.centered]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <ScreenContainer padded={false}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </ScreenContainer>
     );
   }
 
+  const archetypeId = (character?.archetype as ArchetypeId) ?? 'strategist';
+  const archetype = ARCHETYPES[archetypeId];
+  const rating = Math.round(profile?.rating ?? 1500);
+  const tier = tierForRating(rating);
+  const total = profile?.total_battles || 0;
+  const wins = profile?.wins || 0;
+  const winRate = total ? Math.round((wins / total) * 100) : 0;
+
+  const stats: StatItem[] = [
+    { label: 'Battles', value: total, accent: colors.text },
+    { label: 'Wins', value: wins, accent: colors.success },
+    { label: 'Losses', value: profile?.losses ?? 0, accent: colors.error },
+    { label: 'Win Rate', value: `${winRate}%`, accent: colors.accent },
+  ];
+
+  const navItems: Array<{
+    icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+    title: string;
+    description: string;
+    route: string;
+    tint: string;
+  }> = [
+    {
+      icon: 'wallet-outline',
+      title: 'Wallet & Subscription',
+      description: 'Credits, Prompt Wars+',
+      route: '/(profile)/wallet',
+      tint: colors.gold,
+    },
+    {
+      icon: 'chart-line',
+      title: 'Battle Stats',
+      description: 'Detailed history & analytics',
+      route: '/(profile)/stats',
+      tint: colors.accent,
+    },
+    {
+      icon: 'cog-outline',
+      title: 'Settings',
+      description: 'Accessibility, notifications',
+      route: '/(profile)/settings',
+      tint: colors.textSecondary,
+    },
+  ];
+
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.title, { color: colors.text }]}>Profile</Text>
-
-      {profile && (
-        <View style={[styles.profileCard, { backgroundColor: colors.card }]}>
-          <Text style={[styles.displayName, { color: colors.text }]}>
-            {profile.display_name || profile.username}
+    <ScreenContainer padded={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + Spacing.lg,
+            paddingBottom:
+              insets.bottom + Layout.tabBarHeight + Spacing.xxl,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero */}
+        <Card variant="gradient" archetypeId={archetypeId} style={styles.hero}>
+          <ArchetypeBadge archetypeId={archetypeId} size="xl" animated />
+          <Text style={styles.heroName}>
+            {character?.name || profile?.display_name || profile?.username}
           </Text>
-          <Text style={[styles.username, { color: colors.textSecondary }]}>
-            @{profile.username}
-          </Text>
-        </View>
-      )}
-
-      {/* Stats Summary */}
-      {profile && (
-        <View style={[styles.statsCard, { backgroundColor: colors.card }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Stats</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: colors.primary }]}>
-                {profile.total_battles || 0}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Battles</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: colors.success }]}>
-                {profile.wins || 0}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Wins</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: colors.error }]}>
-                {profile.losses || 0}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Losses</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: colors.warning }]}>
-                {profile.draws || 0}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Draws</Text>
-            </View>
-          </View>
-          <View style={styles.ratingRow}>
-            <Text style={[styles.ratingLabel, { color: colors.textSecondary }]}>Rating</Text>
-            <Text style={[styles.ratingValue, { color: colors.primary }]}>
-              {Math.round(profile.rating || 1500)}
+          <Text style={styles.heroUsername}>@{profile?.username}</Text>
+          <View
+            style={[
+              styles.tierChip,
+              {
+                backgroundColor: `${tier.color}26`,
+                borderColor: tier.color,
+              },
+            ]}
+          >
+            <MaterialCommunityIcons name="shield-star" size={14} color={tier.color} />
+            <Text style={[styles.tierText, { color: tier.color }]}>
+              {tier.label} · {rating}
             </Text>
           </View>
+          {character?.battle_cry ? (
+            <Text style={styles.battleCry}>"{character.battle_cry}"</Text>
+          ) : null}
+          <Text style={styles.archetypeTag}>
+            {archetype.shortName.toUpperCase()}
+          </Text>
+        </Card>
+
+        {/* Stats */}
+        <View style={styles.section}>
+          <StatGrid stats={stats} columns={2} />
         </View>
-      )}
 
-      {/* Navigation Cards */}
-      <TouchableOpacity
-        style={[styles.navCard, { backgroundColor: colors.card }]}
-        onPress={() => router.push('/(profile)/wallet')}
-        accessibilityLabel="View wallet"
-        accessibilityRole="button"
-      >
-        <Text style={[styles.navTitle, { color: colors.text }]}>Wallet & Subscription</Text>
-        <Text style={[styles.navDescription, { color: colors.textSecondary }]}>
-          Credits, Prompt Wars+ subscription
-        </Text>
-      </TouchableOpacity>
+        {/* Nav */}
+        <View style={styles.section}>
+          {navItems.map((item) => (
+            <HapticPressable
+              key={item.route}
+              onPress={() => router.push(item.route as any)}
+              haptic="light"
+              accessibilityRole="button"
+              accessibilityLabel={item.title}
+            >
+              <Card variant="glass" style={styles.navCard}>
+                <View
+                  style={[
+                    styles.navIconWrap,
+                    { backgroundColor: `${item.tint}1F` },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name={item.icon}
+                    size={22}
+                    color={item.tint}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.navTitle, { color: colors.text }]}>
+                    {item.title}
+                  </Text>
+                  <Text
+                    style={[styles.navDescription, { color: colors.textSecondary }]}
+                  >
+                    {item.description}
+                  </Text>
+                </View>
+                <MaterialCommunityIcons
+                  name="chevron-right"
+                  size={20}
+                  color={colors.textTertiary}
+                />
+              </Card>
+            </HapticPressable>
+          ))}
+        </View>
 
-      <TouchableOpacity
-        style={[styles.navCard, { backgroundColor: colors.card }]}
-        onPress={() => router.push('/(profile)/stats')}
-        accessibilityLabel="View detailed stats"
-        accessibilityRole="button"
-      >
-        <Text style={[styles.navTitle, { color: colors.text }]}>Battle History</Text>
-        <Text style={[styles.navDescription, { color: colors.textSecondary }]}>
-          View your prompt journal and past battles
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.navCard, { backgroundColor: colors.card }]}
-        onPress={() => router.push('/(profile)/settings')}
-        accessibilityLabel="Settings"
-        accessibilityRole="button"
-      >
-        <Text style={[styles.navTitle, { color: colors.text }]}>Settings</Text>
-        <Text style={[styles.navDescription, { color: colors.textSecondary }]}>
-          Accessibility, notifications, preferences
-        </Text>
-      </TouchableOpacity>
-
-      {/* Sign Out */}
-      <TouchableOpacity
-        style={[styles.signOutButton, { backgroundColor: colors.error }]}
-        onPress={handleSignOut}
-        accessibilityLabel="Sign out"
-        accessibilityRole="button"
-      >
-        <Text style={styles.signOutText}>Sign Out</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        {/* Sign out */}
+        <View style={{ marginTop: Spacing.xl }}>
+          <GlowGradientButton
+            title="Sign Out"
+            onPress={handleSignOut}
+            variant="ghost"
+            size="md"
+            fullWidth
+            iconLeft="logout-variant"
+            accessibilityLabel="Sign out"
+          />
+        </View>
+      </ScrollView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: Spacing.lg,
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  content: {
+    paddingHorizontal: Spacing.lg,
   },
-  centered: {
-    justifyContent: 'center',
+  hero: {
     alignItems: 'center',
+    paddingVertical: Spacing.xl,
   },
-  title: {
-    fontSize: Typography.sizes.xxxl,
-    fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.lg,
+  heroName: {
+    fontFamily: Typography.fonts.displayBlack,
+    fontSize: Typography.sizes.display3,
+    color: '#FFFFFF',
+    letterSpacing: Typography.letterSpacing.wide,
+    marginTop: Spacing.md,
+    textAlign: 'center',
   },
-  profileCard: {
-    padding: Spacing.lg,
-    borderRadius: 12,
-    marginBottom: Spacing.lg,
-    alignItems: 'center',
-  },
-  displayName: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.xs,
-  },
-  username: {
-    fontSize: Typography.sizes.base,
-  },
-  statsCard: {
-    padding: Spacing.lg,
-    borderRadius: 12,
-    marginBottom: Spacing.md,
-  },
-  cardTitle: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.semibold,
-    marginBottom: Spacing.md,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: Spacing.md,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.bold,
-  },
-  statLabel: {
-    fontSize: Typography.sizes.xs,
-    marginTop: Spacing.xs,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
-  },
-  ratingLabel: {
-    fontSize: Typography.sizes.base,
-  },
-  ratingValue: {
-    fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.bold,
-  },
-  navCard: {
-    padding: Spacing.md,
-    borderRadius: 8,
+  heroUsername: {
+    fontFamily: Typography.fonts.bodyMedium,
+    fontSize: Typography.sizes.sm,
+    color: 'rgba(255,255,255,0.75)',
     marginBottom: Spacing.sm,
   },
+  tierChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginBottom: Spacing.sm,
+  },
+  tierText: {
+    fontFamily: Typography.fonts.bodyBold,
+    fontSize: Typography.sizes.xs,
+    letterSpacing: Typography.letterSpacing.wider,
+  },
+  battleCry: {
+    fontFamily: Typography.fonts.body,
+    fontSize: Typography.sizes.sm,
+    color: 'rgba(255,255,255,0.85)',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingHorizontal: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  archetypeTag: {
+    fontFamily: Typography.fonts.bodyBold,
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: Typography.letterSpacing.widest,
+    marginTop: Spacing.sm,
+  },
+  section: {
+    marginTop: Spacing.lg,
+  },
+  navCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  navIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   navTitle: {
+    fontFamily: Typography.fonts.bodyBold,
     fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
-    marginBottom: Spacing.xs,
+    marginBottom: 2,
   },
   navDescription: {
-    fontSize: Typography.sizes.sm,
-  },
-  signOutButton: {
-    height: 48,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: Spacing.xl,
-    marginBottom: Spacing.xxl,
-  },
-  signOutText: {
-    color: '#FFFFFF',
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
+    fontFamily: Typography.fonts.body,
+    fontSize: Typography.sizes.xs,
   },
 });

@@ -1,43 +1,111 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import {
+  BorderRadius,
+  Gradients,
+  Shadows,
+  Spacing,
+  Typography,
+} from '@/constants/DesignTokens';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import { appealBattle } from '@/utils/battles';
 import { requestVideoUpgrade } from '@/utils/monetization';
 import { reportContent } from '@/utils/safety';
 import { useAuth } from '@/providers/AuthProvider';
+import {
+  Card,
+  GlowGradientButton,
+  ScreenContainer,
+  SectionHeader,
+} from '@/components';
+
+type Outcome = 'win' | 'loss' | 'draw';
+
+const OUTCOME_META: Record<
+  Outcome,
+  {
+    label: string;
+    gradient: readonly string[];
+    icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+    glow: string;
+  }
+> = {
+  win: {
+    label: 'VICTORY',
+    gradient: Gradients.victory,
+    icon: 'crown',
+    glow: '#FFD700',
+  },
+  loss: {
+    label: 'DEFEAT',
+    gradient: Gradients.defeat,
+    icon: 'skull-outline',
+    glow: '#EF4444',
+  },
+  draw: {
+    label: 'DRAW',
+    gradient: Gradients.draw,
+    icon: 'equal',
+    glow: '#94A3B8',
+  },
+};
 
 export default function ResultScreen() {
   const colors = useThemedColors();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { battleId } = useLocalSearchParams<{ battleId: string }>();
 
   const { battle, videoJob, refetch } = useRealtimeBattle(battleId || null);
   const [isAppealing, setIsAppealing] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [hapticPlayed, setHapticPlayed] = useState(false);
 
   useEffect(() => {
     if (!battle) refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const isWinner = battle?.winner_id === user?.id;
   const isDraw = battle?.is_draw;
+  const outcome: Outcome | null = battle
+    ? isDraw
+      ? 'draw'
+      : isWinner
+      ? 'win'
+      : 'loss'
+    : null;
   const canAppeal = !isWinner && !isDraw && battle?.mode === 'ranked';
 
-  const handleAppeal = async () => {
-    if (!battleId) return;
+  // Haptic on outcome reveal
+  useEffect(() => {
+    if (!outcome || hapticPlayed) return;
+    if (outcome === 'win') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else if (outcome === 'loss') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setHapticPlayed(true);
+  }, [outcome, hapticPlayed]);
 
+  const handleAppeal = () => {
+    if (!battleId) return;
     Alert.alert(
       'Appeal Battle',
       'Appeals are limited to 1 per day. A third independent judge will re-evaluate. Continue?',
@@ -50,7 +118,10 @@ export default function ResultScreen() {
             try {
               const result = await appealBattle(battleId as string);
               if (result.success) {
-                Alert.alert('Appeal Submitted', result.message || 'Your appeal is being reviewed');
+                Alert.alert(
+                  'Appeal Submitted',
+                  result.message || 'Your appeal is being reviewed'
+                );
               } else {
                 Alert.alert('Appeal Failed', result.error || 'Unable to submit appeal');
               }
@@ -67,25 +138,18 @@ export default function ResultScreen() {
 
   const handleUpgradePreview = async () => {
     if (!battleId) return;
-
     setIsUpgrading(true);
     try {
-      // First get cost preview
       const preview = await requestVideoUpgrade(battleId as string, false);
-
       if (preview.can_upgrade) {
         const costInfo = preview.entitlement_check;
         const message =
           costInfo?.method === 'subscription_allowance'
             ? `Use 1 of ${costInfo.allowance_remaining} monthly video reveals?`
             : `Upgrade to cinematic video for ${costInfo?.cost_credits || 0} credits?`;
-
         Alert.alert('Upgrade to Tier 1 Video', message, [
           { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Upgrade',
-            onPress: () => handleUpgradeConfirm(),
-          },
+          { text: 'Upgrade', onPress: () => handleUpgradeConfirm() },
         ]);
       } else {
         Alert.alert('Cannot Upgrade', preview.entitlement_check?.error || 'Not enough credits');
@@ -99,12 +163,14 @@ export default function ResultScreen() {
 
   const handleUpgradeConfirm = async () => {
     if (!battleId) return;
-
     setIsUpgrading(true);
     try {
       const result = await requestVideoUpgrade(battleId as string, true);
       if (result.success) {
-        Alert.alert('Video Queued', 'Your cinematic video is generating. You will be notified when ready.');
+        Alert.alert(
+          'Video Queued',
+          'Your cinematic video is generating. You will be notified when ready.'
+        );
         refetch();
       } else {
         Alert.alert('Upgrade Failed', result.error || 'Unable to upgrade');
@@ -118,7 +184,6 @@ export default function ResultScreen() {
 
   const handleReport = () => {
     if (!battleId) return;
-
     Alert.alert('Report Battle', 'Report this battle for review?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -140,230 +205,247 @@ export default function ResultScreen() {
     ]);
   };
 
-  if (!battle) {
+  if (!battle || !outcome) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }, styles.centered]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <ScreenContainer padded={false}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </ScreenContainer>
     );
   }
 
+  const meta = OUTCOME_META[outcome];
   const tier0 = battle.tier0_reveal_payload;
   const scores = battle.score_payload;
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.content}>
-        {/* Result Header */}
-        <View style={[styles.resultHeader, { backgroundColor: colors.card }]}>
-          <Text style={[styles.resultEmoji, { color: isDraw ? colors.warning : isWinner ? colors.success : colors.error }]}>
-            {isDraw ? '🤝' : isWinner ? '🏆' : '💔'}
-          </Text>
-          <Text style={[styles.resultText, { color: colors.text }]}>
-            {isDraw ? 'DRAW' : isWinner ? 'VICTORY' : 'DEFEAT'}
-          </Text>
-          {!isDraw && battle.winner_id && (
-            <Text style={[styles.winnerText, { color: colors.textSecondary }]}>
-              Winner: {isWinner ? 'You' : 'Opponent'}
+    <ScreenContainer padded={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + Spacing.lg,
+            paddingBottom: insets.bottom + Spacing.xxl,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Outcome hero */}
+        <LinearGradient
+          colors={meta.gradient as unknown as readonly [string, string]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[
+            styles.outcomeHero,
+            Shadows.cardElevated,
+            { shadowColor: meta.glow },
+          ]}
+        >
+          <View style={styles.outcomeIconWrap}>
+            <MaterialCommunityIcons name={meta.icon} size={56} color="#FFFFFF" />
+          </View>
+          <Text style={styles.outcomeLabel}>{meta.label}</Text>
+          {battle.winner_id && !isDraw && (
+            <Text style={styles.outcomeSub}>
+              {isWinner ? 'You claimed glory.' : 'The arena claims another.'}
             </Text>
           )}
-        </View>
+        </LinearGradient>
 
-        {/* Tier 0 Reveal Info */}
+        {/* Summary */}
         {tier0 && (
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Battle Summary</Text>
-            <Text style={[styles.cardText, { color: colors.textSecondary }]}>
+          <Card variant="glass" style={styles.section}>
+            <SectionHeader title="Battle Summary" size="sm" />
+            <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
               {tier0.summary || 'Tier 0 reveal rendered'}
             </Text>
-          </View>
+          </Card>
         )}
 
-        {/* Score Breakdown */}
+        {/* Score */}
         {scores && (
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Judge Scores</Text>
-            <Text style={[styles.explanation, { color: colors.textSecondary }]}>
+          <Card variant="glass" style={styles.section}>
+            <SectionHeader title="Judge Scores" size="sm" />
+            <Text style={[styles.bodyTextItalic, { color: colors.textSecondary }]}>
               {scores.explanation || 'Battle was scored by AI judge'}
             </Text>
+          </Card>
+        )}
+
+        {/* Video upgrade */}
+        {battle.status === 'result_ready' && !videoJob && (
+          <View style={styles.section}>
+            <GlowGradientButton
+              title={isUpgrading ? 'Checking…' : 'Upgrade to Cinematic Video'}
+              onPress={handleUpgradePreview}
+              variant="finisher"
+              size="lg"
+              loading={isUpgrading}
+              fullWidth
+              iconLeft="video-vintage"
+              accessibilityLabel="Upgrade to cinematic video"
+            />
+            <Text style={[styles.upgradeHint, { color: colors.textTertiary }]}>
+              See the battle come to life
+            </Text>
           </View>
         )}
 
-        {/* Video Upgrade */}
-        {battle.status === 'result_ready' && !videoJob && (
-          <TouchableOpacity
-            style={[styles.upgradeButton, { backgroundColor: colors.primary }]}
-            onPress={handleUpgradePreview}
-            disabled={isUpgrading}
-            accessibilityLabel="Upgrade to cinematic video"
-            accessibilityRole="button"
-          >
-            {isUpgrading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <Text style={styles.upgradeButtonText}>🎬 Upgrade to Cinematic Video</Text>
-                <Text style={styles.upgradeButtonSubtext}>See the battle come to life</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
-
-        {/* Video Status */}
+        {/* Video status */}
         {videoJob && (
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Video Status</Text>
-            <Text style={[styles.cardText, { color: colors.textSecondary }]}>
-              {videoJob.status === 'succeeded'
-                ? '✓ Video ready!'
-                : videoJob.status === 'failed'
-                ? '✗ Generation failed'
-                : `⏳ ${videoJob.status}...`}
-            </Text>
+          <Card variant="neon" style={styles.section}>
+            <SectionHeader title="Video Status" size="sm" />
+            <View style={styles.videoStatusRow}>
+              <MaterialCommunityIcons
+                name={
+                  videoJob.status === 'succeeded'
+                    ? 'check-circle'
+                    : videoJob.status === 'failed'
+                    ? 'close-circle'
+                    : 'progress-clock'
+                }
+                size={20}
+                color={
+                  videoJob.status === 'succeeded'
+                    ? colors.success
+                    : videoJob.status === 'failed'
+                    ? colors.error
+                    : colors.accent
+                }
+              />
+              <Text style={[styles.bodyText, { color: colors.text }]}>
+                {videoJob.status === 'succeeded'
+                  ? 'Video ready!'
+                  : videoJob.status === 'failed'
+                  ? 'Generation failed'
+                  : `${videoJob.status}…`}
+              </Text>
+            </View>
             {videoJob.moderation_status === 'pending' && (
-              <Text style={[styles.moderationText, { color: colors.warning }]}>
+              <Text style={[styles.modText, { color: colors.warning }]}>
                 Video pending moderation approval
               </Text>
             )}
-          </View>
+          </Card>
         )}
 
         {/* Appeal */}
         {canAppeal && (
-          <TouchableOpacity
-            style={[styles.appealButton, { backgroundColor: colors.warning }]}
-            onPress={handleAppeal}
-            disabled={isAppealing}
-            accessibilityLabel="Appeal battle result"
-            accessibilityRole="button"
-          >
-            {isAppealing ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.appealButtonText}>⚖️ Appeal Result (1/day)</Text>
-            )}
-          </TouchableOpacity>
+          <View style={styles.section}>
+            <GlowGradientButton
+              title="Appeal Result (1/day)"
+              onPress={handleAppeal}
+              variant="ghost"
+              size="md"
+              loading={isAppealing}
+              fullWidth
+              iconLeft="scale-balance"
+            />
+          </View>
         )}
 
         {/* Actions */}
         <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: colors.backgroundTertiary }]}
-            onPress={handleReport}
-            accessibilityLabel="Report battle"
-            accessibilityRole="button"
-          >
-            <Text style={[styles.actionButtonText, { color: colors.text }]}>Report</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: colors.primary }]}
-            onPress={() => router.push('/(tabs)/create')}
-            accessibilityLabel="Battle again"
-            accessibilityRole="button"
-          >
-            <Text style={styles.actionButtonTextWhite}>Battle Again</Text>
-          </TouchableOpacity>
+          <View style={styles.actionFlex}>
+            <GlowGradientButton
+              title="Report"
+              onPress={handleReport}
+              variant="ghost"
+              size="md"
+              fullWidth
+              iconLeft="flag-outline"
+            />
+          </View>
+          <View style={styles.actionFlex}>
+            <GlowGradientButton
+              title="Battle Again"
+              onPress={() => router.push('/(tabs)/create')}
+              variant="primary"
+              size="md"
+              fullWidth
+              iconLeft="sword-cross"
+            />
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: {
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
   },
-  resultHeader: {
+  outcomeHero: {
+    borderRadius: BorderRadius.xxl,
     padding: Spacing.xl,
-    borderRadius: 16,
     alignItems: 'center',
     marginBottom: Spacing.lg,
   },
-  resultEmoji: {
-    fontSize: 64,
+  outcomeIconWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.18)',
     marginBottom: Spacing.md,
   },
-  resultText: {
-    fontSize: Typography.sizes.xxxl,
-    fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.xs,
+  outcomeLabel: {
+    fontFamily: Typography.fonts.displayBlack,
+    fontSize: Typography.sizes.hero,
+    color: '#FFFFFF',
+    letterSpacing: Typography.letterSpacing.wider,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
-  winnerText: {
+  outcomeSub: {
+    fontFamily: Typography.fonts.bodyMedium,
     fontSize: Typography.sizes.base,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: Spacing.xs,
+    letterSpacing: Typography.letterSpacing.wide,
   },
-  card: {
-    padding: Spacing.lg,
-    borderRadius: 12,
+  section: {
     marginBottom: Spacing.md,
   },
-  cardTitle: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.semibold,
-    marginBottom: Spacing.sm,
-  },
-  cardText: {
+  bodyText: {
+    fontFamily: Typography.fonts.body,
     fontSize: Typography.sizes.base,
+    lineHeight: Typography.sizes.base * 1.5,
   },
-  explanation: {
+  bodyTextItalic: {
+    fontFamily: Typography.fonts.body,
     fontSize: Typography.sizes.sm,
     fontStyle: 'italic',
+    lineHeight: Typography.sizes.sm * 1.6,
   },
-  moderationText: {
-    fontSize: Typography.sizes.sm,
-    marginTop: Spacing.sm,
+  upgradeHint: {
+    fontFamily: Typography.fonts.body,
+    fontSize: Typography.sizes.xs,
+    textAlign: 'center',
+    marginTop: Spacing.xs,
   },
-  upgradeButton: {
-    padding: Spacing.lg,
-    borderRadius: 12,
+  videoStatusRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
   },
-  upgradeButtonText: {
-    color: '#FFFFFF',
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.xs,
-  },
-  upgradeButtonSubtext: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: Typography.sizes.sm,
-  },
-  appealButton: {
-    padding: Spacing.md,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
-  },
-  appealButtonText: {
-    color: '#FFFFFF',
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
+  modText: {
+    fontFamily: Typography.fonts.body,
+    fontSize: Typography.sizes.xs,
+    marginTop: Spacing.xs,
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: Spacing.md,
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
   },
-  actionButton: {
+  actionFlex: {
     flex: 1,
-    padding: Spacing.md,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
-  },
-  actionButtonTextWhite: {
-    color: '#FFFFFF',
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
   },
 });
