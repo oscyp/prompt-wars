@@ -108,6 +108,18 @@ export default function ProfileScreen() {
       {/* Navigation Cards */}
       <TouchableOpacity
         style={[styles.navCard, { backgroundColor: colors.card }]}
+        onPress={() => router.push('/(profile)/edit-character')}
+        accessibilityLabel="Edit character"
+        accessibilityRole="button"
+      >
+        <Text style={[styles.navTitle, { color: colors.text }]}>Edit Character</Text>
+        <Text style={[styles.navDescription, { color: colors.textSecondary }]}>
+          Portrait, battle cry, signature item, traits
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.navCard, { backgroundColor: colors.card }]}
         onPress={() => router.push('/(profile)/wallet')}
         accessibilityLabel="View wallet"
         accessibilityRole="button"

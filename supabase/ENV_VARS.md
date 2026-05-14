@@ -200,6 +200,28 @@ SKIP_MODERATION=false  # keep moderation active even in test
 USE_MOCK_JUDGE=false  # set true for deterministic test battles
 ```
 
+## Character Portrait Image Generation (Edge Functions)
+
+The `image-provider.ts` adapter generates character portraits and item icons. It
+routes to xAI as primary and OpenAI Images as fallback. On safety refusals it
+short-circuits without retrying the other provider. In `fallback` mode it
+returns a deterministic 1x1 PNG so tests and offline runs do not need API keys.
+
+```bash
+# Primary image provider: xAI (model: grok-2-image)
+# POST https://api.x.ai/v1/images/generations
+XAI_API_KEY=xai-...
+
+# Fallback image provider: OpenAI Images (model: gpt-image-1)
+# POST https://api.openai.com/v1/images/generations
+OPENAI_API_KEY=sk-...
+
+# Optional. Set to "fallback" to force the deterministic stub provider.
+# Useful for unit tests and offline development. When set, no network calls
+# are made and the adapter returns a 1x1 PNG with provider='fallback'.
+IMAGE_PROVIDER_MODE=  # unset in prod | "fallback" in tests/offline
+```
+
 ## Security Notes
 
 1. **Client vs Server**: Only `EXPO_PUBLIC_*` prefixed vars are safe to bundle in the mobile app.

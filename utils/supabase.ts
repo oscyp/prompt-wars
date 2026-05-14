@@ -16,6 +16,16 @@ if (!supabaseUrl || !supabasePublishableKey) {
 
 const supabaseFunctionKey = supabasePublishableKey;
 
+function describeAccessToken(token: string): Record<string, unknown> {
+  const parts = token.split('.');
+  return {
+    present: Boolean(token),
+    length: token.length,
+    looksLikeJwt: parts.length === 3,
+    prefix: token.slice(0, 16),
+  };
+}
+
 // Create a factory function for initializing Supabase
 const createSupabaseClient = (): SupabaseClient => {
   const client = createClient(supabaseUrl, supabasePublishableKey, {
@@ -41,6 +51,38 @@ const createSupabaseClient = (): SupabaseClient => {
 
 // Create and export the client
 export const supabase = createSupabaseClient();
+
+function getFunctionErrorMessage(
+  functionName: string,
+  data: unknown,
+  fallback?: string,
+): string {
+  if (data && typeof data === 'object') {
+    const payload = data as {
+      error?: string | { message?: string };
+      message?: string;
+    };
+
+    if (typeof payload.error === 'string' && payload.error.trim()) {
+      return payload.error;
+    }
+
+    if (
+      payload.error &&
+      typeof payload.error === 'object' &&
+      typeof payload.error.message === 'string' &&
+      payload.error.message.trim()
+    ) {
+      return payload.error.message;
+    }
+
+    if (typeof payload.message === 'string' && payload.message.trim()) {
+      return payload.message;
+    }
+  }
+
+  return fallback || `Function ${functionName} failed`;
+}
 
 async function getFunctionAccessToken(): Promise<string> {
   const {
@@ -97,6 +139,7 @@ export async function invokeAuthenticatedFunction<T>(
   body: Record<string, unknown>,
 ): Promise<T> {
   let accessToken = await getFunctionAccessToken();
+  const functionUrl = `${supabaseUrl}/functions/v1/${functionName}`;
   let response = await fetchAuthenticatedFunction(
     functionName,
     body,
@@ -120,12 +163,29 @@ export async function invokeAuthenticatedFunction<T>(
   }
 
   const responseText = await response.text();
-  const data = responseText ? JSON.parse(responseText) : null;
+  let data: unknown = null;
+
+  if (responseText) {
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      data = null;
+    }
+  }
 
   if (!response.ok) {
-    throw new Error(
-      data?.error || data?.message || `Function ${functionName} failed`,
-    );
+    console.error('Supabase function invoke failed', {
+      functionName,
+      functionUrl,
+      status: response.status,
+      statusText: response.statusText,
+      requestBody: body,
+      responseText,
+      responseData: data,
+      supabaseUrl,
+      accessToken: describeAccessToken(accessToken),
+    });
+    throw new Error(getFunctionErrorMessage(functionName, data, responseText));
   }
 
   return data as T;
