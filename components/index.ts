@@ -8,3 +8,5 @@ export type { TraitOption } from './TraitPicker';
 export { default as PortraitPreview } from './PortraitPreview';
 export { default as ItemGrid } from './ItemGrid';
 export type { ItemGridItem } from './ItemGrid';
+export { default as ArtStylePicker } from './ArtStylePicker';
+export { default as SectionCard } from './SectionCard';

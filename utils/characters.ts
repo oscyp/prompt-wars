@@ -20,6 +20,7 @@ import {
   ARCHETYPE_INITIAL,
   ITEM_CLASS_GLYPH,
   ArchetypeForTraits,
+  ArtStyle,
   PALETTE_HEX,
   VIBES,
   SILHOUETTES,
@@ -70,6 +71,7 @@ export interface GeneratePortraitInput {
   mode: 'prompt' | 'guided';
   prompt?: string;
   traits?: TraitSet;
+  artStyle?: ArtStyle;
 }
 
 export interface PortraitJobResult {
@@ -88,6 +90,11 @@ export interface RegeneratePortraitInput {
    * `new_portrait` price instead of `regenerate_portrait`.
    */
   portraitPromptRaw?: string;
+  /**
+   * When provided and different from the character's current art_style, the
+   * backend re-renders and charges the `new_portrait` price tier.
+   */
+  artStyle?: ArtStyle;
 }
 
 export interface CreateCustomSignatureItemInput {
@@ -436,6 +443,7 @@ export async function generatePortrait(
     mode: input.mode,
     prompt: input.prompt,
     traits: input.traits,
+    art_style: input.artStyle,
   });
 }
 
@@ -448,6 +456,9 @@ export async function regeneratePortrait(
   };
   if (typeof input.portraitPromptRaw === 'string') {
     body.portrait_prompt_raw = input.portraitPromptRaw;
+  }
+  if (input.artStyle) {
+    body.art_style = input.artStyle;
   }
   return startPortraitJob('regenerate-portrait', body);
 }

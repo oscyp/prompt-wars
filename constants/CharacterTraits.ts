@@ -198,3 +198,70 @@ export const ITEM_CLASS_GLYPH: Record<ItemClass, string> = {
   relic: '✧',
   instrument: '♬',
 };
+
+// ---------------------------------------------------------------------------
+// Art Style — drives the portrait prompt scaffold server-side.
+// Keys must match supabase/functions/_shared/portrait-prompt-resolver.ts.
+// ---------------------------------------------------------------------------
+
+export const ART_STYLES = [
+  'painterly',
+  'anime',
+  'comic',
+  'pixel',
+  'oil',
+  'lowpoly',
+  'darkfantasy',
+  'vaporwave',
+] as const;
+export type ArtStyle = (typeof ART_STYLES)[number];
+
+export const ART_STYLE_LABELS: Record<ArtStyle, string> = {
+  painterly: 'Painterly',
+  anime: 'Anime',
+  comic: 'Comic Book',
+  pixel: 'Pixel Art',
+  oil: 'Oil Painting',
+  lowpoly: 'Low-Poly 3D',
+  darkfantasy: 'Dark Fantasy',
+  vaporwave: 'Vaporwave',
+};
+
+export const ART_STYLE_DESCRIPTIONS: Record<ArtStyle, string> = {
+  painterly: 'Hero card with painterly brushwork and rim light.',
+  anime: 'Crisp cel shading, bold lines, vibrant flats.',
+  comic: 'Inked panels with halftone dots and saturated colors.',
+  pixel: '64×64 retro bust with dithered shading.',
+  oil: 'Classical bust with visible brushwork and chiaroscuro.',
+  lowpoly: 'Faceted 3D render with soft studio HDR.',
+  darkfantasy: 'Muted, atmospheric, gritty fantasy mood.',
+  vaporwave: 'Neon synthwave with magenta/cyan grid backdrop.',
+};
+
+/**
+ * Emoji-based fallback glyphs used when reference thumbnails are not bundled.
+ * UI swaps these out for `assets/images/styles/<key>.webp` when available.
+ */
+export const ART_STYLE_GLYPHS: Record<ArtStyle, string> = {
+  painterly: '🎨',
+  anime: '🌸',
+  comic: '💥',
+  pixel: '👾',
+  oil: '🖼️',
+  lowpoly: '🔻',
+  darkfantasy: '🗡️',
+  vaporwave: '🌆',
+};
+
+/** Background gradient (two stops) for style chip fallback rendering. */
+export const ART_STYLE_GRADIENTS: Record<ArtStyle, readonly [string, string]> = {
+  painterly: ['#7C3AED', '#EC4899'],
+  anime: ['#F472B6', '#FBBF24'],
+  comic: ['#FBBF24', '#EF4444'],
+  pixel: ['#22D3EE', '#1E40AF'],
+  oil: ['#92400E', '#1F2937'],
+  lowpoly: ['#10B981', '#0EA5E9'],
+  darkfantasy: ['#1F2937', '#6B21A8'],
+  vaporwave: ['#D946EF', '#22D3EE'],
+};
+

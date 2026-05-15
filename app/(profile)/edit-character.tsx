@@ -40,6 +40,9 @@ import {
   Silhouette,
   Era,
   Expression,
+  ArtStyle,
+  ART_STYLES,
+  ART_STYLE_LABELS,
 } from '@/constants/CharacterTraits';
 import { ArchetypeId } from '@/constants/Archetypes';
 import {
@@ -47,6 +50,7 @@ import {
   ItemGrid,
   TraitPicker,
   TraitOption,
+  ArtStylePicker,
 } from '@/components';
 
 /**
@@ -60,6 +64,7 @@ const EDIT_PRICES = {
   customizeItem: 0,
   regeneratePortrait: 1,
   rePromptPortrait: 2,
+  changeArtStyle: 2,
   swapTrait: 1,
   rerollAllTraits: 2,
 } as const;
@@ -78,6 +83,7 @@ interface CharacterRow {
   palette_key: PaletteKey | null;
   era: Era | null;
   expression: Expression | null;
+  art_style: ArtStyle | null;
   last_edited_at: string | null;
 }
 
@@ -104,7 +110,7 @@ export default function EditCharacterScreen() {
       const { data, error } = await supabase
         .from('characters')
         .select(
-          'id,name,archetype,battle_cry,signature_color,signature_item_id,portrait_id,portrait_seed,vibe,silhouette,palette_key,era,expression,last_edited_at',
+          'id,name,archetype,battle_cry,signature_color,signature_item_id,portrait_id,portrait_seed,vibe,silhouette,palette_key,era,expression,art_style,last_edited_at',
         )
         .eq('profile_id', user.id)
         .order('created_at', { ascending: false })
@@ -252,6 +258,37 @@ export default function EditCharacterScreen() {
     [character, loadCharacter, showToast],
   );
 
+  const runChangeArtStyle = useCallback(
+    async (style: ArtStyle) => {
+      if (!character) return;
+      setBusyKey('changeArtStyle');
+      try {
+        await regeneratePortrait({
+          characterId: character.id,
+          paid: true,
+          artStyle: style,
+        });
+        showToast(
+          `Style changed · ${EDIT_PRICES.changeArtStyle} credits spent`,
+        );
+        await loadCharacter();
+      } catch (err) {
+        console.error('Failed to change art style', {
+          characterId: character.id,
+          style,
+          err,
+        });
+        Alert.alert(
+          'Edit failed',
+          err instanceof Error ? err.message : 'Try again.',
+        );
+      } finally {
+        setBusyKey(null);
+      }
+    },
+    [character, loadCharacter, showToast],
+  );
+
   const hasInitialPortraitSeed = character?.portrait_seed !== null;
 
   const fallbackUri = useMemo(() => {
@@ -381,6 +418,25 @@ export default function EditCharacterScreen() {
                   text: 'Spend',
                   style: 'destructive',
                   onPress: () => runRePromptPortrait(prompt),
+                },
+              ],
+            )
+          }
+        />
+
+        <ArtStyleRow
+          currentStyle={character.art_style ?? 'painterly'}
+          busy={busyKey === 'changeArtStyle'}
+          onApply={(style) =>
+            Alert.alert(
+              'Change art style',
+              `Re-render in ${ART_STYLE_LABELS[style]} for ${EDIT_PRICES.changeArtStyle} credits?`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Spend',
+                  style: 'destructive',
+                  onPress: () => runChangeArtStyle(style),
                 },
               ],
             )
@@ -789,6 +845,53 @@ function ActionRow({
           <ActivityIndicator color="#FFFFFF" />
         ) : (
           <Text style={styles.primaryBtnText}>Continue</Text>
+        )}
+      </TouchableOpacity>
+    </CardShell>
+  );
+}
+
+function ArtStyleRow({
+  currentStyle,
+  busy,
+  onApply,
+}: {
+  currentStyle: ArtStyle;
+  busy: boolean;
+  onApply: (style: ArtStyle) => void;
+}) {
+  const colors = useThemedColors();
+  const [selected, setSelected] = useState<ArtStyle>(currentStyle);
+  const dirty = selected !== currentStyle;
+  return (
+    <CardShell
+      title="Art style"
+      subtitle={`Currently: ${ART_STYLE_LABELS[currentStyle]}. Re-renders your portrait.`}
+      cost={EDIT_PRICES.changeArtStyle}
+    >
+      <ArtStylePicker
+        title=""
+        value={selected}
+        onChange={setSelected}
+        disabled={busy}
+      />
+      <TouchableOpacity
+        onPress={() => onApply(selected)}
+        disabled={busy || !dirty}
+        accessibilityRole="button"
+        accessibilityLabel="Apply new art style"
+        style={[
+          styles.primaryBtn,
+          { backgroundColor: colors.primary },
+          (busy || !dirty) && styles.btnDisabled,
+        ]}
+      >
+        {busy ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.primaryBtnText}>
+            {dirty ? 'Apply style' : 'Pick a different style'}
+          </Text>
         )}
       </TouchableOpacity>
     </CardShell>

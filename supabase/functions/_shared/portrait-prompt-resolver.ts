@@ -3,6 +3,27 @@
 
 export type Archetype = 'strategist' | 'trickster' | 'titan' | 'mystic' | 'engineer';
 
+export type ArtStyle =
+  | 'painterly'
+  | 'anime'
+  | 'comic'
+  | 'pixel'
+  | 'oil'
+  | 'lowpoly'
+  | 'darkfantasy'
+  | 'vaporwave';
+
+export const ART_STYLE_KEYS: readonly ArtStyle[] = [
+  'painterly',
+  'anime',
+  'comic',
+  'pixel',
+  'oil',
+  'lowpoly',
+  'darkfantasy',
+  'vaporwave',
+] as const;
+
 export interface PortraitTraits {
   vibe?: string;
   silhouette?: string;
@@ -18,6 +39,7 @@ export interface PortraitPromptInput {
   signature_color: string; // hex like "#A12FCC"
   signature_item_fragment?: string;
   seed: number;
+  art_style?: ArtStyle;
 }
 
 export interface ItemIconPromptInput {
@@ -94,6 +116,27 @@ const ITEM_CLASS_FLAVOR: Record<ItemIconPromptInput['item_class'], string> = {
   weaponized_mundane: 'ordinary object turned makeshift weapon',
   relic: 'ancient mystical relic',
   instrument: 'finely tuned instrument',
+};
+
+// Style-specific scaffolds. Each scaffold is a single sentence that establishes
+// medium, lighting, and composition. Keep them short to leave room for traits.
+const ART_STYLE_SCAFFOLDS: Record<ArtStyle, string> = {
+  painterly:
+    'Stylized illustrated character portrait, painterly digital art, head-and-shoulders framing, dramatic rim lighting, clean studio background, cohesive game-ready hero card composition.',
+  anime:
+    'Crisp cel-shaded anime character portrait, bold clean linework, vibrant flat colors with sharp shadow shapes, head-and-shoulders framing, hero card composition.',
+  comic:
+    'Inked western comic-book character portrait, bold black outlines, halftone shading with Ben-Day dot accents, saturated flats, head-and-shoulders framing, hero card composition.',
+  pixel:
+    'Retro 64 by 64 pixel-art character bust, hand-placed pixels, dithered shading, limited 16-color palette, head-and-shoulders framing, clean solid background, hero card composition.',
+  oil:
+    'Classical oil-painting character bust, visible textured brushwork, rich chiaroscuro lighting, muted earthy palette, head-and-shoulders framing, gallery-style composition.',
+  lowpoly:
+    'Stylized low-poly 3D character render, faceted geometric shading, soft studio HDR lighting, matte finish, head-and-shoulders framing, hero card composition.',
+  darkfantasy:
+    'Gritty dark-fantasy character portrait, muted desaturated palette, atmospheric haze and shadow, dramatic side lighting, head-and-shoulders framing, hero card composition.',
+  vaporwave:
+    'Neon synthwave character portrait, magenta and cyan rim lighting, retro vaporwave grid backdrop, subtle chromatic aberration, head-and-shoulders framing, hero card composition.',
 };
 
 const NEGATIVE_CLAUSES =
@@ -206,8 +249,11 @@ export function resolvePortraitPrompt(input: PortraitPromptInput): string {
       ? sanitizeRawSubject(input.signature_item_fragment)
       : null;
 
-  const styleScaffold =
-    'Stylized illustrated character portrait, painterly digital art, head-and-shoulders framing, dramatic rim lighting, clean studio background, cohesive game-ready hero card composition.';
+  const styleKey: ArtStyle =
+    input.art_style && ART_STYLE_SCAFFOLDS[input.art_style]
+      ? input.art_style
+      : 'painterly';
+  const styleScaffold = ART_STYLE_SCAFFOLDS[styleKey];
 
   const promptBody = [
     styleScaffold,
@@ -245,4 +291,5 @@ export function resolveItemIconPrompt(input: ItemIconPromptInput): string {
 export const __internal = {
   MAX_PROMPT_CHARS,
   NEGATIVE_CLAUSES,
+  ART_STYLE_SCAFFOLDS,
 };

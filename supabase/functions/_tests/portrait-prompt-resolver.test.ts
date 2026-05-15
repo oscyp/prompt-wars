@@ -138,3 +138,47 @@ Deno.test('signature_item_fragment is included in portrait prompt', () => {
   });
   assert(out.includes('brass fountain pen'), `signature item missing: ${out}`);
 });
+
+Deno.test('art_style swaps the scaffold and keyword for each known style', () => {
+  const cases: Array<[Parameters<typeof resolvePortraitPrompt>[0]['art_style'], string]> = [
+    ['painterly', 'painterly'],
+    ['anime', 'cel-shaded anime'],
+    ['comic', 'comic-book'],
+    ['pixel', 'pixel-art'],
+    ['oil', 'oil-painting'],
+    ['lowpoly', 'low-poly'],
+    ['darkfantasy', 'dark-fantasy'],
+    ['vaporwave', 'synthwave'],
+  ];
+  for (const [style, keyword] of cases) {
+    const out = resolvePortraitPrompt({
+      archetype: 'strategist',
+      signature_color: '#A12FCC',
+      seed: 1,
+      art_style: style,
+    });
+    assert(
+      out.toLowerCase().includes(keyword),
+      `style ${style} should include '${keyword}': ${out}`,
+    );
+    assert(out.length <= __internal.MAX_PROMPT_CHARS, `style ${style} exceeded cap`);
+  }
+});
+
+Deno.test('art_style defaults to painterly when omitted or unknown', () => {
+  const omitted = resolvePortraitPrompt({
+    archetype: 'mystic',
+    signature_color: '#112233',
+    seed: 1,
+  });
+  assert(omitted.toLowerCase().includes('painterly'), 'omitted art_style should default to painterly');
+
+  const unknown = resolvePortraitPrompt({
+    archetype: 'mystic',
+    signature_color: '#112233',
+    seed: 1,
+    // deno-lint-ignore no-explicit-any
+    art_style: 'bogus' as any,
+  });
+  assert(unknown.toLowerCase().includes('painterly'), 'unknown art_style should default to painterly');
+});

@@ -25,12 +25,15 @@ import {
 } from '../_shared/image-provider.ts';
 import type {
   Archetype,
+  ArtStyle,
   PortraitTraits,
 } from '../_shared/portrait-prompt-resolver.ts';
+import { ART_STYLE_KEYS } from '../_shared/portrait-prompt-resolver.ts';
 
 interface GeneratePortraitRequest {
   character_id: string;
   portrait_prompt_raw?: string;
+  art_style?: ArtStyle;
 }
 
 Deno.serve(async (req) => {
@@ -58,6 +61,9 @@ Deno.serve(async (req) => {
   if (body.portrait_prompt_raw && body.portrait_prompt_raw.length > 200) {
     return err('bad_request', 'portrait_prompt_raw must be <= 200 chars', 400);
   }
+  if (body.art_style && !ART_STYLE_KEYS.includes(body.art_style)) {
+    return err('bad_request', 'invalid art_style', 400);
+  }
 
   const supabase = createServiceClient();
 
@@ -65,7 +71,7 @@ Deno.serve(async (req) => {
   const { data: character, error: charErr } = await supabase
     .from('characters')
     .select(
-      'id, profile_id, archetype, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, portrait_seed, portrait_prompt_raw',
+      'id, profile_id, archetype, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, portrait_seed, portrait_prompt_raw, art_style',
     )
     .eq('id', body.character_id)
     .maybeSingle();
@@ -84,6 +90,9 @@ Deno.serve(async (req) => {
   }
 
   const promptRaw = body.portrait_prompt_raw ?? character.portrait_prompt_raw ?? '';
+  const artStyle: ArtStyle =
+    (body.art_style as ArtStyle | undefined) ??
+    ((character as { art_style?: ArtStyle }).art_style ?? 'painterly');
 
   // Moderate raw prompt (skip when empty).
   if (promptRaw.trim().length > 0) {
@@ -101,6 +110,7 @@ Deno.serve(async (req) => {
     .update({
       portrait_seed: seed,
       portrait_prompt_raw: promptRaw || null,
+      art_style: artStyle,
     })
     .eq('id', character.id)
     .is('portrait_seed', null)
@@ -146,6 +156,7 @@ Deno.serve(async (req) => {
         archetype: character.archetype,
         signature_color: character.signature_color,
         signature_item_fragment: itemFragment ?? null,
+        art_style: artStyle,
       },
     })
     .select('id')
@@ -170,6 +181,7 @@ Deno.serve(async (req) => {
       signature_color: character.signature_color,
       signature_item_fragment: itemFragment,
       seed,
+      art_style: artStyle,
     });
   } catch (e) {
     const code = e instanceof SafetyRefusedError

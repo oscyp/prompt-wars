@@ -29,6 +29,7 @@ import {
   Expression,
   ItemClass,
   PALETTE_HEX,
+  ArtStyle,
 } from '@/constants/CharacterTraits';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
@@ -41,6 +42,7 @@ import {
   PortraitPreview,
   ItemGrid,
   ItemGridItem,
+  ArtStylePicker,
 } from '@/components';
 import {
   generatePortrait,
@@ -77,6 +79,7 @@ interface Draft {
   signatureItem?: CatalogSignatureItem;
   battleCry: string;
   signatureColor?: PaletteKey;
+  artStyle: ArtStyle;
 }
 
 const INITIAL_DRAFT: Draft = {
@@ -86,6 +89,7 @@ const INITIAL_DRAFT: Draft = {
   prompt: '',
   battleCry: '',
   portraitFailed: false,
+  artStyle: 'painterly',
 };
 
 const TOTAL_STEPS = 9;
@@ -592,6 +596,7 @@ function StepPortrait({
                   expression: merged.expression,
                 }
               : undefined,
+          artStyle: merged.artStyle,
         });
         patch({ portrait: result, portraitFailed: false });
       } catch (err) {
@@ -660,6 +665,14 @@ function StepPortrait({
                 : undefined
         }
       />
+
+      <View style={styles.section}>
+        <ArtStylePicker
+          value={draft.artStyle}
+          onChange={(s) => patch({ artStyle: s })}
+          disabled={generating}
+        />
+      </View>
 
       {isPrompt ? (
         <View style={styles.section}>

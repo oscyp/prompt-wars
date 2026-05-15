@@ -18,12 +18,36 @@ import {
 } from '../_shared/image-provider.ts';
 import type {
   Archetype,
+  ArtStyle,
   PortraitTraits,
 } from '../_shared/portrait-prompt-resolver.ts';
+import { ART_STYLE_KEYS } from '../_shared/portrait-prompt-resolver.ts';
 
 interface RegenerateRequest {
   character_id: string;
   portrait_prompt_raw?: string; // if provided and differs, uses 'new_portrait' price
+  art_style?: ArtStyle; // if provided and differs, uses 'new_portrait' price
+}
+
+const PORTRAIT_HISTORY_LIMIT = 3;
+
+interface PortraitHistoryEntry {
+  portrait_id: string;
+  created_at: string;
+}
+
+function buildPortraitHistory(
+  existing: unknown,
+  priorPortraitId: string | null,
+): PortraitHistoryEntry[] {
+  if (!priorPortraitId) return Array.isArray(existing) ? (existing as PortraitHistoryEntry[]) : [];
+  const list = Array.isArray(existing) ? (existing as PortraitHistoryEntry[]) : [];
+  const filtered = list.filter((e) => e?.portrait_id !== priorPortraitId);
+  const next: PortraitHistoryEntry[] = [
+    { portrait_id: priorPortraitId, created_at: new Date().toISOString() },
+    ...filtered,
+  ];
+  return next.slice(0, PORTRAIT_HISTORY_LIMIT);
 }
 
 Deno.serve(async (req) => {
@@ -48,6 +72,9 @@ Deno.serve(async (req) => {
   if (body.portrait_prompt_raw && body.portrait_prompt_raw.length > 200) {
     return err('bad_request', 'portrait_prompt_raw must be <= 200 chars', 400);
   }
+  if (body.art_style && !ART_STYLE_KEYS.includes(body.art_style)) {
+    return err('bad_request', 'invalid art_style', 400);
+  }
 
   const headerKey = req.headers.get('Idempotency-Key')?.trim();
   const supabase = createServiceClient();
@@ -56,7 +83,7 @@ Deno.serve(async (req) => {
   const { data: character, error: charErr } = await supabase
     .from('characters')
     .select(
-      'id, profile_id, archetype, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, portrait_seed, portrait_prompt_raw, portrait_prompt_resolved',
+      'id, profile_id, archetype, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, portrait_seed, portrait_prompt_raw, portrait_prompt_resolved, portrait_id, art_style, portrait_history',
     )
     .eq('id', body.character_id)
     .maybeSingle();
@@ -73,7 +100,11 @@ Deno.serve(async (req) => {
   const newPrompt = body.portrait_prompt_raw;
   const promptChanged =
     newPrompt !== undefined && newPrompt !== character.portrait_prompt_raw;
-  const priceKey = promptChanged ? 'new_portrait' : 'regenerate_portrait';
+  const currentArtStyle =
+    ((character as { art_style?: ArtStyle }).art_style ?? 'painterly') as ArtStyle;
+  const newArtStyle = (body.art_style as ArtStyle | undefined) ?? currentArtStyle;
+  const styleChanged = newArtStyle !== currentArtStyle;
+  const priceKey = (promptChanged || styleChanged) ? 'new_portrait' : 'regenerate_portrait';
   const price = await getEditPrice(supabase, priceKey);
   if (!price) return err('server_error', 'price config missing', 500);
 
@@ -184,6 +215,7 @@ Deno.serve(async (req) => {
         archetype: character.archetype,
         signature_color: character.signature_color,
         signature_item_fragment: itemFragment ?? null,
+        art_style: newArtStyle,
       },
       idempotency_key: idempotencyKey,
       attempt: 1,
@@ -214,6 +246,7 @@ Deno.serve(async (req) => {
       signature_color: character.signature_color,
       signature_item_fragment: itemFragment,
       seed: character.portrait_seed as number,
+      art_style: newArtStyle,
     });
   } catch (e) {
     const code = e instanceof SafetyRefusedError
@@ -309,6 +342,11 @@ Deno.serve(async (req) => {
       portrait_id: portrait.id,
       portrait_prompt_raw: promptRaw || null,
       portrait_prompt_resolved: result.resolved_prompt,
+      art_style: newArtStyle,
+      portrait_history: buildPortraitHistory(
+        (character as { portrait_history?: unknown }).portrait_history,
+        (character as { portrait_id?: string | null }).portrait_id ?? null,
+      ),
     })
     .eq('id', character.id);
 

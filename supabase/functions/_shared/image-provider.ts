@@ -6,6 +6,7 @@ import {
   resolvePortraitPrompt,
   resolveItemIconPrompt,
   type Archetype,
+  type ArtStyle,
   type PortraitTraits,
 } from './portrait-prompt-resolver.ts';
 
@@ -20,6 +21,7 @@ export interface PortraitGenerationInput {
   signature_color: string;
   signature_item_fragment?: string;
   seed: number;
+  art_style?: ArtStyle;
 }
 
 export interface PortraitGenerationResult {
