@@ -1,11 +1,17 @@
 import { Stack } from 'expo-router';
 import React from 'react';
+import HeaderBackButton from '@/components/HeaderBackButton';
 
 export default function BattleLayout() {
   return (
     <Stack
       screenOptions={{
-        headerShown: false,
+        headerShown: true,
+        headerTransparent: true,
+        headerTitle: '',
+        headerShadowVisible: false,
+        headerBackTitle: '',
+        headerLeft: () => <HeaderBackButton />,
         animation: 'slide_from_right',
       }}
     >
