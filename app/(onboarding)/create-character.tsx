@@ -34,7 +34,7 @@ import {
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { useAuth } from '@/providers/AuthProvider';
-import { supabase } from '@/utils/supabase';
+import { supabase, invokeAuthenticatedFunction } from '@/utils/supabase';
 import { checkAccountEligibility, getDeviceFingerprint } from '@/utils/safety';
 import {
   TraitPicker,
@@ -80,7 +80,15 @@ interface Draft {
   battleCry: string;
   signatureColor?: PaletteKey;
   artStyle: ArtStyle;
+  /**
+   * Set after the `characters` row is pre-created in the portrait step.
+   * When present, `handleConfirm` will UPDATE this row instead of inserting
+   * a new one. Required because `generate-portrait` needs an existing row.
+   */
+  characterId?: string;
 }
+
+const PLACEHOLDER_BATTLE_CRY = '…';
 
 const INITIAL_DRAFT: Draft = {
   name: '',
@@ -160,34 +168,63 @@ export default function CreateCharacterScreen() {
           ? PALETTE_HEX[draft.signatureColor]
           : ARCHETYPES[draft.archetype].color;
 
-      const insertPayload: Record<string, unknown> = {
-        profile_id: user.id,
-        name,
-        archetype: draft.archetype,
-        battle_cry: battleCry,
-        signature_color: signatureColorHex,
-      };
+      if (draft.characterId) {
+        // Draft row exists (created during portrait step). Finalize it via
+        // the Edge Function — direct UPDATE on `characters` is revoked from
+        // authenticated clients.
+        const finalizeBody: Record<string, unknown> = {
+          character_id: draft.characterId,
+          name,
+          archetype: draft.archetype,
+          battle_cry: battleCry,
+          signature_color: signatureColorHex,
+        };
+        if (draft.vibe) finalizeBody.vibe = draft.vibe;
+        if (draft.silhouette) finalizeBody.silhouette = draft.silhouette;
+        if (draft.palette) finalizeBody.palette_key = draft.palette;
+        if (draft.era) finalizeBody.era = draft.era;
+        if (draft.expression) finalizeBody.expression = draft.expression;
+        if (draft.signatureItem)
+          finalizeBody.signature_item_id = draft.signatureItem.id;
+        if (draft.portrait)
+          finalizeBody.portrait_id = draft.portrait.portraitId;
 
-      if (draft.vibe) insertPayload.vibe = draft.vibe;
-      if (draft.silhouette) insertPayload.silhouette = draft.silhouette;
-      if (draft.palette) insertPayload.palette_key = draft.palette;
-      if (draft.era) insertPayload.era = draft.era;
-      if (draft.expression) insertPayload.expression = draft.expression;
-      if (draft.portrait) {
-        insertPayload.portrait_id = draft.portrait.portraitId;
-        insertPayload.portrait_seed = draft.portrait.seed;
+        const response = await invokeAuthenticatedFunction<{
+          ok: boolean;
+          error?: { code: string; message: string };
+        }>('finalize-character-creation', finalizeBody);
+        if (!response.ok) {
+          throw new Error(
+            response.error?.message ?? 'Failed to finalize character.',
+          );
+        }
+      } else {
+        // No draft row was ever created (e.g. user skipped the portrait
+        // step without triggering generation). Insert directly — the RLS
+        // INSERT policy allows authenticated users to create their own
+        // characters.
+        const insertPayload: Record<string, unknown> = {
+          profile_id: user.id,
+          name,
+          archetype: draft.archetype,
+          battle_cry: battleCry,
+          signature_color: signatureColorHex,
+        };
+        if (draft.vibe) insertPayload.vibe = draft.vibe;
+        if (draft.silhouette) insertPayload.silhouette = draft.silhouette;
+        if (draft.palette) insertPayload.palette_key = draft.palette;
+        if (draft.era) insertPayload.era = draft.era;
+        if (draft.expression) insertPayload.expression = draft.expression;
+        if (draft.signatureItem) {
+          insertPayload.signature_item_id = draft.signatureItem.id;
+        }
+        const { error: characterError } = await supabase
+          .from('characters')
+          .insert(insertPayload)
+          .select()
+          .single();
+        if (characterError) throw new Error(characterError.message);
       }
-      if (draft.signatureItem) {
-        insertPayload.signature_item_id = draft.signatureItem.id;
-      }
-
-      const { error: characterError } = await supabase
-        .from('characters')
-        .insert(insertPayload)
-        .select()
-        .single();
-
-      if (characterError) throw new Error(characterError.message);
 
       router.replace('/(tabs)/home');
     } catch (err) {
@@ -563,6 +600,7 @@ function StepPortrait({
   patch: (p: Partial<Draft>) => void;
 }) {
   const colors = useThemedColors();
+  const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
   const [regens, setRegens] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -582,7 +620,42 @@ function StepPortrait({
       setGenerating(true);
       setErrorMsg(null);
       try {
+        // The generate-portrait Edge Function requires an existing
+        // `characters` row owned by the current user. Pre-create one on
+        // first generation; reuse it for subsequent regenerations and the
+        // final confirm step.
+        let characterId = merged.characterId;
+        if (!characterId) {
+          if (!user) throw new Error('You must be signed in.');
+          const trimmedName = merged.name.trim();
+          if (!trimmedName) {
+            throw new Error('Character name is required.');
+          }
+          const { data: created, error: insertError } = await supabase
+            .from('characters')
+            .insert({
+              profile_id: user.id,
+              name: trimmedName,
+              archetype,
+              // Always insert with the placeholder. The real battle_cry is
+              // applied at confirm via the finalize-character-creation Edge
+              // Function, which gates on this exact placeholder value to
+              // detect "still a draft" rows.
+              battle_cry: PLACEHOLDER_BATTLE_CRY,
+            })
+            .select('id')
+            .single();
+          if (insertError || !created) {
+            throw new Error(
+              insertError?.message ?? 'Failed to create character draft.',
+            );
+          }
+          characterId = created.id;
+          patch({ characterId });
+        }
+
         const result = await generatePortrait({
+          characterId,
           archetype,
           mode: merged.path ?? 'prompt',
           prompt: merged.path === 'prompt' ? merged.prompt : undefined,
@@ -611,7 +684,7 @@ function StepPortrait({
         setGenerating(false);
       }
     },
-    [archetype, draft, generating, patch],
+    [archetype, draft, generating, patch, user],
   );
 
   const skip = () => {
