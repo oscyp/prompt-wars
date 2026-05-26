@@ -9,10 +9,12 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import { appealBattle } from '@/utils/battles';
+import { devGenerateVideo } from '@/utils/devVideo';
 import { requestVideoUpgrade } from '@/utils/monetization';
 import { reportContent } from '@/utils/safety';
 import { useAuth } from '@/providers/AuthProvider';
@@ -34,7 +36,17 @@ export default function ResultScreen() {
   } = useRealtimeBattle(battleId || null);
   const [isAppealing, setIsAppealing] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isDevGenerating, setIsDevGenerating] = useState(false);
   const isBo3 = format === 'bo3';
+
+  const videoUrl =
+    videoJob?.status === 'succeeded' && videoJob.video_url
+      ? videoJob.video_url
+      : null;
+  const player = useVideoPlayer(videoUrl, (p) => {
+    p.loop = false;
+    p.muted = false;
+  });
 
   useEffect(() => {
     if (!battle) refetch();
@@ -123,6 +135,34 @@ export default function ResultScreen() {
     } finally {
       setIsUpgrading(false);
     }
+  };
+
+  const handleDevGenerate = async () => {
+    if (!battleId) return;
+    Alert.alert(
+      'Dev: Generate Real Cinematic',
+      'This will queue a real xAI video generation (free in dev). It can take up to ~2.5 minutes. The placeholder will be replaced. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Generate',
+          onPress: async () => {
+            setIsDevGenerating(true);
+            try {
+              const r = await devGenerateVideo(battleId as string);
+              if (r.success) {
+                Alert.alert('Generating', 'xAI generation submitted. The video will appear here automatically when ready.');
+                refetch();
+              } else {
+                Alert.alert('Dev Generation Failed', r.error || 'Unknown error');
+              }
+            } finally {
+              setIsDevGenerating(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleReport = () => {
@@ -224,36 +264,36 @@ export default function ResultScreen() {
           </View>
         )}
 
-        {/* Video Upgrade */}
-        {battle.status === 'result_ready' && !videoJob && (
-          <TouchableOpacity
-            style={[styles.upgradeButton, { backgroundColor: colors.primary }]}
-            onPress={handleUpgradePreview}
-            disabled={isUpgrading}
-            accessibilityLabel="Upgrade to cinematic video"
-            accessibilityRole="button"
-          >
-            {isUpgrading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <Text style={styles.upgradeButtonText}>🎬 Upgrade to Cinematic Video</Text>
-                <Text style={styles.upgradeButtonSubtext}>See the battle come to life</Text>
-              </>
+        {/* Cinematic Video */}
+        {videoUrl ? (
+          <View style={styles.videoCard}>
+            <Text style={[styles.videoCardTitle, { color: colors.text }]}>
+              Cinematic Reveal
+            </Text>
+            <VideoView
+              player={player}
+              style={styles.videoView}
+              nativeControls
+              contentFit="cover"
+            />
+            {videoJob?.moderation_status === 'pending' && (
+              <Text
+                style={[
+                  styles.moderationText,
+                  { color: colors.warning, padding: Spacing.md },
+                ]}
+              >
+                Video pending moderation approval
+              </Text>
             )}
-          </TouchableOpacity>
-        )}
-
-        {/* Video Status */}
-        {videoJob && (
+          </View>
+        ) : videoJob ? (
           <View style={[styles.card, { backgroundColor: colors.card }]}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>Video Status</Text>
             <Text style={[styles.cardText, { color: colors.textSecondary }]}>
-              {videoJob.status === 'succeeded'
-                ? '✓ Video ready!'
-                : videoJob.status === 'failed'
+              {videoJob.status === 'failed'
                 ? '✗ Generation failed'
-                : `⏳ ${videoJob.status}...`}
+                : `⏳ Generating cinematic...`}
             </Text>
             {videoJob.moderation_status === 'pending' && (
               <Text style={[styles.moderationText, { color: colors.warning }]}>
@@ -261,6 +301,49 @@ export default function ResultScreen() {
               </Text>
             )}
           </View>
+        ) : (
+          battle.status === 'result_ready' &&
+          battle.mode !== 'bot' && (
+            <TouchableOpacity
+              style={[styles.upgradeButton, { backgroundColor: colors.primary }]}
+              onPress={handleUpgradePreview}
+              disabled={isUpgrading}
+              accessibilityLabel="Upgrade to cinematic video"
+              accessibilityRole="button"
+            >
+              {isUpgrading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Text style={styles.upgradeButtonText}>🎬 Upgrade to Cinematic Video</Text>
+                  <Text style={styles.upgradeButtonSubtext}>See the battle come to life</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )
+        )}
+
+        {__DEV__ && (
+          <TouchableOpacity
+            style={[styles.devButton, { borderColor: colors.warning }]}
+            onPress={handleDevGenerate}
+            disabled={isDevGenerating}
+            accessibilityLabel="Dev: generate real cinematic video"
+            accessibilityRole="button"
+          >
+            {isDevGenerating ? (
+              <ActivityIndicator color={colors.warning} />
+            ) : (
+              <>
+                <Text style={[styles.devButtonText, { color: colors.warning }]}>
+                  🧪 Dev: Generate Real Cinematic (xAI)
+                </Text>
+                <Text style={[styles.devButtonSubtext, { color: colors.textSecondary }]}>
+                  Replaces placeholder with real xAI generation (~2.5 min)
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
         )}
 
         {/* Appeal */}
@@ -355,6 +438,22 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.sm,
     marginTop: Spacing.sm,
   },
+  videoCard: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: Spacing.md,
+    backgroundColor: '#000',
+  },
+  videoView: {
+    width: '100%',
+    aspectRatio: 9 / 16,
+    backgroundColor: '#000',
+  },
+  videoCardTitle: {
+    fontSize: Typography.sizes.lg,
+    fontWeight: Typography.weights.semibold,
+    padding: Spacing.md,
+  },
   upgradeButton: {
     padding: Spacing.lg,
     borderRadius: 12,
@@ -370,6 +469,22 @@ const styles = StyleSheet.create({
   upgradeButtonSubtext: {
     color: 'rgba(255, 255, 255, 0.8)',
     fontSize: Typography.sizes.sm,
+  },
+  devButton: {
+    padding: Spacing.lg,
+    borderRadius: 12,
+    marginBottom: Spacing.md,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+  },
+  devButtonText: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+  },
+  devButtonSubtext: {
+    fontSize: Typography.sizes.sm,
+    marginTop: Spacing.xs,
   },
   appealButton: {
     padding: Spacing.md,

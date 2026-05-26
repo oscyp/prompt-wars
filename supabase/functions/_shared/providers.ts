@@ -246,14 +246,30 @@ export class MockVideoProvider implements AiVideoProvider {
 
 /**
  * xAI / X AI video provider (production)
+ *
+ * Real xAI Imagine Video REST API contract (docs.x.ai, May 2026):
+ *   POST https://api.x.ai/v1/videos/generations
+ *     body: { model: "grok-imagine-video", prompt, duration, aspect_ratio, resolution }
+ *     → { request_id }
+ *   GET  https://api.x.ai/v1/videos/{request_id}
+ *     → { status: "pending"|"done"|"expired"|"failed", video?: { url, duration, respect_moderation }, error?: { code, message } }
+ *
+ * Video URLs are TEMPORARY xAI-hosted URLs. For production, download to Storage
+ * before serving to clients. For dev, the temp URL is good enough.
  */
 export class XAIVideoProvider implements AiVideoProvider {
   private apiKey: string;
   private baseUrl: string;
+  private model: string;
+  private resolution: string;
 
   constructor() {
     this.apiKey = Deno.env.get('XAI_API_KEY') || '';
-    this.baseUrl = Deno.env.get('XAI_VIDEO_BASE_URL') || 'https://api.x.ai/v1/video';
+    // Ignore legacy XAI_VIDEO_BASE_URL (was hard-coded to non-existent
+    // /v1/video path). Allow override via XAI_API_BASE_URL if ever needed.
+    this.baseUrl = Deno.env.get('XAI_API_BASE_URL') || 'https://api.x.ai/v1';
+    this.model = Deno.env.get('XAI_VIDEO_MODEL') || 'grok-imagine-video';
+    this.resolution = Deno.env.get('XAI_VIDEO_RESOLUTION') || '720p';
 
     if (!this.apiKey) {
       console.warn('XAI_API_KEY not set, video generation will fail');
@@ -261,56 +277,82 @@ export class XAIVideoProvider implements AiVideoProvider {
   }
 
   async submitVideoGeneration(req: VideoGenerationRequest): Promise<VideoJobSubmission> {
-    // Compose xAI prompt from battle context
     const prompt = this.composeVideoPrompt(req);
 
-    const response = await fetch(`${this.baseUrl}/generate`, {
+    // xAI duration: 1–15 seconds.
+    const duration = Math.max(1, Math.min(15, req.targetDurationSeconds || 8));
+
+    const response = await fetch(`${this.baseUrl}/videos/generations`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        model: this.model,
         prompt,
-        duration: req.targetDurationSeconds,
-        aspect_ratio: req.aspectRatio,
-        safety_filters: req.safetyConstraints,
-        model: 'xai-video-v1', // placeholder model name
+        duration,
+        aspect_ratio: req.aspectRatio, // "9:16" supported
+        resolution: this.resolution,
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`xAI video submission failed: ${response.statusText}`);
+      const bodyText = await response.text().catch(() => '');
+      throw new Error(`xAI video submission failed: ${response.status} ${response.statusText}${bodyText ? ' — ' + bodyText.slice(0, 500) : ''}`);
     }
 
     const data = await response.json();
+    const requestId = data.request_id;
+    if (!requestId) {
+      throw new Error('xAI video submission returned no request_id');
+    }
 
     return {
-      providerJobId: data.job_id,
-      providerRequestId: data.request_id || `xai-${Date.now()}`,
-      estimatedCompletionSeconds: data.estimated_completion_seconds || 90,
+      providerJobId: requestId,
+      providerRequestId: requestId,
+      estimatedCompletionSeconds: 120,
     };
   }
 
   async pollVideoStatus(providerJobId: string): Promise<VideoJobStatus> {
-    const response = await fetch(`${this.baseUrl}/status/${providerJobId}`, {
+    const response = await fetch(`${this.baseUrl}/videos/${providerJobId}`, {
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,
       },
     });
 
     if (!response.ok) {
-      throw new Error(`xAI status poll failed: ${response.statusText}`);
+      const bodyText = await response.text().catch(() => '');
+      throw new Error(`xAI status poll failed: ${response.status} ${response.statusText}${bodyText ? ' — ' + bodyText.slice(0, 300) : ''}`);
     }
 
     const data = await response.json();
 
-    return {
-      status: data.status, // queued | processing | succeeded | failed
-      videoUrl: data.video_url,
-      errorCode: data.error_code,
-      errorMessage: data.error_message,
-    };
+    // xAI status enum: pending | done | expired | failed
+    // Map to our internal VideoJobStatus: queued | processing | succeeded | failed
+    switch (data.status) {
+      case 'done':
+        return {
+          status: 'succeeded',
+          videoUrl: data.video?.url,
+        };
+      case 'failed':
+        return {
+          status: 'failed',
+          errorCode: data.error?.code || 'xai_failed',
+          errorMessage: data.error?.message || 'xAI reported failure',
+        };
+      case 'expired':
+        return {
+          status: 'failed',
+          errorCode: 'expired',
+          errorMessage: 'xAI video request expired before completion',
+        };
+      case 'pending':
+      default:
+        return { status: 'processing' };
+    }
   }
 
   async getVideoUrl(providerJobId: string): Promise<string> {
