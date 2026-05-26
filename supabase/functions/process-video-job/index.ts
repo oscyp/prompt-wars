@@ -302,7 +302,15 @@ async function processVideoJob(
           await failJob(supabase, job.id, 'storage_failed', 'Failed to store video metadata');
           return { job_id: job.id, status: 'failed', error: 'storage_failed' };
         }
-        
+
+        // Best-effort default caption insertion. Captions are nice-to-have for
+        // accessibility / share-readiness; failures here MUST NOT fail the job.
+        try {
+          await insertDefaultCaptions(supabase, videoRow.id, battle);
+        } catch (captionErr) {
+          console.error('Caption insertion failed (non-fatal):', captionErr);
+        }
+
         // Invoke post-generation video moderation (blocking for refund logic)
         try {
           const moderationResult = await moderateVideo(supabase, videoRow.id, job.battle_id);
@@ -435,6 +443,96 @@ async function failJob(
       completed_at: new Date().toISOString(),
     })
     .eq('id', jobId);
+}
+
+/**
+ * Best-effort default caption generation for a freshly-stored Tier 1 video.
+ *
+ * Derives up to three caption lines from already-computed battle payloads
+ * (tier0_reveal_payload + score_payload) so the upsert is cheap and offline:
+ *
+ *   Line 1 (0–3000ms):     tier0.summary, else "<winner> wins" / "Draw"
+ *   Line 2 (3000–7000ms):  first sentence (or first 140 chars) of score
+ *                          explanation
+ *   Line 3 (7000–9000ms):  "Finisher: <winnerCharacterName>" when winner known
+ *
+ * Empty-source lines are skipped. Insertion is idempotent per
+ * (video_id, locale) — duplicates are silently ignored.
+ */
+async function insertDefaultCaptions(
+  supabase: ReturnType<typeof createServiceClient>,
+  videoId: string,
+  battle: any,
+): Promise<void> {
+  const tier0 = battle?.tier0_reveal_payload ?? null;
+  const score = battle?.score_payload ?? null;
+
+  const lines: Array<{ start_ms: number; end_ms: number; text: string }> = [];
+
+  // Line 1 — headline summary.
+  let line1Text: string | null = null;
+  if (tier0 && typeof tier0.summary === 'string' && tier0.summary.trim().length > 0) {
+    line1Text = tier0.summary.trim();
+  } else if (battle?.is_draw) {
+    line1Text = 'Draw';
+  } else if (battle?.winner_id) {
+    const winnerName = battle.winner_id === battle.player_one_id
+      ? battle.player_one_character?.name
+      : battle.is_player_two_bot
+        ? battle.bot_persona?.name
+        : battle.player_two_character?.name;
+    if (winnerName) line1Text = `${winnerName} wins`;
+  }
+  if (line1Text) {
+    lines.push({ start_ms: 0, end_ms: 3000, text: line1Text });
+  }
+
+  // Line 2 — explanation snippet.
+  if (score && typeof score.explanation === 'string' && score.explanation.trim().length > 0) {
+    const raw = score.explanation.trim();
+    // First sentence boundary or 140-char hard cap, whichever is shorter.
+    const sentenceMatch = raw.match(/^.+?[.!?](?:\s|$)/);
+    const firstSentence = sentenceMatch ? sentenceMatch[0].trim() : raw;
+    const line2Text = firstSentence.length > 140
+      ? firstSentence.slice(0, 140).trimEnd()
+      : firstSentence;
+    if (line2Text.length > 0) {
+      lines.push({ start_ms: 3000, end_ms: 7000, text: line2Text });
+    }
+  }
+
+  // Line 3 — finisher attribution.
+  if (battle?.winner_id) {
+    const winnerCharName = battle.winner_id === battle.player_one_id
+      ? battle.player_one_character?.name
+      : battle.is_player_two_bot
+        ? battle.bot_persona?.name
+        : battle.player_two_character?.name;
+    if (winnerCharName) {
+      lines.push({ start_ms: 7000, end_ms: 9000, text: `Finisher: ${winnerCharName}` });
+    }
+  }
+
+  if (lines.length === 0) {
+    return;
+  }
+
+  const locale = 'en-US';
+  const { error } = await supabase
+    .from('video_captions')
+    .upsert(
+      {
+        video_id: videoId,
+        locale,
+        generator: 'auto',
+        json_payload: { locale, lines },
+      },
+      { onConflict: 'video_id,locale', ignoreDuplicates: true },
+    );
+
+  if (error) {
+    console.error('video_captions upsert error (non-fatal):', error);
+  }
 }
 
 /**

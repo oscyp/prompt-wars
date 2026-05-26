@@ -17,8 +17,18 @@ import { appealBattle } from '@/utils/battles';
 import { devGenerateVideo } from '@/utils/devVideo';
 import { requestVideoUpgrade } from '@/utils/monetization';
 import { reportContent } from '@/utils/safety';
+import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import { BattleRound } from '@/types/battle';
+
+type CaptionLine = { start_ms: number; end_ms: number; text: string };
+
+function formatTimestamp(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
 
 export default function ResultScreen() {
   const colors = useThemedColors();
@@ -37,6 +47,7 @@ export default function ResultScreen() {
   const [isAppealing, setIsAppealing] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [isDevGenerating, setIsDevGenerating] = useState(false);
+  const [captionLines, setCaptionLines] = useState<CaptionLine[]>([]);
   const isBo3 = format === 'bo3';
 
   const videoUrl =
@@ -51,6 +62,52 @@ export default function ResultScreen() {
   useEffect(() => {
     if (!battle) refetch();
   }, [battle, refetch]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (videoJob?.status !== 'succeeded' || !battleId || !videoJob?.id) {
+      setCaptionLines([]);
+      return;
+    }
+
+    (async () => {
+      try {
+        const { data: videoRow, error: videoErr } = await supabase
+          .from('videos')
+          .select('id')
+          .eq('battle_id', battleId)
+          .eq('video_job_id', videoJob.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (cancelled || videoErr || !videoRow?.id) return;
+
+        const { data: captionRow, error: captionErr } = await supabase
+          .from('video_captions')
+          .select('json_payload')
+          .eq('video_id', videoRow.id)
+          .eq('locale', 'en-US')
+          .maybeSingle();
+
+        if (cancelled || captionErr || !captionRow?.json_payload) return;
+
+        const payload = captionRow.json_payload as {
+          lines?: CaptionLine[];
+        };
+        if (Array.isArray(payload?.lines)) {
+          setCaptionLines(payload.lines);
+        }
+      } catch {
+        // Captions are nice-to-have; fail silently.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [battleId, videoJob?.id, videoJob?.status]);
 
   const isWinner = battle?.winner_id === user?.id;
   const isDraw = battle?.is_draw;
@@ -276,6 +333,27 @@ export default function ResultScreen() {
               nativeControls
               contentFit="cover"
             />
+            {captionLines.length > 0 && (
+              <View
+                style={styles.captionsContainer}
+                accessibilityLabel={`Captions: ${captionLines.length} lines`}
+              >
+                <Text style={[styles.captionsTitle, { color: colors.text }]}>
+                  Captions
+                </Text>
+                {captionLines.map((line, idx) => (
+                  <Text
+                    key={`${line.start_ms}-${idx}`}
+                    style={styles.captionLine}
+                  >
+                    <Text style={{ color: colors.textSecondary }}>
+                      {formatTimestamp(line.start_ms)}
+                    </Text>
+                    <Text style={{ color: colors.text }}>{`  ${line.text}`}</Text>
+                  </Text>
+                ))}
+              </View>
+            )}
             {videoJob?.moderation_status === 'pending' && (
               <Text
                 style={[
@@ -453,6 +531,18 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.semibold,
     padding: Spacing.md,
+  },
+  captionsContainer: {
+    padding: Spacing.md,
+  },
+  captionsTitle: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+    marginBottom: Spacing.sm,
+  },
+  captionLine: {
+    fontSize: Typography.sizes.base,
+    marginBottom: Spacing.xs,
   },
   upgradeButton: {
     padding: Spacing.lg,
