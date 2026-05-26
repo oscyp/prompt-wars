@@ -9,10 +9,21 @@ import {
   getAuthUserId,
   generateIdempotencyKey 
 } from '../_shared/utils.ts';
+import { hashTier1Payload } from '../_shared/compose-tier1-payload.ts';
+import { composePerRoundPayload } from '../_shared/per-round-payload.ts';
+import { TIER1_PER_ROUND_COST_UNITS, type VideoJobTrigger } from '../_shared/video-constants.ts';
+import {
+  checkRoundUpgradeEntitlement,
+  finalizeRoundUpgradeEntitlement,
+  type RoundUpgradeSource,
+} from '../_shared/entitlement-gate.ts';
 
 interface RequestVideoUpgradeRequest {
   battle_id: string;
   auto_spend?: boolean; // If true, spend credits or allowance without re-prompting cost
+  // Optional per-round upgrade (Bo3). When omitted, behavior is unchanged.
+  battle_round_id?: string;
+  round_number?: number;
 }
 
 interface EntitlementCheck {
@@ -34,7 +45,12 @@ Deno.serve(async (req) => {
   
   try {
     const userId = await getAuthUserId(req);
-    const { battle_id, auto_spend = false }: RequestVideoUpgradeRequest = await req.json();
+    const {
+      battle_id,
+      auto_spend = false,
+      battle_round_id,
+      round_number,
+    }: RequestVideoUpgradeRequest = await req.json();
     
     if (!battle_id) {
       return errorResponse('battle_id required');
@@ -42,12 +58,17 @@ Deno.serve(async (req) => {
     
     const supabase = createServiceClient();
     
-    // 1. Validate user is battle participant
-    const { data: battle, error: battleError } = await supabase
+    // 1. Validate user is battle participant (load full battle when in round mode
+    //    so we can compose the Tier 1 payload from frozen rows).
+    const battleSelect = battle_round_id
+      ? '*, player_one_character:characters!battles_player_one_character_id_fkey(*), player_two_character:characters!battles_player_two_character_id_fkey(*)'
+      : 'id, status, player_one_id, player_two_id';
+    const { data: battleRaw, error: battleError } = await supabase
       .from('battles')
-      .select('id, status, player_one_id, player_two_id')
+      .select(battleSelect as any)
       .eq('id', battle_id)
       .single();
+    const battle = battleRaw as any;
     
     if (battleError || !battle) {
       return errorResponse('Battle not found', 404);
@@ -57,19 +78,54 @@ Deno.serve(async (req) => {
       return errorResponse('Not a participant in this battle', 403);
     }
     
-    // 2. Validate battle is in correct state (result_ready or completed)
-    if (!['result_ready', 'completed'].includes(battle.status)) {
-      return errorResponse(`Battle not ready for video upgrade. Status: ${battle.status}`, 400);
+    // 2. Validate state. For per-round upgrades the round itself must be
+    //    result_ready (frozen outcome) — battle.status may still be 'resolving'
+    //    for Bo3 mid-series. For legacy calls, fall back to the prior check.
+    if (battle_round_id) {
+      const { data: rRow, error: rErr } = await supabase
+        .from('battle_rounds')
+        .select('id, status, battle_id')
+        .eq('id', battle_round_id)
+        .single();
+      if (rErr || !rRow) return errorResponse('battle_round_id not found', 404);
+      if (rRow.battle_id !== battle_id) {
+        return errorResponse('battle_round_id does not belong to battle_id', 400);
+      }
+      if (rRow.status !== 'result_ready') {
+        return errorResponse(
+          `Round not ready for upgrade. Round status: ${rRow.status}`,
+          400,
+        );
+      }
+    } else {
+      if (!['result_ready', 'completed'].includes(battle.status)) {
+        return errorResponse(`Battle not ready for video upgrade. Status: ${battle.status}`, 400);
+      }
     }
     
-    // 3. Check if video job already exists (idempotency)
-    const { data: existingJob } = await supabase
+    // 3. Idempotency check.
+    //    Per-round: check on (battle_id, round_number, tier=1).
+    //    Legacy: existing one-job-per-battle behavior (battle_round_id IS NULL).
+    let existingJobQuery = supabase
       .from('video_jobs')
       .select('id, status')
       .eq('battle_id', battle_id)
-      .maybeSingle();
+      .eq('tier', 1);
+    if (battle_round_id) {
+      existingJobQuery = existingJobQuery.eq('battle_round_id', battle_round_id);
+    } else {
+      existingJobQuery = existingJobQuery.is('battle_round_id', null);
+    }
+    const { data: existingJob } = await existingJobQuery.maybeSingle();
     
     if (existingJob) {
+      // For per-round: hard 409 per spec.
+      if (battle_round_id) {
+        return errorResponse(
+          `Tier 1 already requested for this round (job ${existingJob.id}, status ${existingJob.status})`,
+          409,
+        );
+      }
       return successResponse({
         already_requested: true,
         video_job_id: existingJob.id,
@@ -78,85 +134,231 @@ Deno.serve(async (req) => {
       });
     }
     
-    // 4. Query entitlements view for feature gate decision
-    const entitlementCheck = await checkVideoUpgradeEntitlement(supabase, userId);
-    
-    if (!entitlementCheck.can_upgrade) {
-      return successResponse({
-        can_upgrade: false,
-        entitlement_check: entitlementCheck,
-        message: entitlementCheck.error || 'Not entitled to video upgrade',
-      });
-    }
-    
-    // 5. If auto_spend is false, return cost preview
-    if (!auto_spend) {
-      return successResponse({
-        can_upgrade: true,
-        entitlement_check: entitlementCheck,
-        cost_preview: {
-          method: entitlementCheck.method,
-          cost_credits: entitlementCheck.cost_credits,
+    // 4. Entitlement check.
+    //    Per-round (Bo3): use round-unit gate (`checkRoundUpgradeEntitlement`).
+    //    Legacy single-format: keep prior per-battle gate for one release.
+    let roundGateResult:
+      | {
+          source: RoundUpgradeSource;
+          reservation_id: string | null;
+          is_full_battle: boolean;
+        }
+      | null = null;
+    let legacySpendResult:
+      | { success: boolean; source: string; transaction_id?: string }
+      | null = null;
+    let legacyMethod: string | null = null;
+
+    if (battle_round_id) {
+      const gate = await checkRoundUpgradeEntitlement(
+        userId,
+        battle_id,
+        round_number ?? 1,
+        supabase as any,
+        {
+          battle: {
+            id: (battle as any).id,
+            format: (battle as any).format ?? 'bo3',
+            best_of: (battle as any).best_of ?? 3,
+            player_one_rounds_won: (battle as any).player_one_rounds_won ?? 0,
+            player_two_rounds_won: (battle as any).player_two_rounds_won ?? 0,
+          },
         },
-        message: 'Video upgrade available. Call again with auto_spend=true to proceed.',
-      });
+      );
+
+      if (!gate.allowed || !gate.source) {
+        return successResponse({
+          can_upgrade: false,
+          entitlement_check: {
+            can_upgrade: false,
+            method: 'none',
+            error: gate.reason ?? 'not_entitled',
+          },
+          message: gate.reason ?? 'Not entitled to round upgrade',
+        });
+      }
+
+      // Cost preview branch — must release any reservation we took.
+      if (!auto_spend) {
+        if (gate.reservation_id) {
+          await finalizeRoundUpgradeEntitlement(
+            {
+              reservation_id: gate.reservation_id,
+              source: gate.source,
+              profile_id: userId,
+              battle_id,
+              round_number: round_number ?? 1,
+              is_full_battle: gate.is_full_battle,
+            },
+            'failed',
+            supabase as any,
+          );
+        }
+        return successResponse({
+          can_upgrade: true,
+          entitlement_check: {
+            can_upgrade: true,
+            method: gate.source,
+            cost_credits: gate.source === 'credit' ? TIER_1_VIDEO_COST : 0,
+          },
+          cost_preview: {
+            method: gate.source,
+            cost_credits: gate.source === 'credit' ? TIER_1_VIDEO_COST : 0,
+            is_full_battle: gate.is_full_battle,
+          },
+          message: 'Round upgrade available. Call again with auto_spend=true to proceed.',
+        });
+      }
+
+      roundGateResult = {
+        source: gate.source,
+        reservation_id: gate.reservation_id ?? null,
+        is_full_battle: !!gate.is_full_battle,
+      };
+    } else {
+      // Legacy single-format path (unchanged).
+      const entitlementCheck = await checkVideoUpgradeEntitlement(supabase, userId);
+
+      if (!entitlementCheck.can_upgrade) {
+        return successResponse({
+          can_upgrade: false,
+          entitlement_check: entitlementCheck,
+          message: entitlementCheck.error || 'Not entitled to video upgrade',
+        });
+      }
+
+      if (!auto_spend) {
+        return successResponse({
+          can_upgrade: true,
+          entitlement_check: entitlementCheck,
+          cost_preview: {
+            method: entitlementCheck.method,
+            cost_credits: entitlementCheck.cost_credits,
+          },
+          message: 'Video upgrade available. Call again with auto_spend=true to proceed.',
+        });
+      }
+
+      switch (entitlementCheck.method) {
+        case 'subscription_allowance':
+          legacySpendResult = await spendSubscriptionAllowance(supabase, userId, battle_id);
+          break;
+        case 'credits':
+          legacySpendResult = await spendCreditsForVideo(supabase, userId, battle_id, TIER_1_VIDEO_COST);
+          break;
+        case 'free_grant':
+          legacySpendResult = await spendFreeGrant(supabase, userId, battle_id);
+          break;
+        default:
+          return errorResponse('Invalid entitlement method', 500);
+      }
+      legacyMethod = entitlementCheck.method;
+      if (!legacySpendResult || !legacySpendResult.success) {
+        return errorResponse('Failed to process payment/allowance', 500);
+      }
     }
-    
-    // 6. Spend credits, allowance, or grant depending on method
-    let spendResult: { success: boolean; source: string; transaction_id?: string } | null = null;
-    
-    switch (entitlementCheck.method) {
-      case 'subscription_allowance':
-        spendResult = await spendSubscriptionAllowance(supabase, userId, battle_id);
-        break;
-      
-      case 'credits':
-        spendResult = await spendCreditsForVideo(supabase, userId, battle_id, TIER_1_VIDEO_COST);
-        break;
-      
-      case 'free_grant':
-        spendResult = await spendFreeGrant(supabase, userId, battle_id);
-        break;
-      
-      default:
-        return errorResponse('Invalid entitlement method', 500);
-    }
-    
+
+    // Unified spend descriptor for downstream video_jobs insert.
+    const spendResult: { success: boolean; source: string; transaction_id?: string } | null =
+      roundGateResult
+        ? {
+            success: true,
+            source: roundGateResult.source,
+            transaction_id: roundGateResult.reservation_id ?? undefined,
+          }
+        : legacySpendResult;
+    const effectiveMethod: string = roundGateResult ? roundGateResult.source : (legacyMethod ?? '');
+
     if (!spendResult || !spendResult.success) {
       return errorResponse('Failed to process payment/allowance', 500);
     }
     
-    // 7. Create video_jobs row with idempotency
-    const requestPayloadHash = await hashPayload({ battle_id, userId, timestamp: Date.now() });
+    // 7. Create video_jobs row with idempotency.
+    //    Per-round: compose Tier 1 payload from frozen battle_rounds + prompts,
+    //    derive input_payload_hash, and tag with trigger / tier / round metadata.
+    const trigger: VideoJobTrigger = battle_round_id
+      ? (effectiveMethod === 'subscriber_full' || effectiveMethod === 'subscriber_round'
+          ? 'auto_subscriber'
+          : effectiveMethod === 'new_user_grant'
+          ? 'on_demand_grant'
+          : 'on_demand_credit')
+      : 'series_end_legacy';
+
+    let inputPayloadHash: string | null = null;
+    let composedPayload: Record<string, unknown> | null = null;
+
+    if (battle_round_id) {
+      try {
+        composedPayload = await composePerRoundPayload(
+          supabase,
+          battle as Record<string, any>,
+          battle_round_id,
+          round_number ?? null,
+        );
+        inputPayloadHash = await hashTier1Payload(composedPayload as any);
+      } catch (e) {
+        console.error('Tier 1 payload composition failed:', e);
+        await rollbackSpend(supabase, spendResult, roundGateResult, userId, battle_id, round_number ?? 1);
+        return errorResponse(
+          `Failed to compose Tier 1 payload: ${e instanceof Error ? e.message : 'unknown'}`,
+          500,
+        );
+      }
+    }
+
+    const requestPayloadHash =
+      inputPayloadHash ?? (await hashPayload({ battle_id, userId, timestamp: Date.now() }));
     
     const { data: videoJob, error: jobError } = await supabase
       .from('video_jobs')
       .insert({
         battle_id,
+        battle_round_id: battle_round_id ?? null,
+        round_number: round_number ?? null,
+        tier: 1,
+        trigger,
         provider: 'xai',
         status: 'queued',
         request_payload_hash: requestPayloadHash,
+        input_payload_hash: inputPayloadHash,
         requester_profile_id: userId,
         entitlement_source: spendResult.source,
         spend_transaction_id: spendResult.transaction_id || null,
-        credits_charged: entitlementCheck.method === 'credits' ? TIER_1_VIDEO_COST : 0,
+        credits_charged:
+          effectiveMethod === 'credits' || effectiveMethod === 'credit'
+            ? TIER_1_VIDEO_COST
+            : 0,
+        cost_units: battle_round_id ? TIER1_PER_ROUND_COST_UNITS : 0,
       })
       .select('id, status')
       .single();
     
     if (jobError || !videoJob) {
       console.error('Video job creation failed:', jobError);
-      // Rollback spend based on entitlement source
-      await rollbackVideoSpend(supabase, spendResult, userId, battle_id);
+      await rollbackSpend(supabase, spendResult, roundGateResult, userId, battle_id, round_number ?? 1);
       return errorResponse('Failed to create video job', 500);
     }
     
-    // 8. Update battle status if still result_ready
-    if (battle.status === 'result_ready') {
+    // 8. Update battle status if still result_ready (legacy single-format only;
+    //    per-round upgrades MUST NOT toggle battle status — the battle may still
+    //    be resolving for the next round.)
+    if (!battle_round_id && battle.status === 'result_ready') {
       await supabase
         .from('battles')
         .update({ status: 'generating_video' })
         .eq('id', battle_id);
+    }
+    // Write back the cinematic_video_job_id so the client's per-round
+    // subscription sees the new Tier 1 job immediately (asset_url + tier are
+    // updated by the worker once the asset is ready).
+    if (battle_round_id) {
+      await supabase
+        .from('battle_rounds')
+        .update({
+          cinematic_video_job_id: videoJob.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', battle_round_id);
     }
     
     return successResponse({
@@ -388,6 +590,34 @@ async function hashPayload(payload: Record<string, unknown>): Promise<string> {
  * Rollback video spend if job creation fails
  * Handles credits, subscription_allowance, and free_grant sources
  */
+async function rollbackSpend(
+  supabase: any,
+  spendResult: { success: boolean; source: string; transaction_id?: string } | null,
+  roundGate: { source: RoundUpgradeSource; reservation_id: string | null; is_full_battle: boolean } | null,
+  userId: string,
+  battleId: string,
+  roundNumber: number,
+): Promise<void> {
+  if (roundGate) {
+    await finalizeRoundUpgradeEntitlement(
+      {
+        reservation_id: roundGate.reservation_id,
+        source: roundGate.source,
+        profile_id: userId,
+        battle_id: battleId,
+        round_number: roundNumber,
+        is_full_battle: roundGate.is_full_battle,
+      },
+      'failed',
+      supabase,
+    );
+    return;
+  }
+  if (spendResult) {
+    await rollbackVideoSpend(supabase, spendResult, userId, battleId);
+  }
+}
+
 async function rollbackVideoSpend(
   supabase: any,
   spendResult: { success: boolean; source: string; transaction_id?: string },

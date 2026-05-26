@@ -5,28 +5,50 @@ import {
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import { useAuth } from '@/providers/AuthProvider';
-import { retryBattleResolution, startMatchmaking } from '@/utils/battles';
+import { retryBattleResolution, startMatchmaking, BattleMode } from '@/utils/battles';
+import SeriesScoreIndicator from '@/components/SeriesScoreIndicator';
 
 export default function WaitingScreen() {
   const colors = useThemedColors();
   const router = useRouter();
   const { user } = useAuth();
-  const { battleId } = useLocalSearchParams<{ battleId: string }>();
+  const { battleId, round } = useLocalSearchParams<{
+    battleId: string;
+    round?: string;
+  }>();
 
-  const { battle, prompts, isSubscribed } = useRealtimeBattle(battleId || null);
-  const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const resolveRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const {
+    battle,
+    prompts,
+    isSubscribed,
+    format,
+    current_round,
+    series_score,
+    rounds,
+  } = useRealtimeBattle(battleId || null);
+  const roundNumber = round ? Number(round) : current_round;
+  const isBo3 = format === 'bo3';
+
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resolveRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const hasRetriedResolutionRef = useRef(false);
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
 
-  const myPrompt = prompts.find((p) => p.profile_id === user?.id);
-  const opponentPrompt = prompts.find((p) => p.profile_id !== user?.id);
+  // Filter prompts to the current round when bo3.
+  const roundPrompts = isBo3
+    ? prompts.filter((p) => (p.round_number ?? 1) === roundNumber)
+    : prompts;
+  const myPrompt = roundPrompts.find((p) => p.profile_id === user?.id);
+  const opponentPrompt = roundPrompts.find((p) => p.profile_id !== user?.id);
 
   const myPromptLocked = myPrompt?.is_locked || false;
   const opponentPromptLocked = opponentPrompt?.is_locked || false;
@@ -76,7 +98,7 @@ export default function WaitingScreen() {
           setRetryMessage('Checking for bot match...');
           const result = await startMatchmaking(
             battle.player_one_character_id,
-            battle.mode as any,
+            battle.mode as BattleMode,
           );
 
           if (result.matched) {
@@ -105,7 +127,32 @@ export default function WaitingScreen() {
   useEffect(() => {
     if (!battle) return;
 
-    // Navigate to result screen when ready or if generation failed
+    // Bo3: route to round-result the moment THIS round flips to result_ready;
+    // route to final result when the whole battle completes.
+    if (isBo3) {
+      if (battle.status === 'completed') {
+        router.replace(`/(battle)/result?battleId=${battleId}`);
+        return;
+      }
+      const r = rounds.find((row) => row.round_number === roundNumber);
+      if (r && r.status === 'result_ready') {
+        router.replace(
+          `/(battle)/round-result?battleId=${battleId}&round=${roundNumber}`,
+        );
+        return;
+      }
+      // If a new round has been opened and we haven't submitted yet, push
+      // back to prompt-entry for that new round.
+      const battleRound = battle.current_round ?? 1;
+      if (battleRound !== roundNumber && !myPromptLocked) {
+        router.replace(
+          `/(battle)/prompt-entry?battleId=${battleId}&round=${battleRound}`,
+        );
+      }
+      return;
+    }
+
+    // Single-format (legacy) behavior preserved.
     if (
       battle.status === 'result_ready' ||
       battle.status === 'completed' ||
@@ -115,7 +162,6 @@ export default function WaitingScreen() {
       return;
     }
 
-    // If battle becomes matched/waiting_for_prompts and user hasn't submitted, navigate to prompt entry
     if (
       (battle.status === 'matched' ||
         battle.status === 'waiting_for_prompts') &&
@@ -123,7 +169,7 @@ export default function WaitingScreen() {
     ) {
       router.replace(`/(battle)/prompt-entry?battleId=${battleId}`);
     }
-  }, [battle, myPromptLocked, battleId, router]);
+  }, [battle, myPromptLocked, battleId, router, isBo3, rounds, roundNumber]);
 
   useEffect(() => {
     if (!battleId || !battle || battle.status !== 'resolving') return;
@@ -153,7 +199,23 @@ export default function WaitingScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
+        {isBo3 ? (
+          <View style={{ width: '100%' }}>
+            <SeriesScoreIndicator
+              score={series_score}
+              currentRound={roundNumber}
+              format={format}
+              bestOf={battle?.best_of ?? 3}
+            />
+            <Text
+              style={[styles.subheading, { color: colors.textSecondary }]}
+            >
+              Round {roundNumber} of {battle?.best_of ?? 3} — Locking in
+            </Text>
+          </View>
+        ) : null}
+
         <ActivityIndicator
           size="large"
           color={colors.primary}
@@ -257,7 +319,7 @@ export default function WaitingScreen() {
         <Text style={[styles.hint, { color: colors.textTertiary }]}>
           You'll be notified when the result is ready
         </Text>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -267,10 +329,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.lg,
+  },
+  subheading: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
   },
   spinner: {
     marginBottom: Spacing.xl,

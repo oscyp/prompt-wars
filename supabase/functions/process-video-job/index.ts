@@ -5,6 +5,11 @@
 import { createServiceClient, corsHeaders, errorResponse, getSupabaseSecretKey, hasSupabaseSecretAuthorization, successResponse } from '../_shared/utils.ts';
 import { createVideoProvider } from '../_shared/providers.ts';
 import { VideoModerationProvider } from '../_shared/moderation.ts';
+import {
+  finalizeRoundUpgradeEntitlement,
+  type RoundUpgradeSource,
+} from '../_shared/entitlement-gate.ts';
+import { isRefundableTrigger } from '../_shared/video-constants.ts';
 
 interface ProcessVideoJobRequest {
   video_job_id?: string; // specific job
@@ -101,7 +106,7 @@ async function processVideoJob(
       .single();
 
     if (battleError || !battle) {
-      await refundVideoJobOnFailure(supabase, job.id, 'battle_not_found');
+      await handleTerminalEntitlement(supabase, job, 'failed', 'battle_not_found');
       await failJob(supabase, job.id, 'battle_not_found', 'Battle not found');
       return { job_id: job.id, status: 'failed', error: 'battle_not_found' };
     }
@@ -118,14 +123,14 @@ async function processVideoJob(
         .eq('is_locked', true);
 
       if (promptsError || !prompts || prompts.length !== 1) {
-        await refundVideoJobOnFailure(supabase, job.id, 'prompts_not_found');
+        await handleTerminalEntitlement(supabase, job, 'failed', 'prompts_not_found');
         await failJob(supabase, job.id, 'prompts_not_found', 'Bot battle requires exactly one human prompt');
         return { job_id: job.id, status: 'failed', error: 'prompts_not_found' };
       }
 
       p1Prompt = prompts.find((p) => p.profile_id === battle.player_one_id);
       if (!p1Prompt) {
-        await refundVideoJobOnFailure(supabase, job.id, 'prompts_mismatch');
+        await handleTerminalEntitlement(supabase, job, 'failed', 'prompts_mismatch');
         await failJob(supabase, job.id, 'prompts_mismatch', 'Human prompt not found');
         return { job_id: job.id, status: 'failed', error: 'prompts_mismatch' };
       }
@@ -137,7 +142,7 @@ async function processVideoJob(
         .eq('bot_persona_id', battle.bot_persona_id);
 
       if (botPromptError || !botPrompts || botPrompts.length === 0) {
-        await refundVideoJobOnFailure(supabase, job.id, 'bot_prompts_not_found');
+        await handleTerminalEntitlement(supabase, job, 'failed', 'bot_prompts_not_found');
         await failJob(supabase, job.id, 'bot_prompts_not_found', 'Bot prompts not found for persona');
         return { job_id: job.id, status: 'failed', error: 'bot_prompts_not_found' };
       }
@@ -162,7 +167,7 @@ async function processVideoJob(
         .eq('is_locked', true);
 
       if (promptsError || !prompts || prompts.length !== 2) {
-        await refundVideoJobOnFailure(supabase, job.id, 'prompts_not_found');
+        await handleTerminalEntitlement(supabase, job, 'failed', 'prompts_not_found');
         await failJob(supabase, job.id, 'prompts_not_found', 'Prompts not found');
         return { job_id: job.id, status: 'failed', error: 'prompts_not_found' };
       }
@@ -171,7 +176,7 @@ async function processVideoJob(
       p2Prompt = prompts.find((p) => p.profile_id === battle.player_two_id);
 
       if (!p1Prompt || !p2Prompt) {
-        await refundVideoJobOnFailure(supabase, job.id, 'prompts_mismatch');
+        await handleTerminalEntitlement(supabase, job, 'failed', 'prompts_mismatch');
         await failJob(supabase, job.id, 'prompts_mismatch', 'Prompts mismatch');
         return { job_id: job.id, status: 'failed', error: 'prompts_mismatch' };
       }
@@ -247,7 +252,7 @@ async function processVideoJob(
     if (job.status === 'submitted' || job.status === 'processing') {
       // Poll provider status
       if (!job.provider_job_id) {
-        await refundVideoJobOnFailure(supabase, job.id, 'missing_provider_job_id');
+        await handleTerminalEntitlement(supabase, job, 'failed', 'missing_provider_job_id');
         await failJob(supabase, job.id, 'missing_provider_job_id', 'Provider job ID missing');
         return { job_id: job.id, status: 'failed', error: 'missing_provider_job_id' };
       }
@@ -273,7 +278,7 @@ async function processVideoJob(
           videoUrl = await copyVideoToStorage(supabase, job.battle_id, job.id, providerStatus.videoUrl);
         } catch (storageError) {
           console.error('Storage copy failed:', storageError);
-          await refundVideoJobOnFailure(supabase, job.id, 'storage_failed');
+          await handleTerminalEntitlement(supabase, job, 'failed', 'storage_failed');
           await failJob(supabase, job.id, 'storage_failed', 'Failed to copy video to storage');
           return { job_id: job.id, status: 'failed', error: 'storage_failed' };
         }
@@ -293,7 +298,7 @@ async function processVideoJob(
 
         if (videoError || !videoRow) {
           console.error('Failed to create video row:', videoError);
-          await refundVideoJobOnFailure(supabase, job.id, 'storage_failed');
+          await handleTerminalEntitlement(supabase, job, 'failed', 'storage_failed');
           await failJob(supabase, job.id, 'storage_failed', 'Failed to store video metadata');
           return { job_id: job.id, status: 'failed', error: 'storage_failed' };
         }
@@ -304,7 +309,7 @@ async function processVideoJob(
           
           // If moderation rejected, refund and return battle to result_ready
           if (moderationResult.status === 'rejected') {
-            await refundVideoJobOnFailure(supabase, job.id, 'moderation_rejected');
+            await handleTerminalEntitlement(supabase, job, 'moderation_failed', 'moderation_rejected');
             await supabase
               .from('video_jobs')
               .update({
@@ -315,11 +320,15 @@ async function processVideoJob(
               })
               .eq('id', job.id);
             
-            // Return battle to result_ready so Tier 0 remains visible
-            await supabase
-              .from('battles')
-              .update({ status: 'result_ready' })
-              .eq('id', job.battle_id);
+            // Return battle to result_ready so Tier 0 remains visible (legacy only;
+            // per-round jobs leave battle.status alone — Tier 0 is already on
+            // battle_rounds.cinematic_asset_url and remains authoritative).
+            if (!(job as any).battle_round_id) {
+              await supabase
+                .from('battles')
+                .update({ status: 'result_ready' })
+                .eq('id', job.battle_id);
+            }
             
             return { job_id: job.id, status: 'failed', error: 'moderation_rejected' };
           }
@@ -338,13 +347,32 @@ async function processVideoJob(
           })
           .eq('id', job.id);
 
-        // Update battle status
-        await supabase
-          .from('battles')
-          .update({
-            status: 'completed',
-          })
-          .eq('id', job.battle_id);
+        // Finalize entitlement on success (round-mode: subscriber decrement /
+        // credit+grant confirm via finalize_round_upgrade; legacy success is a
+        // no-op because spend was already finalized at job creation).
+        await handleTerminalEntitlement(supabase, job, 'succeeded');
+
+        // Per-round write-back: surface the Tier 1 asset on battle_rounds so the
+        // client's per-round subscription transitions from Tier 0 to Tier 1
+        // without a separate join. Do NOT touch battle.status for per-round
+        // jobs (the battle may still be resolving subsequent rounds).
+        if ((job as any).battle_round_id) {
+          await supabase
+            .from('battle_rounds')
+            .update({
+              cinematic_asset_url: videoUrl,
+              cinematic_tier: 1,
+              cinematic_video_job_id: job.id,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', (job as any).battle_round_id);
+        } else {
+          // Legacy single-format / series-end behavior unchanged.
+          await supabase
+            .from('battles')
+            .update({ status: 'completed' })
+            .eq('id', job.battle_id);
+        }
 
         return { job_id: job.id, status: 'succeeded' };
       }
@@ -366,14 +394,17 @@ async function processVideoJob(
           return { job_id: job.id, status: 'retry_queued' };
         } else {
           // Max retries, refund based on entitlement source and set battle back to result_ready
-          await refundVideoJobOnFailure(supabase, job.id, providerStatus.errorCode || 'provider_failed');
+          await handleTerminalEntitlement(supabase, job, 'failed', providerStatus.errorCode || 'provider_failed');
           await failJob(supabase, job.id, providerStatus.errorCode || 'provider_failed', providerStatus.errorMessage || 'Provider failed');
           
           // Set battle status back to result_ready so Tier 0 result is visible
-          await supabase
-            .from('battles')
-            .update({ status: 'result_ready' })
-            .eq('id', job.battle_id);
+          // (legacy only — per-round jobs do not own battle.status).
+          if (!(job as any).battle_round_id) {
+            await supabase
+              .from('battles')
+              .update({ status: 'result_ready' })
+              .eq('id', job.battle_id);
+          }
           
           return { job_id: job.id, status: 'failed', error: providerStatus.errorCode };
         }
@@ -383,7 +414,7 @@ async function processVideoJob(
     return { job_id: job.id, status: job.status };
   } catch (error) {
     console.error(`Error processing video job ${job.id}:`, error);
-    await refundVideoJobOnFailure(supabase, job.id, 'processing_error');
+    await handleTerminalEntitlement(supabase, job, 'failed', 'processing_error');
     await failJob(supabase, job.id, 'processing_error', error instanceof Error ? error.message : 'Unknown error');
     return { job_id: job.id, status: 'failed', error: 'processing_error' };
   }
@@ -404,6 +435,106 @@ async function failJob(
       completed_at: new Date().toISOString(),
     })
     .eq('id', jobId);
+}
+
+/**
+ * Map a stored `entitlement_source` value (may be either the new round-unit
+ * source or the legacy per-battle source) to the helper's expected
+ * `RoundUpgradeSource`. Returns null for unknown sources (skip finalize).
+ *
+ * `is_full_battle` is derived from the source itself: `subscriber_full` is
+ * always full-battle; the legacy `subscription_allowance` value can't be
+ * disambiguated post-hoc, so we treat it as `subscriber_round` (single round
+ * decrement) which is the safer default for the decrement RPC.
+ */
+function normalizeRoundSource(stored: string | null | undefined): RoundUpgradeSource | null {
+  switch (stored) {
+    case 'subscriber_full':
+    case 'subscriber_round':
+    case 'credit':
+    case 'new_user_grant':
+      return stored;
+    // Defensive legacy aliases (in case older rows pre-date the gate landing).
+    case 'subscription_allowance':
+      return 'subscriber_round';
+    case 'credits':
+      return 'credit';
+    case 'free_grant':
+      return 'new_user_grant';
+    default:
+      return null;
+  }
+}
+
+/**
+ * Terminal-state entitlement reconciliation.
+ *
+ * Round-mode jobs (`battle_round_id IS NOT NULL`): delegate to
+ * `finalizeRoundUpgradeEntitlement`, which owns BOTH refund (credit/grant)
+ * and subscriber-allowance decrement-on-success. This path must NOT also
+ * invoke `refundVideoJobOnFailure` to avoid double-refund.
+ *
+ * Legacy jobs (`battle_round_id IS NULL`): fall back to
+ * `refundVideoJobOnFailure`, but gate by `isRefundableTrigger(trigger)` so
+ * subscriber-auto jobs (which paid via subscription) do not get refunded.
+ *
+ * Success path for legacy is a no-op (the legacy refund path was failure-only;
+ * spend was already finalized at job creation time).
+ */
+async function handleTerminalEntitlement(
+  supabase: ReturnType<typeof createServiceClient>,
+  job: any,
+  outcome: 'succeeded' | 'failed' | 'moderation_failed',
+  errorCode?: string,
+): Promise<void> {
+  // Round-mode path.
+  if (job.battle_round_id) {
+    const source = normalizeRoundSource(job.entitlement_source);
+    if (!source) {
+      console.warn('handleTerminalEntitlement: unknown entitlement_source for round-mode job', {
+        job_id: job.id,
+        entitlement_source: job.entitlement_source,
+      });
+      return;
+    }
+    if (!job.requester_profile_id) {
+      console.warn('handleTerminalEntitlement: missing requester_profile_id', { job_id: job.id });
+      return;
+    }
+    try {
+      await finalizeRoundUpgradeEntitlement(
+        {
+          reservation_id: job.spend_transaction_id ?? null,
+          source,
+          profile_id: job.requester_profile_id,
+          battle_id: job.battle_id,
+          round_number: job.round_number ?? 1,
+          is_full_battle: source === 'subscriber_full',
+        },
+        outcome,
+        supabase as any,
+      );
+      // Mark refunded for terminal failure outcomes so the legacy path will
+      // not double-process this row if invoked later.
+      if (outcome !== 'succeeded') {
+        await supabase
+          .from('video_jobs')
+          .update({ refunded: true })
+          .eq('id', job.id);
+      }
+    } catch (e) {
+      console.error('finalizeRoundUpgradeEntitlement threw:', e);
+    }
+    return;
+  }
+
+  // Legacy path: refunds only on failure, and only for refundable triggers.
+  if (outcome === 'succeeded') return;
+  if (!isRefundableTrigger(job.trigger)) {
+    // Subscriber-auto / series-end-legacy / unset triggers: no refund.
+    return;
+  }
+  await refundVideoJobOnFailure(supabase, job.id, errorCode ?? outcome);
 }
 
 /**

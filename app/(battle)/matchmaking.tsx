@@ -48,10 +48,31 @@ export default function MatchmakingScreen() {
         setStatus('matched');
         setMessage(result.message || (result.matched ? 'Match found!' : 'Battle queued...'));
 
-        // Navigate to prompt entry if matched, or waiting if async queued
+        // Look up format to choose face-off (bo3) vs prompt-entry (single).
+        let battleFormat: string | null = null;
+        try {
+          const { data } = await supabase
+            .from('battles')
+            .select('format')
+            .eq('id', result.battle_id)
+            .single();
+          battleFormat = (data?.format as string | undefined) ?? null;
+        } catch {
+          battleFormat = null;
+        }
+
+        // Navigate to face-off (bo3) or prompt entry if matched, or waiting if async queued
         setTimeout(() => {
           if (result.matched) {
-            router.replace(`/(battle)/prompt-entry?battleId=${result.battle_id}`);
+            if (battleFormat === 'bo3') {
+              router.replace(
+                `/(battle)/face-off?battleId=${result.battle_id}`,
+              );
+            } else {
+              router.replace(
+                `/(battle)/prompt-entry?battleId=${result.battle_id}`,
+              );
+            }
           } else {
             router.replace(`/(battle)/waiting?battleId=${result.battle_id}`);
           }

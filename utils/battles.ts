@@ -88,13 +88,15 @@ export async function startMatchmaking(
 }
 
 /**
- * Submit a prompt for a battle
+ * Submit a prompt for a battle. `roundNumber` is optional and defaults on the
+ * server to `battles.current_round`; single-format clients can omit it.
  */
 export async function submitPrompt(
   battleId: string,
   moveType: MoveType,
   promptTemplateId?: string,
   customPromptText?: string,
+  roundNumber?: number,
 ): Promise<SubmitPromptResult> {
   try {
     const data = await invokeAuthenticatedFunction<SubmitPromptResult>(
@@ -104,6 +106,7 @@ export async function submitPrompt(
         move_type: moveType,
         prompt_template_id: promptTemplateId,
         custom_prompt_text: customPromptText,
+        round_number: roundNumber,
       },
     );
 

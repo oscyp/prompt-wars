@@ -16,8 +16,16 @@ export default function BattleLayout() {
       }}
     >
       <Stack.Screen name="matchmaking" />
+      <Stack.Screen
+        name="face-off"
+        options={{ gestureEnabled: false, headerShown: false }}
+      />
       <Stack.Screen name="prompt-entry" />
       <Stack.Screen name="waiting" />
+      <Stack.Screen
+        name="round-result"
+        options={{ gestureEnabled: false, animation: 'fade' }}
+      />
       <Stack.Screen name="result" />
     </Stack>
   );

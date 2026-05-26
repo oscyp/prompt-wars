@@ -65,11 +65,49 @@ async function triggerBattleResolution(battleId: string): Promise<void> {
   }
 }
 
+/**
+ * Generic async edge-function invoker with service-role auth.
+ */
+async function invokeFn(
+  fn: string,
+  body: Record<string, unknown>,
+): Promise<void> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const publishableKey = getSupabasePublishableKey();
+  const secretKey = getSupabaseSecretKey();
+  if (!supabaseUrl || !publishableKey || !secretKey) {
+    throw new Error('Missing Supabase environment variables');
+  }
+  const url = `${supabaseUrl}/functions/v1/${fn}`;
+  const task = (async () => {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: publishableKey,
+        Authorization: `Bearer ${secretKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      console.error(`Invoke ${fn} failed:`, await res.text());
+    }
+  })();
+  // @ts-ignore EdgeRuntime may not be defined
+  if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+    // @ts-ignore
+    EdgeRuntime.waitUntil(task);
+  } else {
+    await task;
+  }
+}
+
 interface SubmitPromptRequest {
   battle_id: string;
   prompt_template_id?: string;
   custom_prompt_text?: string;
   move_type: MoveType;
+  round_number?: number; // Bo3 only; defaults to battles.current_round
 }
 
 Deno.serve(async (req) => {
@@ -84,6 +122,7 @@ Deno.serve(async (req) => {
       prompt_template_id,
       custom_prompt_text,
       move_type,
+      round_number: requestedRound,
     }: SubmitPromptRequest = await req.json();
 
     if (!battle_id || !move_type) {
@@ -163,9 +202,85 @@ Deno.serve(async (req) => {
     // Check if battle is now ready to resolve
     const { data: battle } = await supabase
       .from('battles')
-      .select('status, player_one_id, player_two_id, is_player_two_bot')
+      .select('status, player_one_id, player_two_id, is_player_two_bot, format, current_round, mode')
       .eq('id', battle_id)
       .single();
+
+    // ---- Bo3 lock-in flow ----
+    if (battle?.format === 'bo3') {
+      const roundNumber = requestedRound ?? battle.current_round ?? 1;
+
+      // Validate per-round state.
+      const { data: round, error: roundErr } = await supabase
+        .from('battle_rounds')
+        .select('id, status, player_one_locked_at, player_two_locked_at')
+        .eq('battle_id', battle_id)
+        .eq('round_number', roundNumber)
+        .single();
+      if (roundErr || !round) {
+        return errorResponse('Round not found', 404);
+      }
+      if (round.status !== 'waiting_for_prompts') {
+        return errorResponse(
+          `Round not accepting prompts (status=${round.status})`,
+          409,
+        );
+      }
+
+      // Tag the battle_prompts row with the round number.
+      if (promptId) {
+        await supabase
+          .from('battle_prompts')
+          .update({ round_number: roundNumber })
+          .eq('id', promptId);
+      }
+
+      const isP1 = userId === battle.player_one_id;
+      const lockField = isP1 ? 'player_one_locked_at' : 'player_two_locked_at';
+      const otherLocked = isP1
+        ? round.player_two_locked_at
+        : round.player_one_locked_at;
+      const nowIso = new Date().toISOString();
+
+      const update: Record<string, unknown> = {
+        [lockField]: nowIso,
+        updated_at: nowIso,
+      };
+      // Bot battles: human lock immediately satisfies "both locked".
+      const bothLocked = !!otherLocked || battle.is_player_two_bot;
+      if (bothLocked) {
+        update.both_locked_at = nowIso;
+      }
+      await supabase.from('battle_rounds').update(update).eq('id', round.id);
+
+      if (bothLocked) {
+        try {
+          await invokeFn('round-resolve', {
+            battle_id,
+            round_number: roundNumber,
+          });
+        } catch (e) {
+          console.error('round-resolve invoke failed:', e);
+        }
+        return successResponse({
+          success: true,
+          prompt_id: promptId,
+          battle_status: 'resolving',
+          round_number: roundNumber,
+          message: 'Prompt submitted. Round resolving...',
+        });
+      }
+
+      return successResponse({
+        success: true,
+        prompt_id: promptId,
+        battle_status: 'waiting_for_prompts',
+        round_number: roundNumber,
+        message: 'Prompt submitted. Waiting for opponent...',
+      });
+    }
+
+    // ---- Single-format flow (unchanged) ----
 
     if (battle && battle.status === 'resolving') {
       // Both prompts submitted (or bot battle with human prompt), battle ready for resolution

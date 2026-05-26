@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -14,21 +14,59 @@ import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { getBattle, getPromptTemplates, submitPrompt, MoveType } from '@/utils/battles';
 import { useAuth } from '@/providers/AuthProvider';
+import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
+import SeriesScoreIndicator from '@/components/SeriesScoreIndicator';
+import HPBar from '@/components/HPBar';
+import MoveTypeChipRow from '@/components/MoveTypeChipRow';
 
 export default function PromptEntryScreen() {
   const colors = useThemedColors();
   const router = useRouter();
   const { user } = useAuth();
-  const { battleId } = useLocalSearchParams<{ battleId: string }>();
+  const { battleId, round } = useLocalSearchParams<{
+    battleId: string;
+    round?: string;
+  }>();
 
-  const [battle, setBattle] = useState<any>(null);
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [battle, setBattle] = useState<{ theme?: string | null } | null>(null);
+  const [templates, setTemplates] = useState<{ id: string; title: string; body: string }[]>([]);
   const [moveType, setMoveType] = useState<MoveType>('attack');
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [customText, setCustomText] = useState('');
   const [isCustom, setIsCustom] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Realtime Bo3 state (HP, series score, opponent move history).
+  const {
+    battle: rtBattle,
+    prompts,
+    format,
+    current_round,
+    series_score,
+    hp,
+    hp_max,
+  } = useRealtimeBattle(battleId || null);
+
+  const roundNumber = round ? Number(round) : current_round;
+  const isBo3 = format === 'bo3';
+
+  const isPlayerOne = rtBattle?.player_one_id === user?.id;
+  const myHp = isPlayerOne ? hp.p1 : hp.p2;
+  const myHpMax = isPlayerOne ? hp_max.p1 : hp_max.p2;
+  const oppHp = isPlayerOne ? hp.p2 : hp.p1;
+  const oppHpMax = isPlayerOne ? hp_max.p2 : hp_max.p1;
+
+  // Opponent's last 5 move types across rounds (from battle_prompts).
+  const opponentHistory = useMemo<MoveType[]>(() => {
+    if (!rtBattle || !user) return [];
+    const opp = prompts
+      .filter((p) => p.profile_id !== user.id && p.move_type)
+      .sort((a, b) => (a.round_number ?? 1) - (b.round_number ?? 1))
+      .map((p) => p.move_type as MoveType);
+    return opp.slice(-5);
+  }, [prompts, rtBattle, user]);
+
 
   useEffect(() => {
     loadData();
@@ -47,8 +85,10 @@ export default function PromptEntryScreen() {
         getPromptTemplates(),
       ]);
 
-      setBattle(battleData);
-      setTemplates(templatesData || []);
+      setBattle(battleData as { theme?: string | null });
+      setTemplates(
+        (templatesData ?? []) as { id: string; title: string; body: string }[],
+      );
     } catch (err) {
       console.error('Failed to load prompt entry data:', err);
       Alert.alert('Error', 'Failed to load battle');
@@ -77,13 +117,15 @@ export default function PromptEntryScreen() {
         battleId as string,
         moveType,
         isCustom ? undefined : selectedTemplate || undefined,
-        isCustom ? customText : undefined
+        isCustom ? customText : undefined,
+        isBo3 ? roundNumber : undefined,
       );
 
       if (result.success) {
-        Alert.alert('Prompt Submitted!', 'Waiting for opponent...', [
-          { text: 'OK', onPress: () => router.replace(`/(battle)/waiting?battleId=${battleId}`) }
-        ]);
+        // Optimistic transition; no Alert interstitial.
+        router.replace(
+          `/(battle)/waiting?battleId=${battleId}${isBo3 ? `&round=${roundNumber}` : ''}`,
+        );
       } else {
         throw new Error(result.error || 'Failed to submit prompt');
       }
@@ -106,6 +148,38 @@ export default function PromptEntryScreen() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.content}>
+        {isBo3 ? (
+          <>
+            <SeriesScoreIndicator
+              score={series_score}
+              currentRound={roundNumber}
+              format={format}
+              bestOf={rtBattle?.best_of ?? 3}
+            />
+            <View style={styles.hpRow}>
+              <View style={styles.hpCol}>
+                <HPBar
+                  current={myHp}
+                  max={myHpMax}
+                  side="left"
+                  playerName="You"
+                  compact
+                />
+              </View>
+              <View style={styles.hpCol}>
+                <HPBar
+                  current={oppHp}
+                  max={oppHpMax}
+                  side="right"
+                  playerName="Opponent"
+                  compact
+                />
+              </View>
+            </View>
+            <MoveTypeChipRow history={opponentHistory} />
+          </>
+        ) : null}
+
         <Text style={[styles.title, { color: colors.text }]}>Write Your Prompt</Text>
 
         {battle?.theme && (
@@ -262,6 +336,14 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.lg,
+  },
+  hpRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  hpCol: {
+    flex: 1,
   },
   title: {
     fontSize: Typography.sizes.xxxl,

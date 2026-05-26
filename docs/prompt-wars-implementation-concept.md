@@ -57,8 +57,7 @@ MVP features:
 - Structured prompts: move type (attack / defense / finisher) plus text
 - Bot opponents for first battle and as a fallback when matchmaking is empty
 - Async 1v1 battle creation, friend challenge by deep link, and matchmaking
-- Theme-after-matchmaking constraint reveal (both players write under the same constraint)
-- Prompt lock-in by each player with 2h ranked timeout / 8h friend-challenge timeout
+- Theme-after-matchmaking constraint reveal (both players write under the same constraint)- Prompt lock-in by each player with 2h ranked timeout / 8h friend-challenge timeout
 - Auto-enqueue a second battle to a different opponent immediately after lock-in (parallel queue)
 - Server-side battle resolution using LLM-as-judge with rubric, double-run, length normalization, and judge calibration
 - Player appeal flow for ranked losses (capped 1/day)
@@ -182,7 +181,7 @@ Prompt categories for templates:
 
 Battles are resolved server-side. AI is used as a structured judge of prompt quality, but the resolution pipeline, scoring, tie-breaks, and rating updates are owned by the backend. The client never decides outcomes.
 
-Decision-making layer (MVP): once both players are matched, the **battle theme is revealed to both** before either writes their prompt. Both write under the same constraint, in parallel, with a visible per-side timer. This is what turns the game from a writing exercise into a battle. Best-of-3 rounds and per-match wagers are explicit phase 4+ extensions.
+Decision-making layer (MVP): once both players are matched, the **battle theme is revealed to both** before either writes their prompt. Both write under the same constraint, in parallel, with a visible per-side timer. This is what turns the game from a writing exercise into a battle. **Best-of-3 rounds (see §7.7)** is a Phase 2 mode shipped behind a per-battle `format` flag; per-match wagers remain phase 4+.
 
 ### 7.1 Structured Prompt Model
 
@@ -275,7 +274,44 @@ Draws are first-class in MVP. If aggregate rubric difference is below a small ep
 - No ranking penalty.
 - Still moderated. Still subject to anti-abuse caps.
 
-### 7.7 Anti-Cheat And Anti-Collusion
+### 7.7 Best-of-3 Rounds Mode
+
+Best-of-3 (Bo3) is a Phase 2 battle mode that runs the same theme/prompt/judge stack across up to three rounds with HP carryover. It is gated by a per-battle `battles.format` flag: `'single'` (existing behavior, default) or `'bo3'`. The single-format resolver is unchanged; Bo3 runs through a separate `round-resolve` path. All scoring inputs and outputs are server-owned.
+
+**Character stats.** Each character has four stats — Strength, Stamina, Agility, Focus — each integer 1-10 (default 5), earn-only (no paid boosts). Archetype affinity grants +1 to one stat (mapping defined in the seed). Stats are **snapshotted into the battle row at face-off** (`player_one_stats_snapshot`, `player_two_stats_snapshot` JSONB). All resolution code reads the snapshot — never the live `characters.stat_*` columns — so retroactive stat changes never alter past battles.
+- Strength: damage modifier.
+- Stamina: HP. `HP_max = clamp(60 + Stamina * 8, 70, 140)`.
+- Agility: small initiative / tiebreak influence.
+- Focus: reduces variance in stat modifier.
+
+**Round modifiers.** Per round, after rubric + move-type scoring:
+- `stat_modifier ∈ [-0.05, +0.05]` (hard server cap, ±5%).
+- Combined `stat_modifier + move_type_modifier ∈ [-0.20, +0.20]` (hard server cap, ±20%, applied after the per-component cap).
+- Hard caps are enforced server-side; structured errors are raised if a caller produces values outside range (no silent clamp).
+
+**HP and round outcome.**
+- HP is initialized from Stamina at face-off and **carries across rounds**.
+- Round winner: higher final normalized score. Within draw epsilon → `is_draw=true`, `round_winner_id=NULL`, no damage applied.
+- Damage = deterministic formula over score gap and Strength of the winner, applied to the loser's HP after the round.
+- KO: `hp ≤ 0` at end of round AND `score_gap ≥ 7`. KO ends the battle immediately and wins it.
+
+**Battle outcome.**
+- First to 2 round wins → wins the battle.
+- KO at any round → wins the battle.
+- Round 3 is only played when standings are 1-1 and no KO has occurred.
+- All-draw tiebreaker (final round draw with 0-0 or 1-1): lower HP loses → higher cumulative judge score → earlier final round lock timestamp.
+
+**Timeouts.** Per-round lock-in deadline; ranked = 45 minutes, friend = 2 hours. Sweeper operates on `battle_rounds.lock_in_deadline`, not the battle-level deadline. Single-sided lock at deadline → opponent forfeits that round only; battle continues unless that loss completes the match.
+
+**Entitlements migration.** Subscription and credit allowances for video reveals migrate from "per battle" to "per round-unit"; one Bo3 battle therefore consumes up to three round-units of cinematic allowance. Glicko-2 rating updates remain **one match-level call** per completed Bo3 battle, never per round.
+
+**Schema seams (Phase 2).**
+- `battles.format`, `best_of`, `current_round`, `player_*_hp`, `player_*_hp_max`, `player_*_rounds_won`, `face_off_revealed_at`, `player_*_stats_snapshot`.
+- `characters.stat_strength | stat_stamina | stat_agility | stat_focus`.
+- `battle_prompts.round_number` (default 1).
+- New table `battle_rounds` (server-owned writes; per-round status, lock timestamps, judge payload, damage, HP-after).
+
+### 7.8 Anti-Cheat And Anti-Collusion
 
 Prompt battles are extremely vulnerable to win-trading. Required safeguards from MVP:
 

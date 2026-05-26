@@ -16,6 +16,7 @@ import { appealBattle } from '@/utils/battles';
 import { requestVideoUpgrade } from '@/utils/monetization';
 import { reportContent } from '@/utils/safety';
 import { useAuth } from '@/providers/AuthProvider';
+import { BattleRound } from '@/types/battle';
 
 export default function ResultScreen() {
   const colors = useThemedColors();
@@ -23,13 +24,21 @@ export default function ResultScreen() {
   const { user } = useAuth();
   const { battleId } = useLocalSearchParams<{ battleId: string }>();
 
-  const { battle, videoJob, refetch } = useRealtimeBattle(battleId || null);
+  const {
+    battle,
+    videoJob,
+    refetch,
+    format,
+    series_score,
+    rounds,
+  } = useRealtimeBattle(battleId || null);
   const [isAppealing, setIsAppealing] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const isBo3 = format === 'bo3';
 
   useEffect(() => {
     if (!battle) refetch();
-  }, []);
+  }, [battle, refetch]);
 
   const isWinner = battle?.winner_id === user?.id;
   const isDraw = battle?.is_draw;
@@ -148,8 +157,13 @@ export default function ResultScreen() {
     );
   }
 
-  const tier0 = battle.tier0_reveal_payload;
-  const scores = battle.score_payload;
+  const tier0 = battle.tier0_reveal_payload as { summary?: string } | null;
+  const scores = battle.score_payload as { explanation?: string } | null;
+  const seriesHeader = isBo3
+    ? `${series_score.p1}–${series_score.p2} ${
+        isDraw ? 'Draw' : isWinner ? 'Victory' : 'Defeat'
+      }`
+    : null;
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -160,7 +174,7 @@ export default function ResultScreen() {
             {isDraw ? '🤝' : isWinner ? '🏆' : '💔'}
           </Text>
           <Text style={[styles.resultText, { color: colors.text }]}>
-            {isDraw ? 'DRAW' : isWinner ? 'VICTORY' : 'DEFEAT'}
+            {seriesHeader ?? (isDraw ? 'DRAW' : isWinner ? 'VICTORY' : 'DEFEAT')}
           </Text>
           {!isDraw && battle.winner_id && (
             <Text style={[styles.winnerText, { color: colors.textSecondary }]}>
@@ -168,6 +182,27 @@ export default function ResultScreen() {
             </Text>
           )}
         </View>
+
+        {isBo3 ? (
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              Round-by-Round
+            </Text>
+            {rounds.length === 0 ? (
+              <Text style={[styles.cardText, { color: colors.textSecondary }]}>
+                No round data yet.
+              </Text>
+            ) : (
+              rounds.map((r) => (
+                <RoundMiniCard
+                  key={r.id}
+                  round={r}
+                  isPlayerOne={battle.player_one_id === user?.id}
+                />
+              ))
+            )}
+          </View>
+        ) : null}
 
         {/* Tier 0 Reveal Info */}
         {tier0 && (
@@ -366,4 +401,82 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
   },
+  miniCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  miniBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
+  },
+  miniBadgeText: {
+    color: '#FFFFFF',
+    fontWeight: Typography.weights.bold,
+  },
+  miniBody: {
+    flex: 1,
+  },
+  miniLine: {
+    fontSize: Typography.sizes.sm,
+  },
 });
+
+function RoundMiniCard({
+  round,
+  isPlayerOne,
+}: {
+  round: BattleRound;
+  isPlayerOne: boolean;
+}) {
+  const myScore = isPlayerOne ? round.player_one_score : round.player_two_score;
+  const oppScore = isPlayerOne ? round.player_two_score : round.player_one_score;
+  const myHp = isPlayerOne ? round.player_one_hp_after : round.player_two_hp_after;
+  const oppHp = isPlayerOne ? round.player_two_hp_after : round.player_one_hp_after;
+  const isDraw = round.is_draw;
+  const isPending = round.status !== 'result_ready';
+  const youWon =
+    !isPending &&
+    !isDraw &&
+    round.round_winner_id != null &&
+    ((isPlayerOne && (round.player_one_score ?? 0) > (round.player_two_score ?? 0)) ||
+      (!isPlayerOne && (round.player_two_score ?? 0) > (round.player_one_score ?? 0)));
+  const badgeBg = isPending
+    ? '#9CA3AF'
+    : isDraw
+      ? '#F59E0B'
+      : youWon
+        ? '#10B981'
+        : '#EF4444';
+  const status = isPending
+    ? 'Pending'
+    : isDraw
+      ? 'Draw'
+      : youWon
+        ? 'You won'
+        : 'Opponent won';
+  return (
+    <View style={[styles.miniCard, { borderColor: '#E5E7EB' }]}>
+      <View style={[styles.miniBadge, { backgroundColor: badgeBg }]}>
+        <Text style={styles.miniBadgeText}>R{round.round_number}</Text>
+      </View>
+      <View style={styles.miniBody}>
+        <Text style={styles.miniLine}>
+          {status}
+          {' '}
+          {myScore != null && oppScore != null
+            ? `· ${Number(myScore).toFixed(1)} vs ${Number(oppScore).toFixed(1)}`
+            : ''}
+        </Text>
+        <Text style={styles.miniLine}>
+          HP after: {myHp ?? '—'} vs {oppHp ?? '—'}
+        </Text>
+      </View>
+    </View>
+  );
+}

@@ -66,6 +66,17 @@ Deno.serve(async (req) => {
       return errorResponse('Battle not found');
     }
 
+    // Bo3 short-circuit: round-resolve owns the per-round resolution path.
+    // submit-prompt invokes round-resolve directly when both sides lock, so
+    // we should not duplicate work here. We no-op with a structured response.
+    if ((battle as { format?: string }).format === 'bo3') {
+      return successResponse({
+        skipped: true,
+        reason: 'bo3_uses_round_resolve',
+        battle_id,
+      });
+    }
+
     if (battle.status !== 'resolving') {
       return errorResponse(`Battle not ready to resolve: ${battle.status}`);
     }

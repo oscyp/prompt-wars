@@ -3,6 +3,7 @@
 
 import { createServiceClient, corsHeaders, errorResponse, successResponse, getAuthUserId } from '../_shared/utils.ts';
 import { BattleMode } from '../_shared/types.ts';
+import { startFaceOff } from '../_shared/start-face-off.ts';
 
 /**
  * Create a bot battle (for mode='bot' or first battle)
@@ -164,6 +165,8 @@ Deno.serve(async (req) => {
     if (requiresBotBattle) {
       // Create bot battle immediately
       const botBattle = await createBotBattle(supabase, userId, character_id, mode);
+      // Bo3 face-off writer (no-op for single-format bot battles).
+      await startFaceOff(supabase, botBattle.battle_id);
       return successResponse({
         battle_id: botBattle.battle_id,
         matched: true,
@@ -189,6 +192,8 @@ Deno.serve(async (req) => {
       if (ageSeconds >= 60) {
         // Battle is 60+ seconds old, convert to bot battle
         const botBattle = await convertToBotBattle(supabase, existingBattle.id);
+        // Bo3 face-off writer (no-op for single-format).
+        await startFaceOff(supabase, existingBattle.id);
         return successResponse({
           battle_id: existingBattle.id,
           matched: true,
@@ -298,7 +303,10 @@ Deno.serve(async (req) => {
         console.error('Match error:', matchError);
         return errorResponse('Failed to match battle');
       }
-      
+
+      // Bo3 face-off writer (no-op for single-format).
+      await startFaceOff(supabase, matchedBattle.id);
+
       return successResponse({
         battle_id: matchedBattle.id,
         matched: true,

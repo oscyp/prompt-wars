@@ -11,3 +11,20 @@ export type { ItemGridItem } from './ItemGrid';
 export { default as ArtStylePicker } from './ArtStylePicker';
 export { default as SectionCard } from './SectionCard';
 export { default as BackButton } from './BackButton';
+export { default as HPBar } from './HPBar';
+export type { HPBarProps } from './HPBar';
+export { default as StatBar } from './StatBar';
+export type { StatBarProps } from './StatBar';
+export { default as SeriesScoreIndicator } from './SeriesScoreIndicator';
+export type { SeriesScoreIndicatorProps } from './SeriesScoreIndicator';
+export { default as FaceOffPortraits } from './FaceOffPortraits';
+export type { FaceOffPortraitsProps, FaceOffPlayer } from './FaceOffPortraits';
+export { default as RoundResultCinematic } from './RoundResultCinematic';
+export type {
+  RoundResultCinematicProps,
+  Tier0Payload,
+} from './RoundResultCinematic';
+export { default as MoveTypeChipRow } from './MoveTypeChipRow';
+export type { MoveTypeChipRowProps } from './MoveTypeChipRow';
+export { default as RubricBars } from './RubricBars';
+export type { RubricBarsProps } from './RubricBars';
