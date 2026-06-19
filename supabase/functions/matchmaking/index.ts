@@ -5,6 +5,46 @@ import { createServiceClient, corsHeaders, errorResponse, successResponse, getAu
 import { BattleMode } from '../_shared/types.ts';
 import { startFaceOff } from '../_shared/start-face-off.ts';
 
+const THEMES = [
+  'Overcome an impossible challenge',
+  'Turn weakness into strength',
+  'The calm before the storm',
+  'Victory from the jaws of defeat',
+  'Precision over power',
+];
+
+const RANKED_FINISHED_STATUSES = [
+  'completed',
+  'result_ready',
+  'generating_video',
+  'generation_failed',
+];
+
+const QUEUE_MATCH_WINDOW_MS = 5 * 60 * 1000;
+
+function pickTheme(): string {
+  return THEMES[Math.floor(Math.random() * THEMES.length)];
+}
+
+async function getRankedBattleCount(
+  supabase: ReturnType<typeof createServiceClient>,
+  profileId: string,
+): Promise<number> {
+  const { count, error } = await supabase
+    .from('battles')
+    .select('id', { count: 'exact', head: true })
+    .eq('mode', 'ranked')
+    .in('status', RANKED_FINISHED_STATUSES)
+    .or(`player_one_id.eq.${profileId},player_two_id.eq.${profileId}`);
+
+  if (error) {
+    console.error('Failed to count ranked battles:', error);
+    return 0;
+  }
+
+  return count ?? 0;
+}
+
 /**
  * Create a bot battle (for mode='bot' or first battle)
  */
@@ -26,15 +66,7 @@ async function createBotBattle(
   
   const randomBot = botPersonas[Math.floor(Math.random() * botPersonas.length)];
   
-  // Generate theme
-  const themes = [
-    'Overcome an impossible challenge',
-    'Turn weakness into strength',
-    'The calm before the storm',
-    'Victory from the jaws of defeat',
-    'Precision over power',
-  ];
-  const theme = themes[Math.floor(Math.random() * themes.length)];
+  const theme = pickTheme();
   
   // Create battle with bot opponent
   const { data: battleId, error: createError } = await supabase.rpc('create_bot_battle', {
@@ -72,15 +104,7 @@ async function convertToBotBattle(
   
   const randomBot = botPersonas[Math.floor(Math.random() * botPersonas.length)];
   
-  // Generate theme
-  const themes = [
-    'Overcome an impossible challenge',
-    'Turn weakness into strength',
-    'The calm before the storm',
-    'Victory from the jaws of defeat',
-    'Precision over power',
-  ];
-  const theme = themes[Math.floor(Math.random() * themes.length)];
+  const theme = pickTheme();
   
   // Convert battle to bot battle (idempotent: only updates if status is still 'created')
   const { data: battle, error: updateError } = await supabase
@@ -156,13 +180,15 @@ Deno.serve(async (req) => {
       return errorResponse('Profile not found');
     }
     
-    // Newbie check (under 10 ranked battles)
-    const isNewbie = profile.total_battles < 10;
-    
-    // Check if bot battle required (explicit mode='bot' or first battle)
-    const requiresBotBattle = mode === 'bot' || profile.total_battles === 0;
-    
-    if (requiresBotBattle) {
+    // Newbie check is based on ranked battles, not total battles. Total battles
+    // includes bots/unranked and can incorrectly push a player out of the
+    // ranked newbie bucket.
+    const rankedBattleCount = await getRankedBattleCount(supabase, userId);
+    const isNewbie = rankedBattleCount < 10;
+
+    // Explicit bot mode starts immediately. Ranked/unranked only fall back to
+    // bots after queue timeout and after checking for human candidates.
+    if (mode === 'bot') {
       // Create bot battle immediately
       const botBattle = await createBotBattle(supabase, userId, character_id, mode);
       // Bo3 face-off writer (no-op for single-format bot battles).
@@ -174,8 +200,15 @@ Deno.serve(async (req) => {
         is_bot_battle: true,
       });
     }
+
+    const queueCutoffIso = new Date(
+      Date.now() - QUEUE_MATCH_WINDOW_MS,
+    ).toISOString();
     
-    // Check if user already has an active 'created' battle for this mode/character
+    // Check if user already has an active 'created' battle for this mode/character.
+    // Do not convert it to a bot yet; first try to claim an eligible human
+    // opponent. The previous order caused two waiting users to each convert
+    // their own queued battle to a bot at the 60s retry mark.
     const { data: existingBattle } = await supabase
       .from('battles')
       .select('id, created_at, mode, player_one_character_id')
@@ -183,45 +216,24 @@ Deno.serve(async (req) => {
       .eq('status', 'created')
       .eq('mode', mode)
       .eq('player_one_character_id', character_id)
-      .single();
-    
-    if (existingBattle) {
-      const battleAge = Date.now() - new Date(existingBattle.created_at).getTime();
-      const ageSeconds = battleAge / 1000;
-      
-      if (ageSeconds >= 60) {
-        // Battle is 60+ seconds old, convert to bot battle
-        const botBattle = await convertToBotBattle(supabase, existingBattle.id);
-        // Bo3 face-off writer (no-op for single-format).
-        await startFaceOff(supabase, existingBattle.id);
-        return successResponse({
-          battle_id: existingBattle.id,
-          matched: true,
-          theme: botBattle.theme,
-          is_bot_battle: true,
-          converted_from_queue: true,
-        });
-      } else {
-        // Battle is younger than 60 seconds, return it for client to continue waiting
-        return successResponse({
-          battle_id: existingBattle.id,
-          matched: false,
-          theme: null,
-          message: `Searching for opponent... (${Math.floor(60 - ageSeconds)}s remaining)`,
-        });
-      }
-    }
-    
-    // Try to find existing battle in "created" status from other players
-    let matchedBattle = null;
-    
-    if (mode === 'ranked') {
+      .gte('created_at', queueCutoffIso)
+      .maybeSingle();
+
+    const findWaitingBattle = async (
+      createdBefore?: string,
+      createdAfter?: string,
+    ) => {
+      if (mode === 'ranked') {
       // Matchmaking band: ±50 initially, can widen to ±400
       const ratingBand = 50;
       const minRating = profile.rating - ratingBand;
       const maxRating = profile.rating + ratingBand;
-      
-      const { data: waitingBattles } = await supabase
+
+      // NOTE: `profiles!inner(...)` is required so PostgREST applies the
+      // `gte/lte` predicates to the parent `battles` rows (inner join).
+      // Without `!inner`, battles outside the band would still be returned
+      // with the embedded profile hidden.
+      let query = supabase
         .from('battles')
         .select(`
           id,
@@ -229,7 +241,7 @@ Deno.serve(async (req) => {
           player_one_character_id,
           mode,
           created_at,
-          profiles!battles_player_one_id_fkey (
+          profiles!battles_player_one_id_fkey!inner (
             rating,
             total_battles
           )
@@ -237,62 +249,100 @@ Deno.serve(async (req) => {
         .eq('status', 'created')
         .eq('mode', 'ranked')
         .neq('player_one_id', userId) // Don't match with self
+        .gte('created_at', queueCutoffIso)
         .gte('profiles.rating', minRating)
-        .lte('profiles.rating', maxRating)
+        .lte('profiles.rating', maxRating);
+
+      if (createdBefore) query = query.lt('created_at', createdBefore);
+      if (createdAfter) query = query.gt('created_at', createdAfter);
+
+      const { data: waitingBattles } = await query
         .order('created_at', { ascending: true })
         .limit(20); // Fetch more candidates for filtering
-      
+
       if (waitingBattles && waitingBattles.length > 0) {
         // Filter by newbie constraint, blocks, and opponent diversity
-        const eligibleCandidates = [];
-        
         for (const battle of waitingBattles) {
-          const opponentProfile = battle.profiles as unknown as { rating: number; total_battles: number };
-          const opponentIsNewbie = opponentProfile.total_battles < 10;
-          
+          const opponentRankedBattleCount = await getRankedBattleCount(
+            supabase,
+            battle.player_one_id,
+          );
+          const opponentIsNewbie = opponentRankedBattleCount < 10;
+
           // Newbies only match with newbies
           if (isNewbie && !opponentIsNewbie) continue;
           if (!isNewbie && opponentIsNewbie) continue;
-          
+
           // Check if users have blocked each other
           const { data: blockedData } = await supabase.rpc('is_blocked', {
             p_profile_id: userId,
             p_other_profile_id: battle.player_one_id,
           });
-          
+
           if (blockedData === true) continue; // Skip blocked opponents
-          
+
           // Check opponent diversity (max 3 ranked battles vs same opponent in 24h)
           const { data: recentBattles } = await supabase.rpc('ranked_battles_vs_opponent_24h', {
             p_profile_id: userId,
             p_opponent_id: battle.player_one_id,
           });
-          
+
           if (recentBattles && recentBattles >= 3) continue; // Skip over-matched opponents
-          
-          eligibleCandidates.push(battle);
-        }
-        
-        if (eligibleCandidates.length > 0) {
-          matchedBattle = eligibleCandidates[0];
+
+          return battle;
         }
       }
+
+      return null;
     }
+
+    if (mode === 'unranked') {
+      // Unranked: pair with the oldest waiting unranked battle from any other
+      // player. No rating band, no newbie constraint. Still respect blocks.
+      let query = supabase
+        .from('battles')
+        .select('id, player_one_id, player_one_character_id, mode, created_at')
+        .eq('status', 'created')
+        .eq('mode', 'unranked')
+        .neq('player_one_id', userId)
+        .gte('created_at', queueCutoffIso);
+
+      if (createdBefore) query = query.lt('created_at', createdBefore);
+      if (createdAfter) query = query.gt('created_at', createdAfter);
+
+      const { data: waitingBattles } = await query
+        .order('created_at', { ascending: true })
+        .limit(20);
+
+      if (waitingBattles && waitingBattles.length > 0) {
+        for (const battle of waitingBattles) {
+          const { data: blockedData } = await supabase.rpc('is_blocked', {
+            p_profile_id: userId,
+            p_other_profile_id: battle.player_one_id,
+          });
+          if (blockedData === true) continue;
+
+          return battle;
+        }
+      }
+
+      return null;
+    }
+
+      return null;
+    };
+
+    // If this user already has a queued battle, only claim older waiting rows.
+    // This deterministic ordering prevents two users who both have queued rows
+    // from cross-matching each other into duplicate battles.
+    const matchedBattle = await findWaitingBattle(existingBattle?.created_at);
     
     // If match found, pair players
     if (matchedBattle) {
-      // Generate theme
-      const themes = [
-        'Overcome an impossible challenge',
-        'Turn weakness into strength',
-        'The calm before the storm',
-        'Victory from the jaws of defeat',
-        'Precision over power',
-      ];
-      const theme = themes[Math.floor(Math.random() * themes.length)];
+      const theme = pickTheme();
       
       // Call match_battle function
-      const { error: matchError } = await supabase.rpc('match_battle', {
+      const { data: didMatch, error: matchError } = await supabase.rpc('match_battle', {
         p_battle_id: matchedBattle.id,
         p_player_two_id: userId,
         p_player_two_character_id: character_id,
@@ -304,28 +354,68 @@ Deno.serve(async (req) => {
         return errorResponse('Failed to match battle');
       }
 
-      // Bo3 face-off writer (no-op for single-format).
-      await startFaceOff(supabase, matchedBattle.id);
+      if (didMatch === true) {
+        if (existingBattle) {
+          await supabase
+            .from('battles')
+            .update({ status: 'canceled' })
+            .eq('id', existingBattle.id)
+            .eq('status', 'created');
+        }
+
+        // Bo3 face-off writer (no-op for single-format).
+        await startFaceOff(supabase, matchedBattle.id);
+
+        return successResponse({
+          battle_id: matchedBattle.id,
+          matched: true,
+          theme,
+          is_bot_battle: false,
+        });
+      }
+
+      console.warn('Candidate battle was no longer claimable:', matchedBattle.id);
+    }
+
+    if (existingBattle) {
+      const battleAge = Date.now() - new Date(existingBattle.created_at).getTime();
+      const ageSeconds = battleAge / 1000;
+
+      if (ageSeconds >= 60) {
+        // If a newer eligible player is waiting, keep this older row available
+        // so that user's next retry can claim it. Otherwise both sides can
+        // convert themselves to bots instead of forming a human match.
+        const newerWaitingBattle = await findWaitingBattle(
+          undefined,
+          existingBattle.created_at,
+        );
+        if (newerWaitingBattle) {
+          return successResponse({
+            battle_id: existingBattle.id,
+            matched: false,
+            theme: null,
+            message: 'Opponent found. Waiting for their device to connect...',
+          });
+        }
+
+        const botBattle = await convertToBotBattle(supabase, existingBattle.id);
+        await startFaceOff(supabase, existingBattle.id);
+        return successResponse({
+          battle_id: existingBattle.id,
+          matched: true,
+          theme: botBattle.theme,
+          is_bot_battle: true,
+          converted_from_queue: true,
+        });
+      }
 
       return successResponse({
-        battle_id: matchedBattle.id,
-        matched: true,
-        theme,
+        battle_id: existingBattle.id,
+        matched: false,
+        theme: null,
+        message: `Searching for opponent... (${Math.max(1, Math.floor(60 - ageSeconds))}s remaining)`,
       });
     }
-    
-    // No match found within 60s window, fallback to bot or create new battle
-    // For MVP, always create a new battle and let another function handle bot assignment
-    
-    // Generate theme for new battle
-    const themes = [
-      'Overcome an impossible challenge',
-      'Turn weakness into strength',
-      'The calm before the storm',
-      'Victory from the jaws of defeat',
-      'Precision over power',
-    ];
-    const theme = themes[Math.floor(Math.random() * themes.length)];
     
     // Create battle
     const { data: battleId, error: createError } = await supabase.rpc('create_battle', {

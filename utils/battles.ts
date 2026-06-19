@@ -32,6 +32,8 @@ export interface MatchmakingResult {
   theme?: string;
   message?: string;
   opponent_name?: string;
+  is_bot_battle?: boolean;
+  converted_from_queue?: boolean;
 }
 
 export interface SubmitPromptResult {
@@ -59,6 +61,13 @@ export interface ResolveBattleResult {
   error?: string;
 }
 
+export interface LeaveBattleResult {
+  success: boolean;
+  action?: 'canceled' | 'forfeited' | 'already_terminal';
+  winner_id?: string;
+  error?: string;
+}
+
 /**
  * Start matchmaking for a battle
  */
@@ -81,9 +90,31 @@ export async function startMatchmaking(
       theme: data.theme,
       message: data.message,
       opponent_name: data.opponent_name,
+      is_bot_battle: data.is_bot_battle,
+      converted_from_queue: data.converted_from_queue,
     };
   } catch (err) {
     throw new Error(err instanceof Error ? err.message : 'Matchmaking error');
+  }
+}
+
+/**
+ * Leave a battle before prompt lock. Ranked human matches become forfeits;
+ * unranked/bot pre-prompt exits are canceled server-side.
+ */
+export async function leaveBattle(
+  battleId: string,
+): Promise<LeaveBattleResult> {
+  try {
+    return await invokeAuthenticatedFunction<LeaveBattleResult>(
+      'leave-battle',
+      { battle_id: battleId },
+    );
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to leave battle',
+    };
   }
 }
 

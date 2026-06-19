@@ -31,24 +31,28 @@ export interface FaceOffPortraitsProps {
   playerTwo: FaceOffPlayer;
   theme?: string | null;
   onAdvance: () => void;
-  autoAdvanceMs?: number;
+  onLeave?: () => void;
+  leaveLabel?: string;
+  actionsDisabled?: boolean;
+  continueDelayMs?: number;
 }
 
 /**
  * Split-screen pre-battle face-off with stats, HP, theme reveal, and a
- * countdown footer. Respects Reduce Motion (skips theme animation).
+ * user-paced action footer. Respects Reduce Motion (skips theme animation).
  */
 export default function FaceOffPortraits({
   playerOne,
   playerTwo,
   theme,
   onAdvance,
-  autoAdvanceMs = 5000,
+  onLeave,
+  leaveLabel = 'Leave Battle',
+  actionsDisabled = false,
+  continueDelayMs = 2000,
 }: FaceOffPortraitsProps) {
   const colors = useThemedColors();
-  const [secondsLeft, setSecondsLeft] = useState(
-    Math.ceil(autoAdvanceMs / 1000),
-  );
+  const [canContinue, setCanContinue] = useState(continueDelayMs <= 0);
   const themeOpacity = useRef(new Animated.Value(0)).current;
   const themeScale = useRef(new Animated.Value(0.9)).current;
   const advancedRef = useRef(false);
@@ -85,25 +89,18 @@ export default function FaceOffPortraits({
   }, [themeOpacity, themeScale]);
 
   useEffect(() => {
-    if (autoAdvanceMs <= 0) return;
-    const tick = setInterval(() => {
-      setSecondsLeft((s) => {
-        if (s <= 1) {
-          clearInterval(tick);
-          if (!advancedRef.current) {
-            advancedRef.current = true;
-            onAdvance();
-          }
-          return 0;
-        }
-        return s - 1;
-      });
-    }, 1000);
-    return () => clearInterval(tick);
-  }, [autoAdvanceMs, onAdvance]);
+    if (continueDelayMs <= 0) {
+      setCanContinue(true);
+      return;
+    }
 
-  const handlePress = () => {
-    if (advancedRef.current) return;
+    setCanContinue(false);
+    const timer = setTimeout(() => setCanContinue(true), continueDelayMs);
+    return () => clearTimeout(timer);
+  }, [continueDelayMs]);
+
+  const handleContinue = () => {
+    if (!canContinue || actionsDisabled || advancedRef.current) return;
     advancedRef.current = true;
     onAdvance();
   };
@@ -136,29 +133,56 @@ export default function FaceOffPortraits({
         <PlayerSide player={playerTwo} side="right" />
       </View>
 
-      <Pressable
+      <View
         style={[
           styles.footer,
           { backgroundColor: colors.card, borderColor: colors.border },
         ]}
-        onPress={handlePress}
-        accessibilityRole="button"
-        accessibilityLabel={`Tap to continue. Auto continues in ${secondsLeft} seconds.`}
       >
-        <View
+        <Pressable
           style={[
-            styles.countdown,
-            { borderColor: colors.primary, backgroundColor: colors.background },
+            styles.continueButton,
+            {
+              backgroundColor: canContinue
+                ? colors.primary
+                : colors.backgroundTertiary,
+            },
           ]}
+          onPress={handleContinue}
+          disabled={!canContinue || actionsDisabled}
+          accessibilityRole="button"
+          accessibilityLabel="Continue to prompt entry"
         >
-          <Text style={[styles.countdownText, { color: colors.primary }]}>
-            {secondsLeft}
+          <Text
+            style={[
+              styles.continueText,
+              { color: canContinue ? '#FFFFFF' : colors.textSecondary },
+            ]}
+          >
+            {canContinue ? 'Continue' : 'Revealing Matchup'}
           </Text>
-        </View>
-        <Text style={[styles.footerText, { color: colors.text }]}>
-          Tap to continue
-        </Text>
-      </Pressable>
+        </Pressable>
+
+        {onLeave ? (
+          <Pressable
+            style={[
+              styles.leaveButton,
+              {
+                borderColor: colors.border,
+                backgroundColor: colors.background,
+              },
+            ]}
+            onPress={onLeave}
+            disabled={actionsDisabled}
+            accessibilityRole="button"
+            accessibilityLabel={leaveLabel}
+          >
+            <Text style={[styles.leaveText, { color: colors.textSecondary }]}>
+              {leaveLabel}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -201,10 +225,7 @@ function PlayerSide({
           </View>
         )}
       </View>
-      <Text
-        style={[styles.name, { color: colors.text }]}
-        numberOfLines={1}
-      >
+      <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
         {player.displayName}
       </Text>
       <View
@@ -350,29 +371,37 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: Spacing.lg,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
+    padding: Spacing.md,
     borderRadius: BorderRadius.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
-  countdown: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 3,
+  continueButton: {
+    width: '100%',
+    minHeight: 52,
+    borderRadius: BorderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
   },
-  countdownText: {
-    fontSize: Typography.sizes.lg,
+  continueText: {
+    fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.bold,
   },
-  footerText: {
-    fontSize: Typography.sizes.base,
+  leaveButton: {
+    width: '100%',
+    minHeight: 44,
+    borderRadius: BorderRadius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  leaveText: {
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
 });

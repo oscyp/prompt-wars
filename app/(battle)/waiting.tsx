@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,22 @@ import { Spacing, Typography } from '@/constants/DesignTokens';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import { useAuth } from '@/providers/AuthProvider';
 import { retryBattleResolution, startMatchmaking, BattleMode } from '@/utils/battles';
+import { supabase } from '@/utils/supabase';
 import SeriesScoreIndicator from '@/components/SeriesScoreIndicator';
+
+interface BattleRoutingRow {
+  format?: string | null;
+  player_two_id?: string | null;
+  player_two_character_id?: string | null;
+  is_player_two_bot?: boolean | null;
+  bot_persona_id?: string | null;
+}
+
+function hasOpponent(row: BattleRoutingRow | null): boolean {
+  if (!row) return false;
+  if (row.is_player_two_bot) return Boolean(row.bot_persona_id);
+  return Boolean(row.player_two_id && row.player_two_character_id);
+}
 
 export default function WaitingScreen() {
   const colors = useThemedColors();
@@ -42,6 +57,29 @@ export default function WaitingScreen() {
   );
   const hasRetriedResolutionRef = useRef(false);
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
+
+  const routeMatchedBattle = useCallback(
+    async (targetBattleId: string) => {
+      const { data: battleRow, error } = await supabase
+        .from('battles')
+        .select(
+          'format, player_two_id, player_two_character_id, is_player_two_bot, bot_persona_id',
+        )
+        .eq('id', targetBattleId)
+        .single();
+
+      const routeRow = (battleRow ?? null) as BattleRoutingRow | null;
+      if (error || !hasOpponent(routeRow)) {
+        setRetryMessage('Match is preparing opponent details...');
+        return false;
+      }
+
+      router.replace(`/(battle)/face-off?battleId=${targetBattleId}`);
+      return true;
+    },
+    [router],
+  );
 
   // Filter prompts to the current round when bo3.
   const roundPrompts = isBo3
@@ -91,21 +129,26 @@ export default function WaitingScreen() {
       const createdAt = new Date(battle.created_at).getTime();
       const fallbackTime = createdAt + 60000; // 60 seconds after creation
       const now = Date.now();
-      const delay = Math.max(0, fallbackTime - now);
+      const battleAge = now - createdAt;
+      const ageSeconds = battleAge / 1000;
+      const delay =
+        ageSeconds >= 60
+          ? retryNonce === 0
+            ? 0
+            : 15000
+          : Math.max(0, fallbackTime - now);
 
       retryTimerRef.current = setTimeout(async () => {
         try {
-          setRetryMessage('Checking for bot match...');
+          setRetryMessage('Checking for opponent...');
           const result = await startMatchmaking(
             battle.player_one_character_id,
             battle.mode as BattleMode,
           );
 
           if (result.matched) {
-            // Navigate to prompt entry with the returned battle_id
-            router.replace(
-              `/(battle)/prompt-entry?battleId=${result.battle_id}`,
-            );
+            const routed = await routeMatchedBattle(result.battle_id);
+            if (!routed) setRetryNonce((n) => n + 1);
           } else {
             // Update message and keep waiting
             if (result.message) {
@@ -114,22 +157,40 @@ export default function WaitingScreen() {
             // If backend returned a different battle_id while unmatched, replace waiting screen
             if (result.battle_id !== battleId) {
               router.replace(`/(battle)/waiting?battleId=${result.battle_id}`);
+            } else {
+              setRetryNonce((n) => n + 1);
             }
           }
         } catch (err) {
           console.error('Matchmaking retry failed:', err);
           setRetryMessage('Retry failed, waiting for updates...');
+          setRetryNonce((n) => n + 1);
         }
       }, delay);
     }
-  }, [battle, user, battleId, router]);
+  }, [battle, user, battleId, router, retryNonce, routeMatchedBattle]);
 
   useEffect(() => {
     if (!battle) return;
 
+    const opponentReady = hasOpponent(battle);
+
     // Bo3: route to round-result the moment THIS round flips to result_ready;
     // route to final result when the whole battle completes.
     if (isBo3) {
+      if (
+        (battle.status === 'matched' ||
+          battle.status === 'waiting_for_prompts') &&
+        !myPromptLocked
+      ) {
+        if (opponentReady) {
+          router.replace(`/(battle)/face-off?battleId=${battleId}`);
+        } else {
+          setRetryMessage('Waiting for opponent details...');
+        }
+        return;
+      }
+
       if (battle.status === 'completed') {
         router.replace(`/(battle)/result?battleId=${battleId}`);
         return;
@@ -167,7 +228,11 @@ export default function WaitingScreen() {
         battle.status === 'waiting_for_prompts') &&
       !myPromptLocked
     ) {
-      router.replace(`/(battle)/prompt-entry?battleId=${battleId}`);
+      if (opponentReady) {
+        router.replace(`/(battle)/face-off?battleId=${battleId}`);
+      } else {
+        setRetryMessage('Waiting for opponent details...');
+      }
     }
   }, [battle, myPromptLocked, battleId, router, isBo3, rounds, roundNumber]);
 

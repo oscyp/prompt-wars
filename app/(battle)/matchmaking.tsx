@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useThemedColors } from '@/hooks/useThemedColors';
@@ -6,6 +6,20 @@ import { Spacing, Typography } from '@/constants/DesignTokens';
 import { startMatchmaking } from '@/utils/battles';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
+
+interface BattleRoutingRow {
+  format?: string | null;
+  player_two_id?: string | null;
+  player_two_character_id?: string | null;
+  is_player_two_bot?: boolean | null;
+  bot_persona_id?: string | null;
+}
+
+function hasOpponent(row: BattleRoutingRow | null): boolean {
+  if (!row) return false;
+  if (row.is_player_two_bot) return Boolean(row.bot_persona_id);
+  return Boolean(row.player_two_id && row.player_two_character_id);
+}
 
 export default function MatchmakingScreen() {
   const colors = useThemedColors();
@@ -16,11 +30,7 @@ export default function MatchmakingScreen() {
   const [status, setStatus] = useState<'finding' | 'matched' | 'error'>('finding');
   const [message, setMessage] = useState('Finding opponent...');
 
-  useEffect(() => {
-    findMatch();
-  }, []);
-
-  const findMatch = async () => {
+  const findMatch = useCallback(async () => {
     if (!user) {
       Alert.alert('Error', 'You must be signed in');
       router.back();
@@ -45,37 +55,32 @@ export default function MatchmakingScreen() {
       const result = await startMatchmaking(character.id, mode as any);
 
       if (result.battle_id) {
-        setStatus('matched');
-        setMessage(result.message || (result.matched ? 'Match found!' : 'Battle queued...'));
+        const { data: battleRow } = await supabase
+          .from('battles')
+          .select(
+            'format, player_two_id, player_two_character_id, is_player_two_bot, bot_persona_id',
+          )
+          .eq('id', result.battle_id)
+          .single();
+        const routeRow = (battleRow ?? null) as BattleRoutingRow | null;
 
-        // Look up format to choose face-off (bo3) vs prompt-entry (single).
-        let battleFormat: string | null = null;
-        try {
-          const { data } = await supabase
-            .from('battles')
-            .select('format')
-            .eq('id', result.battle_id)
-            .single();
-          battleFormat = (data?.format as string | undefined) ?? null;
-        } catch {
-          battleFormat = null;
-        }
+        setStatus(result.matched ? 'matched' : 'finding');
+        setMessage(
+          result.message ||
+            (result.matched
+              ? result.is_bot_battle
+                ? 'Bot opponent found!'
+                : 'Opponent found!'
+              : 'Searching for opponent...'),
+        );
 
-        // Navigate to face-off (bo3) or prompt entry if matched, or waiting if async queued
         setTimeout(() => {
-          if (result.matched) {
-            if (battleFormat === 'bo3') {
-              router.replace(
-                `/(battle)/face-off?battleId=${result.battle_id}`,
-              );
-            } else {
-              router.replace(
-                `/(battle)/prompt-entry?battleId=${result.battle_id}`,
-              );
-            }
-          } else {
-            router.replace(`/(battle)/waiting?battleId=${result.battle_id}`);
+          if (result.matched && hasOpponent(routeRow)) {
+            router.replace(`/(battle)/face-off?battleId=${result.battle_id}`);
+            return;
           }
+
+          router.replace(`/(battle)/waiting?battleId=${result.battle_id}`);
         }, 1000);
       } else {
         throw new Error(result.message || 'Matchmaking failed');
@@ -91,7 +96,11 @@ export default function MatchmakingScreen() {
         [{ text: 'OK', onPress: () => router.back() }]
       );
     }
-  };
+  }, [mode, router, user]);
+
+  useEffect(() => {
+    findMatch();
+  }, [findMatch]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

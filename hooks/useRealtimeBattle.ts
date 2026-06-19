@@ -21,6 +21,7 @@ export interface BattleUpdate {
   player_one_character_id: string;
   player_two_character_id: string | null;
   is_player_two_bot: boolean;
+  bot_persona_id?: string | null;
   winner_id: string | null;
   is_draw: boolean;
   score_payload: unknown;
