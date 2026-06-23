@@ -8,6 +8,7 @@
 import { assertEquals, assertExists } from 'https://deno.land/std@0.192.0/testing/asserts.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { getSupabaseSecretKey } from '../_shared/utils.ts';
+import { createTestPlayer, deleteTestPlayer } from './integration-helpers.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseServiceKey = getSupabaseSecretKey();
@@ -19,58 +20,27 @@ Deno.test({
   name: 'Auto-Resolution: lock_prompt sets status to resolving when both prompts submitted',
   ignore: skipIntegrationTests,
   async fn() {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
   
-  // Create two test profiles
-  const { data: profile1, error: p1Error } = await supabase
-    .from('profiles')
-    .insert({ username: 'auto_res_p1', display_name: 'Auto Res P1' })
-    .select('id')
-    .single();
-  
-  if (p1Error) throw p1Error;
-  assertExists(profile1);
-  
-  const { data: profile2, error: p2Error } = await supabase
-    .from('profiles')
-    .insert({ username: 'auto_res_p2', display_name: 'Auto Res P2' })
-    .select('id')
-    .single();
-  
-  if (p2Error) throw p2Error;
-  assertExists(profile2);
-  
-  // Create characters
-  const { data: char1, error: c1Error } = await supabase
-    .from('characters')
-    .insert({
-      profile_id: profile1.id,
-      name: 'Character 1',
-      archetype: 'strategist',
-    })
-    .select('id')
-    .single();
-  
-  if (c1Error) throw c1Error;
-  assertExists(char1);
-  
-  const { data: char2, error: c2Error } = await supabase
-    .from('characters')
-    .insert({
-      profile_id: profile2.id,
-      name: 'Character 2',
-      archetype: 'titan',
-    })
-    .select('id')
-    .single();
-  
-  if (c2Error) throw c2Error;
-  assertExists(char2);
+  // Create two auth-backed test players (profiles are created by the
+  // on_auth_user_created trigger) with characters.
+  const player1 = await createTestPlayer(supabase, {
+    displayName: 'Auto Res P1',
+    archetype: 'strategist',
+    characterName: 'Character 1',
+  });
+  const player2 = await createTestPlayer(supabase, {
+    displayName: 'Auto Res P2',
+    archetype: 'titan',
+    characterName: 'Character 2',
+  });
   
   // Create battle
   const { data: battleId, error: battleError } = await supabase.rpc('create_battle', {
-    p_player_one_id: profile1.id,
-    p_character_id: char1.id,
+    p_player_one_id: player1.profileId,
+    p_character_id: player1.characterId,
     p_mode: 'unranked',
   });
   
@@ -80,8 +50,8 @@ Deno.test({
   // Match with player 2
   const { error: matchError } = await supabase.rpc('match_battle', {
     p_battle_id: battleId,
-    p_player_two_id: profile2.id,
-    p_player_two_character_id: char2.id,
+    p_player_two_id: player2.profileId,
+    p_player_two_character_id: player2.characterId,
     p_theme: 'Test theme for auto-resolution',
   });
   
@@ -101,10 +71,11 @@ Deno.test({
   // Player 1 locks prompt
   const { data: prompt1Id, error: lock1Error } = await supabase.rpc('lock_prompt', {
     p_battle_id: battleId,
-    p_profile_id: profile1.id,
+    p_profile_id: player1.profileId,
     p_prompt_template_id: null,
     p_custom_prompt_text: 'Player 1 attacks with precision and strategy.',
     p_move_type: 'attack',
+    p_moderation_status: 'approved',
   });
   
   if (lock1Error) throw lock1Error;
@@ -124,10 +95,11 @@ Deno.test({
   // Player 2 locks prompt
   const { data: prompt2Id, error: lock2Error } = await supabase.rpc('lock_prompt', {
     p_battle_id: battleId,
-    p_profile_id: profile2.id,
+    p_profile_id: player2.profileId,
     p_prompt_template_id: null,
     p_custom_prompt_text: 'Player 2 defends with unbreakable will.',
     p_move_type: 'defense',
+    p_moderation_status: 'approved',
   });
   
   if (lock2Error) throw lock2Error;
@@ -144,10 +116,9 @@ Deno.test({
   assertExists(battle);
   assertEquals(battle.status, 'resolving', 'Battle should be in resolving status after both prompts locked');
   
-  // Cleanup
-  await supabase.from('battle_prompts').delete().in('id', [prompt1Id, prompt2Id]);
-  await supabase.from('battles').delete().eq('id', battleId);
-  await supabase.from('characters').delete().in('id', [char1.id, char2.id]);
-  await supabase.from('profiles').delete().in('id', [profile1.id, profile2.id]);
+  // Cleanup (deleting the auth users cascades to profiles, characters,
+  // battles, and battle_prompts).
+  await deleteTestPlayer(supabase, player1.profileId);
+  await deleteTestPlayer(supabase, player2.profileId);
   },
 });

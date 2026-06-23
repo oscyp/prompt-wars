@@ -8,6 +8,7 @@
 import { assertEquals, assertExists } from 'https://deno.land/std@0.192.0/testing/asserts.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { getSupabaseSecretKey } from '../_shared/utils.ts';
+import { createTestPlayer, deleteTestPlayer } from './integration-helpers.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseServiceKey = getSupabaseSecretKey();
@@ -19,31 +20,15 @@ Deno.test({
   name: 'Bot Battle: create_bot_battle creates battle with bot opponent',
   ignore: skipIntegrationTests,
   async fn() {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
   
-  // Create test profile
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .insert({ username: 'bot_test_user', display_name: 'Bot Test User' })
-    .select('id')
-    .single();
-  
-  if (profileError) throw profileError;
-  assertExists(profile);
-  
-  // Create test character
-  const { data: character, error: charError } = await supabase
-    .from('characters')
-    .insert({
-      profile_id: profile.id,
-      name: 'Test Character',
-      archetype: 'strategist',
-    })
-    .select('id')
-    .single();
-  
-  if (charError) throw charError;
-  assertExists(character);
+  // Create auth-backed test player with character.
+  const player = await createTestPlayer(supabase, {
+    displayName: 'Bot Test User',
+    archetype: 'strategist',
+  });
   
   // Get an active bot persona
   const { data: botPersona, error: botError } = await supabase
@@ -58,8 +43,8 @@ Deno.test({
   
   // Create bot battle
   const { data: battleId, error: battleError } = await supabase.rpc('create_bot_battle', {
-    p_player_one_id: profile.id,
-    p_character_id: character.id,
+    p_player_one_id: player.profileId,
+    p_character_id: player.characterId,
     p_bot_persona_id: botPersona.id,
     p_mode: 'bot',
     p_theme: 'Test theme: overcome the impossible',
@@ -85,10 +70,8 @@ Deno.test({
   assertExists(battle.theme_revealed_at);
   assertExists(battle.matched_at);
   
-  // Cleanup
-  await supabase.from('battles').delete().eq('id', battleId);
-  await supabase.from('characters').delete().eq('id', character.id);
-  await supabase.from('profiles').delete().eq('id', profile.id);
+  // Cleanup (auth user delete cascades to profile, character, battle).
+  await deleteTestPlayer(supabase, player.profileId);
   },
 });
 
@@ -96,31 +79,15 @@ Deno.test({
   name: 'Bot Battle: lock_prompt sets status to resolving for bot battles',
   ignore: skipIntegrationTests,
   async fn() {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
   
-  // Create test profile
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .insert({ username: 'bot_lock_test', display_name: 'Bot Lock Test' })
-    .select('id')
-    .single();
-  
-  if (profileError) throw profileError;
-  assertExists(profile);
-  
-  // Create test character
-  const { data: character, error: charError } = await supabase
-    .from('characters')
-    .insert({
-      profile_id: profile.id,
-      name: 'Test Character',
-      archetype: 'titan',
-    })
-    .select('id')
-    .single();
-  
-  if (charError) throw charError;
-  assertExists(character);
+  // Create auth-backed test player with character.
+  const player = await createTestPlayer(supabase, {
+    displayName: 'Bot Lock Test',
+    archetype: 'titan',
+  });
   
   // Get an active bot persona
   const { data: botPersona, error: botError } = await supabase
@@ -135,8 +102,8 @@ Deno.test({
   
   // Create bot battle
   const { data: battleId, error: battleError } = await supabase.rpc('create_bot_battle', {
-    p_player_one_id: profile.id,
-    p_character_id: character.id,
+    p_player_one_id: player.profileId,
+    p_character_id: player.characterId,
     p_bot_persona_id: botPersona.id,
     p_mode: 'bot',
     p_theme: 'Test theme',
@@ -148,10 +115,11 @@ Deno.test({
   // Lock human prompt
   const { data: promptId, error: lockError } = await supabase.rpc('lock_prompt', {
     p_battle_id: battleId,
-    p_profile_id: profile.id,
+    p_profile_id: player.profileId,
     p_prompt_template_id: null,
     p_custom_prompt_text: 'A mighty attack that overwhelms the opponent with raw power.',
     p_move_type: 'attack',
+    p_moderation_status: 'approved',
   });
   
   if (lockError) throw lockError;
@@ -168,11 +136,8 @@ Deno.test({
   assertExists(battle);
   assertEquals(battle.status, 'resolving');
   
-  // Cleanup
-  await supabase.from('battle_prompts').delete().eq('id', promptId);
-  await supabase.from('battles').delete().eq('id', battleId);
-  await supabase.from('characters').delete().eq('id', character.id);
-  await supabase.from('profiles').delete().eq('id', profile.id);
+  // Cleanup (auth user delete cascades to profile, character, battle, prompts).
+  await deleteTestPlayer(supabase, player.profileId);
   },
 });
 
@@ -180,7 +145,9 @@ Deno.test({
   name: 'Bot Battle: bot_prompt_library has prompts for bot personas',
   ignore: skipIntegrationTests,
   async fn() {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
   
   // Fetch bot personas
   const { data: botPersonas, error: personaError } = await supabase
