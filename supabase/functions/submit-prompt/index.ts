@@ -13,6 +13,7 @@ import {
 } from '../_shared/utils.ts';
 import { MoveType } from '../_shared/types.ts';
 import { TextModerationProvider } from '../_shared/moderation.ts';
+import { notifyOpponentSubmitted } from '../_shared/push.ts';
 
 /**
  * Trigger battle resolution server-side (reliable async invocation)
@@ -271,6 +272,9 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Opponent still needs to lock this round: nudge them (skips bots).
+      notifyOpponentSubmitted(supabase, battle_id, userId);
+
       return successResponse({
         success: true,
         prompt_id: promptId,
@@ -299,6 +303,10 @@ Deno.serve(async (req) => {
         message: 'Prompt submitted. Battle resolving...',
       });
     }
+
+    // This player locked in but the opponent still needs to play: nudge them.
+    // Fire-and-forget; the helper skips bots and the submitter.
+    notifyOpponentSubmitted(supabase, battle_id, userId);
 
     return successResponse({
       success: true,

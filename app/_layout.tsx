@@ -9,6 +9,10 @@ import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { RevenueCatProvider } from '@/providers/RevenueCatProvider';
 import { supabase } from '@/utils/supabase';
+import {
+  addNotificationResponseListener,
+  handleInitialNotification,
+} from '@/utils/notifications';
 
 try {
   require('react-native-reanimated');
@@ -74,6 +78,14 @@ function RootLayoutNav() {
       router.replace('/(auth)/sign-in');
     }
   }, [session, loading, checkingOnboarding, segments, router]);
+
+  // Route notification taps to the relevant battle screen once signed in.
+  useEffect(() => {
+    if (!session) return;
+    handleInitialNotification();
+    const subscription = addNotificationResponseListener();
+    return () => subscription.remove();
+  }, [session]);
 
   return (
     <>

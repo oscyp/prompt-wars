@@ -7,6 +7,10 @@ import React, {
 } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/utils/supabase';
+import {
+  registerForPushNotifications,
+  deactivatePushToken,
+} from '@/utils/notifications';
 
 interface AuthContextType {
   session: Session | null;
@@ -42,7 +46,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Register this device for push once we have an authenticated user.
+  // Best-effort and idempotent; never blocks auth.
+  useEffect(() => {
+    if (user?.id) {
+      registerForPushNotifications(user.id);
+    }
+  }, [user?.id]);
+
   const signOut = async () => {
+    await deactivatePushToken();
     await supabase.auth.signOut();
   };
 

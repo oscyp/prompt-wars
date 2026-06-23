@@ -5,6 +5,7 @@
 import { createServiceClient, corsHeaders, errorResponse, getSupabaseSecretKey, hasSupabaseSecretAuthorization, successResponse } from '../_shared/utils.ts';
 import { createVideoProvider } from '../_shared/providers.ts';
 import { VideoModerationProvider } from '../_shared/moderation.ts';
+import { notifyVideoReady } from '../_shared/push.ts';
 import {
   finalizeRoundUpgradeEntitlement,
   type RoundUpgradeSource,
@@ -381,6 +382,9 @@ async function processVideoJob(
             .update({ status: 'completed' })
             .eq('id', job.battle_id);
         }
+
+        // Cinematic upgrade is live: notify both human players (fire-and-forget).
+        notifyVideoReady(supabase, job.battle_id);
 
         return { job_id: job.id, status: 'succeeded' };
       }

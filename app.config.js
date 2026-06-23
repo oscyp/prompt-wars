@@ -50,6 +50,9 @@ module.exports = ({ config: _config }) => {
       router: {
         origin: false,
       },
+      eas: {
+        projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID,
+      },
     },
     prebuild: {
       enabled: true,
