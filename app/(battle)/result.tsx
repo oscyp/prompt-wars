@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { appealBattle } from '@/utils/battles';
 import { devGenerateVideo } from '@/utils/devVideo';
 import { requestVideoUpgrade } from '@/utils/monetization';
 import { reportContent } from '@/utils/safety';
+import { shareResultCard, shareBattleVideo } from '@/utils/share';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import { BattleRound } from '@/types/battle';
@@ -47,7 +48,9 @@ export default function ResultScreen() {
   const [isAppealing, setIsAppealing] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [isDevGenerating, setIsDevGenerating] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const [captionLines, setCaptionLines] = useState<CaptionLine[]>([]);
+  const cardRef = useRef<View>(null);
   const isBo3 = format === 'bo3';
 
   const videoUrl =
@@ -224,7 +227,6 @@ export default function ResultScreen() {
 
   const handleReport = () => {
     if (!battleId) return;
-
     Alert.alert('Report Battle', 'Report this battle for review?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -246,6 +248,35 @@ export default function ResultScreen() {
     ]);
   };
 
+  const handleShareCard = async () => {
+    setIsSharing(true);
+    try {
+      const shared = await shareResultCard(cardRef);
+      if (!shared) {
+        Alert.alert('Sharing unavailable', 'Sharing is not available on this device.');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not share the result card.');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const handleShareVideo = async () => {
+    if (!videoUrl) return;
+    setIsSharing(true);
+    try {
+      const shared = await shareBattleVideo(videoUrl);
+      if (!shared) {
+        Alert.alert('Sharing unavailable', 'Sharing is not available on this device.');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not share the video.');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   if (!battle) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }, styles.centered]}>
@@ -265,8 +296,14 @@ export default function ResultScreen() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.content}>
-        {/* Result Header */}
-        <View style={[styles.resultHeader, { backgroundColor: colors.card }]}>
+        {/* Shareable scorecard region (captured by react-native-view-shot) */}
+        <View
+          ref={cardRef}
+          collapsable={false}
+          style={[styles.shareCapture, { backgroundColor: colors.background }]}
+        >
+          {/* Result Header */}
+          <View style={[styles.resultHeader, { backgroundColor: colors.card }]}>
           <Text style={[styles.resultEmoji, { color: isDraw ? colors.warning : isWinner ? colors.success : colors.error }]}>
             {isDraw ? '🤝' : isWinner ? '🏆' : '💔'}
           </Text>
@@ -319,6 +356,37 @@ export default function ResultScreen() {
               {scores.explanation || 'Battle was scored by AI judge'}
             </Text>
           </View>
+        )}
+        </View>
+        {/* End shareable scorecard region */}
+
+        {/* Share actions */}
+        <TouchableOpacity
+          style={[styles.shareButton, { backgroundColor: colors.primary }]}
+          onPress={handleShareCard}
+          disabled={isSharing}
+          accessibilityLabel="Share result card image"
+          accessibilityRole="button"
+        >
+          {isSharing ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.shareButtonText}>📤 Share Result Card</Text>
+          )}
+        </TouchableOpacity>
+
+        {videoUrl && (
+          <TouchableOpacity
+            style={[styles.shareVideoButton, { borderColor: colors.primary }]}
+            onPress={handleShareVideo}
+            disabled={isSharing}
+            accessibilityLabel="Share cinematic video"
+            accessibilityRole="button"
+          >
+            <Text style={[styles.shareVideoButtonText, { color: colors.primary }]}>
+              🎬 Share Cinematic Video
+            </Text>
+          </TouchableOpacity>
         )}
 
         {/* Cinematic Video */}
@@ -584,6 +652,31 @@ const styles = StyleSheet.create({
   },
   appealButtonText: {
     color: '#FFFFFF',
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+  },
+  shareCapture: {
+    borderRadius: 12,
+  },
+  shareButton: {
+    padding: Spacing.md,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  shareButtonText: {
+    color: '#FFFFFF',
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+  },
+  shareVideoButton: {
+    padding: Spacing.md,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    marginBottom: Spacing.lg,
+  },
+  shareVideoButtonText: {
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
   },
