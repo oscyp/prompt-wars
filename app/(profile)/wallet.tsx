@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { getWalletBalance, getWalletTransactions, WalletBalance } from '@/utils/monetization';
@@ -8,6 +9,7 @@ import { PRODUCT_IDS } from '@/utils/revenuecat';
 
 export default function WalletScreen() {
   const colors = useThemedColors();
+  const router = useRouter();
   const { offerings, purchasePackage, restorePurchases, isLoading: rcLoading } = useRevenueCat();
 
   const [balance, setBalance] = useState<WalletBalance | null>(null);
@@ -91,6 +93,17 @@ export default function WalletScreen() {
           </View>
         )}
       </View>
+
+      {/* Cosmetic shop entry */}
+      <TouchableOpacity
+        style={[styles.shopLink, { backgroundColor: colors.card, borderColor: colors.primary }]}
+        onPress={() => router.push('/(profile)/shop')}
+        accessibilityRole="button"
+        accessibilityLabel="Open cosmetic shop"
+      >
+        <Text style={[styles.shopLinkText, { color: colors.text }]}>🎨 Cosmetic Shop</Text>
+        <Text style={[styles.shopLinkChevron, { color: colors.textSecondary }]}>›</Text>
+      </TouchableOpacity>
 
       {/* Credit Packs */}
       <Text style={[styles.sectionTitle, { color: colors.text }]}>Credit Packs</Text>
@@ -252,6 +265,23 @@ const styles = StyleSheet.create({
   allowanceText: {
     fontSize: Typography.sizes.sm,
     marginTop: Spacing.xs,
+  },
+  shopLink: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginBottom: Spacing.md,
+  },
+  shopLinkText: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+  },
+  shopLinkChevron: {
+    fontSize: Typography.sizes.xl,
+    fontWeight: Typography.weights.bold,
   },
   sectionTitle: {
     fontSize: Typography.sizes.xl,

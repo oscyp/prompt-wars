@@ -19,6 +19,7 @@ export default function ProfileLayout() {
       <Stack.Screen name="wallet" />
       <Stack.Screen name="stats" />
       <Stack.Screen name="edit-character" />
+      <Stack.Screen name="shop" />
     </Stack>
   );
 }
