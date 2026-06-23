@@ -1,10 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
+import { useAuth } from '@/providers/AuthProvider';
+import {
+  getNotificationPreferences,
+  updateNotificationPreference,
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  type NotificationPreferences,
+} from '@/utils/notifications';
 
 export default function SettingsScreen() {
   const colors = useThemedColors();
+  const { user } = useAuth();
 
   // Local state for accessibility preferences
   const [dynamicType, setDynamicType] = useState(true);
@@ -12,10 +20,26 @@ export default function SettingsScreen() {
   const [reducedMotion, setReducedMotion] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
 
-  // Notification preferences
-  const [notifyResults, setNotifyResults] = useState(true);
-  const [notifyQuests, setNotifyQuests] = useState(true);
-  const [notifyChallenges, setNotifyChallenges] = useState(true);
+  // Notification preferences (synced with notification_preferences table)
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(
+    DEFAULT_NOTIFICATION_PREFERENCES,
+  );
+
+  useEffect(() => {
+    if (user?.id) {
+      getNotificationPreferences(user.id).then(setNotifPrefs);
+    }
+  }, [user?.id]);
+
+  const toggleNotif = (
+    category: keyof NotificationPreferences,
+    value: boolean,
+  ) => {
+    setNotifPrefs((prev) => ({ ...prev, [category]: value }));
+    if (user?.id) {
+      updateNotificationPreference(user.id, category, value);
+    }
+  };
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -76,18 +100,38 @@ export default function SettingsScreen() {
         <View style={styles.settingRow}>
           <Text style={[styles.settingLabel, { color: colors.text }]}>Battle Results (Must-Send)</Text>
           <Switch
-            value={notifyResults}
-            onValueChange={setNotifyResults}
+            value={true}
+            disabled
             trackColor={{ false: colors.border, true: colors.primary }}
-            accessibilityLabel="Toggle result notifications"
+            accessibilityLabel="Result notifications are always on"
+          />
+        </View>
+
+        <View style={styles.settingRow}>
+          <Text style={[styles.settingLabel, { color: colors.text }]}>Opponent&apos;s Turn</Text>
+          <Switch
+            value={notifPrefs.opponent_submitted}
+            onValueChange={(v) => toggleNotif('opponent_submitted', v)}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            accessibilityLabel="Toggle opponent submitted notifications"
+          />
+        </View>
+
+        <View style={styles.settingRow}>
+          <Text style={[styles.settingLabel, { color: colors.text }]}>Cinematic Video Ready</Text>
+          <Switch
+            value={notifPrefs.video_ready}
+            onValueChange={(v) => toggleNotif('video_ready', v)}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            accessibilityLabel="Toggle video ready notifications"
           />
         </View>
 
         <View style={styles.settingRow}>
           <Text style={[styles.settingLabel, { color: colors.text }]}>Daily Quests</Text>
           <Switch
-            value={notifyQuests}
-            onValueChange={setNotifyQuests}
+            value={notifPrefs.daily_quest}
+            onValueChange={(v) => toggleNotif('daily_quest', v)}
             trackColor={{ false: colors.border, true: colors.primary }}
             accessibilityLabel="Toggle quest notifications"
           />
@@ -96,17 +140,27 @@ export default function SettingsScreen() {
         <View style={styles.settingRow}>
           <Text style={[styles.settingLabel, { color: colors.text }]}>Friend Challenges</Text>
           <Switch
-            value={notifyChallenges}
-            onValueChange={setNotifyChallenges}
+            value={notifPrefs.friend_challenge}
+            onValueChange={(v) => toggleNotif('friend_challenge', v)}
             trackColor={{ false: colors.border, true: colors.primary }}
             accessibilityLabel="Toggle challenge notifications"
+          />
+        </View>
+
+        <View style={styles.settingRow}>
+          <Text style={[styles.settingLabel, { color: colors.text }]}>Season Ending</Text>
+          <Switch
+            value={notifPrefs.season_ending}
+            onValueChange={(v) => toggleNotif('season_ending', v)}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            accessibilityLabel="Toggle season ending notifications"
           />
         </View>
       </View>
 
       <Text style={[styles.note, { color: colors.textTertiary }]}>
-        Note: These preferences are stored locally. Server-side notification settings will be
-        implemented in a future update.
+        Battle results always notify you. All other categories respect the 2-per-day cap and your
+        quiet hours.
       </Text>
     </ScrollView>
   );
