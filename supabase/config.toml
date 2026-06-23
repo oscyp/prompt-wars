@@ -103,3 +103,9 @@ file_size_limit = "50MiB"
 # [storage.buckets.avatars]
 # public = true
 # file_size_limit = "5MiB"
+
+# RevenueCat posts webhooks with its own Authorization header (validated against
+# REVENUECAT_WEBHOOK_SECRET in-function), not a Supabase JWT — so platform JWT
+# verification must be disabled for this endpoint.
+[functions.revenuecat-webhook]
+verify_jwt = false

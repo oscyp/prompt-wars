@@ -89,6 +89,10 @@ export const PRODUCT_IDS = {
   // Subscription (Prompt Wars+)
   PLUS_MONTHLY: 'promptwars_plus_monthly',   // ~$9.99/mo
   PLUS_ANNUAL: 'promptwars_plus_annual',     // ~$59.99/yr
+
+  // First-time-user offer (one-time bundle; product_id must match the
+  // first_time_offers.product_id seeded in the DB migration)
+  FTUO_STARTER: 'ftuo_starter_legend',
 } as const;
 
 /**

@@ -144,6 +144,11 @@ async function processWebhookEvent(webhookData: RevenueCatEvent): Promise<Respon
     return await handleCreditPackPurchase(supabase, event);
   }
   
+  // Handle first-time-user offer (FTUO) bundle purchase
+  if (event.type === 'INITIAL_PURCHASE' && event.product_id.startsWith('ftuo_')) {
+    return await handleFirstTimeOfferPurchase(supabase, event);
+  }
+  
   // Unknown event type - acknowledge but don't process
   console.log('Unknown event type:', event.type);
   return successResponse({ processed: true, event_type: event.type, action: 'ignored' });
@@ -354,3 +359,64 @@ async function handleCreditPackPurchase(
     duplicate: !!existingPurchase,
   });
 }
+
+/**
+ * Handle first-time-user offer (FTUO) bundle purchase.
+ * Credits + exclusive cosmetic are granted atomically by the DB function
+ * fulfill_first_time_offer, which is idempotent on the purchase id.
+ */
+async function handleFirstTimeOfferPurchase(
+  supabase: ReturnType<typeof createServiceClient>,
+  event: RevenueCatEvent['event']
+): Promise<Response> {
+  const platform = event.store === 'app_store' ? 'ios'
+    : event.store === 'play_store' ? 'android'
+    : event.store === 'stripe' ? 'web'
+    : 'unknown';
+
+  // Find or create the purchase record (idempotent on transaction id).
+  const { data: existingPurchase } = await supabase
+    .from('purchases')
+    .select('id')
+    .eq('revenuecat_transaction_id', event.transaction_id)
+    .maybeSingle();
+
+  let purchaseId: string;
+
+  if (existingPurchase) {
+    purchaseId = existingPurchase.id;
+  } else {
+    const { data: newPurchase, error: purchaseError } = await supabase
+      .from('purchases')
+      .insert({
+        profile_id: event.app_user_id,
+        revenuecat_transaction_id: event.transaction_id,
+        product_id: event.product_id,
+        amount_usd: event.price_in_purchased_currency,
+        currency_code: event.currency,
+        platform,
+        fulfilled_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+
+    if (purchaseError || !newPurchase) {
+      console.error('FTUO purchase insert error:', purchaseError);
+      return errorResponse('Failed to create purchase record', 500);
+    }
+    purchaseId = newPurchase.id;
+  }
+
+  const { data, error: fulfillError } = await supabase.rpc(
+    'fulfill_first_time_offer',
+    { p_profile_id: event.app_user_id, p_purchase_id: purchaseId },
+  );
+
+  if (fulfillError) {
+    console.error('FTUO fulfillment error:', fulfillError);
+    return errorResponse('Failed to fulfill offer', 500);
+  }
+
+  return successResponse({ processed: true, type: 'ftuo_purchased', result: data });
+}
+
