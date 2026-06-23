@@ -290,6 +290,7 @@ async function processVideoJob(
           .insert({
             battle_id: job.battle_id,
             video_job_id: job.id,
+            battle_round_id: (job as any).battle_round_id ?? null,
             storage_path: videoUrl,
             moderation_status: 'pending', // requires post-gen moderation
             visibility: 'private',

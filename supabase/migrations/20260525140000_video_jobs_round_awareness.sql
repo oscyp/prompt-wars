@@ -89,11 +89,23 @@ CREATE INDEX IF NOT EXISTS idx_video_jobs_battle_round_id
 
 ALTER TABLE videos DROP CONSTRAINT IF EXISTS videos_battle_id_key;
 
+-- Denormalize the round linkage onto videos so the legacy uniqueness can be
+-- enforced by a partial index on this table's own column. Partial index
+-- predicates cannot reference other tables (no subqueries allowed), so the
+-- round id must live here. NULL == legacy single-format / series-end video.
+ALTER TABLE videos
+  ADD COLUMN IF NOT EXISTS battle_round_id UUID
+    REFERENCES battle_rounds(id) ON DELETE SET NULL;
+
 -- Per-video_job_id is already 1:1 enforced by the FK + the workflow.
 -- A partial unique on legacy keeps one video per battle for series-end rows.
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_videos_legacy_per_battle
   ON videos (battle_id)
-  WHERE video_job_id IN (SELECT id FROM video_jobs WHERE battle_round_id IS NULL);
+  WHERE battle_round_id IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_videos_battle_round_id
+  ON videos (battle_round_id)
+  WHERE battle_round_id IS NOT NULL;
 
 --------------------------------------------------------------------------------
 -- BATTLE_ROUNDS: cinematic write-back columns

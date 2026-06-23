@@ -49,7 +49,11 @@ schema_paths = []
 
 [db.seed]
 # If enabled, seeds the database after migrations during a db reset.
-enabled = true
+# Disabled: starter content is seeded idempotently by migration
+# 20260512195500_seed_starter_content.sql, which runs on both hosted
+# (`db push`) and local (`db reset`) environments. Re-running the legacy
+# ./seed.sql on top of that migration caused duplicate-key failures.
+enabled = false
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
 sql_paths = ["./seed.sql"]
