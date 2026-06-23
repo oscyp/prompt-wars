@@ -3,9 +3,20 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { useRouter } from 'expo-router';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
-import { getDailyTheme, getDailyQuests, getMyBattles } from '@/utils/battles';
+import { getDailyTheme, getMyBattles } from '@/utils/battles';
 import { getWalletBalance } from '@/utils/monetization';
+import {
+  syncDailyMeta,
+  claimQuest,
+  getFirstTimeOffer,
+  dismissFirstTimeOffer,
+  DailyMetaState,
+  DailyQuest,
+  FirstTimeOffer,
+} from '@/utils/dailyMeta';
 import { useAuth } from '@/providers/AuthProvider';
+import { useRevenueCat } from '@/providers/RevenueCatProvider';
+import { StreakMeter, FirstTimeOfferModal } from '@/components';
 
 function getOpponentName(battle: any, currentUserId?: string): string {
   if (!currentUserId) return 'opponent';
@@ -21,39 +32,81 @@ export default function HomeScreen() {
   const colors = useThemedColors();
   const router = useRouter();
   const { user } = useAuth();
+  const { offerings, purchasePackage } = useRevenueCat();
 
   const [dailyTheme, setDailyTheme] = useState<any>(null);
-  const [quests, setQuests] = useState<any[]>([]);
+  const [quests, setQuests] = useState<DailyQuest[]>([]);
+  const [meta, setMeta] = useState<DailyMetaState | null>(null);
   const [activeBattles, setActiveBattles] = useState<any[]>([]);
   const [balance, setBalance] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [claimingQuestId, setClaimingQuestId] = useState<string | null>(null);
+  const [ftuo, setFtuo] = useState<FirstTimeOffer | null>(null);
 
   const loadData = async () => {
     try {
-      const [themeData, questsData, battlesData, balanceData] = await Promise.all([
-        getDailyTheme(),
-        getDailyQuests(),
-        getMyBattles(5),
-        getWalletBalance(),
-      ]);
+      const [themeData, metaData, battlesData, balanceData, ftuoData] =
+        await Promise.all([
+          getDailyTheme(),
+          syncDailyMeta(),
+          getMyBattles(5),
+          getWalletBalance(),
+          getFirstTimeOffer(),
+        ]);
 
       setDailyTheme(themeData);
-      setQuests(questsData);
-      
+      setMeta(metaData);
+      setQuests(metaData?.quests ?? []);
+
       // Filter for active battles (not completed)
       const active = battlesData?.filter(
         (b: any) => !['completed', 'expired', 'canceled'].includes(b.status)
       ) || [];
       setActiveBattles(active);
-      
+
       setBalance(balanceData);
+      setFtuo(ftuoData && ftuoData.eligible ? ftuoData : null);
     } catch (err) {
       console.error('Failed to load home data:', err);
     } finally {
       setIsLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const handleClaimQuest = async (questId: string) => {
+    setClaimingQuestId(questId);
+    try {
+      const result = await claimQuest(questId);
+      if (result.success) {
+        await loadData();
+      }
+    } finally {
+      setClaimingQuestId(null);
+    }
+  };
+
+  const handleClaimFtuo = async (): Promise<boolean> => {
+    const productId = ftuo?.offer?.product_id;
+    if (!productId || !offerings) return false;
+    const allPackages = [
+      ...(offerings.current?.availablePackages ?? []),
+      ...Object.values(offerings.all ?? {}).flatMap((o) => o.availablePackages),
+    ];
+    const pkg = allPackages.find((p) => p.product.identifier === productId);
+    if (!pkg) {
+      console.warn('FTUO package not found in offerings:', productId);
+      return false;
+    }
+    const ok = await purchasePackage(pkg);
+    if (ok) await loadData();
+    return ok;
+  };
+
+  const handleDismissFtuo = async () => {
+    setFtuo(null);
+    await dismissFirstTimeOffer();
   };
 
   useEffect(() => {
@@ -112,6 +165,16 @@ export default function HomeScreen() {
         </TouchableOpacity>
       )}
 
+      {/* Streak meter */}
+      {meta && (
+        <StreakMeter
+          loginStreak={meta.login.streak}
+          claimedToday={meta.login.claimed_today}
+          winStreak={meta.win_streak.current}
+          bestStreak={meta.win_streak.best}
+        />
+      )}
+
       {/* Daily Theme */}
       {dailyTheme && (
         <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -130,23 +193,44 @@ export default function HomeScreen() {
           <Text style={[styles.cardTitle, { color: colors.text }]}>
             Daily Quests
           </Text>
-          {quests.slice(0, 3).map((quest: any) => (
-            <View key={quest.id} style={styles.questItem}>
-              <Text style={[styles.questText, { color: colors.text }]}>
-                {quest.quest?.description || 'Quest'}
-              </Text>
-              <View style={styles.questProgress}>
-                <Text style={[styles.questStatus, { color: quest.completed ? colors.success : colors.textSecondary }]}>
-                  {quest.completed ? '✓ Complete' : `${quest.current_value || 0}/${quest.quest?.target_value || 1}`}
+          {quests.slice(0, 3).map((quest) => {
+            const target = quest.quest?.target_value || 1;
+            const value = quest.current_value || 0;
+            const claimable = !quest.completed && value >= target;
+            return (
+              <View key={quest.id} style={styles.questItem}>
+                <Text style={[styles.questText, { color: colors.text }]}>
+                  {quest.quest?.description || 'Quest'}
                 </Text>
-                {!quest.completed && quest.quest?.reward_credits && (
-                  <Text style={[styles.questReward, { color: colors.primary }]}>
-                    +{quest.quest.reward_credits} credits
+                <View style={styles.questProgress}>
+                  <Text style={[styles.questStatus, { color: quest.completed ? colors.success : colors.textSecondary }]}>
+                    {quest.completed ? '✓ Complete' : `${value}/${target}`}
                   </Text>
-                )}
+                  {claimable ? (
+                    <TouchableOpacity
+                      style={[styles.claimQuestButton, { backgroundColor: colors.primary }]}
+                      onPress={() => handleClaimQuest(quest.daily_quest_id)}
+                      disabled={claimingQuestId === quest.daily_quest_id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Claim ${quest.quest?.reward_credits ?? 0} credits`}
+                    >
+                      {claimingQuestId === quest.daily_quest_id ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.claimQuestText}>
+                          Claim +{quest.quest?.reward_credits ?? 0}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  ) : !quest.completed && quest.quest?.reward_credits ? (
+                    <Text style={[styles.questReward, { color: colors.primary }]}>
+                      +{quest.quest.reward_credits} credits
+                    </Text>
+                  ) : null}
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       )}
 
@@ -193,6 +277,25 @@ export default function HomeScreen() {
       >
         <Text style={styles.ctaButtonText}>⚔️ Start Battle</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.shopButton, { borderColor: colors.primary }]}
+        onPress={() => router.push('/(profile)/shop')}
+        accessibilityLabel="Open cosmetic shop"
+        accessibilityRole="button"
+      >
+        <Text style={[styles.shopButtonText, { color: colors.primary }]}>
+          🎨 Cosmetic Shop
+        </Text>
+      </TouchableOpacity>
+
+      <FirstTimeOfferModal
+        visible={!!ftuo?.eligible}
+        offer={ftuo?.offer}
+        expiresAt={ftuo?.expires_at}
+        onClaim={handleClaimFtuo}
+        onDismiss={handleDismissFtuo}
+      />
     </ScrollView>
   );
 }
@@ -295,5 +398,29 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
+  },
+  claimQuestButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: 8,
+    minWidth: 84,
+    alignItems: 'center',
+  },
+  claimQuestText: {
+    color: '#FFFFFF',
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
+  },
+  shopButton: {
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: Spacing.md,
+  },
+  shopButtonText: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
   },
 });

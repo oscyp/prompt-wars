@@ -12,6 +12,7 @@ import {
 import { runJudgePipeline, JUDGE_PROMPT_VERSION } from '../_shared/judge.ts';
 import { createJudgeProvider } from '../_shared/providers.ts';
 import { computeRatingDeltas } from '../_shared/glicko2.ts';
+import { notifyBattleResult } from '../_shared/push.ts';
 
 interface ResolveBattleRequest {
   battle_id: string;
@@ -286,6 +287,28 @@ Deno.serve(async (req) => {
       console.error('Resolve battle error:', resolveError);
       return errorResponse('Failed to resolve battle', 500);
     }
+
+    // Apply daily-meta rewards (quest progress + win-streak milestone credits).
+    // Non-blocking and idempotent: engagement rewards must never block or fail
+    // battle completion.
+    try {
+      const { error: rewardsError } = await supabase.rpc(
+        'apply_post_battle_rewards',
+        { p_battle_id: battle_id },
+      );
+      if (rewardsError) {
+        console.error(
+          'apply_post_battle_rewards error (non-blocking):',
+          rewardsError,
+        );
+      }
+    } catch (rewardsErr) {
+      console.error('Post-battle rewards failed (non-blocking):', rewardsErr);
+    }
+
+    // Result is ready: push the must-send "result ready" notification to both
+    // human players. Fire-and-forget; never blocks battle completion.
+    notifyBattleResult(supabase, battle_id);
 
     // Generate Tier 0 reveal (always free, never blocks completion)
     try {

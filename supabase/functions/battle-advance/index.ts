@@ -18,6 +18,7 @@ import {
   hasSupabaseSecretAuthorization,
 } from '../_shared/utils.ts';
 import { computeRatingDeltas } from '../_shared/glicko2.ts';
+import { notifyBattleResult } from '../_shared/push.ts';
 
 const RANKED_ROUND_TIMEOUT_MIN = 45;
 const FRIEND_ROUND_TIMEOUT_MIN = 120; // 2h
@@ -200,6 +201,26 @@ Deno.serve(async (req) => {
       console.error('resolve_battle failed in battle-advance:', resolveErr);
       return errorResponse('Failed to finalize battle', 500);
     }
+
+    // Apply daily-meta rewards once per completed Bo3 match (quest progress +
+    // win-streak milestone credits). Idempotent + non-blocking.
+    try {
+      const { error: rewardsError } = await supabase.rpc(
+        'apply_post_battle_rewards',
+        { p_battle_id: battle_id },
+      );
+      if (rewardsError) {
+        console.error(
+          'apply_post_battle_rewards error (non-blocking):',
+          rewardsError,
+        );
+      }
+    } catch (rewardsErr) {
+      console.error('Post-battle rewards failed (non-blocking):', rewardsErr);
+    }
+
+    // Must-send "result ready" push to both human players (fire-and-forget).
+    notifyBattleResult(supabase, battle_id);
 
     // resolve_battle leaves status='result_ready'. Promote to 'completed'
     // — cinematic success is independent and must not gate this.
