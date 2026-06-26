@@ -55,10 +55,7 @@ module.exports = async function handler(req, res) {
       const detail = await r.text();
       if (r.status !== 409 && !/already|exist/i.test(detail)) {
         console.error('subscribe: Resend responded', r.status, detail);
-        return res.status(502).json({
-          error: 'Could not subscribe right now. Please try again.',
-          debug: { upstream: r.status, detail: detail.slice(0, 500) }, // TODO: remove after diagnosing
-        });
+        return res.status(502).json({ error: 'Could not subscribe right now. Please try again.' });
       }
     }
 
@@ -71,10 +68,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error('subscribe: request failed', err);
-    return res.status(502).json({
-      error: 'Could not subscribe right now. Please try again.',
-      debug: { exception: String((err && err.message) || err) }, // TODO: remove after diagnosing
-    });
+    return res.status(502).json({ error: 'Could not subscribe right now. Please try again.' });
   }
 };
 
