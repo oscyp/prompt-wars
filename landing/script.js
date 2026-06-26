@@ -65,11 +65,13 @@
     });
   });
 
-  /* ---- Waitlist (front-end validation + friendly feedback) ---- */
+  /* ---- Waitlist (validation + Resend signup via /api/subscribe) ---- */
   var form = document.getElementById('waitlist');
   var note = document.getElementById('form-note');
   if (form && note) {
     var defaultNote = note.textContent;
+    var submitBtn = form.querySelector('button[type="submit"]');
+
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var input = document.getElementById('email');
@@ -83,11 +85,36 @@
         input.focus();
         return;
       }
-      // No backend yet — store intent locally and confirm.
-      try { localStorage.setItem('pw_waitlist', value); } catch (_) {}
-      note.textContent = "You're on the list! We'll be in touch at launch. 🎉";
-      note.classList.add('success');
-      form.reset();
+
+      var btnLabel = submitBtn ? submitBtn.textContent : '';
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Joining…'; }
+      note.textContent = 'One moment…';
+
+      fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: value })
+      })
+        .then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (data) {
+            return { ok: res.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          if (!result.ok) {
+            throw new Error((result.data && result.data.error) || 'Subscription failed.');
+          }
+          note.textContent = "You're on the list! We'll be in touch at launch. 🎉";
+          note.classList.add('success');
+          form.reset();
+        })
+        .catch(function (err) {
+          note.textContent = err.message || 'Something went wrong. Please try again.';
+          note.classList.add('error');
+        })
+        .then(function () {
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = btnLabel; }
+        });
     });
 
     form.addEventListener('input', function () {

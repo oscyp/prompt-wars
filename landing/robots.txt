@@ -2,4 +2,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://promptwars.app/sitemap.xml
+Sitemap: https://promptwars.gg/sitemap.xml
