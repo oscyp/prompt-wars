@@ -1,0 +1,5 @@
+# Prompt Wars — robots.txt
+User-agent: *
+Allow: /
+
+Sitemap: https://promptwars.app/sitemap.xml

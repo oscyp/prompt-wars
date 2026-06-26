@@ -1,0 +1,73 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0E0B16"/>
+      <stop offset="1" stop-color="#08080C"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.25" r="0.6">
+      <stop stop-color="#8B5CF6" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#8B5CF6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowR" cx="0.85" cy="0.85" r="0.5">
+      <stop stop-color="#EF4444" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#EF4444" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="badge" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A78BFA"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="wordGrad" x1="80" y1="0" x2="760" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#C4B5FD"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect width="1200" height="630" fill="url(#glowR)"/>
+
+  <!-- dotted grid hint -->
+  <g fill="#ffffff" fill-opacity="0.05">
+    <circle cx="980" cy="120" r="2.5"/><circle cx="1030" cy="120" r="2.5"/><circle cx="1080" cy="120" r="2.5"/><circle cx="1130" cy="120" r="2.5"/>
+    <circle cx="980" cy="170" r="2.5"/><circle cx="1030" cy="170" r="2.5"/><circle cx="1080" cy="170" r="2.5"/><circle cx="1130" cy="170" r="2.5"/>
+    <circle cx="980" cy="220" r="2.5"/><circle cx="1030" cy="220" r="2.5"/><circle cx="1080" cy="220" r="2.5"/><circle cx="1130" cy="220" r="2.5"/>
+  </g>
+
+  <!-- logo badge -->
+  <g transform="translate(80,72)">
+    <rect width="104" height="104" rx="26" fill="url(#badge)"/>
+    <rect x="1.25" y="1.25" width="101.5" height="101.5" rx="24.75" stroke="#ffffff" stroke-opacity="0.2" stroke-width="2.5"/>
+    <path d="M34 28 L57 52 L34 76" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M70 28 L47 52 L70 76" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.85"/>
+  </g>
+  <text x="208" y="148" font-family="'Space Grotesk','Helvetica Neue',Arial,sans-serif" font-size="34" font-weight="700" letter-spacing="6" fill="#A78BFA">PROMPT WARS</text>
+
+  <!-- headline -->
+  <text x="78" y="312" font-family="'Space Grotesk','Helvetica Neue',Arial,sans-serif" font-size="92" font-weight="700" letter-spacing="-2" fill="url(#wordGrad)">Words are your</text>
+  <text x="78" y="416" font-family="'Space Grotesk','Helvetica Neue',Arial,sans-serif" font-size="92" font-weight="700" letter-spacing="-2" fill="#F472B6">weapons.</text>
+
+  <!-- subline -->
+  <text x="80" y="480" font-family="'Helvetica Neue',Arial,sans-serif" font-size="29" fill="#A1A1AA">The competitive AI prompt-battle game.</text>
+
+  <!-- move-type chips -->
+  <g font-family="'Helvetica Neue',Arial,sans-serif" font-size="22" font-weight="600">
+    <rect x="80" y="520" width="150" height="48" rx="24" fill="#EF4444" fill-opacity="0.14" stroke="#EF4444" stroke-opacity="0.5"/>
+    <text x="155" y="551" fill="#F87171" text-anchor="middle">Attack</text>
+    <rect x="246" y="520" width="160" height="48" rx="24" fill="#3B82F6" fill-opacity="0.14" stroke="#3B82F6" stroke-opacity="0.5"/>
+    <text x="326" y="551" fill="#60A5FA" text-anchor="middle">Defense</text>
+    <rect x="422" y="520" width="160" height="48" rx="24" fill="#8B5CF6" fill-opacity="0.14" stroke="#8B5CF6" stroke-opacity="0.5"/>
+    <text x="502" y="551" fill="#A78BFA" text-anchor="middle">Finisher</text>
+  </g>
+
+  <!-- VS emblem -->
+  <g transform="translate(800,96)">
+    <circle cx="180" cy="180" r="172" fill="#181226" stroke="#8B5CF6" stroke-opacity="0.55" stroke-width="2.5"/>
+    <circle cx="180" cy="180" r="146" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1.5"/>
+    <!-- two fighter orbs -->
+    <circle cx="98" cy="180" r="58" fill="#1d2c4d" stroke="#3B82F6" stroke-width="4"/>
+    <text x="98" y="195" font-family="'Space Grotesk',Arial,sans-serif" font-size="40" font-weight="700" fill="#93C5FD" text-anchor="middle">SR</text>
+    <circle cx="262" cy="180" r="58" fill="#3a1a1a" stroke="#EF4444" stroke-width="4"/>
+    <text x="262" y="195" font-family="'Space Grotesk',Arial,sans-serif" font-size="40" font-weight="700" fill="#FCA5A5" text-anchor="middle">VT</text>
+    <text x="180" y="199" font-family="'Space Grotesk',Arial,sans-serif" font-size="56" font-weight="700" fill="#ffffff" text-anchor="middle">VS</text>
+  </g>
+</svg>
