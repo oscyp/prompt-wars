@@ -162,7 +162,7 @@ img, svg { display: block; max-width: 100%; }
 .nav-toggle span { width: 22px; height: 2px; background: var(--text); border-radius: 2px; transition: .2s; }
 
 .mobile-nav {
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 4px;
   padding: 12px 24px 20px;
@@ -598,6 +598,7 @@ img, svg { display: block; max-width: 100%; }
 @media (max-width: 720px) {
   .nav, .header-cta { display: none; }
   .nav-toggle { display: flex; }
+  .mobile-nav:not([hidden]) { display: flex; }
   .section { padding: 68px 0; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .stat:nth-child(3) { border-left: 0; }
