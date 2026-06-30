@@ -13,5 +13,19 @@ module.exports = [
     ignores: ['dist/*', 'node_modules/*', '.expo/*', 'android/*', 'ios/*'],
   },
   ...compat.extends('expo'),
+  {
+    // Node-only build/tooling scripts (not bundled into the app).
+    files: ['scripts/**/*.{js,mjs,cjs}'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        Buffer: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        fetch: 'readonly',
+        __dirname: 'readonly',
+      },
+    },
+  },
 ];
 

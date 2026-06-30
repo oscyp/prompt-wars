@@ -13,6 +13,7 @@
     "lint": "expo lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "assets:generate": "node scripts/generate-assets.mjs",
     "supabase:login": "supabase login",
     "supabase:init": "supabase init",
     "supabase:link": "supabase link",
@@ -88,6 +89,7 @@
     "jest-expo": "~55.0.9",
     "prettier": "3.8.1",
     "react-test-renderer": "19.2.4",
+    "sharp": "^0.35.2",
     "supabase": "^2.78.1",
     "typescript": "~5.9.3"
   },

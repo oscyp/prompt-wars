@@ -5,6 +5,8 @@
  * See `supabase/migrations/*characters*` and the implementation concept doc.
  */
 
+import type { ImageSourcePropType } from 'react-native';
+
 export const VIBES = [
   'heroic',
   'sinister',
@@ -263,5 +265,25 @@ export const ART_STYLE_GRADIENTS: Record<ArtStyle, readonly [string, string]> = 
   lowpoly: ['#10B981', '#0EA5E9'],
   darkfantasy: ['#1F2937', '#6B21A8'],
   vaporwave: ['#D946EF', '#22D3EE'],
+};
+
+/**
+ * Bundled reference thumbnails for each art style (512×512 JPEG).
+ * Generated via `scripts/generate-assets.mjs` (Google Nano Banana /
+ * Gemini 2.5 Flash Image). Rendered by `ArtStylePicker`, which falls back to
+ * `ART_STYLE_GLYPHS` if a thumbnail is missing.
+ *
+ * JPEG (not webp) because React Native's core <Image> on iOS cannot decode
+ * webp without a third-party loader.
+ */
+export const ART_STYLE_THUMBS: Record<ArtStyle, ImageSourcePropType> = {
+  painterly: require('../assets/images/styles/painterly.jpg'),
+  anime: require('../assets/images/styles/anime.jpg'),
+  comic: require('../assets/images/styles/comic.jpg'),
+  pixel: require('../assets/images/styles/pixel.jpg'),
+  oil: require('../assets/images/styles/oil.jpg'),
+  lowpoly: require('../assets/images/styles/lowpoly.jpg'),
+  darkfantasy: require('../assets/images/styles/darkfantasy.jpg'),
+  vaporwave: require('../assets/images/styles/vaporwave.jpg'),
 };
 

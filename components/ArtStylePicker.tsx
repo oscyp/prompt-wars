@@ -2,6 +2,7 @@ import React from 'react';
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
@@ -14,6 +15,7 @@ import {
   ART_STYLE_DESCRIPTIONS,
   ART_STYLE_GLYPHS,
   ART_STYLE_GRADIENTS,
+  ART_STYLE_THUMBS,
   ArtStyle,
 } from '@/constants/CharacterTraits';
 
@@ -69,6 +71,7 @@ export default function ArtStylePicker({
         {ART_STYLES.map((key) => {
           const isSelected = key === value;
           const [c1, c2] = ART_STYLE_GRADIENTS[key];
+          const thumb = ART_STYLE_THUMBS[key];
           return (
             <TouchableOpacity
               key={key}
@@ -98,7 +101,7 @@ export default function ArtStylePicker({
                   },
                 ]}
               >
-                {/* Cheap two-stop fake gradient via overlay */}
+                {/* Cheap two-stop fake gradient via overlay (fallback backdrop) */}
                 <View
                   style={[
                     StyleSheet.absoluteFillObject,
@@ -109,7 +112,20 @@ export default function ArtStylePicker({
                     },
                   ]}
                 />
-                <Text style={styles.glyph}>{ART_STYLE_GLYPHS[key]}</Text>
+                {thumb ? (
+                  <Image
+                    source={thumb}
+                    style={[
+                      StyleSheet.absoluteFillObject,
+                      {
+                        borderRadius: compact ? tileSize / 2 : BorderRadius.lg,
+                      },
+                    ]}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={styles.glyph}>{ART_STYLE_GLYPHS[key]}</Text>
+                )}
                 {isSelected ? (
                   <View
                     style={[
