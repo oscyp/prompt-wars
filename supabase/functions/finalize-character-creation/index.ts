@@ -158,6 +158,21 @@ Deno.serve(async (req) => {
     updates.expression = body.expression;
   }
   if (typeof body.signature_item_id === 'string') {
+    const { data: item, error: itemErr } = await supabase
+      .from('signature_items')
+      .select('id, profile_id, kind, moderation_status')
+      .eq('id', body.signature_item_id)
+      .maybeSingle();
+
+    if (itemErr) return err('server_error', itemErr.message, 500);
+    if (!item) return err('bad_request', 'signature item not found', 400);
+    if (item.kind === 'custom' && item.profile_id !== userId) {
+      return err('forbidden', 'cannot equip another user\'s custom item', 403);
+    }
+    if (item.moderation_status === 'rejected') {
+      return err('bad_request', 'signature item is rejected', 400);
+    }
+
     updates.signature_item_id = body.signature_item_id;
   }
   if (typeof body.portrait_id === 'string') {

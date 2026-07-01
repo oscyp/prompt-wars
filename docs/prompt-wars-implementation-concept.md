@@ -333,7 +333,7 @@ Tier 0 must be the wow moment for free users. A static scorecard is utility, not
 Every completed battle produces, in order:
 
 1. **Tier 0 - Free, instant, cinematic.** Always free, always shown, never blocked by credits. Includes:
-   - 9:16 motion poster generated from a fast image model, with parallax and subtle motion.
+   - 9:16 motion poster composed **client-side** from the character's locked portrait (frozen seed + art style) over a signature-color gradient, with parallax and subtle motion. No per-battle image generation on the free tier — this keeps Tier 0 instant and protects unit economics. A generated per-battle still is an optional, non-blocking later phase (Phase 2+: a cached per-character "hero still"; Phase 3: an async "Tier 0.5" still swapped in after the reveal already rendered).
    - Per-move-type canned animation overlay (3-second sting per attack/defense/finisher).
    - Music sting (one of ~6 tracks selected by archetype + outcome).
    - Character voice line: a TTS read of the winner's battle cry.

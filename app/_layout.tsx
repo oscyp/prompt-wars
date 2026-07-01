@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { RevenueCatProvider } from '@/providers/RevenueCatProvider';
 import { supabase } from '@/utils/supabase';
+import { loadSoundEnabled } from '@/utils/soundSettings';
 import {
   addNotificationResponseListener,
   handleInitialNotification,
@@ -99,6 +100,11 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     // Add custom fonts here if needed
   });
+
+  // Hydrate the persisted "Sound & Music" preference before the first reveal.
+  useEffect(() => {
+    loadSoundEnabled();
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded) {

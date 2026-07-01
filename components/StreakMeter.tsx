@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { Spacing, Typography, BorderRadius, NumericFontVariant } from '@/constants/DesignTokens';
 
 export interface StreakMeterProps {
   loginStreak: number;
@@ -36,8 +37,11 @@ export default function StreakMeter({
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
       <View style={styles.row}>
-        <Text style={[styles.label, { color: colors.text }]}>🔥 Daily Streak</Text>
-        <Text style={[styles.value, { color: colors.warning }]}>
+        <View style={styles.labelRow}>
+          <Ionicons name="flame" size={18} color={colors.warning} />
+          <Text style={[styles.label, { color: colors.text }]}>Daily Streak</Text>
+        </View>
+        <Text style={[styles.value, NumericFontVariant, { color: colors.warning }]}>
           {loginStreak} {loginStreak === 1 ? 'day' : 'days'}
         </Text>
       </View>
@@ -69,8 +73,17 @@ export default function StreakMeter({
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
       <View style={styles.row}>
-        <Text style={[styles.label, { color: colors.text }]}>⚔️ Win Streak</Text>
-        <Text style={[styles.value, { color: colors.primary }]}>{winStreak}</Text>
+        <View style={styles.labelRow}>
+          <MaterialCommunityIcons
+            name="sword-cross"
+            size={18}
+            color={colors.primary}
+          />
+          <Text style={[styles.label, { color: colors.text }]}>Win Streak</Text>
+        </View>
+        <Text style={[styles.value, NumericFontVariant, { color: colors.primary }]}>
+          {winStreak}
+        </Text>
       </View>
       <Text style={[styles.hint, { color: colors.textSecondary }]}>
         {toMilestone === 0
@@ -91,6 +104,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
   label: {
     fontSize: Typography.sizes.base,

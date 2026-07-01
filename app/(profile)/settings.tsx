@@ -4,6 +4,11 @@ import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { useAuth } from '@/providers/AuthProvider';
 import {
+  isSoundEnabled,
+  setSoundEnabled,
+  loadSoundEnabled,
+} from '@/utils/soundSettings';
+import {
   getNotificationPreferences,
   updateNotificationPreference,
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -19,6 +24,18 @@ export default function SettingsScreen() {
   const [dyslexiaFont, setDyslexiaFont] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
+
+  // Sound & Music (SFX) preference — persisted, read by the reveal audio layer.
+  const [soundEnabled, setSoundEnabledState] = useState(isSoundEnabled());
+
+  useEffect(() => {
+    loadSoundEnabled().then(setSoundEnabledState);
+  }, []);
+
+  const toggleSound = (value: boolean) => {
+    setSoundEnabledState(value);
+    setSoundEnabled(value);
+  };
 
   // Notification preferences (synced with notification_preferences table)
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(
@@ -76,6 +93,16 @@ export default function SettingsScreen() {
             onValueChange={setReducedMotion}
             trackColor={{ false: colors.border, true: colors.primary }}
             accessibilityLabel="Toggle reduced motion"
+          />
+        </View>
+
+        <View style={styles.settingRow}>
+          <Text style={[styles.settingLabel, { color: colors.text }]}>Sound &amp; Music</Text>
+          <Switch
+            value={soundEnabled}
+            onValueChange={toggleSound}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            accessibilityLabel="Toggle sound effects and music"
           />
         </View>
 

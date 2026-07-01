@@ -6,9 +6,11 @@ import {
   Animated,
   AccessibilityInfo,
   Pressable,
+  Image,
 } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
 import PortraitPreview from './PortraitPreview';
 import StatBar from './StatBar';
 import HPBar from './HPBar';
@@ -55,6 +57,7 @@ export default function FaceOffPortraits({
   const [canContinue, setCanContinue] = useState(continueDelayMs <= 0);
   const themeOpacity = useRef(new Animated.Value(0)).current;
   const themeScale = useRef(new Animated.Value(0.9)).current;
+  const vsScale = useRef(new Animated.Value(0.6)).current;
   const advancedRef = useRef(false);
 
   useEffect(() => {
@@ -65,6 +68,7 @@ export default function FaceOffPortraits({
         if (reduce) {
           themeOpacity.setValue(1);
           themeScale.setValue(1);
+          vsScale.setValue(1);
           return;
         }
         Animated.parallel([
@@ -77,16 +81,23 @@ export default function FaceOffPortraits({
             toValue: 1,
             useNativeDriver: true,
           }),
+          Animated.spring(vsScale, {
+            toValue: 1,
+            friction: 5,
+            tension: 140,
+            useNativeDriver: true,
+          }),
         ]).start();
       })
       .catch(() => {
         themeOpacity.setValue(1);
         themeScale.setValue(1);
+        vsScale.setValue(1);
       });
     return () => {
       cancelled = true;
     };
-  }, [themeOpacity, themeScale]);
+  }, [themeOpacity, themeScale, vsScale]);
 
   useEffect(() => {
     if (continueDelayMs <= 0) {
@@ -128,7 +139,16 @@ export default function FaceOffPortraits({
               {theme ?? 'Open Battle'}
             </Text>
           </Animated.View>
-          <Text style={[styles.vs, { color: colors.text }]}>VS</Text>
+          <Animated.Text
+            style={[
+              styles.vs,
+              { color: colors.text, transform: [{ scale: vsScale }] },
+            ]}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+          >
+            VS
+          </Animated.Text>
         </View>
         <PlayerSide player={playerTwo} side="right" />
       </View>
@@ -216,12 +236,15 @@ function PlayerSide({
           <View
             style={[
               styles.portraitFallback,
-              { backgroundColor: player.signatureColor },
+              { borderColor: player.signatureColor },
             ]}
           >
-            <Text style={styles.portraitInitial}>
-              {player.displayName.slice(0, 1).toUpperCase()}
-            </Text>
+            <Image
+              source={getArchetypeAvatar(player.archetype)}
+              style={styles.portraitImage}
+              resizeMode="cover"
+              accessibilityLabel={`${player.displayName} — ${player.archetype} avatar`}
+            />
           </View>
         )}
       </View>
@@ -305,13 +328,15 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
+    borderWidth: 3,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  portraitInitial: {
-    fontSize: 56,
-    color: '#FFFFFF',
-    fontWeight: Typography.weights.bold,
+  portraitImage: {
+    width: 132,
+    height: 132,
+    borderRadius: 66,
   },
   name: {
     fontSize: Typography.sizes.lg,

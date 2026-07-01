@@ -20,23 +20,57 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createServiceClient();
-  const { data, error } = await supabase
+  const { data: catalogRows, error: catalogError } = await supabase
     .from('signature_items_catalog')
     .select('id, slug, name, description, item_class, archetype_affinity, image_path, prompt_fragment, min_subscription_tier')
     .eq('is_active', true)
     .order('name', { ascending: true });
 
-  if (error) return err('server_error', error.message, 500);
+  if (catalogError) return err('server_error', catalogError.message, 500);
 
-  const items = (data ?? []).map((row) => {
-    let icon_url: string | null = null;
+  const catalogs = catalogRows ?? [];
+  if (catalogs.length === 0) return ok({ items: [] });
+
+  const catalogIds = catalogs.map((row) => row.id);
+  const { data: itemRows, error: itemError } = await supabase
+    .from('signature_items')
+    .select('id, catalog_id')
+    .eq('kind', 'catalog')
+    .in('catalog_id', catalogIds);
+
+  if (itemError) return err('server_error', itemError.message, 500);
+
+  const itemIdByCatalogId = new Map(
+    (itemRows ?? []).map((row) => [row.catalog_id, row.id]),
+  );
+  if (itemIdByCatalogId.size !== catalogs.length) {
+    return err(
+      'server_error',
+      'signature item catalog instances missing; run migrations',
+      500,
+    );
+  }
+
+  const items = catalogs.map((row) => {
+    let iconUrl: string | null = null;
     if (row.image_path) {
       const { data: pub } = supabase.storage
         .from('signature-items-catalog')
         .getPublicUrl(row.image_path);
-      icon_url = pub?.publicUrl ?? null;
+      iconUrl = pub?.publicUrl ?? null;
     }
-    return { ...row, icon_url };
+    return {
+      id: itemIdByCatalogId.get(row.id),
+      catalogId: row.id,
+      slug: row.slug,
+      name: row.name,
+      description: row.description ?? '',
+      itemClass: row.item_class,
+      archetypeAffinity: row.archetype_affinity ?? [],
+      iconUrl,
+      promptFragment: row.prompt_fragment,
+      minSubscriptionTier: row.min_subscription_tier ?? null,
+    };
   });
 
   return ok({ items });

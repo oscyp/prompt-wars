@@ -13,6 +13,7 @@ import { runJudgePipeline, JUDGE_PROMPT_VERSION } from '../_shared/judge.ts';
 import { createJudgeProvider } from '../_shared/providers.ts';
 import { computeRatingDeltas } from '../_shared/glicko2.ts';
 import { notifyBattleResult } from '../_shared/push.ts';
+import { composeRevealPayload } from '../_shared/compose-reveal-payload.ts';
 
 interface ResolveBattleRequest {
   battle_id: string;
@@ -310,21 +311,27 @@ Deno.serve(async (req) => {
     // human players. Fire-and-forget; never blocks battle completion.
     notifyBattleResult(supabase, battle_id);
 
-    // Generate Tier 0 reveal (always free, never blocks completion)
+    // Compose the Tier 0 reveal SYNCHRONOUSLY and write it to the client-read
+    // home (battles.tier0_reveal_payload). The base RevealPayloadV1 is always
+    // present the moment status='result_ready'; portrait/audio/video URL fields
+    // are additive + nullable and never gate battle completion.
     try {
-      await generateTier0Reveal(
-        supabase,
-        battle_id,
-        battle,
-        p1Prompt,
-        p2Prompt,
-        winnerId,
-        judgeResult.is_draw,
-        scorePayload,
-      );
+      const revealPayload = await composeRevealPayload(supabase, {
+        battleId: battle_id,
+      });
+      const { error: revealError } = await supabase
+        .from('battles')
+        .update({ tier0_reveal_payload: revealPayload })
+        .eq('id', battle_id);
+      if (revealError) {
+        console.error(
+          'Failed to store Tier 0 reveal (non-blocking):',
+          revealError,
+        );
+      }
     } catch (tier0Error) {
       console.error(
-        'Tier 0 reveal generation failed (non-blocking):',
+        'Tier 0 reveal composition failed (non-blocking):',
         tier0Error,
       );
       // Continue - Tier 0 failure does not block battle completion
@@ -345,67 +352,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-
-/**
- * Generate Tier 0 reveal payload (non-blocking helper)
- */
-async function generateTier0Reveal(
-  supabase: ReturnType<typeof createServiceClient>,
-  battleId: string,
-  battle: any,
-  p1Prompt: any,
-  p2Prompt: any,
-  winnerId: string | null,
-  isDraw: boolean,
-  scorePayload: any,
-): Promise<void> {
-  // For bot battles, use bot_persona as player two character metadata
-  const playerTwoCharacter = battle.is_player_two_bot
-    ? battle.bot_persona
-    : battle.player_two_character;
-
-  // Simplified Tier 0 payload generation (inline)
-  const tier0Payload = {
-    battleId,
-    tier: 0,
-    compositionType: 'scored_reveal',
-    animationPreset: isDraw ? 'draw_standoff' : 'victory_motion',
-    musicStingId: 'mvp_sting_01',
-    battleCryVoicePreset: 'neutral',
-    battleCryDurationMs: 2000,
-    metadata: {
-      winnerCharacter:
-        winnerId === battle.player_one_id
-          ? battle.player_one_character?.name
-          : playerTwoCharacter?.name,
-      loserCharacter:
-        winnerId === battle.player_one_id
-          ? playerTwoCharacter?.name
-          : battle.player_one_character?.name,
-      winnerArchetype:
-        winnerId === battle.player_one_id
-          ? battle.player_one_character?.archetype
-          : playerTwoCharacter?.archetype,
-      winnerColor:
-        winnerId === battle.player_one_id
-          ? battle.player_one_character?.signature_color
-          : playerTwoCharacter?.signature_color,
-      moveMatchup: `${p1Prompt.move_type}_vs_${p2Prompt.move_type}`,
-      isDraw,
-    },
-    scoreCard: {
-      playerOneScores: scorePayload.player_one_normalized_scores,
-      playerTwoScores: scorePayload.player_two_normalized_scores,
-      explanation: scorePayload.explanation,
-      winnerId,
-      isDraw,
-    },
-    generatedAt: new Date().toISOString(),
-  };
-
-  // Store in battles.tier0_reveal_payload
-  await supabase
-    .from('battles')
-    .update({ tier0_reveal_payload: tier0Payload })
-    .eq('id', battleId);
-}

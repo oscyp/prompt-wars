@@ -4377,6 +4377,11 @@ expo-asset@~55.0.17:
     "@expo/image-utils" "^0.8.14"
     expo-constants "~55.0.16"
 
+expo-audio@~55.0.15:
+  version "55.0.15"
+  resolved "https://registry.yarnpkg.com/expo-audio/-/expo-audio-55.0.15.tgz#bd0189b11550a942c8e5dacd59b4eb2fefe966a8"
+  integrity sha512-VS5112dO7sUivJpqLjAJLsP4Cv1c4o92wrMqkUCPA/879f8hy6RUQI7t2NVTnK5qkVzp1MtzkWhArwAtjVuVHg==
+
 expo-constants@~55.0.15, expo-constants@~55.0.16, expo-constants@~55.0.7:
   version "55.0.16"
   resolved "https://registry.yarnpkg.com/expo-constants/-/expo-constants-55.0.16.tgz#b2ffdc354716488aa38684c8cbf097150089b9b7"
@@ -4548,6 +4553,11 @@ expo-sharing@~55.0.14:
     "@expo/config-plugins" "^55.0.8"
     "@expo/config-types" "^55.0.5"
     "@expo/plist" "^0.5.2"
+
+expo-speech@~55.0.15:
+  version "55.0.15"
+  resolved "https://registry.yarnpkg.com/expo-speech/-/expo-speech-55.0.15.tgz#237671c8b19eb061c0bc01f290b5f8b95b71bcc3"
+  integrity sha512-3yXDKFgV3SGW1BS3zj2JzHlnclwCEa/RAxPxZeXkB8RKMZaWDun9gBHooMgVKIrqGpwdG7UnoEGCg3dHol+E8g==
 
 expo-splash-screen@^55.0.10:
   version "55.0.20"

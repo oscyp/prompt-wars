@@ -138,7 +138,7 @@ Deno.test('remote list-signature-items-catalog returns item contract', async () 
   let fixture: TestUserFixture | undefined;
   try {
     fixture = await createTestUser(config, 'catalog');
-    const result = await invokeFunction<{ items: Array<Record<string, unknown>> }>(
+    const result = await invokeFunction<{ items: Record<string, unknown>[] }>(
       config,
       fixture.accessToken,
       'list-signature-items-catalog',
@@ -149,9 +149,73 @@ Deno.test('remote list-signature-items-catalog returns item contract', async () 
     assert(data.items.length > 0, 'remote catalog should contain seeded items');
     const item = data.items[0];
     assertEquals(typeof item.id, 'string');
+    assertEquals(typeof item.catalogId, 'string');
     assertEquals(typeof item.name, 'string');
     assertEquals(typeof item.description, 'string');
     assertEquals(typeof item.itemClass, 'string');
+
+    const { data: signatureItem, error: signatureItemError } = await fixture.admin
+      .from('signature_items')
+      .select('id, kind, catalog_id')
+      .eq('id', item.id)
+      .single();
+    assertEquals(signatureItemError, null, signatureItemError?.message);
+    assertExists(signatureItem);
+    assertEquals(signatureItem.kind, 'catalog');
+    assertEquals(signatureItem.catalog_id, item.catalogId);
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+Deno.test('remote finalize-character-creation accepts catalog signature item id', async () => {
+  const config = skipUnlessRemoteEnabled();
+  if (!config) return;
+
+  let fixture: TestCharacterFixture | undefined;
+  try {
+    fixture = await createTestCharacter(config, 'finalize-catalog-item', {
+      battle_cry: '\u2026',
+      is_active: false,
+    });
+    const catalogResult = await invokeFunction<{ items: Record<string, unknown>[] }>(
+      config,
+      fixture.accessToken,
+      'list-signature-items-catalog',
+      {},
+    );
+    const catalogData = assertOk(catalogResult);
+    assert(catalogData.items.length > 0, 'remote catalog should contain seeded items');
+
+    const item = catalogData.items[0];
+    assertEquals(typeof item.id, 'string');
+
+    const result = await invokeFunction<{ character_id: string }>(
+      config,
+      fixture.accessToken,
+      'finalize-character-creation',
+      {
+        character_id: fixture.characterId,
+        name: 'Catalog Finisher',
+        archetype: 'strategist',
+        battle_cry: 'Ready for the arena',
+        signature_color: '#6366F1',
+        signature_item_id: item.id,
+      },
+    );
+
+    const data = assertOk(result);
+    assertEquals(data.character_id, fixture.characterId);
+
+    const { data: character, error: characterError } = await fixture.admin
+      .from('characters')
+      .select('battle_cry, signature_item_id')
+      .eq('id', fixture.characterId)
+      .single();
+    assertEquals(characterError, null, characterError?.message);
+    assertExists(character);
+    assertEquals(character.battle_cry, 'Ready for the arena');
+    assertEquals(character.signature_item_id, item.id);
   } finally {
     await cleanupFixture(fixture);
   }
@@ -333,6 +397,7 @@ Deno.test('remote required functions are deployed', async () => {
   const admin = createAdminClient(config);
   const requiredFunctions = [
     'edit-character',
+    'finalize-character-creation',
     'create-custom-signature-item',
     'list-signature-items-catalog',
     'generate-portrait',

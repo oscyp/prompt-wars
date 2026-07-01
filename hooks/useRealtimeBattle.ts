@@ -99,10 +99,7 @@ export function useRealtimeBattle(battleId: string | null) {
     try {
       const [battleRes, promptRes, videoRes, roundsRes] = await Promise.all([
         supabase.from('battles').select('*').eq('id', battleId).single(),
-        supabase
-          .from('battle_prompts')
-          .select('*')
-          .eq('battle_id', battleId),
+        supabase.from('battle_prompts').select('*').eq('battle_id', battleId),
         supabase
           .from('video_jobs')
           .select('*')
@@ -208,9 +205,7 @@ export function useRealtimeBattle(battleId: string | null) {
               );
             } else if (payload.eventType === 'DELETE') {
               setRounds((prev) =>
-                prev.filter(
-                  (r) => r.id !== (payload.old as BattleRound).id,
-                ),
+                prev.filter((r) => r.id !== (payload.old as BattleRound).id),
               );
             }
           },
@@ -250,7 +245,11 @@ export function useRealtimeBattle(battleId: string | null) {
           },
         )
         .subscribe((status) => {
-          setIsSubscribed(status === 'SUBSCRIBED');
+          const subscribed = status === 'SUBSCRIBED';
+          setIsSubscribed(subscribed);
+          if (subscribed) {
+            fetchBattleData();
+          }
         });
     };
 
@@ -310,12 +309,13 @@ export function useRealtimeBattle(battleId: string | null) {
   }, [videoJobs]);
 
   // Map round_number -> latest video job for that round.
-  const videoJobsByRound = useMemo<Record<number, VideoJobUpdate | null>>(() => {
+  const videoJobsByRound = useMemo<
+    Record<number, VideoJobUpdate | null>
+  >(() => {
     const map: Record<number, VideoJobUpdate | null> = {};
     for (const round of rounds) {
       // `videoJobs` is already ordered newest-first, so the first match wins.
-      const job =
-        videoJobs.find((j) => j.battle_round_id === round.id) ?? null;
+      const job = videoJobs.find((j) => j.battle_round_id === round.id) ?? null;
       map[round.round_number] = job;
     }
     return map;

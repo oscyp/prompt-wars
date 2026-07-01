@@ -12,7 +12,11 @@ import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import { useAuth } from '@/providers/AuthProvider';
-import { retryBattleResolution, startMatchmaking, BattleMode } from '@/utils/battles';
+import {
+  retryBattleResolution,
+  startMatchmaking,
+  BattleMode,
+} from '@/utils/battles';
 import { supabase } from '@/utils/supabase';
 import SeriesScoreIndicator from '@/components/SeriesScoreIndicator';
 
@@ -141,6 +145,11 @@ export default function WaitingScreen() {
       retryTimerRef.current = setTimeout(async () => {
         try {
           setRetryMessage('Checking for opponent...');
+          if (battleId) {
+            const routedExisting = await routeMatchedBattle(battleId);
+            if (routedExisting) return;
+          }
+
           const result = await startMatchmaking(
             battle.player_one_character_id,
             battle.mode as BattleMode,
@@ -148,7 +157,15 @@ export default function WaitingScreen() {
 
           if (result.matched) {
             const routed = await routeMatchedBattle(result.battle_id);
-            if (!routed) setRetryNonce((n) => n + 1);
+            if (!routed) {
+              if (result.battle_id !== battleId) {
+                router.replace(
+                  `/(battle)/waiting?battleId=${result.battle_id}`,
+                );
+              } else {
+                setRetryNonce((n) => n + 1);
+              }
+            }
           } else {
             // Update message and keep waiting
             if (result.message) {
@@ -273,9 +290,7 @@ export default function WaitingScreen() {
               format={format}
               bestOf={battle?.best_of ?? 3}
             />
-            <Text
-              style={[styles.subheading, { color: colors.textSecondary }]}
-            >
+            <Text style={[styles.subheading, { color: colors.textSecondary }]}>
               Round {roundNumber} of {battle?.best_of ?? 3} — Locking in
             </Text>
           </View>

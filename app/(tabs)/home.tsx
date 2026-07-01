@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import { Spacing, Typography, NumericFontVariant, Elevation } from '@/constants/DesignTokens';
 import { getDailyTheme, getMyBattles } from '@/utils/battles';
 import { getWalletBalance } from '@/utils/monetization';
 import {
@@ -149,16 +150,19 @@ export default function HomeScreen() {
           <View style={styles.cardHeader}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>Credits</Text>
             {balance.is_subscriber && (
-              <Text style={[styles.subscriberBadge, { color: colors.primary }]}>
-                ✨ Prompt Wars+
-              </Text>
+              <View style={styles.subscriberBadge}>
+                <Ionicons name="sparkles" size={12} color={colors.primary} />
+                <Text style={[styles.subscriberBadgeText, { color: colors.primary }]}>
+                  Prompt Wars+
+                </Text>
+              </View>
             )}
           </View>
-          <Text style={[styles.creditsAmount, { color: colors.primary }]}>
+          <Text style={[styles.creditsAmount, NumericFontVariant, { color: colors.primary }]}>
             {balance.credits_balance} Credits
           </Text>
           {balance.is_subscriber && (
-            <Text style={[styles.cardSubtext, { color: colors.textSecondary }]}>
+            <Text style={[styles.cardSubtext, NumericFontVariant, { color: colors.textSecondary }]}>
               {balance.monthly_video_allowance_remaining} video reveals remaining
             </Text>
           )}
@@ -203,9 +207,28 @@ export default function HomeScreen() {
                   {quest.quest?.description || 'Quest'}
                 </Text>
                 <View style={styles.questProgress}>
-                  <Text style={[styles.questStatus, { color: quest.completed ? colors.success : colors.textSecondary }]}>
-                    {quest.completed ? '✓ Complete' : `${value}/${target}`}
-                  </Text>
+                  {quest.completed ? (
+                    <View style={styles.questStatusRow}>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={14}
+                        color={colors.success}
+                      />
+                      <Text style={[styles.questStatus, { color: colors.success }]}>
+                        Complete
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text
+                      style={[
+                        styles.questStatus,
+                        NumericFontVariant,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {value}/{target}
+                    </Text>
+                  )}
                   {claimable ? (
                     <TouchableOpacity
                       style={[styles.claimQuestButton, { backgroundColor: colors.primary }]}
@@ -275,7 +298,10 @@ export default function HomeScreen() {
         accessibilityLabel="Start a new battle"
         accessibilityRole="button"
       >
-        <Text style={styles.ctaButtonText}>⚔️ Start Battle</Text>
+        <View style={styles.buttonInner}>
+          <MaterialCommunityIcons name="sword-cross" size={22} color="#FFFFFF" />
+          <Text style={styles.ctaButtonText}>Start Battle</Text>
+        </View>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -284,9 +310,12 @@ export default function HomeScreen() {
         accessibilityLabel="Open cosmetic shop"
         accessibilityRole="button"
       >
-        <Text style={[styles.shopButtonText, { color: colors.primary }]}>
-          🎨 Cosmetic Shop
-        </Text>
+        <View style={styles.buttonInner}>
+          <Ionicons name="color-palette-outline" size={20} color={colors.primary} />
+          <Text style={[styles.shopButtonText, { color: colors.primary }]}>
+            Cosmetic Shop
+          </Text>
+        </View>
       </TouchableOpacity>
 
       <FirstTimeOfferModal
@@ -340,6 +369,11 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   subscriberBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  subscriberBadgeText: {
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.semibold,
   },
@@ -369,6 +403,11 @@ const styles = StyleSheet.create({
   questStatus: {
     fontSize: Typography.sizes.sm,
   },
+  questStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   questReward: {
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
@@ -393,6 +432,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: Spacing.lg,
+    ...Elevation.md,
+  },
+  buttonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   ctaButtonText: {
     color: '#FFFFFF',

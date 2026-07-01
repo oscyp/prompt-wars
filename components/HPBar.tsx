@@ -6,8 +6,9 @@ import {
   Animated,
   AccessibilityInfo,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { Spacing, Typography, BorderRadius, Motion, NumericFontVariant } from '@/constants/DesignTokens';
 
 export interface HPBarProps {
   current: number;
@@ -54,10 +55,12 @@ export default function HPBar({
           widthAnim.setValue(endPct);
           return;
         }
-        Animated.timing(widthAnim, {
+        Animated.spring(widthAnim, {
           toValue: endPct,
-          duration: 800,
           useNativeDriver: false,
+          damping: Motion.spring.damping,
+          stiffness: Motion.spring.stiffness,
+          mass: Motion.spring.mass,
         }).start();
         if (lost > 0) {
           lostAnim.setValue(1);
@@ -112,17 +115,13 @@ export default function HPBar({
           compact && styles.rowCompact,
         ]}
       >
-        <Text
-          style={[
-            styles.heart,
-            { color: fillColor },
-            compact && styles.heartCompact,
-          ]}
+        <Ionicons
+          name="heart"
+          size={compact ? 16 : 20}
+          color={fillColor}
           accessibilityElementsHidden
           importantForAccessibility="no"
-        >
-          ♥
-        </Text>
+        />
         <View style={styles.labels}>
           {playerName ? (
             <Text
@@ -132,7 +131,7 @@ export default function HPBar({
               {playerName}
             </Text>
           ) : null}
-          <Text style={[styles.value, { color: colors.text }]}>
+          <Text style={[styles.value, NumericFontVariant, { color: colors.text }]}>
             {clampedCurrent}
             <Text style={{ color: colors.textSecondary }}> / {safeMax} HP</Text>
           </Text>
@@ -189,12 +188,6 @@ const styles = StyleSheet.create({
   },
   rowCompact: {
     marginBottom: 2,
-  },
-  heart: {
-    fontSize: 20,
-  },
-  heartCompact: {
-    fontSize: 16,
   },
   labels: {
     flex: 1,

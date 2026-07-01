@@ -32,6 +32,10 @@ import { createJudgeProvider } from '../_shared/providers.ts';
 import { MoveType } from '../_shared/types.ts';
 import { checkRoundUpgradeEntitlement } from '../_shared/entitlement-gate.ts';
 import { composePerRoundPayload } from '../_shared/per-round-payload.ts';
+import {
+  composeRevealPayload,
+  writeRoundRevealPayload,
+} from '../_shared/compose-reveal-payload.ts';
 import { hashTier1Payload } from '../_shared/compose-tier1-payload.ts';
 import { TIER1_PER_ROUND_COST_UNITS, type VideoJobTrigger } from '../_shared/video-constants.ts';
 
@@ -503,18 +507,33 @@ Deno.serve(async (req) => {
       })
       .eq('id', battle_id);
 
-    // ---- Enqueue Tier 0 reveal (always, non-blocking) ----
-    // NOTE: existing generate-tier0-reveal works on battle_id; we pass
-    // battle_round_id as a hint for future per-round payloads. Failure must
-    // NEVER block round completion.
+    // ---- Compose Tier 0 reveal SYNCHRONOUSLY (always present) ----
+    // The base RevealPayloadV1 is produced here so the reveal is guaranteed the
+    // moment the round reaches result_ready. Video/audio/portrait-URL fields are
+    // additive + nullable; Tier 1 never gates this. We write to the client-read
+    // home (battles.tier0_reveal_payload, overwritten per round so the existing
+    // client read works TODAY against the current schema) plus a durable,
+    // NON-FATAL per-round copy (battle_rounds.reveal_payload) that no-ops until
+    // its migration is applied. Failure NEVER blocks round completion.
     try {
-      await invokeFunctionAsync('generate-tier0-reveal', {
-        battle_id,
-        battle_round_id: claimedRound.id,
-        round_number: roundNumber,
+      const revealPayload = await composeRevealPayload(supabase, {
+        battleId: battle_id,
+        battleRoundId: claimedRound.id,
+        roundNumber,
       });
-    } catch (e) {
-      console.error('Tier 0 reveal enqueue failed (non-blocking):', e);
+      const { error: battleRevealErr } = await supabase
+        .from('battles')
+        .update({ tier0_reveal_payload: revealPayload })
+        .eq('id', battle_id);
+      if (battleRevealErr) {
+        console.error(
+          'Failed to write reveal to battles (non-blocking):',
+          battleRevealErr,
+        );
+      }
+      await writeRoundRevealPayload(supabase, claimedRound.id, revealPayload);
+    } catch (revealErr) {
+      console.error('Tier 0 reveal composition failed (non-blocking):', revealErr);
     }
 
     // ---- Tier 1: subscriber auto-enqueue (non-blocking) ----

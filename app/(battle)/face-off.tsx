@@ -21,8 +21,16 @@ interface CharacterRow {
   archetype: string;
   signature_color: string | null;
   battle_cry: string | null;
-  avatar_asset_url?: string | null;
-  portrait_url: string | null;
+}
+
+/**
+ * Response contract of the `sign-battle-portraits` edge function. Signed URLs
+ * (~1h TTL) into the private character-portraits bucket, or null for bots and
+ * characters without a generated portrait.
+ */
+interface SignBattlePortraitsResponse {
+  player_one: { portrait_url: string | null; archetype: string | null } | null;
+  player_two: { portrait_url: string | null; archetype: string | null } | null;
 }
 
 export default function FaceOffScreen() {
@@ -36,6 +44,10 @@ export default function FaceOffScreen() {
   const [chars, setChars] = useState<{
     p1: CharacterRow | null;
     p2: CharacterRow | null;
+  }>({ p1: null, p2: null });
+  const [portraits, setPortraits] = useState<{
+    p1: string | null;
+    p2: string | null;
   }>({ p1: null, p2: null });
   const [loadingChars, setLoadingChars] = useState(true);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -55,9 +67,7 @@ export default function FaceOffScreen() {
       }
       const { data, error } = await supabase
         .from('characters')
-        .select(
-          'id, name, archetype, signature_color, battle_cry, avatar_asset_url',
-        )
+        .select('id, name, archetype, signature_color, battle_cry')
         .in('id', ids);
       if (cancelled) return;
       if (error || !data) {
@@ -65,13 +75,7 @@ export default function FaceOffScreen() {
         return;
       }
       const byId = new Map<string, CharacterRow>(
-        data.map((c) => [
-          c.id as string,
-          {
-            ...(c as Omit<CharacterRow, 'portrait_url'>),
-            portrait_url: (c.avatar_asset_url as string | null) ?? null,
-          },
-        ]),
+        data.map((c) => [c.id as string, c as CharacterRow]),
       );
       setChars({
         p1: byId.get(battle.player_one_character_id) ?? null,
@@ -86,6 +90,36 @@ export default function FaceOffScreen() {
       cancelled = true;
     };
   }, [battle]);
+
+  // Fetch signed portrait URLs from the private character-portraits bucket via
+  // the sign-battle-portraits edge function. Read-only, ~1h TTL signed URLs;
+  // returns null for bots or characters with no portrait. Degrades silently to
+  // the bundled archetype illustrations on any failure — never blocks the
+  // screen. Real photos only appear once the function is deployed.
+  useEffect(() => {
+    if (!battleId) return;
+    let cancelled = false;
+    async function signPortraits() {
+      try {
+        const { data, error } = await supabase.functions.invoke(
+          'sign-battle-portraits',
+          { body: { battle_id: battleId } },
+        );
+        if (cancelled || error || !data) return;
+        const payload = data as SignBattlePortraitsResponse;
+        setPortraits({
+          p1: payload.player_one?.portrait_url ?? null,
+          p2: payload.player_two?.portrait_url ?? null,
+        });
+      } catch {
+        // Degrade silently to bundled archetype illustrations.
+      }
+    }
+    signPortraits();
+    return () => {
+      cancelled = true;
+    };
+  }, [battleId]);
 
   const advance = useCallback(() => {
     if (!battleId) return;
@@ -183,6 +217,7 @@ export default function FaceOffScreen() {
     hp.p1,
     hp_max.p1,
     'Player 1',
+    portraits.p1,
   );
   const playerTwo = buildPlayer(
     chars.p2,
@@ -190,6 +225,7 @@ export default function FaceOffScreen() {
     hp.p2,
     hp_max.p2,
     battle.is_player_two_bot ? 'Bot Opponent' : 'Player 2',
+    portraits.p2,
   );
 
   return (
@@ -213,6 +249,7 @@ function buildPlayer(
   hp: number,
   hpMax: number,
   fallbackName: string,
+  portraitUrl: string | null,
 ): FaceOffPlayer {
   return {
     characterId: c?.id ?? 'unknown',
@@ -220,7 +257,7 @@ function buildPlayer(
     archetype: c?.archetype ?? 'fighter',
     battleCry: c?.battle_cry ?? null,
     signatureColor: c?.signature_color ?? '#8B5CF6',
-    portraitUrl: c?.portrait_url ?? null,
+    portraitUrl: portraitUrl ?? null,
     stats,
     hp,
     hpMax,

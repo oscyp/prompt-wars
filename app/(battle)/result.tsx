@@ -10,9 +10,14 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { Spacing, Typography, NumericFontVariant, Motion, Elevation } from '@/constants/DesignTokens';
+import { hapticVictory, hapticDefeat, hapticDraw } from '@/utils/haptics';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
+import { useRevealAudio } from '@/hooks/useRevealAudio';
 import { appealBattle } from '@/utils/battles';
 import { devGenerateVideo } from '@/utils/devVideo';
 import { requestVideoUpgrade } from '@/utils/monetization';
@@ -21,6 +26,7 @@ import { shareResultCard, shareBattleVideo } from '@/utils/share';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import { BattleRound } from '@/types/battle';
+import type { Tier0Payload } from '@/components/RoundResultCinematic';
 
 type CaptionLine = { start_ms: number; end_ms: number; text: string };
 
@@ -33,6 +39,7 @@ function formatTimestamp(ms: number): string {
 
 export default function ResultScreen() {
   const colors = useThemedColors();
+  const reduceMotion = useReducedMotion();
   const router = useRouter();
   const { user } = useAuth();
   const { battleId } = useLocalSearchParams<{ battleId: string }>();
@@ -115,6 +122,38 @@ export default function ResultScreen() {
   const isWinner = battle?.winner_id === user?.id;
   const isDraw = battle?.is_draw;
   const canAppeal = !isWinner && !isDraw && battle?.mode === 'ranked';
+
+  // Fire a single outcome haptic once the resolved battle is known.
+  const outcomeHapticFired = useRef(false);
+  useEffect(() => {
+    if (!battle || outcomeHapticFired.current) return;
+    const resolved =
+      battle.status === 'completed' || battle.status === 'result_ready';
+    if (!resolved) return;
+    outcomeHapticFired.current = true;
+    if (isDraw) hapticDraw();
+    else if (isWinner) hapticVictory();
+    else hapticDefeat();
+  }, [battle, isDraw, isWinner]);
+
+  // Fire the best-effort Tier 0 reveal audio once, when the battle resolves.
+  // Non-blocking and gated on the Sound setting inside the controller.
+  const revealAudio = useRevealAudio();
+  const revealAudioFired = useRef(false);
+  useEffect(() => {
+    if (!battle || revealAudioFired.current) return;
+    const resolved =
+      battle.status === 'completed' || battle.status === 'result_ready';
+    if (!resolved) return;
+    const payload =
+      (battle.tier0_reveal_payload as Tier0Payload | null) ?? null;
+    if (!payload) return;
+    revealAudioFired.current = true;
+    revealAudio.play({
+      reveal_spec: payload.reveal_spec ?? null,
+      battleCryText: payload.battleCryText ?? null,
+    });
+  }, [battle, revealAudio]);
 
   const handleAppeal = async () => {
     if (!battleId) return;
@@ -303,11 +342,37 @@ export default function ResultScreen() {
           style={[styles.shareCapture, { backgroundColor: colors.background }]}
         >
           {/* Result Header */}
-          <View style={[styles.resultHeader, { backgroundColor: colors.card }]}>
-          <Text style={[styles.resultEmoji, { color: isDraw ? colors.warning : isWinner ? colors.success : colors.error }]}>
-            {isDraw ? '🤝' : isWinner ? '🏆' : '💔'}
-          </Text>
-          <Text style={[styles.resultText, { color: colors.text }]}>
+          <Animated.View
+            style={[styles.resultHeader, { backgroundColor: colors.card }]}
+            entering={
+              reduceMotion
+                ? undefined
+                : FadeInDown.duration(Motion.durations.slow)
+            }
+          >
+          {isDraw ? (
+            <MaterialCommunityIcons
+              name="handshake"
+              size={64}
+              color={colors.warning}
+              style={styles.resultIcon}
+            />
+          ) : isWinner ? (
+            <Ionicons
+              name="trophy"
+              size={64}
+              color={colors.success}
+              style={styles.resultIcon}
+            />
+          ) : (
+            <MaterialCommunityIcons
+              name="heart-broken"
+              size={64}
+              color={colors.error}
+              style={styles.resultIcon}
+            />
+          )}
+          <Text style={[styles.resultText, NumericFontVariant, { color: colors.text }]}>
             {seriesHeader ?? (isDraw ? 'DRAW' : isWinner ? 'VICTORY' : 'DEFEAT')}
           </Text>
           {!isDraw && battle.winner_id && (
@@ -315,10 +380,17 @@ export default function ResultScreen() {
               Winner: {isWinner ? 'You' : 'Opponent'}
             </Text>
           )}
-        </View>
+        </Animated.View>
 
         {isBo3 ? (
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <Animated.View
+            style={[styles.card, { backgroundColor: colors.card }]}
+            entering={
+              reduceMotion
+                ? undefined
+                : FadeInDown.duration(Motion.durations.base).delay(80)
+            }
+          >
             <Text style={[styles.cardTitle, { color: colors.text }]}>
               Round-by-Round
             </Text>
@@ -335,27 +407,41 @@ export default function ResultScreen() {
                 />
               ))
             )}
-          </View>
+          </Animated.View>
         ) : null}
 
         {/* Tier 0 Reveal Info */}
         {tier0 && (
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <Animated.View
+            style={[styles.card, { backgroundColor: colors.card }]}
+            entering={
+              reduceMotion
+                ? undefined
+                : FadeInDown.duration(Motion.durations.base).delay(120)
+            }
+          >
             <Text style={[styles.cardTitle, { color: colors.text }]}>Battle Summary</Text>
             <Text style={[styles.cardText, { color: colors.textSecondary }]}>
               {tier0.summary || 'Tier 0 reveal rendered'}
             </Text>
-          </View>
+          </Animated.View>
         )}
 
         {/* Score Breakdown */}
         {scores && (
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <Animated.View
+            style={[styles.card, { backgroundColor: colors.card }]}
+            entering={
+              reduceMotion
+                ? undefined
+                : FadeInDown.duration(Motion.durations.base).delay(180)
+            }
+          >
             <Text style={[styles.cardTitle, { color: colors.text }]}>Judge Scores</Text>
             <Text style={[styles.explanation, { color: colors.textSecondary }]}>
               {scores.explanation || 'Battle was scored by AI judge'}
             </Text>
-          </View>
+          </Animated.View>
         )}
         </View>
         {/* End shareable scorecard region */}
@@ -371,7 +457,10 @@ export default function ResultScreen() {
           {isSharing ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.shareButtonText}>📤 Share Result Card</Text>
+            <View style={styles.buttonRow}>
+              <Ionicons name="share-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.shareButtonText}>Share Result Card</Text>
+            </View>
           )}
         </TouchableOpacity>
 
@@ -383,9 +472,12 @@ export default function ResultScreen() {
             accessibilityLabel="Share cinematic video"
             accessibilityRole="button"
           >
-            <Text style={[styles.shareVideoButtonText, { color: colors.primary }]}>
-              🎬 Share Cinematic Video
-            </Text>
+            <View style={styles.buttonRow}>
+              <Ionicons name="film-outline" size={18} color={colors.primary} />
+              <Text style={[styles.shareVideoButtonText, { color: colors.primary }]}>
+                Share Cinematic Video
+              </Text>
+            </View>
           </TouchableOpacity>
         )}
 
@@ -436,11 +528,18 @@ export default function ResultScreen() {
         ) : videoJob ? (
           <View style={[styles.card, { backgroundColor: colors.card }]}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>Video Status</Text>
-            <Text style={[styles.cardText, { color: colors.textSecondary }]}>
-              {videoJob.status === 'failed'
-                ? '✗ Generation failed'
-                : `⏳ Generating cinematic...`}
-            </Text>
+            <View style={styles.statusRow}>
+              <Ionicons
+                name={videoJob.status === 'failed' ? 'close-circle' : 'hourglass-outline'}
+                size={16}
+                color={videoJob.status === 'failed' ? colors.error : colors.textSecondary}
+              />
+              <Text style={[styles.cardText, { color: colors.textSecondary }]}>
+                {videoJob.status === 'failed'
+                  ? 'Generation failed'
+                  : 'Generating cinematic...'}
+              </Text>
+            </View>
             {videoJob.moderation_status === 'pending' && (
               <Text style={[styles.moderationText, { color: colors.warning }]}>
                 Video pending moderation approval
@@ -461,7 +560,10 @@ export default function ResultScreen() {
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <>
-                  <Text style={styles.upgradeButtonText}>🎬 Upgrade to Cinematic Video</Text>
+                  <View style={styles.buttonRow}>
+                    <Ionicons name="film-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.upgradeButtonText}>Upgrade to Cinematic Video</Text>
+                  </View>
                   <Text style={styles.upgradeButtonSubtext}>See the battle come to life</Text>
                 </>
               )}
@@ -481,9 +583,12 @@ export default function ResultScreen() {
               <ActivityIndicator color={colors.warning} />
             ) : (
               <>
-                <Text style={[styles.devButtonText, { color: colors.warning }]}>
-                  🧪 Dev: Generate Real Cinematic (xAI)
-                </Text>
+                <View style={styles.buttonRow}>
+                  <Ionicons name="flask-outline" size={16} color={colors.warning} />
+                  <Text style={[styles.devButtonText, { color: colors.warning }]}>
+                    Dev: Generate Real Cinematic (xAI)
+                  </Text>
+                </View>
                 <Text style={[styles.devButtonSubtext, { color: colors.textSecondary }]}>
                   Replaces placeholder with real xAI generation (~2.5 min)
                 </Text>
@@ -504,7 +609,10 @@ export default function ResultScreen() {
             {isAppealing ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.appealButtonText}>⚖️ Appeal Result (1/day)</Text>
+              <View style={styles.buttonRow}>
+                <MaterialCommunityIcons name="scale-balance" size={18} color="#FFFFFF" />
+                <Text style={styles.appealButtonText}>Appeal Result (1/day)</Text>
+              </View>
             )}
           </TouchableOpacity>
         )}
@@ -545,14 +653,24 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.lg,
   },
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
   resultHeader: {
     padding: Spacing.xl,
     borderRadius: 16,
     alignItems: 'center',
     marginBottom: Spacing.lg,
+    ...Elevation.lg,
   },
-  resultEmoji: {
-    fontSize: 64,
+  resultIcon: {
     marginBottom: Spacing.md,
   },
   resultText: {

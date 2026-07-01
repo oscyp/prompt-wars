@@ -23,6 +23,8 @@ export { default as RoundResultCinematic } from './RoundResultCinematic';
 export type {
   RoundResultCinematicProps,
   Tier0Payload,
+  RevealSpec,
+  RevealBattleCryVoice,
 } from './RoundResultCinematic';
 export { default as MoveTypeChipRow } from './MoveTypeChipRow';
 export type { MoveTypeChipRowProps } from './MoveTypeChipRow';
@@ -32,3 +34,5 @@ export { default as StreakMeter } from './StreakMeter';
 export type { StreakMeterProps } from './StreakMeter';
 export { default as FirstTimeOfferModal } from './FirstTimeOfferModal';
 export type { FirstTimeOfferModalProps } from './FirstTimeOfferModal';
+export { default as AnimatedCounter } from './AnimatedCounter';
+export type { AnimatedCounterProps } from './AnimatedCounter';

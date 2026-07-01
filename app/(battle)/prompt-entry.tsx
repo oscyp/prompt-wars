@@ -13,6 +13,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { getBattle, getPromptTemplates, submitPrompt, MoveType } from '@/utils/battles';
+import { hapticSelection } from '@/utils/haptics';
 import { useAuth } from '@/providers/AuthProvider';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import SeriesScoreIndicator from '@/components/SeriesScoreIndicator';
@@ -203,7 +204,10 @@ export default function PromptEntryScreen() {
                   styles.moveTypeButton,
                   { backgroundColor: moveType === type ? colors[type] : colors.card },
                 ]}
-                onPress={() => setMoveType(type)}
+                onPress={() => {
+                  hapticSelection();
+                  setMoveType(type);
+                }}
                 accessibilityLabel={`Select ${type} move`}
                 accessibilityRole="button"
               >
@@ -228,7 +232,10 @@ export default function PromptEntryScreen() {
               !isCustom && { backgroundColor: colors.primary },
               isCustom && { backgroundColor: colors.card },
             ]}
-            onPress={() => setIsCustom(false)}
+            onPress={() => {
+              hapticSelection();
+              setIsCustom(false);
+            }}
             accessibilityLabel="Use template"
             accessibilityRole="button"
           >
@@ -242,7 +249,10 @@ export default function PromptEntryScreen() {
               isCustom && { backgroundColor: colors.primary },
               !isCustom && { backgroundColor: colors.card },
             ]}
-            onPress={() => setIsCustom(true)}
+            onPress={() => {
+              hapticSelection();
+              setIsCustom(true);
+            }}
             accessibilityLabel="Write custom"
             accessibilityRole="button"
           >
@@ -266,7 +276,10 @@ export default function PromptEntryScreen() {
                     borderWidth: 2,
                   },
                 ]}
-                onPress={() => setSelectedTemplate(template.id)}
+                onPress={() => {
+                  hapticSelection();
+                  setSelectedTemplate(template.id);
+                }}
                 accessibilityLabel={`Select template: ${template.title}`}
                 accessibilityRole="button"
               >

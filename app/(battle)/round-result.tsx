@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,16 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { Spacing, Typography, BorderRadius, Motion } from '@/constants/DesignTokens';
+import { hapticHpLoss } from '@/utils/haptics';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
+import { useRevealAudio } from '@/hooks/useRevealAudio';
 import { useAuth } from '@/providers/AuthProvider';
 import HPBar from '@/components/HPBar';
+import AnimatedCounter from '@/components/AnimatedCounter';
 import RoundResultCinematic, {
   Tier0Payload,
 } from '@/components/RoundResultCinematic';
@@ -23,6 +28,7 @@ import { MoveType } from '@/utils/battles';
 
 export default function RoundResultScreen() {
   const colors = useThemedColors();
+  const reduceMotion = useReducedMotion();
   const router = useRouter();
   const { user } = useAuth();
   const { battleId, round } = useLocalSearchParams<{
@@ -129,6 +135,30 @@ export default function RoundResultScreen() {
   const isResultReady = roundData?.status === 'result_ready';
   const isSeriesComplete = battle?.status === 'completed';
 
+  // Impact haptic once, when the resolved round shows the player took damage.
+  const hpHapticFired = useRef(false);
+  useEffect(() => {
+    if (hpHapticFired.current) return;
+    if (isResultReady && myDamage > 0) {
+      hpHapticFired.current = true;
+      hapticHpLoss();
+    }
+  }, [isResultReady, myDamage]);
+
+  // Fire the best-effort Tier 0 reveal audio once, when the round resolves.
+  // Non-blocking and gated on the Sound setting inside the controller.
+  const revealAudio = useRevealAudio();
+  const revealAudioFired = useRef(false);
+  useEffect(() => {
+    if (revealAudioFired.current) return;
+    if (!isResultReady || !tier0) return;
+    revealAudioFired.current = true;
+    revealAudio.play({
+      reveal_spec: tier0.reveal_spec ?? null,
+      battleCryText: tier0.battleCryText ?? null,
+    });
+  }, [isResultReady, tier0, revealAudio]);
+
   const handleContinue = useCallback(() => {
     if (!battleId) return;
     if (isSeriesComplete) {
@@ -159,17 +189,37 @@ export default function RoundResultScreen() {
       style={[styles.root, { backgroundColor: colors.background }]}
     >
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.heading, { color: colors.text }]}>
+        <Animated.Text
+          style={[styles.heading, { color: colors.text }]}
+          entering={
+            reduceMotion ? undefined : FadeInDown.duration(Motion.durations.base)
+          }
+        >
           Round {roundData.round_number} Result
-        </Text>
+        </Animated.Text>
 
-        <RoundResultCinematic
-          tier0Payload={tier0}
-          videoJob={roundVideoJob}
-          isModerationApproved={roundVideoJob?.moderation_status === 'approved'}
-        />
+        <Animated.View
+          entering={
+            reduceMotion
+              ? undefined
+              : FadeInDown.duration(Motion.durations.base).delay(60)
+          }
+        >
+          <RoundResultCinematic
+            tier0Payload={tier0}
+            videoJob={roundVideoJob}
+            isModerationApproved={roundVideoJob?.moderation_status === 'approved'}
+          />
+        </Animated.View>
 
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <Animated.View
+          style={[styles.card, { backgroundColor: colors.card }]}
+          entering={
+            reduceMotion
+              ? undefined
+              : FadeInDown.duration(Motion.durations.base).delay(120)
+          }
+        >
           <Text style={[styles.cardTitle, { color: colors.text }]}>
             HP Change
           </Text>
@@ -193,10 +243,17 @@ export default function RoundResultScreen() {
               />
             </View>
           </View>
-        </View>
+        </Animated.View>
 
         {myMove && oppMove ? (
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <Animated.View
+            style={[styles.card, { backgroundColor: colors.card }]}
+            entering={
+              reduceMotion
+                ? undefined
+                : FadeInDown.duration(Motion.durations.base).delay(180)
+            }
+          >
             <Text style={[styles.cardTitle, { color: colors.text }]}>
               Modifiers
             </Text>
@@ -215,16 +272,30 @@ export default function RoundResultScreen() {
               Stat modifier: {formatPct(myStatMod)}
             </Text>
             {oppDamage > 0 ? (
-              <Text style={[styles.body, { color: colors.success }]}>
-                Damage dealt: {oppDamage}
-              </Text>
+              <View style={styles.damageRow}>
+                <Text style={[styles.body, { color: colors.success }]}>
+                  Damage dealt:{' '}
+                </Text>
+                <AnimatedCounter
+                  value={oppDamage}
+                  style={[styles.body, { color: colors.success }]}
+                  accessibilityLabel={`Damage dealt: ${oppDamage}`}
+                />
+              </View>
             ) : null}
             {myDamage > 0 ? (
-              <Text style={[styles.body, { color: colors.error }]}>
-                Damage taken: {myDamage}
-              </Text>
+              <View style={styles.damageRow}>
+                <Text style={[styles.body, { color: colors.error }]}>
+                  Damage taken:{' '}
+                </Text>
+                <AnimatedCounter
+                  value={myDamage}
+                  style={[styles.body, { color: colors.error }]}
+                  accessibilityLabel={`Damage taken: ${myDamage}`}
+                />
+              </View>
             ) : null}
-          </View>
+          </Animated.View>
         ) : null}
 
         {Object.keys(myScores).length > 0 ? (
@@ -361,6 +432,10 @@ const styles = StyleSheet.create({
   },
   hpCol: {
     flex: 1,
+  },
+  damageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   stripeRow: {
     flexDirection: 'row',
