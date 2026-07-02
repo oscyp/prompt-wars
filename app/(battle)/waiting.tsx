@@ -8,6 +8,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
@@ -322,34 +323,28 @@ export default function WaitingScreen() {
         {/* Status Checklist */}
         <View style={[styles.statusCard, { backgroundColor: colors.card }]}>
           <View style={styles.statusRow}>
-            <Text
-              style={[
-                styles.statusIcon,
-                {
-                  color: myPromptLocked ? colors.success : colors.textSecondary,
-                },
-              ]}
-            >
-              {myPromptLocked ? '✓' : '○'}
-            </Text>
+            <Ionicons
+              name={myPromptLocked ? 'checkmark-circle' : 'ellipse-outline'}
+              size={20}
+              color={myPromptLocked ? colors.success : colors.textSecondary}
+              style={styles.statusIcon}
+            />
             <Text style={[styles.statusText, { color: colors.text }]}>
               Your prompt submitted
             </Text>
           </View>
 
           <View style={styles.statusRow}>
-            <Text
-              style={[
-                styles.statusIcon,
-                {
-                  color: opponentPromptLocked
-                    ? colors.success
-                    : colors.textSecondary,
-                },
-              ]}
-            >
-              {opponentPromptLocked ? '✓' : '○'}
-            </Text>
+            <Ionicons
+              name={
+                opponentPromptLocked ? 'checkmark-circle' : 'ellipse-outline'
+              }
+              size={20}
+              color={
+                opponentPromptLocked ? colors.success : colors.textSecondary
+              }
+              style={styles.statusIcon}
+            />
             <Text style={[styles.statusText, { color: colors.text }]}>
               Opponent's prompt submitted
             </Text>
@@ -357,9 +352,12 @@ export default function WaitingScreen() {
 
           {battle?.status === 'resolving' && (
             <View style={styles.statusRow}>
-              <Text style={[styles.statusIcon, { color: colors.warning }]}>
-                ⚡
-              </Text>
+              <Ionicons
+                name="flash"
+                size={20}
+                color={colors.warning}
+                style={styles.statusIcon}
+              />
               <Text style={[styles.statusText, { color: colors.text }]}>
                 Judge is scoring...
               </Text>
@@ -455,7 +453,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   statusIcon: {
-    fontSize: Typography.sizes.xl,
     marginRight: Spacing.md,
     width: 32,
     textAlign: 'center',

@@ -26,6 +26,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const IMAGES_DIR = path.join(ROOT, 'assets', 'images');
 const STYLES_DIR = path.join(IMAGES_DIR, 'styles');
+const UI_DIR = path.join(IMAGES_DIR, 'ui');
 
 // Candidate model ids, tried in order (GA name first, preview fallback).
 const MODELS = ['gemini-2.5-flash-image', 'gemini-2.5-flash-image-preview'];
@@ -223,6 +224,91 @@ const TASKS = [
       return [out];
     },
   })),
+  // UI chrome illustrations ("Cinematic Arena" hero zones — see
+  // docs/DESIGN_LANGUAGE.md and UX_DESIGN_REVIEW.md). Square tiles are 512px,
+  // full-bleed backdrops 1080-wide. All JPEG for iOS <Image> compatibility.
+  ...[
+    {
+      key: 'mode-ranked',
+      aspect: '1:1',
+      size: [512, 512],
+      prompt:
+        `${BRAND} Illustration tile for the RANKED battle mode: two crossed energy blades ` +
+        `clashing over a glowing champion's laurel wreath, electric purple and magenta energy, ` +
+        `dramatic arena spotlights from above, deep black background, centered emblem composition. ${NO_TEXT}`,
+    },
+    {
+      key: 'mode-unranked',
+      aspect: '1:1',
+      size: [512, 512],
+      prompt:
+        `${BRAND} Illustration tile for the CASUAL / friendly sparring battle mode: two crossed ` +
+        `training staffs with soft cyan energy wisps, relaxed glow, subtle arena floor, ` +
+        `deep black background, centered emblem composition, lighter and friendlier mood. ${NO_TEXT}`,
+    },
+    {
+      key: 'mode-bot',
+      aspect: '1:1',
+      size: [512, 512],
+      prompt:
+        `${BRAND} Illustration tile for the PRACTICE VS BOT mode: a sleek friendly robot sparring ` +
+        `partner bust with glowing cyan eyes and subtle purple rim light, matte dark metal, ` +
+        `deep black background, centered composition, approachable not menacing. ${NO_TEXT}`,
+    },
+    {
+      key: 'clash',
+      aspect: '1:1',
+      size: [512, 512],
+      prompt:
+        `${BRAND} In-app hero emblem: two crossed energy blades meeting in a bright "versus" ` +
+        `spark, radial purple-to-magenta glow, energy particles, bold symmetrical centered ` +
+        `composition with comfortable margin. The deep black background must fill the entire ` +
+        `canvas edge-to-edge — no border, no frame, no white margin, no card, no vignette box. ${NO_TEXT}`,
+    },
+    {
+      key: 'welcome-hero',
+      aspect: '9:16',
+      size: [1080, 1920],
+      prompt:
+        `${BRAND} Vertical full-screen mobile backdrop for the welcome / onboarding screen: a vast ` +
+        `dark cinematic esports arena seen from the fighter's entrance tunnel, glowing purple and ` +
+        `magenta stage lights, faint silhouetted crowd, energy particles in the air, strong dark ` +
+        `negative space in the lower half for overlay text. Epic, premium, atmospheric. ${NO_TEXT}`,
+    },
+    {
+      key: 'arena-backdrop',
+      aspect: '9:16',
+      size: [1080, 1920],
+      prompt:
+        `${BRAND} Vertical full-screen mobile backdrop for a waiting / matchmaking screen: a dark ` +
+        `moody empty arena floor with a soft purple spotlight circle at center, faint magenta haze ` +
+        `and drifting particles, very subtle and non-distracting, mostly near-black with lots of ` +
+        `negative space. Calm anticipation. ${NO_TEXT}`,
+    },
+    {
+      key: 'theme-poster',
+      aspect: '16:9',
+      size: [1024, 576],
+      prompt:
+        `${BRAND} Wide banner illustration for a "today's battle theme" card: an abstract arena ` +
+        `stage with two opposing energy waves (purple vs cyan) colliding in the center with a ` +
+        `magenta spark, dark background, cinematic depth, composition keeps the left half darker ` +
+        `for overlay text. ${NO_TEXT}`,
+    },
+  ].map(({ key, aspect, size, prompt }) => ({
+    id: `ui:${key}`,
+    group: 'ui',
+    aspect,
+    prompt,
+    async save(buf) {
+      const out = path.join(UI_DIR, `${key}.jpg`);
+      await sharp(buf)
+        .resize(size[0], size[1], { fit: 'cover' })
+        .jpeg({ quality: 85, mozjpeg: true })
+        .toFile(out);
+      return [out];
+    },
+  })),
 ];
 
 // ---------------------------------------------------------------------------
@@ -253,6 +339,7 @@ async function main() {
 
   const apiKey = await loadApiKey();
   await fs.mkdir(STYLES_DIR, { recursive: true });
+  await fs.mkdir(UI_DIR, { recursive: true });
 
   console.log(`Generating ${tasks.length} asset(s) with Nano Banana...\n`);
   let ok = 0;

@@ -1,7 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  ActivityIndicator,
+  RefreshControl,
+  Image,
+} from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import {
+  Spacing,
+  Typography,
+  NumericFontVariant,
+  BorderRadius,
+} from '@/constants/DesignTokens';
+import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
 import { supabase } from '@/utils/supabase';
 
 export default function RankingsScreen() {
@@ -51,38 +65,69 @@ export default function RankingsScreen() {
     loadRankings();
   };
 
-  const renderRanking = ({ item, index }: { item: any; index: number }) => (
-    <View style={[styles.rankingCard, { backgroundColor: colors.card }]}>
-      <Text
+  const medalColor = (rank: number | null): string | null => {
+    if (rank === 1) return colors.medalGold;
+    if (rank === 2) return colors.medalSilver;
+    if (rank === 3) return colors.medalBronze;
+    return null;
+  };
+
+  const renderRanking = ({ item }: { item: any; index: number }) => {
+    const medal = medalColor(item.rank);
+    return (
+      <View
         style={[
-          styles.rank,
+          styles.rankingCard,
           {
-            color:
-              item.rank === 1
-                ? '#FFD700'
-                : item.rank === 2
-                ? '#C0C0C0'
-                : item.rank === 3
-                ? '#CD7F32'
-                : colors.text,
+            backgroundColor: colors.card,
+            borderColor: medal ?? colors.borderLight,
+            borderWidth: medal ? 1.5 : StyleSheet.hairlineWidth,
           },
         ]}
+        accessible
+        accessibilityLabel={`Rank ${item.rank}: ${
+          item.profile?.display_name || item.profile?.username || 'Unknown'
+        }, rating ${Math.round(item.rating)}`}
       >
-        #{item.rank}
-      </Text>
-      <View style={styles.playerInfo}>
-        <Text style={[styles.playerName, { color: colors.text }]}>
-          {item.profile?.display_name || item.profile?.username || 'Unknown'}
+        <Text
+          style={[
+            styles.rank,
+            NumericFontVariant,
+            { color: medal ?? colors.text },
+          ]}
+        >
+          #{item.rank}
         </Text>
-        <Text style={[styles.stats, { color: colors.textSecondary }]}>
-          {item.wins}W - {item.losses}L - {item.draws}D
+        {/* Other players' characters are RLS-protected; the designed neutral
+            illustration stands in (never a bare initial). */}
+        <Image
+          source={getArchetypeAvatar(null)}
+          style={[
+            styles.avatar,
+            { borderColor: medal ?? colors.borderLight },
+          ]}
+          resizeMode="cover"
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        />
+        <View style={styles.playerInfo}>
+          <Text style={[styles.playerName, { color: colors.text }]}>
+            {item.profile?.display_name || item.profile?.username || 'Unknown'}
+          </Text>
+          <Text
+            style={[styles.stats, NumericFontVariant, { color: colors.textSecondary }]}
+          >
+            {item.wins}W - {item.losses}L - {item.draws}D
+          </Text>
+        </View>
+        <Text
+          style={[styles.rating, NumericFontVariant, { color: colors.primary }]}
+        >
+          {Math.round(item.rating)}
         </Text>
       </View>
-      <Text style={[styles.rating, { color: colors.primary }]}>
-        {Math.round(item.rating)}
-      </Text>
-    </View>
-  );
+    );
+  };
 
   if (isLoading) {
     return (
@@ -146,14 +191,21 @@ const styles = StyleSheet.create({
   rankingCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.sm,
     padding: Spacing.md,
-    borderRadius: 8,
+    borderRadius: BorderRadius.lg,
     marginBottom: Spacing.sm,
   },
   rank: {
-    fontSize: Typography.sizes.xl,
+    fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
-    width: 60,
+    width: 48,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
   },
   playerInfo: {
     flex: 1,

@@ -1,8 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+  Image,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
 import { getMyBattles } from '@/utils/battles';
 import { useAuth } from '@/providers/AuthProvider';
 
@@ -60,46 +70,73 @@ export default function BattlesScreen() {
     }
   };
 
+  const statusColor = (status: string): string => {
+    if (status === 'completed') return colors.success;
+    if (status === 'expired' || status === 'canceled') return colors.error;
+    return colors.textSecondary;
+  };
+
   const renderBattle = ({ item }: { item: any }) => (
     <TouchableOpacity
-      style={[styles.battleCard, { backgroundColor: colors.card }]}
+      style={[
+        styles.battleCard,
+        { backgroundColor: colors.card, borderColor: colors.borderLight },
+      ]}
       onPress={() => navigateToBattle(item)}
       accessibilityLabel={`Battle against ${getOpponentName(item)}`}
       accessibilityRole="button"
     >
-      <View style={styles.battleHeader}>
-        <Text style={[styles.opponent, { color: colors.text }]}>
-          vs {getOpponentName(item)}
-        </Text>
-        <Text
-          style={[
-            styles.status,
-            {
-              color:
-                item.status === 'completed'
-                  ? colors.success
-                  : item.status === 'expired' || item.status === 'canceled'
-                  ? colors.error
-                  : colors.textSecondary,
-            },
-          ]}
-        >
-          {item.status.replace(/_/g, ' ')}
-        </Text>
+      {/* Opponents' characters are RLS-protected; show the designed neutral
+          illustration (never a bare initial). */}
+      <Image
+        source={getArchetypeAvatar(null)}
+        style={styles.avatar}
+        resizeMode="cover"
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+      />
+      <View style={styles.battleBody}>
+        <View style={styles.battleHeader}>
+          <Text style={[styles.opponent, { color: colors.text }]} numberOfLines={1}>
+            vs {getOpponentName(item)}
+          </Text>
+          <View
+            style={[
+              styles.statusChip,
+              { borderColor: statusColor(item.status) },
+            ]}
+          >
+            <Text style={[styles.status, { color: statusColor(item.status) }]}>
+              {item.status.replace(/_/g, ' ')}
+            </Text>
+          </View>
+        </View>
+        {item.theme && (
+          <Text
+            style={[styles.theme, { color: colors.textSecondary }]}
+            numberOfLines={1}
+          >
+            Theme: {item.theme}
+          </Text>
+        )}
+        <View style={styles.battleFooter}>
+          {item.winner_id ? (
+            <Text
+              style={[
+                styles.result,
+                { color: item.is_draw ? colors.warning : getIsWinner(item) ? colors.success : colors.error },
+              ]}
+            >
+              {item.is_draw ? 'Draw' : getIsWinner(item) ? 'Victory' : 'Defeat'}
+            </Text>
+          ) : (
+            <View />
+          )}
+          <Text style={[styles.date, { color: colors.textTertiary }]}>
+            {new Date(item.created_at).toLocaleDateString()}
+          </Text>
+        </View>
       </View>
-      {item.theme && (
-        <Text style={[styles.theme, { color: colors.textSecondary }]}>
-          Theme: {item.theme}
-        </Text>
-      )}
-      {item.winner_id && (
-        <Text style={[styles.result, { color: item.is_draw ? colors.warning : colors.success }]}>
-          {item.is_draw ? 'Draw' : getIsWinner(item) ? 'Victory' : 'Defeat'}
-        </Text>
-      )}
-      <Text style={[styles.date, { color: colors.textTertiary }]}>
-        {new Date(item.created_at).toLocaleDateString()}
-      </Text>
     </TouchableOpacity>
   );
 
@@ -153,32 +190,57 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.lg,
   },
   battleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
     padding: Spacing.md,
-    borderRadius: 8,
+    borderRadius: BorderRadius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: Spacing.sm,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  battleBody: {
+    flex: 1,
   },
   battleHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: Spacing.sm,
     marginBottom: Spacing.xs,
   },
   opponent: {
+    flex: 1,
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.semibold,
   },
+  statusChip: {
+    borderWidth: 1,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+  },
   status: {
-    fontSize: Typography.sizes.sm,
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.semibold,
     textTransform: 'capitalize',
   },
   theme: {
     fontSize: Typography.sizes.sm,
     marginBottom: Spacing.xs,
   },
+  battleFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   result: {
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
-    marginBottom: Spacing.xs,
   },
   date: {
     fontSize: Typography.sizes.xs,

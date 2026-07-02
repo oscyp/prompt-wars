@@ -1,13 +1,33 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Switch,
+  Pressable,
+} from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { useAuth } from '@/providers/AuthProvider';
+import {
+  getThemePreference,
+  loadThemePreference,
+  setThemePreference,
+  type ThemePreference,
+} from '@/utils/themeSettings';
 import {
   isSoundEnabled,
   setSoundEnabled,
   loadSoundEnabled,
 } from '@/utils/soundSettings';
+import {
+  getAccessibilityPreferences,
+  loadAccessibilityPreferences,
+  setAccessibilityPreference,
+  DEFAULT_ACCESSIBILITY_PREFERENCES,
+  type AccessibilityPreferences,
+} from '@/utils/accessibilitySettings';
 import {
   getNotificationPreferences,
   updateNotificationPreference,
@@ -15,15 +35,42 @@ import {
   type NotificationPreferences,
 } from '@/utils/notifications';
 
+const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: 'dark', label: 'Dark' },
+  { value: 'light', label: 'Light' },
+  { value: 'system', label: 'System' },
+];
+
 export default function SettingsScreen() {
   const colors = useThemedColors();
   const { user } = useAuth();
 
-  // Local state for accessibility preferences
-  const [dynamicType, setDynamicType] = useState(true);
-  const [dyslexiaFont, setDyslexiaFont] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
-  const [highContrast, setHighContrast] = useState(false);
+  // Theme preference — dark-first (docs/DESIGN_LANGUAGE.md), persisted.
+  const [theme, setTheme] = useState<ThemePreference>(getThemePreference());
+
+  useEffect(() => {
+    loadThemePreference().then(setTheme);
+  }, []);
+
+  const selectTheme = (value: ThemePreference) => {
+    setTheme(value);
+    setThemePreference(value);
+  };
+
+  // Accessibility preferences — persisted and read by the app (concept §22a).
+  // `reducedMotion` is OR-ed with the OS setting inside `useReducedMotion`.
+  const [a11y, setA11y] = useState<AccessibilityPreferences>(
+    getAccessibilityPreferences() ?? DEFAULT_ACCESSIBILITY_PREFERENCES,
+  );
+
+  useEffect(() => {
+    loadAccessibilityPreferences().then(setA11y);
+  }, []);
+
+  const toggleA11y = (key: keyof AccessibilityPreferences, value: boolean) => {
+    setA11y((prev) => ({ ...prev, [key]: value }));
+    setAccessibilityPreference(key, value);
+  };
 
   // Sound & Music (SFX) preference — persisted, read by the reveal audio layer.
   const [soundEnabled, setSoundEnabledState] = useState(isSoundEnabled());
@@ -62,6 +109,46 @@ export default function SettingsScreen() {
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
 
+      {/* Appearance */}
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Appearance</Text>
+        <View
+          style={styles.segmentRow}
+          accessibilityRole="radiogroup"
+          accessibilityLabel="App theme"
+        >
+          {THEME_OPTIONS.map((option) => {
+            const selected = theme === option.value;
+            return (
+              <Pressable
+                key={option.value}
+                style={[
+                  styles.segment,
+                  {
+                    backgroundColor: selected
+                      ? colors.primary
+                      : colors.backgroundTertiary,
+                  },
+                ]}
+                onPress={() => selectTheme(option.value)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`${option.label} theme`}
+              >
+                <Text
+                  style={[
+                    styles.segmentLabel,
+                    { color: selected ? '#FFFFFF' : colors.text },
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
       {/* Accessibility */}
       <View style={[styles.section, { backgroundColor: colors.card }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Accessibility</Text>
@@ -69,8 +156,8 @@ export default function SettingsScreen() {
         <View style={styles.settingRow}>
           <Text style={[styles.settingLabel, { color: colors.text }]}>Dynamic Type</Text>
           <Switch
-            value={dynamicType}
-            onValueChange={setDynamicType}
+            value={a11y.dynamicType}
+            onValueChange={(v) => toggleA11y('dynamicType', v)}
             trackColor={{ false: colors.border, true: colors.primary }}
             accessibilityLabel="Toggle dynamic type"
           />
@@ -79,8 +166,8 @@ export default function SettingsScreen() {
         <View style={styles.settingRow}>
           <Text style={[styles.settingLabel, { color: colors.text }]}>Dyslexia-Friendly Font</Text>
           <Switch
-            value={dyslexiaFont}
-            onValueChange={setDyslexiaFont}
+            value={a11y.dyslexiaFont}
+            onValueChange={(v) => toggleA11y('dyslexiaFont', v)}
             trackColor={{ false: colors.border, true: colors.primary }}
             accessibilityLabel="Toggle dyslexia-friendly font"
           />
@@ -89,8 +176,8 @@ export default function SettingsScreen() {
         <View style={styles.settingRow}>
           <Text style={[styles.settingLabel, { color: colors.text }]}>Reduced Motion</Text>
           <Switch
-            value={reducedMotion}
-            onValueChange={setReducedMotion}
+            value={a11y.reducedMotion}
+            onValueChange={(v) => toggleA11y('reducedMotion', v)}
             trackColor={{ false: colors.border, true: colors.primary }}
             accessibilityLabel="Toggle reduced motion"
           />
@@ -109,8 +196,8 @@ export default function SettingsScreen() {
         <View style={styles.settingRow}>
           <Text style={[styles.settingLabel, { color: colors.text }]}>High Contrast Mode</Text>
           <Switch
-            value={highContrast}
-            onValueChange={setHighContrast}
+            value={a11y.highContrast}
+            onValueChange={(v) => toggleA11y('highContrast', v)}
             trackColor={{ false: colors.border, true: colors.primary }}
             accessibilityLabel="Toggle high contrast"
           />
@@ -228,6 +315,22 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: Typography.sizes.base,
     flex: 1,
+  },
+  segmentRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  segment: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentLabel: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
   },
   note: {
     fontSize: Typography.sizes.sm,

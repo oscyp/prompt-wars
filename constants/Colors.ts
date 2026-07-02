@@ -43,6 +43,11 @@ export const Colors = {
     link: '#3B82F6',
     tabIconDefault: '#9CA3AF',
     tabIconSelected: '#8B5CF6',
+
+    // Leaderboard medals (top-3 podium)
+    medalGold: '#D4A017',
+    medalSilver: '#8E9AAB',
+    medalBronze: '#B0703C',
   },
   dark: {
     // Primary brand colors
@@ -81,6 +86,11 @@ export const Colors = {
     link: '#60A5FA',
     tabIconDefault: '#6B7280',
     tabIconSelected: '#A78BFA',
+
+    // Leaderboard medals (top-3 podium)
+    medalGold: '#FFD700',
+    medalSilver: '#C0C0C0',
+    medalBronze: '#CD7F32',
   },
 } as const;
 

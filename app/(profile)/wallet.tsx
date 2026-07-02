@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
+import SubscriberBadge from '@/components/SubscriberBadge';
 import { getWalletBalance, getWalletTransactions, WalletBalance } from '@/utils/monetization';
 import { useRevenueCat } from '@/providers/RevenueCatProvider';
 import { PRODUCT_IDS } from '@/utils/revenuecat';
@@ -84,9 +86,7 @@ export default function WalletScreen() {
         </Text>
         {balance?.is_subscriber && (
           <View style={styles.subscriberBadge}>
-            <Text style={[styles.subscriberText, { color: colors.primary }]}>
-              ✨ Prompt Wars+ Active
-            </Text>
+            <SubscriberBadge suffix="Active" />
             <Text style={[styles.allowanceText, { color: colors.textSecondary }]}>
               {balance.monthly_video_allowance_remaining} video reveals remaining this month
             </Text>
@@ -101,8 +101,21 @@ export default function WalletScreen() {
         accessibilityRole="button"
         accessibilityLabel="Open cosmetic shop"
       >
-        <Text style={[styles.shopLinkText, { color: colors.text }]}>🎨 Cosmetic Shop</Text>
-        <Text style={[styles.shopLinkChevron, { color: colors.textSecondary }]}>›</Text>
+        <View style={styles.shopLinkLabel}>
+          <Ionicons
+            name="color-palette-outline"
+            size={18}
+            color={colors.primary}
+          />
+          <Text style={[styles.shopLinkText, { color: colors.text }]}>
+            Cosmetic Shop
+          </Text>
+        </View>
+        <Ionicons
+          name="chevron-forward"
+          size={18}
+          color={colors.textSecondary}
+        />
       </TouchableOpacity>
 
       {/* Credit Packs */}
@@ -258,10 +271,6 @@ const styles = StyleSheet.create({
   subscriberBadge: {
     marginTop: Spacing.sm,
   },
-  subscriberText: {
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
-  },
   allowanceText: {
     fontSize: Typography.sizes.sm,
     marginTop: Spacing.xs,
@@ -275,13 +284,14 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     marginBottom: Spacing.md,
   },
+  shopLinkLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
   shopLinkText: {
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
-  },
-  shopLinkChevron: {
-    fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.bold,
   },
   sectionTitle: {
     fontSize: Typography.sizes.xl,

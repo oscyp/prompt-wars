@@ -1,15 +1,21 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
+import { BATTLE_MODES, BattleMode } from '@/constants/BattleModes';
+import ModeCard from '@/components/ModeCard';
 
+/**
+ * Full-screen battle-mode picker. The raised center tab button opens the
+ * bottom-sheet variant instead; this screen stays as the deep-link /
+ * notification target for the `create` route (same cards, same routing).
+ */
 export default function CreateScreen() {
   const router = useRouter();
   const colors = useThemedColors();
 
-  const startBattle = (mode: 'ranked' | 'unranked' | 'bot') => {
-    // Navigate to matchmaking with mode parameter
+  const startBattle = (mode: BattleMode) => {
     router.push(`/(battle)/matchmaking?mode=${mode}`);
   };
 
@@ -20,43 +26,10 @@ export default function CreateScreen() {
         Choose your battle mode
       </Text>
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.primary }]}
-          onPress={() => startBattle('ranked')}
-          accessibilityLabel="Start ranked battle"
-          accessibilityRole="button"
-        >
-          <Text style={styles.buttonEmoji}>⚔️</Text>
-          <Text style={styles.buttonText}>Ranked Battle</Text>
-          <Text style={styles.buttonDescription}>Compete for ranking points</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.card, borderWidth: 2, borderColor: colors.primary }]}
-          onPress={() => startBattle('unranked')}
-          accessibilityLabel="Start unranked battle"
-          accessibilityRole="button"
-        >
-          <Text style={styles.buttonEmoji}>🎯</Text>
-          <Text style={[styles.buttonTextSecondary, { color: colors.text }]}>Unranked Battle</Text>
-          <Text style={[styles.buttonDescription, { color: colors.textSecondary }]}>
-            Practice without rating changes
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.card, borderWidth: 2, borderColor: colors.border }]}
-          onPress={() => startBattle('bot')}
-          accessibilityLabel="Practice against bot"
-          accessibilityRole="button"
-        >
-          <Text style={styles.buttonEmoji}>🤖</Text>
-          <Text style={[styles.buttonTextSecondary, { color: colors.text }]}>Practice vs Bot</Text>
-          <Text style={[styles.buttonDescription, { color: colors.textSecondary }]}>
-            Learn the basics against AI
-          </Text>
-        </TouchableOpacity>
+      <View style={styles.modes}>
+        {BATTLE_MODES.map((info) => (
+          <ModeCard key={info.mode} info={info} onPress={startBattle} />
+        ))}
       </View>
     </View>
   );
@@ -76,35 +49,10 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: Typography.sizes.base,
-    marginBottom: Spacing.xxl,
+    marginBottom: Spacing.xl,
     textAlign: 'center',
   },
-  buttonContainer: {
+  modes: {
     gap: Spacing.md,
-  },
-  button: {
-    padding: Spacing.lg,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  buttonEmoji: {
-    fontSize: 48,
-    marginBottom: Spacing.sm,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.xs,
-  },
-  buttonTextSecondary: {
-    fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.xs,
-  },
-  buttonDescription: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: Typography.sizes.sm,
-    textAlign: 'center',
   },
 });

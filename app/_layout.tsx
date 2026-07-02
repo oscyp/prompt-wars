@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { useFonts } from 'expo-font';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
@@ -10,6 +9,9 @@ import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { RevenueCatProvider } from '@/providers/RevenueCatProvider';
 import { supabase } from '@/utils/supabase';
 import { loadSoundEnabled } from '@/utils/soundSettings';
+import { loadAccessibilityPreferences } from '@/utils/accessibilitySettings';
+import { loadThemePreference } from '@/utils/themeSettings';
+import { useEffectiveColorScheme } from '@/hooks/useThemedColors';
 import {
   addNotificationResponseListener,
   handleInitialNotification,
@@ -28,7 +30,7 @@ function RootLayoutNav() {
   const { session, loading, user } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-  const colorScheme = useColorScheme();
+  const colorScheme = useEffectiveColorScheme();
   const [checkingOnboarding, setCheckingOnboarding] = React.useState(true);
 
   useEffect(() => {
@@ -101,9 +103,12 @@ export default function RootLayout() {
     // Add custom fonts here if needed
   });
 
-  // Hydrate the persisted "Sound & Music" preference before the first reveal.
+  // Hydrate persisted preferences before the first reveal so audio, motion,
+  // and theme honor the user's saved choices from the very first frame.
   useEffect(() => {
     loadSoundEnabled();
+    loadAccessibilityPreferences();
+    loadThemePreference();
   }, []);
 
   useEffect(() => {

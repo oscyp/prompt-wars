@@ -1,21 +1,31 @@
 import { useEffect, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
+import {
+  isReducedMotionForced,
+  subscribeAccessibility,
+} from '@/utils/accessibilitySettings';
 
 /**
  * Centralizes the `AccessibilityInfo.isReduceMotionEnabled()` pattern used
- * across the app (e.g. FaceOffPortraits, HPBar) into a single reactive hook.
+ * across the app (e.g. FaceOffPortraits, HPBar, the battle reveal) into a
+ * single reactive hook.
  *
- * Every new animation should gate on this so a static/instant path is used
- * when the OS "Reduce Motion" setting is on. The resolved value is cached at
- * module scope so components mounted later (e.g. the battle reveal) get the
- * correct value synchronously on first render and never flash motion.
+ * The returned value is the OR of the OS "Reduce Motion" setting and the app's
+ * own persisted "Reduce Motion" toggle (Settings → Accessibility). Either one
+ * being on yields a static/instant path, so users on a device without OS
+ * reduce-motion can still opt out of animation in-app.
+ *
+ * Every new animation should gate on this. The OS value is cached at module
+ * scope so components mounted later (e.g. the battle reveal) get the correct
+ * value synchronously on first render and never flash motion.
  */
 let cachedReduceMotion: boolean | null = null;
 
 export function useReducedMotion(): boolean {
-  const [reduceMotion, setReduceMotion] = useState<boolean>(
+  const [osReduceMotion, setOsReduceMotion] = useState<boolean>(
     cachedReduceMotion ?? false,
   );
+  const [forced, setForced] = useState<boolean>(isReducedMotionForced());
 
   useEffect(() => {
     let mounted = true;
@@ -23,7 +33,7 @@ export function useReducedMotion(): boolean {
     AccessibilityInfo.isReduceMotionEnabled()
       .then((enabled) => {
         cachedReduceMotion = enabled;
-        if (mounted) setReduceMotion(enabled);
+        if (mounted) setOsReduceMotion(enabled);
       })
       .catch(() => {
         // If the query fails, keep motion enabled (safe visual default).
@@ -33,7 +43,7 @@ export function useReducedMotion(): boolean {
       'reduceMotionChanged',
       (enabled) => {
         cachedReduceMotion = enabled;
-        setReduceMotion(enabled);
+        setOsReduceMotion(enabled);
       },
     );
 
@@ -43,5 +53,12 @@ export function useReducedMotion(): boolean {
     };
   }, []);
 
-  return reduceMotion;
+  // Track the app's manual "Reduce Motion" preference reactively so flipping
+  // the Settings toggle updates in-flight and future reveals immediately.
+  useEffect(() => {
+    setForced(isReducedMotionForced());
+    return subscribeAccessibility((p) => setForced(p.reducedMotion));
+  }, []);
+
+  return osReduceMotion || forced;
 }

@@ -1,12 +1,25 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ImageBackground,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Spacing, Typography, BorderRadius, Elevation } from '@/constants/DesignTokens';
+import { UiArt } from '@/constants/UiArt';
 
+/**
+ * First impression of the game: full-bleed arena hero (bundled generated art)
+ * with a bottom scrim for AA text, brand title, and the blocking 18+ age gate.
+ * Rendered on fixed dark styling — the hero art defines the palette here.
+ */
 export default function WelcomeScreen() {
   const router = useRouter();
-  const colors = useThemedColors();
+  const insets = useSafeAreaInsets();
   const [ageConfirmed, setAgeConfirmed] = useState(false);
 
   const handleAgeConfirmation = (isAdult: boolean) => {
@@ -28,31 +41,40 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.content}>
-        <Text style={[styles.title, { color: colors.text }]}>
-          Welcome to Prompt Wars
-        </Text>
-        <Text style={[styles.description, { color: colors.textSecondary }]}>
+    <ImageBackground
+      source={UiArt.welcomeHero}
+      style={styles.container}
+      resizeMode="cover"
+    >
+      {/* Bottom scrim keeps every word AA-readable over the illustration. */}
+      <View style={styles.scrim} />
+      <View
+        style={[
+          styles.content,
+          { paddingBottom: insets.bottom + Spacing.xl },
+        ]}
+      >
+        <Text style={styles.title}>Prompt Wars</Text>
+        <Text style={styles.description}>
           Battle through prompts. Create your character and enter the arena.
         </Text>
 
         {!ageConfirmed ? (
           <View style={styles.ageGate}>
-            <Text style={[styles.ageQuestion, { color: colors.text }]}>
+            <Text style={styles.ageQuestion}>
               Are you 18 years or older?
             </Text>
             <View style={styles.ageButtons}>
               <TouchableOpacity
-                style={[styles.ageButton, { backgroundColor: colors.primary }]}
+                style={[styles.ageButton, styles.primaryButton, Elevation.md]}
                 onPress={() => handleAgeConfirmation(true)}
                 accessibilityLabel="Confirm you are 18 or older"
                 accessibilityRole="button"
               >
-                <Text style={styles.buttonText}>Yes, I'm 18+</Text>
+                <Text style={styles.buttonText}>Yes, I&apos;m 18+</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.ageButton, { backgroundColor: colors.error }]}
+                style={[styles.ageButton, styles.secondaryButton]}
                 onPress={() => handleAgeConfirmation(false)}
                 accessibilityLabel="Indicate you are under 18"
                 accessibilityRole="button"
@@ -63,7 +85,7 @@ export default function WelcomeScreen() {
           </View>
         ) : (
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary }]}
+            style={[styles.ctaButton, styles.primaryButton, Elevation.md]}
             onPress={handleContinue}
             accessibilityLabel="Create your character"
             accessibilityRole="button"
@@ -72,29 +94,36 @@ export default function WelcomeScreen() {
           </TouchableOpacity>
         )}
       </View>
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0B0B0F',
+  },
+  scrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(11, 11, 15, 0.30)',
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
   },
   title: {
-    fontSize: Typography.sizes.xxxl,
+    color: '#FFFFFF',
+    fontSize: Typography.sizes.hero,
     fontWeight: Typography.weights.bold,
     marginBottom: Spacing.md,
     textAlign: 'center',
   },
   description: {
+    color: 'rgba(255,255,255,0.85)',
     fontSize: Typography.sizes.lg,
-    marginBottom: Spacing.xxl,
+    marginBottom: Spacing.xl,
     textAlign: 'center',
     maxWidth: 400,
   },
@@ -103,6 +132,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   ageQuestion: {
+    color: '#FFFFFF',
     fontSize: Typography.sizes.xl,
     fontWeight: Typography.weights.semibold,
     marginBottom: Spacing.lg,
@@ -113,16 +143,24 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   ageButton: {
-    height: 48,
-    borderRadius: 8,
+    height: 52,
+    borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.xl,
     justifyContent: 'center',
     alignItems: 'center',
-    minWidth: 120,
+    minWidth: 130,
   },
-  button: {
-    height: 48,
-    borderRadius: 8,
+  primaryButton: {
+    backgroundColor: '#7C3AED',
+  },
+  secondaryButton: {
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  ctaButton: {
+    height: 52,
+    borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.xl,
     justifyContent: 'center',
     alignItems: 'center',

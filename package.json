@@ -26,6 +26,10 @@
     "setupFiles": [
       "./jest.setup.js"
     ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/supabase/"
+    ],
     "transformIgnorePatterns": [
       "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg))"
     ]
@@ -90,7 +94,7 @@
     "jest": "~29.7.0",
     "jest-expo": "~55.0.9",
     "prettier": "3.8.1",
-    "react-test-renderer": "19.2.4",
+    "react-test-renderer": "19.2.0",
     "sharp": "^0.35.2",
     "supabase": "^2.78.1",
     "typescript": "~5.9.3"

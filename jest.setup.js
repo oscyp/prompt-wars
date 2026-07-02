@@ -73,5 +73,8 @@ jest.mock('./utils/supabase', () => ({
   },
 }));
 
-// Silence the warning: Animated: `useNativeDriver` is not supported
-jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
+// NOTE: The old `react-native/Libraries/Animated/NativeAnimatedHelper` mock was
+// removed. That module path no longer exists in this React Native version (it
+// moved under `react-native/src/private/animated/`), so mocking it threw a
+// "Cannot find module" error that broke *every* test suite. The jest-expo
+// preset already silences the `useNativeDriver` warning, so no mock is needed.

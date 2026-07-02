@@ -1,6 +1,10 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useSyncExternalStore } from 'react';
 import { useColorScheme as useRNColorScheme } from 'react-native';
 import { Colors, ColorStyle } from '@/constants/Colors';
+import {
+  getThemePreference,
+  subscribeThemePreference,
+} from '@/utils/themeSettings';
 
 /**
  * Allows a subtree (e.g. the cinematic `(battle)` group) to force a specific
@@ -27,15 +31,25 @@ export function ForcedColorSchemeProvider({
 }
 
 /**
- * Hook to get current theme colors.
- *
- * Uses a forced scheme when one is provided by an ancestor
- * `ForcedColorSchemeProvider`; otherwise automatically switches between light
- * and dark mode based on the system setting.
+ * Resolve the effective color scheme ("Cinematic Arena" is dark-first):
+ * 1. a forced scheme from an ancestor `ForcedColorSchemeProvider` wins,
+ * 2. then the persisted Settings → Appearance preference (default `dark`),
+ * 3. `system` preference follows the OS, falling back to dark.
  */
-export function useThemedColors() {
+export function useEffectiveColorScheme(): ColorStyle {
   const forced = useContext(ForcedColorSchemeContext);
-  const colorScheme = useRNColorScheme() ?? 'light';
-  const scheme: ColorStyle = forced ?? (colorScheme as ColorStyle);
-  return Colors[scheme];
+  const preference = useSyncExternalStore(
+    subscribeThemePreference,
+    getThemePreference,
+    getThemePreference,
+  );
+  const system = useRNColorScheme();
+  if (forced) return forced;
+  if (preference === 'system') return (system ?? 'dark') as ColorStyle;
+  return preference;
+}
+
+/** Hook to get current theme colors for the effective scheme. */
+export function useThemedColors() {
+  return Colors[useEffectiveColorScheme()];
 }

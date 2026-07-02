@@ -1,9 +1,28 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+  Image,
+  ImageBackground,
+  Pressable,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography, NumericFontVariant, Elevation } from '@/constants/DesignTokens';
+import {
+  Spacing,
+  Typography,
+  NumericFontVariant,
+  Elevation,
+  BorderRadius,
+} from '@/constants/DesignTokens';
+import { UiArt } from '@/constants/UiArt';
+import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
 import { getDailyTheme, getMyBattles } from '@/utils/battles';
 import { getWalletBalance } from '@/utils/monetization';
 import {
@@ -17,11 +36,17 @@ import {
 } from '@/utils/dailyMeta';
 import { useAuth } from '@/providers/AuthProvider';
 import { useRevenueCat } from '@/providers/RevenueCatProvider';
-import { StreakMeter, FirstTimeOfferModal } from '@/components';
+import {
+  StreakMeter,
+  FirstTimeOfferModal,
+  SectionCard,
+  SubscriberBadge,
+} from '@/components';
+import { useBattleSheet } from '@/components/BattleModeSheet';
 
 function getOpponentName(battle: any, currentUserId?: string): string {
   if (!currentUserId) return 'opponent';
-  
+
   if (battle.player_one_id === currentUserId) {
     return battle.player_two?.display_name || (battle.is_player_two_bot ? 'Bot' : 'Finding opponent...');
   } else {
@@ -34,6 +59,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { offerings, purchasePackage } = useRevenueCat();
+  const battleSheet = useBattleSheet();
 
   const [dailyTheme, setDailyTheme] = useState<any>(null);
   const [quests, setQuests] = useState<DailyQuest[]>([]);
@@ -135,39 +161,72 @@ export default function HomeScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
       }
     >
-      <Text style={[styles.title, { color: colors.text }]}>
-        Prompt Wars
-      </Text>
-
-      {/* Credits Balance */}
-      {balance && (
-        <TouchableOpacity
-          style={[styles.card, { backgroundColor: colors.card }]}
-          onPress={() => router.push('/(profile)/wallet')}
-          accessibilityLabel="View wallet"
-          accessibilityRole="button"
-        >
-          <View style={styles.cardHeader}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Credits</Text>
-            {balance.is_subscriber && (
-              <View style={styles.subscriberBadge}>
-                <Ionicons name="sparkles" size={12} color={colors.primary} />
-                <Text style={[styles.subscriberBadgeText, { color: colors.primary }]}>
-                  Prompt Wars+
-                </Text>
-              </View>
-            )}
-          </View>
-          <Text style={[styles.creditsAmount, NumericFontVariant, { color: colors.primary }]}>
-            {balance.credits_balance} Credits
-          </Text>
-          {balance.is_subscriber && (
-            <Text style={[styles.cardSubtext, NumericFontVariant, { color: colors.textSecondary }]}>
-              {balance.monthly_video_allowance_remaining} video reveals remaining
+      {/* Header: screen identity + credits chip */}
+      <View style={styles.headerRow}>
+        <Text style={[styles.title, { color: colors.text }]}>Arena</Text>
+        {balance && (
+          <TouchableOpacity
+            style={[
+              styles.creditsChip,
+              {
+                backgroundColor: colors.backgroundSecondary,
+                borderColor: colors.borderLight,
+              },
+            ]}
+            onPress={() => router.push('/(profile)/wallet')}
+            accessibilityLabel={`View wallet, ${balance.credits_balance} credits`}
+            accessibilityRole="button"
+          >
+            <Ionicons name="flash" size={14} color={colors.primary} />
+            <Text
+              style={[
+                styles.creditsChipText,
+                NumericFontVariant,
+                { color: colors.text },
+              ]}
+            >
+              {balance.credits_balance}
             </Text>
-          )}
-        </TouchableOpacity>
-      )}
+            {balance.is_subscriber && <SubscriberBadge />}
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Daily theme hero poster — tap to battle on today's theme */}
+      <Pressable
+        style={[styles.heroWrap, Elevation.md]}
+        onPress={battleSheet.open}
+        accessibilityRole="button"
+        accessibilityLabel={
+          dailyTheme
+            ? `Today's theme: ${dailyTheme.theme_text}. Start a battle`
+            : 'Start a battle'
+        }
+      >
+        <ImageBackground
+          source={UiArt.themePoster}
+          style={styles.hero}
+          imageStyle={styles.heroImage}
+          resizeMode="cover"
+        >
+          {/* Scrim guarantees AA for the overlay text on the illustration. */}
+          <View style={styles.heroScrim} />
+          <View style={styles.heroContent}>
+            <Text style={styles.heroLabel}>TODAY&apos;S THEME</Text>
+            <Text style={styles.heroTheme} numberOfLines={2}>
+              {dailyTheme?.theme_text ?? 'Open Arena'}
+            </Text>
+            <View style={styles.heroCta}>
+              <MaterialCommunityIcons
+                name="sword-cross"
+                size={14}
+                color="#FFFFFF"
+              />
+              <Text style={styles.heroCtaText}>Battle now</Text>
+            </View>
+          </View>
+        </ImageBackground>
+      </Pressable>
 
       {/* Streak meter */}
       {meta && (
@@ -179,30 +238,18 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* Daily Theme */}
-      {dailyTheme && (
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Today's Theme
-          </Text>
-          <Text style={[styles.themeText, { color: colors.primary }]}>
-            {dailyTheme.theme_text}
-          </Text>
-        </View>
-      )}
-
       {/* Daily Quests */}
       {quests.length > 0 && (
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Daily Quests
-          </Text>
+        <SectionCard title="Daily Quests">
           {quests.slice(0, 3).map((quest) => {
             const target = quest.quest?.target_value || 1;
             const value = quest.current_value || 0;
             const claimable = !quest.completed && value >= target;
             return (
-              <View key={quest.id} style={styles.questItem}>
+              <View
+                key={quest.id}
+                style={[styles.questItem, { borderBottomColor: colors.borderLight }]}
+              >
                 <Text style={[styles.questText, { color: colors.text }]}>
                   {quest.quest?.description || 'Quest'}
                 </Text>
@@ -254,19 +301,16 @@ export default function HomeScreen() {
               </View>
             );
           })}
-        </View>
+        </SectionCard>
       )}
 
       {/* Active Battles */}
       {activeBattles.length > 0 && (
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Active Battles
-          </Text>
+        <SectionCard title="Active Battles">
           {activeBattles.map((battle: any) => (
             <TouchableOpacity
               key={battle.id}
-              style={styles.battleItem}
+              style={[styles.battleItem, { borderBottomColor: colors.borderLight }]}
               onPress={() => {
                 // Navigate based on battle status
                 if (battle.status === 'waiting_for_prompts') {
@@ -280,21 +324,35 @@ export default function HomeScreen() {
               accessibilityLabel={`View battle against ${getOpponentName(battle, user?.id)}`}
               accessibilityRole="button"
             >
-              <Text style={[styles.battleOpponent, { color: colors.text }]}>
-                vs {getOpponentName(battle, user?.id)}
-              </Text>
-              <Text style={[styles.battleStatus, { color: colors.textSecondary }]}>
-                {battle.status.replace(/_/g, ' ')}
-              </Text>
+              <Image
+                source={getArchetypeAvatar(null)}
+                style={styles.battleAvatar}
+                resizeMode="cover"
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+              />
+              <View style={styles.battleInfo}>
+                <Text style={[styles.battleOpponent, { color: colors.text }]}>
+                  vs {getOpponentName(battle, user?.id)}
+                </Text>
+                <Text style={[styles.battleStatus, { color: colors.textSecondary }]}>
+                  {battle.status.replace(/_/g, ' ')}
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={colors.textSecondary}
+              />
             </TouchableOpacity>
           ))}
-        </View>
+        </SectionCard>
       )}
 
       {/* Call to Action */}
       <TouchableOpacity
         style={[styles.ctaButton, { backgroundColor: colors.primary }]}
-        onPress={() => router.push('/(tabs)/create')}
+        onPress={battleSheet.open}
         accessibilityLabel="Start a new battle"
         accessibilityRole="button"
       >
@@ -340,56 +398,80 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.lg,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.lg,
+  },
   title: {
     fontSize: Typography.sizes.xxxl,
     fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.xl,
   },
-  card: {
-    padding: Spacing.md,
-    borderRadius: 8,
+  creditsChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    minHeight: 32,
+    borderRadius: BorderRadius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  creditsChipText: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
+  },
+  heroWrap: {
+    borderRadius: BorderRadius.lg,
     marginBottom: Spacing.md,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  hero: {
+    aspectRatio: 16 / 9,
+    justifyContent: 'flex-end',
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+  },
+  heroImage: {
+    borderRadius: BorderRadius.lg,
+  },
+  heroScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(11, 11, 15, 0.35)',
+  },
+  heroContent: {
+    padding: Spacing.md,
+  },
+  heroLabel: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    letterSpacing: 1,
     marginBottom: Spacing.xs,
   },
-  cardTitle: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.semibold,
-    marginBottom: Spacing.xs,
-  },
-  cardText: {
-    fontSize: Typography.sizes.sm,
-  },
-  cardSubtext: {
-    fontSize: Typography.sizes.xs,
-    marginTop: Spacing.xs,
-  },
-  subscriberBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  subscriberBadgeText: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.semibold,
-  },
-  creditsAmount: {
+  heroTheme: {
+    color: '#FFFFFF',
     fontSize: Typography.sizes.xxl,
     fontWeight: Typography.weights.bold,
+    marginBottom: Spacing.sm,
   },
-  themeText: {
-    fontSize: Typography.sizes.xl,
+  heroCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+  },
+  heroCtaText: {
+    color: '#FFFFFF',
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
-    marginBottom: Spacing.xs,
   },
   questItem: {
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   questText: {
     fontSize: Typography.sizes.base,
@@ -413,14 +495,24 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.semibold,
   },
   battleItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  battleAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  battleInfo: {
+    flex: 1,
   },
   battleOpponent: {
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
-    marginBottom: Spacing.xs,
+    marginBottom: 2,
   },
   battleStatus: {
     fontSize: Typography.sizes.sm,
@@ -428,7 +520,7 @@ const styles = StyleSheet.create({
   },
   ctaButton: {
     height: 56,
-    borderRadius: 12,
+    borderRadius: BorderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: Spacing.lg,
@@ -447,7 +539,7 @@ const styles = StyleSheet.create({
   claimQuestButton: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
-    borderRadius: 8,
+    borderRadius: BorderRadius.md,
     minWidth: 84,
     alignItems: 'center',
   },
@@ -458,7 +550,7 @@ const styles = StyleSheet.create({
   },
   shopButton: {
     height: 52,
-    borderRadius: 12,
+    borderRadius: BorderRadius.lg,
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',

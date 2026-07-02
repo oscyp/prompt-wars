@@ -443,6 +443,14 @@ export default function ResultScreen() {
             </Text>
           </Animated.View>
         )}
+
+        {/* AI-content disclosure baked into the shared capture (concept §22). */}
+        <View style={styles.aiDisclosure}>
+          <Ionicons name="sparkles" size={11} color={colors.textTertiary} />
+          <Text style={[styles.aiDisclosureText, { color: colors.textTertiary }]}>
+            AI-generated content — Prompt Wars
+          </Text>
+        </View>
         </View>
         {/* End shareable scorecard region */}
 
@@ -775,6 +783,16 @@ const styles = StyleSheet.create({
   },
   shareCapture: {
     borderRadius: 12,
+  },
+  aiDisclosure: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingBottom: Spacing.sm,
+  },
+  aiDisclosureText: {
+    fontSize: Typography.sizes.xs,
   },
   shareButton: {
     padding: Spacing.md,

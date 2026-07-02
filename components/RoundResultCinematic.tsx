@@ -298,6 +298,13 @@ export default function RoundResultCinematic({
           </Svg>
         ) : null}
 
+        {/* AI-content disclosure (store-readiness, concept §22). Always on the
+            poster so screenshots and the share capture carry the label. */}
+        <View style={styles.aiBadge} pointerEvents="none">
+          <Ionicons name="sparkles" size={10} color="#FFFFFF" />
+          <Text style={styles.aiBadgeText}>AI-GENERATED</Text>
+        </View>
+
         {/* Status overlays. Each sits on a dark pill to guarantee AA contrast
             regardless of the winner's signature color (e.g. white-on-orange). */}
         <View style={styles.posterContent} pointerEvents="none">
@@ -366,6 +373,24 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
     backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  aiBadge: {
+    position: 'absolute',
+    top: Spacing.sm,
+    right: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  aiBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: Typography.weights.bold,
+    letterSpacing: 0.8,
   },
   posterBadge: {
     color: '#FFFFFF',

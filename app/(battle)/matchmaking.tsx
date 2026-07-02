@@ -1,8 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  Image,
+  ImageBackground,
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { UiArt } from '@/constants/UiArt';
 import { startMatchmaking } from '@/utils/battles';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
@@ -103,20 +112,30 @@ export default function MatchmakingScreen() {
   }, [findMatch]);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <ImageBackground
+      source={UiArt.arenaBackdrop}
+      style={[styles.container, { backgroundColor: colors.background }]}
+      resizeMode="cover"
+    >
+      {/* Scrim keeps overlay text AA on top of the arena illustration. */}
+      <View style={styles.scrim} />
       <View style={styles.content}>
+        <Image
+          source={UiArt.clash}
+          style={styles.clash}
+          resizeMode="cover"
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        />
+
         {status === 'finding' && (
           <ActivityIndicator size="large" color={colors.primary} style={styles.spinner} />
         )}
-        
-        {status === 'matched' && (
-          <Text style={[styles.emoji, { color: colors.primary }]}>⚔️</Text>
-        )}
 
         <Text style={[styles.title, { color: colors.text }]}>
-          {status === 'matched' ? 'Match Found!' : 'Finding Opponent'}
+          {status === 'matched' ? 'Match Found!' : 'Scanning the Arena'}
         </Text>
-        
+
         <Text style={[styles.message, { color: colors.textSecondary }]}>
           {message}
         </Text>
@@ -127,13 +146,17 @@ export default function MatchmakingScreen() {
           </Text>
         </View>
       </View>
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(11, 11, 15, 0.45)',
   },
   content: {
     flex: 1,
@@ -142,10 +165,12 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   spinner: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
-  emoji: {
-    fontSize: 64,
+  clash: {
+    width: 128,
+    height: 128,
+    borderRadius: BorderRadius.full,
     marginBottom: Spacing.lg,
   },
   title: {
