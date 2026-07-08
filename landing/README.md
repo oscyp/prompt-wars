@@ -17,6 +17,8 @@ never drags in the React Native web bundle.
 ```
 landing/
 ├── index.html          # The page (semantic HTML + SEO + JSON-LD)
+├── privacy-policy.html # Static privacy policy for the landing/app legal links
+├── terms-and-conditions.html # Static terms of service / AI content policy
 ├── styles.css          # Design system (dark canvas, purple brand, move-type accents)
 ├── script.js           # Progressive enhancement (nav, scroll-reveal, FAQ, waitlist)
 ├── site.webmanifest    # PWA manifest
@@ -51,7 +53,7 @@ The visual language mirrors the app (`constants/Colors.ts`):
 
 > The public landing domain is `https://promptwars.gg/`. Re-generate `og-image.png`
 > from `og-image.svg` if you change the art (`sips -s format png
-> assets/og-image.svg --out assets/og-image.png`). Wire the waitlist form in
+assets/og-image.svg --out assets/og-image.png`). Wire the waitlist form in
 > `script.js` to your email provider, and drop in real App Store / Google Play
 > links once available.
 

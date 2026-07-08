@@ -1,505 +1,761 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" data-theme="dark">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Primary SEO -->
-  <title>Prompt Wars — The AI Prompt Battle Game for iOS &amp; Android</title>
-  <meta name="description" content="Prompt Wars is the competitive AI prompt-battle game. Build a character, duel 1v1 under a shared theme, and let an AI judge — plus a cinematic AI reveal — decide who wins. Free to play." />
-  <meta name="keywords" content="Prompt Wars, AI prompt battle game, AI game, prompt battle, AI judge game, competitive prompt writing, mobile game, AI video game, prompt duel" />
-  <meta name="author" content="Prompt Wars" />
-  <meta name="robots" content="index, follow, max-image-preview:large" />
-  <meta name="theme-color" content="#0B0B0F" />
-  <meta name="color-scheme" content="dark" />
-  <link rel="canonical" href="https://promptwars.gg/" />
+    <!-- Primary SEO -->
+    <title>Prompt Wars — The AI Prompt Battle Game for iOS &amp; Android</title>
+    <meta
+      name="description"
+      content="Prompt Wars is the competitive AI prompt-battle game. Build a character, duel 1v1 under a shared theme, and let an AI judge — plus a cinematic AI reveal — decide who wins. Free to play."
+    />
+    <meta
+      name="keywords"
+      content="Prompt Wars, AI prompt battle game, AI game, prompt battle, AI judge game, competitive prompt writing, mobile game, AI video game, prompt duel"
+    />
+    <meta name="author" content="Prompt Wars" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#0B0B0F" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="canonical" href="https://promptwars.gg/" />
 
-  <!-- Open Graph -->
-  <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="Prompt Wars" />
-  <meta property="og:title" content="Prompt Wars — The AI Prompt Battle Game" />
-  <meta property="og:description" content="Outwrite your rivals. Build a character, duel 1v1 under a shared theme, and let an AI judge crown the winner with a cinematic reveal." />
-  <meta property="og:url" content="https://promptwars.gg/" />
-  <meta property="og:image" content="https://promptwars.gg/assets/og-image.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="Prompt Wars — two characters face off in an AI-judged prompt battle." />
-  <meta property="og:locale" content="en_US" />
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Prompt Wars" />
+    <meta
+      property="og:title"
+      content="Prompt Wars — The AI Prompt Battle Game"
+    />
+    <meta
+      property="og:description"
+      content="Outwrite your rivals. Build a character, duel 1v1 under a shared theme, and let an AI judge crown the winner with a cinematic reveal."
+    />
+    <meta property="og:url" content="https://promptwars.gg/" />
+    <meta
+      property="og:image"
+      content="https://promptwars.gg/assets/og-image.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Prompt Wars — two characters face off in an AI-judged prompt battle."
+    />
+    <meta property="og:locale" content="en_US" />
 
-  <!-- Twitter / X -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Prompt Wars — The AI Prompt Battle Game" />
-  <meta name="twitter:description" content="Build a character, duel 1v1 under a shared theme, and let an AI judge crown the winner with a cinematic reveal." />
-  <meta name="twitter:image" content="https://promptwars.gg/assets/og-image.png" />
-  <meta name="twitter:image:alt" content="Prompt Wars — AI prompt battle game" />
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Prompt Wars — The AI Prompt Battle Game"
+    />
+    <meta
+      name="twitter:description"
+      content="Build a character, duel 1v1 under a shared theme, and let an AI judge crown the winner with a cinematic reveal."
+    />
+    <meta
+      name="twitter:image"
+      content="https://promptwars.gg/assets/og-image.png"
+    />
+    <meta
+      name="twitter:image:alt"
+      content="Prompt Wars — AI prompt battle game"
+    />
 
-  <!-- Icons & manifest -->
-  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
-  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
-  <link rel="manifest" href="site.webmanifest" />
+    <!-- Icons & manifest -->
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+    <link rel="manifest" href="site.webmanifest" />
 
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
 
-  <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css" />
 
-  <!-- Structured data: VideoGame -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "VideoGame",
-    "name": "Prompt Wars",
-    "alternateName": "Prompt Wars: AI Prompt Battle",
-    "url": "https://promptwars.gg/",
-    "image": "https://promptwars.gg/assets/og-image.png",
-    "description": "Prompt Wars is a competitive AI prompt-battle game. Build a character, duel 1v1 under a shared theme, and let an AI judge plus a cinematic AI reveal decide who wins.",
-    "genre": ["Strategy", "Competitive", "Word Game"],
-    "gamePlatform": ["iOS", "Android"],
-    "applicationCategory": "GameApplication",
-    "operatingSystem": "iOS, Android",
-    "contentRating": "Mature 17+",
-    "playMode": "MultiPlayer",
-    "publisher": { "@type": "Organization", "name": "Prompt Wars" },
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD",
-      "description": "Free to play with optional in-app purchases."
-    }
-  }
-  </script>
-
-  <!-- Structured data: FAQ -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": [
+    <!-- Structured data: VideoGame -->
+    <script type="application/ld+json">
       {
-        "@type": "Question",
-        "name": "Is Prompt Wars free to play?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Prompt Wars is free to play. Your first battle is free, and the cinematic Tier 0 result reveal is always free. Optional credits and the Prompt Wars+ subscription unlock AI-generated video reveals and cosmetics — never gameplay advantages." }
-      },
-      {
-        "@type": "Question",
-        "name": "How does the AI judge decide who wins?",
-        "acceptedAnswer": { "@type": "Answer", "text": "An LLM-as-judge scores both prompts blindly on a fixed six-point rubric — clarity, originality, specificity, theme fit, character fit, and dramatic potential. Scores are length-normalized and run multiple times for stability, and you see the full breakdown and the judge's reasoning on every result." }
-      },
-      {
-        "@type": "Question",
-        "name": "Is Prompt Wars pay-to-win?",
-        "acceptedAnswer": { "@type": "Answer", "text": "No. There are no paid stat boosts, no paid scoring modifiers, and no paid archetypes. Subscriptions and purchases only unlock AI video reveals, cosmetics, and convenience. Ranked outcomes depend entirely on your writing." }
-      },
-      {
-        "@type": "Question",
-        "name": "What platforms is Prompt Wars on?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Prompt Wars is coming to iOS and Android. Join the waitlist to be notified the moment it launches in the App Store and Google Play." }
-      },
-      {
-        "@type": "Question",
-        "name": "Is Prompt Wars safe, and what is the age rating?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Prompt Wars is rated 18+. Every prompt is moderated before a battle resolves, AI-generated video is checked before it is shown, and every reveal carries a clear AI-content disclosure. Report and block tools are available throughout the app." }
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "Prompt Wars",
+        "alternateName": "Prompt Wars: AI Prompt Battle",
+        "url": "https://promptwars.gg/",
+        "image": "https://promptwars.gg/assets/og-image.png",
+        "description": "Prompt Wars is a competitive AI prompt-battle game. Build a character, duel 1v1 under a shared theme, and let an AI judge plus a cinematic AI reveal decide who wins.",
+        "genre": ["Strategy", "Competitive", "Word Game"],
+        "gamePlatform": ["iOS", "Android"],
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "iOS, Android",
+        "contentRating": "Mature 17+",
+        "playMode": "MultiPlayer",
+        "publisher": { "@type": "Organization", "name": "Prompt Wars" },
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD",
+          "description": "Free to play with optional in-app purchases."
+        }
       }
-    ]
-  }
-  </script>
-</head>
+    </script>
 
-<body>
-  <a class="skip-link" href="#main">Skip to content</a>
+    <!-- Structured data: FAQ -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Is Prompt Wars free to play?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Prompt Wars is free to play. Your first battle is free, and the cinematic Tier 0 result reveal is always free. Optional credits and the Prompt Wars+ subscription unlock AI-generated video reveals and cosmetics — never gameplay advantages."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How does the AI judge decide who wins?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "An LLM-as-judge scores both prompts blindly on a fixed six-point rubric — clarity, originality, specificity, theme fit, character fit, and dramatic potential. Scores are length-normalized and run multiple times for stability, and you see the full breakdown and the judge's reasoning on every result."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is Prompt Wars pay-to-win?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. There are no paid stat boosts, no paid scoring modifiers, and no paid archetypes. Subscriptions and purchases only unlock AI video reveals, cosmetics, and convenience. Ranked outcomes depend entirely on your writing."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What platforms is Prompt Wars on?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Prompt Wars is coming to iOS and Android. Join the waitlist to be notified the moment it launches in the App Store and Google Play."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is Prompt Wars safe, and what is the age rating?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Prompt Wars is rated 18+. Every prompt is moderated before a battle resolves, AI-generated video is checked before it is shown, and every reveal carries a clear AI-content disclosure. Report and block tools are available throughout the app."
+            }
+          }
+        ]
+      }
+    </script>
+  </head>
 
-  <!-- ===================== HEADER ===================== -->
-  <header class="site-header" id="top">
-    <div class="container header-inner">
-      <a class="brand" href="#top" aria-label="Prompt Wars home">
-        <img src="assets/logo.svg" alt="" width="32" height="32" class="brand-mark" />
-        <span class="brand-name">Prompt&nbsp;Wars</span>
-      </a>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
 
-      <nav class="nav" aria-label="Primary">
+    <!-- ===================== HEADER ===================== -->
+    <header class="site-header" id="top">
+      <div class="container header-inner">
+        <a class="brand" href="#top" aria-label="Prompt Wars home">
+          <img
+            src="assets/logo.svg"
+            alt=""
+            width="32"
+            height="32"
+            class="brand-mark"
+          />
+          <span class="brand-name">Prompt&nbsp;Wars</span>
+        </a>
+
+        <nav class="nav" aria-label="Primary">
+          <a href="#how">How it works</a>
+          <a href="#features">Features</a>
+          <a href="#archetypes">Archetypes</a>
+          <a href="#faq">FAQ</a>
+        </nav>
+
+        <div class="header-cta">
+          <a class="btn btn-primary btn-sm" href="#get">Get the game</a>
+        </div>
+
+        <button
+          class="nav-toggle"
+          aria-label="Open menu"
+          aria-expanded="false"
+          aria-controls="mobile-nav"
+        >
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+
+      <div class="mobile-nav" id="mobile-nav" hidden>
         <a href="#how">How it works</a>
         <a href="#features">Features</a>
         <a href="#archetypes">Archetypes</a>
         <a href="#faq">FAQ</a>
-      </nav>
-
-      <div class="header-cta">
-        <a class="btn btn-primary btn-sm" href="#get">Get the game</a>
+        <a class="btn btn-primary" href="#get">Get the game</a>
       </div>
+    </header>
 
-      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-nav">
-        <span></span><span></span><span></span>
-      </button>
-    </div>
+    <main id="main">
+      <!-- ===================== HERO ===================== -->
+      <section class="hero">
+        <div class="hero-glow" aria-hidden="true"></div>
+        <div class="container hero-inner">
+          <div class="hero-copy reveal">
+            <p class="eyebrow">
+              <span class="dot"></span> AI prompt-battle game · iOS &amp;
+              Android
+            </p>
+            <h1 class="hero-title">
+              Words are your <span class="grad">weapons.</span>
+            </h1>
+            <p class="hero-sub">
+              Prompt Wars is the competitive AI prompt-battle game. Build a
+              fighter, duel 1v1 under a shared theme, and let an
+              <strong>AI judge</strong> — and a cinematic AI reveal — decide who
+              wins.
+            </p>
 
-    <div class="mobile-nav" id="mobile-nav" hidden>
-      <a href="#how">How it works</a>
-      <a href="#features">Features</a>
-      <a href="#archetypes">Archetypes</a>
-      <a href="#faq">FAQ</a>
-      <a class="btn btn-primary" href="#get">Get the game</a>
-    </div>
-  </header>
+            <div class="hero-actions">
+              <a
+                class="store-btn"
+                href="#get"
+                aria-label="Download on the App Store"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M16.365 1.43c0 1.14-.42 2.2-1.13 3.02-.84.97-2.2 1.72-3.32 1.63-.14-1.1.42-2.27 1.1-3.02.78-.86 2.18-1.5 3.35-1.63zM20.6 17.2c-.55 1.27-.82 1.84-1.53 2.97-.99 1.57-2.39 3.52-4.12 3.53-1.54.01-1.93-1-4.02-.99-2.09.01-2.52 1.01-4.06.99-1.73-.01-3.05-1.78-4.04-3.34C-.07 17.4-.36 12.3 1.55 9.62c1.1-1.55 2.84-2.46 4.47-2.46 1.67 0 2.72 1 4.1 1 1.34 0 2.16-1 4.09-1 1.46 0 3 .8 4.1 2.18-3.6 1.97-3.02 7.1.29 7.86z"
+                  />
+                </svg>
+                <span
+                  ><small>Coming soon to</small><strong>App Store</strong></span
+                >
+              </a>
+              <a
+                class="store-btn"
+                href="#get"
+                aria-label="Get it on Google Play"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M3.6 1.8 13.4 12 3.6 22.2c-.3-.2-.5-.6-.5-1.1V2.9c0-.5.2-.9.5-1.1zm11.2 8.9 2.6 2.6-2.6 2.6-3-3 3-2.2zm0 2.6zM4.9 1.2l8.8 9-2.2 2.2L4.9 1.2zm0 21.6 6.6-9.9 2.2 2.2-8.8 7.7zM18.9 9.9l2.5 1.4c.6.4.6 1.4 0 1.8l-2.5 1.4-2.9-2.3 2.9-2.3z"
+                  />
+                </svg>
+                <span
+                  ><small>Coming soon to</small
+                  ><strong>Google Play</strong></span
+                >
+              </a>
+            </div>
 
-  <main id="main">
+            <ul class="hero-trust">
+              <li><span>⚡</span> First battle in under 3 minutes</li>
+              <li><span>🎬</span> AI cinematic reveals</li>
+              <li><span>⚖️</span> Transparent AI judging</li>
+            </ul>
+          </div>
 
-    <!-- ===================== HERO ===================== -->
-    <section class="hero">
-      <div class="hero-glow" aria-hidden="true"></div>
-      <div class="container hero-inner">
-        <div class="hero-copy reveal">
-          <p class="eyebrow"><span class="dot"></span> AI prompt-battle game · iOS &amp; Android</p>
-          <h1 class="hero-title">Words are your <span class="grad">weapons.</span></h1>
-          <p class="hero-sub">
-            Prompt Wars is the competitive AI prompt-battle game. Build a fighter, duel 1v1 under a
-            shared theme, and let an <strong>AI judge</strong> — and a cinematic AI reveal — decide who wins.
+          <!-- Phone mockup -->
+          <div class="hero-device reveal" aria-hidden="false">
+            <div class="phone">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <div class="bs-theme">
+                  Theme · <strong>“Last stand at dawn”</strong>
+                </div>
+
+                <div class="bs-fighters">
+                  <div class="bs-fighter">
+                    <div class="bs-avatar" style="--c: #3b82f6">SR</div>
+                    <p class="bs-name">Silver Rook</p>
+                    <p class="bs-arch">The Strategist</p>
+                  </div>
+                  <div class="bs-vs">VS</div>
+                  <div class="bs-fighter">
+                    <div class="bs-avatar" style="--c: #ef4444">VT</div>
+                    <p class="bs-name">Vex Titan</p>
+                    <p class="bs-arch">The Titan</p>
+                  </div>
+                </div>
+
+                <div class="bs-moves">
+                  <span class="chip chip-defense">🛡 Defense</span>
+                  <span class="chip chip-attack">⚔ Attack</span>
+                </div>
+
+                <div class="bs-verdict">
+                  <p class="bs-verdict-label">AI Verdict</p>
+                  <p class="bs-winner">Silver Rook wins</p>
+                  <div class="bs-bar"><span style="width: 72%"></span></div>
+                  <p class="bs-why">
+                    “Defense countered Attack. Sharper theme fit and a cleaner
+                    twist.”
+                  </p>
+                </div>
+
+                <div class="bs-cta">Watch cinematic reveal ▸</div>
+              </div>
+            </div>
+            <div class="device-shadow" aria-hidden="true"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== STATS BAND ===================== -->
+      <section class="stats" aria-label="At a glance">
+        <div class="container stats-grid">
+          <div class="stat reveal">
+            <span class="stat-num">1v1</span
+            ><span class="stat-label">Async duels</span>
+          </div>
+          <div class="stat reveal">
+            <span class="stat-num">5</span
+            ><span class="stat-label">Free archetypes</span>
+          </div>
+          <div class="stat reveal">
+            <span class="stat-num">6-point</span
+            ><span class="stat-label">Judging rubric</span>
+          </div>
+          <div class="stat reveal">
+            <span class="stat-num">∞</span
+            ><span class="stat-label">Prompts to write</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== HOW IT WORKS ===================== -->
+      <section class="section" id="how">
+        <div class="container">
+          <header class="section-head reveal">
+            <p class="kicker">How it works</p>
+            <h2>From sign-up to showdown in minutes</h2>
+            <p class="section-lead">
+              Prompt Wars is fast, social, and endlessly replayable. Every
+              battle is a fresh test of how well you think — and how well you
+              write.
+            </p>
+          </header>
+
+          <ol class="steps">
+            <li class="step reveal">
+              <span class="step-num">1</span>
+              <h3>Create your fighter</h3>
+              <p>
+                Pick an archetype, name your character, set a signature color
+                and a battle cry that follows you into every duel.
+              </p>
+            </li>
+            <li class="step reveal">
+              <span class="step-num">2</span>
+              <h3>Enter the arena</h3>
+              <p>
+                Get matched 1v1 in seconds. A shared theme is revealed to both
+                players — you both write under the same constraint.
+              </p>
+            </li>
+            <li class="step reveal">
+              <span class="step-num">3</span>
+              <h3>Make your move</h3>
+              <p>
+                Attack, defend, or finish. Choose a template or craft a custom
+                prompt, then lock it in. No edits, no take-backs.
+              </p>
+            </li>
+            <li class="step reveal">
+              <span class="step-num">4</span>
+              <h3>Watch the verdict</h3>
+              <p>
+                An AI judge scores both prompts on a transparent rubric, then a
+                cinematic reveal crowns the winner. Climb the ranks.
+              </p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- ===================== FEATURES ===================== -->
+      <section class="section section-alt" id="features">
+        <div class="container">
+          <header class="section-head reveal">
+            <p class="kicker">Why it's different</p>
+            <h2>A real game built on prompts</h2>
+            <p class="section-lead">
+              Not a chatbot toy — a competitive game with strategy, seasons, and
+              a payoff worth sharing.
+            </p>
+          </header>
+
+          <div class="feature-grid">
+            <article class="feature reveal">
+              <div class="feature-icon" style="--c: #a78bfa">⚖️</div>
+              <h3>Transparent AI judging</h3>
+              <p>
+                An LLM-as-judge scores both prompts blindly on six criteria —
+                clarity, originality, specificity, theme fit, character fit, and
+                dramatic potential. You always see the breakdown and the reason.
+              </p>
+            </article>
+
+            <article class="feature reveal">
+              <div class="feature-icon" style="--c: #ef4444">🎬</div>
+              <h3>Cinematic AI reveals</h3>
+              <p>
+                Every result plays as a cinematic — motion poster, music sting
+                and your battle cry. Upgrade any battle to a shareable 9:16
+                AI-generated video.
+              </p>
+            </article>
+
+            <article class="feature reveal">
+              <div class="feature-icon" style="--c: #3b82f6">♟️</div>
+              <h3>Move-type strategy</h3>
+              <p>
+                Attack beats Finisher, Defense beats Attack, Finisher beats
+                Defense. A real rock-paper-scissors layer rewards reading your
+                opponent, not just writing well.
+              </p>
+            </article>
+
+            <article class="feature reveal">
+              <div class="feature-icon" style="--c: #f59e0b">🏆</div>
+              <h3>Ranked seasons</h3>
+              <p>
+                Climb from Bronze to Champion with Glicko-2 ratings, seasonal
+                leaderboards, and a daily themed prompt with a global
+                leaderboard.
+              </p>
+            </article>
+
+            <article class="feature reveal">
+              <div class="feature-icon" style="--c: #10b981">🔥</div>
+              <h3>Daily meta &amp; streaks</h3>
+              <p>
+                Fresh daily themes, three quick quests a day, win-streak
+                rewards, and a rival auto-tagged from your most-played opponent.
+              </p>
+            </article>
+
+            <article class="feature reveal">
+              <div class="feature-icon" style="--c: #c4b5fd">🛡️</div>
+              <h3>Fair by design</h3>
+              <p>
+                No paid stat boosts. No paid archetypes. No pay-to-win.
+                Purchases only unlock AI videos, cosmetics, and convenience —
+                never an edge in ranked.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== REVEAL SHOWCASE ===================== -->
+      <section class="section">
+        <div class="container split">
+          <div class="split-copy reveal">
+            <p class="kicker">The payoff</p>
+            <h2>Every battle ends in a moment worth sharing</h2>
+            <p class="section-lead">
+              Win or lose, the reveal is the reward. Watch your battle cry land
+              over a cinematic poster — then turn the best ones into
+              AI-generated videos for TikTok, Reels and Shorts.
+            </p>
+            <ul class="check-list">
+              <li>Free cinematic reveal on <strong>every</strong> battle</li>
+              <li>Optional 6–12s AI video, one shared clip per duel</li>
+              <li>Export a scored result card or a watermarked 9:16 video</li>
+              <li>Every share carries a clear AI-content disclosure</li>
+            </ul>
+            <a class="btn btn-primary" href="#get">Join the waitlist</a>
+          </div>
+
+          <div class="split-visual reveal">
+            <div class="reveal-card">
+              <div class="rc-glow" aria-hidden="true"></div>
+              <p class="rc-label">Cinematic Reveal</p>
+              <div class="rc-poster">
+                <span class="rc-tag">AI-generated</span>
+                <div class="rc-cry">“The board was always mine.”</div>
+              </div>
+              <div class="rc-scores">
+                <div><span>Clarity</span><i style="--v: 90%"></i></div>
+                <div><span>Originality</span><i style="--v: 78%"></i></div>
+                <div><span>Theme fit</span><i style="--v: 84%"></i></div>
+                <div><span>Drama</span><i style="--v: 71%"></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== ARCHETYPES ===================== -->
+      <section class="section section-alt" id="archetypes">
+        <div class="container">
+          <header class="section-head reveal">
+            <p class="kicker">Choose your style</p>
+            <h2>Five archetypes, infinite identities</h2>
+            <p class="section-lead">
+              All free, all available from day one. Your archetype shapes your
+              flavor and a small, capped scoring edge — never your raw odds.
+            </p>
+          </header>
+
+          <div class="arch-grid">
+            <article class="arch-card reveal" style="--c: #3b82f6">
+              <span class="arch-orb"></span>
+              <h3>The Strategist</h3>
+              <p class="arch-trait">Tactical Precision</p>
+              <p>
+                Precise and calculated. Rewards Defense moves and a cool head.
+              </p>
+            </article>
+            <article class="arch-card reveal" style="--c: #f59e0b">
+              <span class="arch-orb"></span>
+              <h3>The Trickster</h3>
+              <p class="arch-trait">Unpredictable Chaos</p>
+              <p>
+                Creative and chaotic. Rewards unexpected angles and bold
+                swerves.
+              </p>
+            </article>
+            <article class="arch-card reveal" style="--c: #ef4444">
+              <span class="arch-orb"></span>
+              <h3>The Titan</h3>
+              <p class="arch-trait">Raw Power</p>
+              <p>
+                Direct and overwhelming. Rewards Attack moves and sheer force.
+              </p>
+            </article>
+            <article class="arch-card reveal" style="--c: #8b5cf6">
+              <span class="arch-orb"></span>
+              <h3>The Mystic</h3>
+              <p class="arch-trait">Abstract Vision</p>
+              <p>
+                Poetic and abstract. Rewards originality and the unexpected
+                image.
+              </p>
+            </article>
+            <article class="arch-card reveal" style="--c: #10b981">
+              <span class="arch-orb"></span>
+              <h3>The Engineer</h3>
+              <p class="arch-trait">Technical Mastery</p>
+              <p>
+                Structured and exact. Rewards specificity and airtight
+                construction.
+              </p>
+            </article>
+            <article class="arch-card arch-card-cta reveal">
+              <h3>Your move.</h3>
+              <p>
+                Pick a side, write your first prompt, and find out which style
+                wins.
+              </p>
+              <a class="btn btn-ghost" href="#get">Get started</a>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== FAQ ===================== -->
+      <section class="section" id="faq">
+        <div class="container faq-wrap">
+          <header class="section-head reveal">
+            <p class="kicker">FAQ</p>
+            <h2>Good to know</h2>
+          </header>
+
+          <div class="faq reveal">
+            <details>
+              <summary>Is Prompt Wars free to play?</summary>
+              <p>
+                Yes. Your first battle is free and the cinematic result reveal
+                is always free. Optional credits and the
+                <strong>Prompt Wars+</strong> subscription unlock AI-generated
+                video reveals and cosmetics — never gameplay advantages.
+              </p>
+            </details>
+            <details>
+              <summary>How does the AI judge decide who wins?</summary>
+              <p>
+                An LLM-as-judge scores both prompts blindly on a fixed six-point
+                rubric — clarity, originality, specificity, theme fit, character
+                fit and dramatic potential. Scores are length-normalized and run
+                multiple times for stability, and you see the full breakdown and
+                the judge's reasoning on every result. You can even appeal a
+                ranked loss.
+              </p>
+            </details>
+            <details>
+              <summary>Is it pay-to-win?</summary>
+              <p>
+                No. There are no paid stat boosts, no paid scoring modifiers and
+                no paid archetypes. Subscriptions and purchases only unlock AI
+                video reveals, cosmetics and convenience. Ranked outcomes depend
+                entirely on your writing.
+              </p>
+            </details>
+            <details>
+              <summary>Which platforms can I play on?</summary>
+              <p>
+                Prompt Wars is coming to <strong>iOS</strong> and
+                <strong>Android</strong>. Join the waitlist below to be notified
+                the moment it lands in the App Store and Google Play.
+              </p>
+            </details>
+            <details>
+              <summary>Is it safe? What's the age rating?</summary>
+              <p>
+                Prompt Wars is rated <strong>18+</strong>. Every prompt is
+                moderated before a battle resolves, AI-generated video is
+                checked before it's shown, and every reveal carries a clear
+                AI-content disclosure. Report and block tools are available
+                throughout the app.
+              </p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== FINAL CTA ===================== -->
+      <section class="cta" id="get">
+        <div class="cta-glow" aria-hidden="true"></div>
+        <div class="container cta-inner reveal">
+          <p class="kicker">Be first to battle</p>
+          <h2>Sharpen your prompts. Claim your rank.</h2>
+          <p class="section-lead">
+            Join the waitlist and we'll let you know the moment Prompt Wars
+            launches on iOS and Android.
           </p>
 
-          <div class="hero-actions">
-            <a class="store-btn" href="#get" aria-label="Download on the App Store">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.365 1.43c0 1.14-.42 2.2-1.13 3.02-.84.97-2.2 1.72-3.32 1.63-.14-1.1.42-2.27 1.1-3.02.78-.86 2.18-1.5 3.35-1.63zM20.6 17.2c-.55 1.27-.82 1.84-1.53 2.97-.99 1.57-2.39 3.52-4.12 3.53-1.54.01-1.93-1-4.02-.99-2.09.01-2.52 1.01-4.06.99-1.73-.01-3.05-1.78-4.04-3.34C-.07 17.4-.36 12.3 1.55 9.62c1.1-1.55 2.84-2.46 4.47-2.46 1.67 0 2.72 1 4.1 1 1.34 0 2.16-1 4.09-1 1.46 0 3 .8 4.1 2.18-3.6 1.97-3.02 7.1.29 7.86z"/></svg>
-              <span><small>Coming soon to</small><strong>App Store</strong></span>
+          <form class="waitlist" id="waitlist" novalidate>
+            <label class="visually-hidden" for="email">Email address</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              placeholder="you@email.com"
+              autocomplete="email"
+              required
+            />
+            <button class="btn btn-primary" type="submit">Notify me</button>
+          </form>
+          <p class="form-note" id="form-note" role="status" aria-live="polite">
+            No spam. One email at launch, that's it.
+          </p>
+
+          <div class="cta-stores">
+            <a
+              class="store-btn store-btn-sm"
+              href="#get"
+              aria-label="Coming soon to the App Store"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M16.365 1.43c0 1.14-.42 2.2-1.13 3.02-.84.97-2.2 1.72-3.32 1.63-.14-1.1.42-2.27 1.1-3.02.78-.86 2.18-1.5 3.35-1.63zM20.6 17.2c-.55 1.27-.82 1.84-1.53 2.97-.99 1.57-2.39 3.52-4.12 3.53-1.54.01-1.93-1-4.02-.99-2.09.01-2.52 1.01-4.06.99-1.73-.01-3.05-1.78-4.04-3.34C-.07 17.4-.36 12.3 1.55 9.62c1.1-1.55 2.84-2.46 4.47-2.46 1.67 0 2.72 1 4.1 1 1.34 0 2.16-1 4.09-1 1.46 0 3 .8 4.1 2.18-3.6 1.97-3.02 7.1.29 7.86z"
+                />
+              </svg>
+              App Store
             </a>
-            <a class="store-btn" href="#get" aria-label="Get it on Google Play">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 1.8 13.4 12 3.6 22.2c-.3-.2-.5-.6-.5-1.1V2.9c0-.5.2-.9.5-1.1zm11.2 8.9 2.6 2.6-2.6 2.6-3-3 3-2.2zm0 2.6zM4.9 1.2l8.8 9-2.2 2.2L4.9 1.2zm0 21.6 6.6-9.9 2.2 2.2-8.8 7.7zM18.9 9.9l2.5 1.4c.6.4.6 1.4 0 1.8l-2.5 1.4-2.9-2.3 2.9-2.3z"/></svg>
-              <span><small>Coming soon to</small><strong>Google Play</strong></span>
+            <a
+              class="store-btn store-btn-sm"
+              href="#get"
+              aria-label="Coming soon to Google Play"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M3.6 1.8 13.4 12 3.6 22.2c-.3-.2-.5-.6-.5-1.1V2.9c0-.5.2-.9.5-1.1zm11.2 8.9 2.6 2.6-2.6 2.6-3-3 3-2.2zM4.9 1.2l8.8 9-2.2 2.2L4.9 1.2zm0 21.6 6.6-9.9 2.2 2.2-8.8 7.7zM18.9 9.9l2.5 1.4c.6.4.6 1.4 0 1.8l-2.5 1.4-2.9-2.3 2.9-2.3z"
+                />
+              </svg>
+              Google Play
             </a>
           </div>
-
-          <ul class="hero-trust">
-            <li><span>⚡</span> First battle in under 3 minutes</li>
-            <li><span>🎬</span> AI cinematic reveals</li>
-            <li><span>⚖️</span> Transparent AI judging</li>
-          </ul>
         </div>
+      </section>
+    </main>
 
-        <!-- Phone mockup -->
-        <div class="hero-device reveal" aria-hidden="false">
-          <div class="phone">
-            <div class="phone-notch"></div>
-            <div class="phone-screen">
-              <div class="bs-theme">Theme · <strong>“Last stand at dawn”</strong></div>
-
-              <div class="bs-fighters">
-                <div class="bs-fighter">
-                  <div class="bs-avatar" style="--c:#3B82F6">SR</div>
-                  <p class="bs-name">Silver Rook</p>
-                  <p class="bs-arch">The Strategist</p>
-                </div>
-                <div class="bs-vs">VS</div>
-                <div class="bs-fighter">
-                  <div class="bs-avatar" style="--c:#EF4444">VT</div>
-                  <p class="bs-name">Vex Titan</p>
-                  <p class="bs-arch">The Titan</p>
-                </div>
-              </div>
-
-              <div class="bs-moves">
-                <span class="chip chip-defense">🛡 Defense</span>
-                <span class="chip chip-attack">⚔ Attack</span>
-              </div>
-
-              <div class="bs-verdict">
-                <p class="bs-verdict-label">AI Verdict</p>
-                <p class="bs-winner">Silver Rook wins</p>
-                <div class="bs-bar"><span style="width:72%"></span></div>
-                <p class="bs-why">“Defense countered Attack. Sharper theme fit and a cleaner twist.”</p>
-              </div>
-
-              <div class="bs-cta">Watch cinematic reveal ▸</div>
-            </div>
-          </div>
-          <div class="device-shadow" aria-hidden="true"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===================== STATS BAND ===================== -->
-    <section class="stats" aria-label="At a glance">
-      <div class="container stats-grid">
-        <div class="stat reveal"><span class="stat-num">1v1</span><span class="stat-label">Async duels</span></div>
-        <div class="stat reveal"><span class="stat-num">5</span><span class="stat-label">Free archetypes</span></div>
-        <div class="stat reveal"><span class="stat-num">6-point</span><span class="stat-label">Judging rubric</span></div>
-        <div class="stat reveal"><span class="stat-num">∞</span><span class="stat-label">Prompts to write</span></div>
-      </div>
-    </section>
-
-    <!-- ===================== HOW IT WORKS ===================== -->
-    <section class="section" id="how">
-      <div class="container">
-        <header class="section-head reveal">
-          <p class="kicker">How it works</p>
-          <h2>From sign-up to showdown in minutes</h2>
-          <p class="section-lead">Prompt Wars is fast, social, and endlessly replayable. Every battle is a fresh test of how well you think — and how well you write.</p>
-        </header>
-
-        <ol class="steps">
-          <li class="step reveal">
-            <span class="step-num">1</span>
-            <h3>Create your fighter</h3>
-            <p>Pick an archetype, name your character, set a signature color and a battle cry that follows you into every duel.</p>
-          </li>
-          <li class="step reveal">
-            <span class="step-num">2</span>
-            <h3>Enter the arena</h3>
-            <p>Get matched 1v1 in seconds. A shared theme is revealed to both players — you both write under the same constraint.</p>
-          </li>
-          <li class="step reveal">
-            <span class="step-num">3</span>
-            <h3>Make your move</h3>
-            <p>Attack, defend, or finish. Choose a template or craft a custom prompt, then lock it in. No edits, no take-backs.</p>
-          </li>
-          <li class="step reveal">
-            <span class="step-num">4</span>
-            <h3>Watch the verdict</h3>
-            <p>An AI judge scores both prompts on a transparent rubric, then a cinematic reveal crowns the winner. Climb the ranks.</p>
-          </li>
-        </ol>
-      </div>
-    </section>
-
-    <!-- ===================== FEATURES ===================== -->
-    <section class="section section-alt" id="features">
-      <div class="container">
-        <header class="section-head reveal">
-          <p class="kicker">Why it's different</p>
-          <h2>A real game built on prompts</h2>
-          <p class="section-lead">Not a chatbot toy — a competitive game with strategy, seasons, and a payoff worth sharing.</p>
-        </header>
-
-        <div class="feature-grid">
-          <article class="feature reveal">
-            <div class="feature-icon" style="--c:#A78BFA">⚖️</div>
-            <h3>Transparent AI judging</h3>
-            <p>An LLM-as-judge scores both prompts blindly on six criteria — clarity, originality, specificity, theme fit, character fit, and dramatic potential. You always see the breakdown and the reason.</p>
-          </article>
-
-          <article class="feature reveal">
-            <div class="feature-icon" style="--c:#EF4444">🎬</div>
-            <h3>Cinematic AI reveals</h3>
-            <p>Every result plays as a cinematic — motion poster, music sting and your battle cry. Upgrade any battle to a shareable 9:16 AI-generated video.</p>
-          </article>
-
-          <article class="feature reveal">
-            <div class="feature-icon" style="--c:#3B82F6">♟️</div>
-            <h3>Move-type strategy</h3>
-            <p>Attack beats Finisher, Defense beats Attack, Finisher beats Defense. A real rock-paper-scissors layer rewards reading your opponent, not just writing well.</p>
-          </article>
-
-          <article class="feature reveal">
-            <div class="feature-icon" style="--c:#F59E0B">🏆</div>
-            <h3>Ranked seasons</h3>
-            <p>Climb from Bronze to Champion with Glicko-2 ratings, seasonal leaderboards, and a daily themed prompt with a global leaderboard.</p>
-          </article>
-
-          <article class="feature reveal">
-            <div class="feature-icon" style="--c:#10B981">🔥</div>
-            <h3>Daily meta &amp; streaks</h3>
-            <p>Fresh daily themes, three quick quests a day, win-streak rewards, and a rival auto-tagged from your most-played opponent.</p>
-          </article>
-
-          <article class="feature reveal">
-            <div class="feature-icon" style="--c:#C4B5FD">🛡️</div>
-            <h3>Fair by design</h3>
-            <p>No paid stat boosts. No paid archetypes. No pay-to-win. Purchases only unlock AI videos, cosmetics, and convenience — never an edge in ranked.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===================== REVEAL SHOWCASE ===================== -->
-    <section class="section">
-      <div class="container split">
-        <div class="split-copy reveal">
-          <p class="kicker">The payoff</p>
-          <h2>Every battle ends in a moment worth sharing</h2>
-          <p class="section-lead">Win or lose, the reveal is the reward. Watch your battle cry land over a cinematic poster — then turn the best ones into AI-generated videos for TikTok, Reels and Shorts.</p>
-          <ul class="check-list">
-            <li>Free cinematic reveal on <strong>every</strong> battle</li>
-            <li>Optional 6–12s AI video, one shared clip per duel</li>
-            <li>Export a scored result card or a watermarked 9:16 video</li>
-            <li>Every share carries a clear AI-content disclosure</li>
-          </ul>
-          <a class="btn btn-primary" href="#get">Join the waitlist</a>
-        </div>
-
-        <div class="split-visual reveal">
-          <div class="reveal-card">
-            <div class="rc-glow" aria-hidden="true"></div>
-            <p class="rc-label">Cinematic Reveal</p>
-            <div class="rc-poster">
-              <span class="rc-tag">AI-generated</span>
-              <div class="rc-cry">“The board was always mine.”</div>
-            </div>
-            <div class="rc-scores">
-              <div><span>Clarity</span><i style="--v:90%"></i></div>
-              <div><span>Originality</span><i style="--v:78%"></i></div>
-              <div><span>Theme fit</span><i style="--v:84%"></i></div>
-              <div><span>Drama</span><i style="--v:71%"></i></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===================== ARCHETYPES ===================== -->
-    <section class="section section-alt" id="archetypes">
-      <div class="container">
-        <header class="section-head reveal">
-          <p class="kicker">Choose your style</p>
-          <h2>Five archetypes, infinite identities</h2>
-          <p class="section-lead">All free, all available from day one. Your archetype shapes your flavor and a small, capped scoring edge — never your raw odds.</p>
-        </header>
-
-        <div class="arch-grid">
-          <article class="arch-card reveal" style="--c:#3B82F6">
-            <span class="arch-orb"></span>
-            <h3>The Strategist</h3>
-            <p class="arch-trait">Tactical Precision</p>
-            <p>Precise and calculated. Rewards Defense moves and a cool head.</p>
-          </article>
-          <article class="arch-card reveal" style="--c:#F59E0B">
-            <span class="arch-orb"></span>
-            <h3>The Trickster</h3>
-            <p class="arch-trait">Unpredictable Chaos</p>
-            <p>Creative and chaotic. Rewards unexpected angles and bold swerves.</p>
-          </article>
-          <article class="arch-card reveal" style="--c:#EF4444">
-            <span class="arch-orb"></span>
-            <h3>The Titan</h3>
-            <p class="arch-trait">Raw Power</p>
-            <p>Direct and overwhelming. Rewards Attack moves and sheer force.</p>
-          </article>
-          <article class="arch-card reveal" style="--c:#8B5CF6">
-            <span class="arch-orb"></span>
-            <h3>The Mystic</h3>
-            <p class="arch-trait">Abstract Vision</p>
-            <p>Poetic and abstract. Rewards originality and the unexpected image.</p>
-          </article>
-          <article class="arch-card reveal" style="--c:#10B981">
-            <span class="arch-orb"></span>
-            <h3>The Engineer</h3>
-            <p class="arch-trait">Technical Mastery</p>
-            <p>Structured and exact. Rewards specificity and airtight construction.</p>
-          </article>
-          <article class="arch-card arch-card-cta reveal">
-            <h3>Your move.</h3>
-            <p>Pick a side, write your first prompt, and find out which style wins.</p>
-            <a class="btn btn-ghost" href="#get">Get started</a>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===================== FAQ ===================== -->
-    <section class="section" id="faq">
-      <div class="container faq-wrap">
-        <header class="section-head reveal">
-          <p class="kicker">FAQ</p>
-          <h2>Good to know</h2>
-        </header>
-
-        <div class="faq reveal">
-          <details>
-            <summary>Is Prompt Wars free to play?</summary>
-            <p>Yes. Your first battle is free and the cinematic result reveal is always free. Optional credits and the <strong>Prompt Wars+</strong> subscription unlock AI-generated video reveals and cosmetics — never gameplay advantages.</p>
-          </details>
-          <details>
-            <summary>How does the AI judge decide who wins?</summary>
-            <p>An LLM-as-judge scores both prompts blindly on a fixed six-point rubric — clarity, originality, specificity, theme fit, character fit and dramatic potential. Scores are length-normalized and run multiple times for stability, and you see the full breakdown and the judge's reasoning on every result. You can even appeal a ranked loss.</p>
-          </details>
-          <details>
-            <summary>Is it pay-to-win?</summary>
-            <p>No. There are no paid stat boosts, no paid scoring modifiers and no paid archetypes. Subscriptions and purchases only unlock AI video reveals, cosmetics and convenience. Ranked outcomes depend entirely on your writing.</p>
-          </details>
-          <details>
-            <summary>Which platforms can I play on?</summary>
-            <p>Prompt Wars is coming to <strong>iOS</strong> and <strong>Android</strong>. Join the waitlist below to be notified the moment it lands in the App Store and Google Play.</p>
-          </details>
-          <details>
-            <summary>Is it safe? What's the age rating?</summary>
-            <p>Prompt Wars is rated <strong>18+</strong>. Every prompt is moderated before a battle resolves, AI-generated video is checked before it's shown, and every reveal carries a clear AI-content disclosure. Report and block tools are available throughout the app.</p>
-          </details>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===================== FINAL CTA ===================== -->
-    <section class="cta" id="get">
-      <div class="cta-glow" aria-hidden="true"></div>
-      <div class="container cta-inner reveal">
-        <p class="kicker">Be first to battle</p>
-        <h2>Sharpen your prompts. Claim your rank.</h2>
-        <p class="section-lead">Join the waitlist and we'll let you know the moment Prompt Wars launches on iOS and Android.</p>
-
-        <form class="waitlist" id="waitlist" novalidate>
-          <label class="visually-hidden" for="email">Email address</label>
-          <input type="email" id="email" name="email" placeholder="you@email.com" autocomplete="email" required />
-          <button class="btn btn-primary" type="submit">Notify me</button>
-        </form>
-        <p class="form-note" id="form-note" role="status" aria-live="polite">No spam. One email at launch, that's it.</p>
-
-        <div class="cta-stores">
-          <a class="store-btn store-btn-sm" href="#get" aria-label="Coming soon to the App Store">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.365 1.43c0 1.14-.42 2.2-1.13 3.02-.84.97-2.2 1.72-3.32 1.63-.14-1.1.42-2.27 1.1-3.02.78-.86 2.18-1.5 3.35-1.63zM20.6 17.2c-.55 1.27-.82 1.84-1.53 2.97-.99 1.57-2.39 3.52-4.12 3.53-1.54.01-1.93-1-4.02-.99-2.09.01-2.52 1.01-4.06.99-1.73-.01-3.05-1.78-4.04-3.34C-.07 17.4-.36 12.3 1.55 9.62c1.1-1.55 2.84-2.46 4.47-2.46 1.67 0 2.72 1 4.1 1 1.34 0 2.16-1 4.09-1 1.46 0 3 .8 4.1 2.18-3.6 1.97-3.02 7.1.29 7.86z"/></svg>
-            App Store
+    <!-- ===================== FOOTER ===================== -->
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <div class="footer-brand">
+          <a class="brand" href="#top" aria-label="Prompt Wars home">
+            <img
+              src="assets/logo.svg"
+              alt=""
+              width="28"
+              height="28"
+              class="brand-mark"
+            />
+            <span class="brand-name">Prompt Wars</span>
           </a>
-          <a class="store-btn store-btn-sm" href="#get" aria-label="Coming soon to Google Play">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 1.8 13.4 12 3.6 22.2c-.3-.2-.5-.6-.5-1.1V2.9c0-.5.2-.9.5-1.1zm11.2 8.9 2.6 2.6-2.6 2.6-3-3 3-2.2zM4.9 1.2l8.8 9-2.2 2.2L4.9 1.2zm0 21.6 6.6-9.9 2.2 2.2-8.8 7.7zM18.9 9.9l2.5 1.4c.6.4.6 1.4 0 1.8l-2.5 1.4-2.9-2.3 2.9-2.3z"/></svg>
-            Google Play
-          </a>
+          <p>The competitive AI prompt-battle game. Write. Battle. Win.</p>
+          <p class="ai-disclosure">
+            Prompt Wars uses generative AI to judge battles and create result
+            videos. All AI-generated content is labeled. Rated 18+.
+          </p>
+        </div>
+
+        <nav class="footer-col" aria-label="Game">
+          <h4>Game</h4>
+          <a href="#how">How it works</a>
+          <a href="#features">Features</a>
+          <a href="#archetypes">Archetypes</a>
+          <a href="#get">Get the game</a>
+        </nav>
+
+        <nav class="footer-col" aria-label="Company">
+          <h4>Company</h4>
+          <a href="#faq">FAQ</a>
+          <a href="mailto:hello@promptwars.gg">Contact</a>
+          <a href="#">Press kit</a>
+        </nav>
+
+        <nav class="footer-col" aria-label="Legal">
+          <h4>Legal</h4>
+          <a href="privacy-policy.html">Privacy Policy</a>
+          <a href="terms-and-conditions.html">Terms of Service</a>
+          <a href="terms-and-conditions.html#ai-content">AI Content Policy</a>
+        </nav>
+      </div>
+
+      <div class="container footer-bottom">
+        <p>© <span id="year">2026</span> Prompt Wars. All rights reserved.</p>
+        <div class="socials">
+          <a href="#" aria-label="Prompt Wars on TikTok">TikTok</a>
+          <a href="#" aria-label="Prompt Wars on X">X</a>
+          <a href="#" aria-label="Prompt Wars on Instagram">Instagram</a>
         </div>
       </div>
-    </section>
-  </main>
+    </footer>
 
-  <!-- ===================== FOOTER ===================== -->
-  <footer class="site-footer">
-    <div class="container footer-inner">
-      <div class="footer-brand">
-        <a class="brand" href="#top" aria-label="Prompt Wars home">
-          <img src="assets/logo.svg" alt="" width="28" height="28" class="brand-mark" />
-          <span class="brand-name">Prompt Wars</span>
-        </a>
-        <p>The competitive AI prompt-battle game. Write. Battle. Win.</p>
-        <p class="ai-disclosure">Prompt Wars uses generative AI to judge battles and create result videos. All AI-generated content is labeled. Rated 18+.</p>
-      </div>
-
-      <nav class="footer-col" aria-label="Game">
-        <h4>Game</h4>
-        <a href="#how">How it works</a>
-        <a href="#features">Features</a>
-        <a href="#archetypes">Archetypes</a>
-        <a href="#get">Get the game</a>
-      </nav>
-
-      <nav class="footer-col" aria-label="Company">
-        <h4>Company</h4>
-        <a href="#faq">FAQ</a>
-        <a href="mailto:hello@promptwars.gg">Contact</a>
-        <a href="#">Press kit</a>
-      </nav>
-
-      <nav class="footer-col" aria-label="Legal">
-        <h4>Legal</h4>
-        <a href="#">Privacy Policy</a>
-        <a href="#">Terms of Service</a>
-        <a href="#">AI Content Policy</a>
-      </nav>
-    </div>
-
-    <div class="container footer-bottom">
-      <p>© <span id="year">2026</span> Prompt Wars. All rights reserved.</p>
-      <div class="socials">
-        <a href="#" aria-label="Prompt Wars on TikTok">TikTok</a>
-        <a href="#" aria-label="Prompt Wars on X">X</a>
-        <a href="#" aria-label="Prompt Wars on Instagram">Instagram</a>
-      </div>
-    </div>
-  </footer>
-
-  <script src="script.js" defer></script>
-</body>
+    <script src="script.js" defer></script>
+  </body>
 </html>

@@ -11,4 +11,16 @@
       <image:title>Prompt Wars — The AI Prompt Battle Game</image:title>
     </image:image>
   </url>
+  <url>
+    <loc>https://promptwars.gg/privacy-policy</loc>
+    <lastmod>2026-07-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://promptwars.gg/terms-and-conditions</loc>
+    <lastmod>2026-07-08</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
 </urlset>

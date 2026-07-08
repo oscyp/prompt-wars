@@ -4,6 +4,7 @@ module.exports = ({ config: _config }) => {
   return {
     name: 'Prompt Wars',
     slug: 'prompt-wars',
+    owner: 'prompt-wars',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
