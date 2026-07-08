@@ -7,7 +7,7 @@ module.exports = ({ config: _config }) => {
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
-    scheme: 'com.promptwars.promptwars',
+    scheme: 'promptwars',
     userInterfaceStyle: 'automatic',
     splash: {
       image: './assets/images/splash-screen.png',
@@ -16,7 +16,7 @@ module.exports = ({ config: _config }) => {
     },
     ios: {
       supportsTablet: false,
-      bundleIdentifier: 'com.promptwars.promptwars',
+      bundleIdentifier: 'gg.promptwars.app',
       useAppleSignIn: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
@@ -27,7 +27,7 @@ module.exports = ({ config: _config }) => {
         foregroundImage: './assets/images/adaptive-icon.png',
         backgroundColor: '#000000',
       },
-      package: 'com.promptwars.promptwars',
+      package: 'gg.promptwars.app',
     },
     web: {
       bundler: 'metro',

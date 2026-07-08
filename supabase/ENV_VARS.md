@@ -19,7 +19,7 @@ EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 EXPO_PUBLIC_AUTH_REDIRECT_SCHEME=promptwars
 
 # App URL for web deep links (production)
-EXPO_PUBLIC_APP_URL=https://promptwars.app
+EXPO_PUBLIC_APP_URL=https://promptwars.gg
 ```
 
 ### Server-Side (Edge Functions Only)

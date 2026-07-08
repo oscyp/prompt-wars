@@ -49,8 +49,7 @@ The visual language mirrors the app (`constants/Colors.ts`):
 - `VideoGame` and `FAQPage` JSON-LD structured data
 - `robots.txt` + `sitemap.xml`, semantic landmarks, alt text
 
-> Before going live, replace the `https://promptwars.app/` placeholder domain in
-> `index.html`, `sitemap.xml`, and `robots.txt`, then re-generate `og-image.png`
+> The public landing domain is `https://promptwars.gg/`. Re-generate `og-image.png`
 > from `og-image.svg` if you change the art (`sips -s format png
 > assets/og-image.svg --out assets/og-image.png`). Wire the waitlist form in
 > `script.js` to your email provider, and drop in real App Store / Google Play
