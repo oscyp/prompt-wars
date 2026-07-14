@@ -27,33 +27,35 @@ Deno.serve(async (req) => {
   
   try {
     const webhookSecret = Deno.env.get('REVENUECAT_WEBHOOK_SECRET');
-    
-    if (webhookSecret) {
-      // Validate HMAC-SHA256 signature
-      const signature = req.headers.get('X-RevenueCat-Signature');
-      
-      if (!signature) {
-        console.error('Missing webhook signature');
-        return errorResponse('Unauthorized', 401);
-      }
-      
-      const body = await req.text();
-      const isValid = await validateWebhookSignature(body, signature, webhookSecret);
-      
-      if (!isValid) {
-        console.error('Invalid webhook signature');
-        return errorResponse('Unauthorized', 401);
-      }
-      
-      // Re-parse after signature check
-      const webhookData: RevenueCatEvent = JSON.parse(body);
-      return await processWebhookEvent(webhookData);
-    } else {
-      console.warn('REVENUECAT_WEBHOOK_SECRET not set, skipping signature validation');
-      const webhookData: RevenueCatEvent = await req.json();
-      return await processWebhookEvent(webhookData);
+
+    // Fail closed: verify_jwt is disabled for this endpoint (config.toml), so
+    // the HMAC signature is the ONLY authentication. Accepting unsigned events
+    // would let anyone mint subscriptions/credits by posting fake purchases.
+    if (!webhookSecret) {
+      console.error('REVENUECAT_WEBHOOK_SECRET not set — rejecting webhook');
+      return errorResponse('Webhook secret not configured', 503);
     }
-    
+
+    // Validate HMAC-SHA256 signature
+    const signature = req.headers.get('X-RevenueCat-Signature');
+
+    if (!signature) {
+      console.error('Missing webhook signature');
+      return errorResponse('Unauthorized', 401);
+    }
+
+    const body = await req.text();
+    const isValid = await validateWebhookSignature(body, signature, webhookSecret);
+
+    if (!isValid) {
+      console.error('Invalid webhook signature');
+      return errorResponse('Unauthorized', 401);
+    }
+
+    // Re-parse after signature check
+    const webhookData: RevenueCatEvent = JSON.parse(body);
+    return await processWebhookEvent(webhookData);
+
   } catch (error) {
     console.error('Webhook processing error:', error);
     return errorResponse(error instanceof Error ? error.message : 'Internal error', 500);

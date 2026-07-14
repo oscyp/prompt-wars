@@ -77,3 +77,18 @@ stays the source of truth for scope; this doc governs how things look and move._
   core `<Image>` can't decode WebP).
 - After generating: eyeball every asset (framing, palette drift), then register it in
   `constants/UiArt.ts` and note its zone here.
+- **Per-theme poster variety.** Daily themes are free-text (one `daily_themes` row per
+  date), so there is no 1:1 theme→art mapping. `node scripts/generate-assets.mjs --only ui`
+  also emits mood variants `theme-poster-01…06.jpg` (16:9); after eyeballing them, register
+  their `require`s in `constants/ThemeArt.ts` → `THEME_POSTERS` and `posterForTheme()` fans
+  them out deterministically by theme-text hash. `accentForTheme()` already gives an
+  on-brand accent per theme with no art at all (the accent wash + keyline on the Home hero
+  ship today; art variety turns on when the variants land — no caller changes).
+- **Per-character "hero still" (future, concept §8.1 Phase 2+).** A cached, per-character
+  reveal still. This is NOT a bundled asset and does NOT belong in this script — it is user
+  content, generated server-side (Nano Banana, using the character's locked portrait as the
+  reference image for consistency), stored per-character in Supabase Storage, and swapped
+  into the Tier 0 payload's `portraitUrl` asynchronously. It must stay non-blocking:
+  `RoundResultCinematic` already falls back to the bundled archetype illustration, so the
+  reveal never waits on it. Requires the provider key + an Edge Function/job; never
+  inline-generate at runtime on the client.

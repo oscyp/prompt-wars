@@ -16,6 +16,7 @@ import { Spacing, Typography } from '@/constants/DesignTokens';
 export default function SignUpScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -23,19 +24,34 @@ export default function SignUpScreen() {
 
   const handleSignUp = async () => {
     setError('');
+
+    if (!ageConfirmed) {
+      setError('You must confirm you are 18 or older to create an account.');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
+        options: {
+          // Server-enforced: handle_new_user rejects signups without this flag.
+          data: { age_confirmed: true },
+        },
       });
 
       if (error) throw error;
 
       // Navigation is handled by _layout.tsx
     } catch (err: any) {
-      setError(err.message || 'Failed to sign up');
+      const message: string = err.message || 'Failed to sign up';
+      setError(
+        message.includes('age_gate_failed')
+          ? 'Account creation requires confirming you are 18 or older.'
+          : message,
+      );
     } finally {
       setLoading(false);
     }
@@ -90,19 +106,43 @@ export default function SignUpScreen() {
             </Text>
           ) : null}
 
+          <TouchableOpacity
+            style={styles.ageRow}
+            onPress={() => setAgeConfirmed((v) => !v)}
+            disabled={loading}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: ageConfirmed }}
+            accessibilityLabel="Confirm you are 18 or older"
+          >
+            <View
+              style={[
+                styles.checkbox,
+                { borderColor: colors.textTertiary },
+                ageConfirmed && {
+                  backgroundColor: colors.primary,
+                  borderColor: colors.primary,
+                },
+              ]}
+            >
+              {ageConfirmed ? <Text style={styles.checkboxMark}>✓</Text> : null}
+            </View>
+            <Text style={[styles.ageText, { color: colors.textSecondary }]}>
+              I confirm I am 18 years of age or older
+            </Text>
+          </TouchableOpacity>
+
           <Text style={[styles.disclaimer, { color: colors.textTertiary }]}>
-            By signing up, you confirm you are 18+ years old and agree to our
-            Terms of Service.
+            By signing up, you agree to our Terms of Service.
           </Text>
 
           <TouchableOpacity
             style={[
               styles.button,
               { backgroundColor: colors.primary },
-              loading && styles.buttonDisabled,
+              (loading || !ageConfirmed) && styles.buttonDisabled,
             ]}
             onPress={handleSignUp}
-            disabled={loading}
+            disabled={loading || !ageConfirmed}
             accessibilityLabel="Sign up button"
             accessibilityRole="button"
           >
@@ -187,5 +227,28 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     marginBottom: Spacing.sm,
     textAlign: 'center',
+  },
+  ageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Spacing.md,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    marginRight: Spacing.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxMark: {
+    color: '#FFFFFF',
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.bold,
+  },
+  ageText: {
+    flex: 1,
+    fontSize: Typography.sizes.sm,
   },
 });

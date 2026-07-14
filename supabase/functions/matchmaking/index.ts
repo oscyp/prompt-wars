@@ -235,6 +235,17 @@ Deno.serve(async (req) => {
       return errorResponse('Profile not found');
     }
 
+    // §7.8 enforced rate limit: cap battles created/joined per hour and day.
+    const { data: rateCheck, error: rateErr } = await supabase.rpc(
+      'check_rate_limit',
+      { p_profile_id: userId, p_action: 'battle_create' },
+    );
+    if (rateErr) {
+      console.error('check_rate_limit error (fail-open):', rateErr);
+    } else if (rateCheck && rateCheck.allowed === false) {
+      return errorResponse('Too many battles created. Try again later.', 429);
+    }
+
     // Newbie check is based on ranked battles, not total battles. Total battles
     // includes bots/unranked and can incorrectly push a player out of the
     // ranked newbie bucket.

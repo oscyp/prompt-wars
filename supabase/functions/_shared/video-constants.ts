@@ -39,3 +39,19 @@ export const REFUNDABLE_TRIGGERS: ReadonlySet<VideoJobTrigger> = new Set([
 export function isRefundableTrigger(t: string | null | undefined): boolean {
   return !!t && REFUNDABLE_TRIGGERS.has(t as VideoJobTrigger);
 }
+
+/**
+ * True when a submitted/processing job has exceeded its hard timeout.
+ * `startedAtIso` is `submitted_at` (fallback `created_at`); a missing or
+ * unparsable timestamp never times out — the retry cap still bounds the job.
+ */
+export function isPastHardTimeout(
+  startedAtIso: string | null | undefined,
+  timeoutSeconds: number,
+  nowMs: number = Date.now(),
+): boolean {
+  if (!startedAtIso) return false;
+  const startedAtMs = Date.parse(startedAtIso);
+  if (!Number.isFinite(startedAtMs)) return false;
+  return nowMs - startedAtMs > timeoutSeconds * 1000;
+}

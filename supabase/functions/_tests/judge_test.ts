@@ -4,6 +4,8 @@ import {
   aggregateScore,
   normalizeScores,
   applyMoveTypeModifier,
+  isBelowQualityFloor,
+  RATING_QUALITY_FLOOR,
 } from '../_shared/judge.ts';
 import { MockJudgeProvider } from '../_shared/providers.ts';
 import type { JudgeRubricScores } from '../_shared/types.ts';
@@ -86,4 +88,27 @@ Deno.test('Judge: Mock provider returns valid scores', async () => {
   assertEquals(typeof result.explanation, 'string');
   assertEquals(result.playerOneScores.clarity >= 0, true);
   assertEquals(result.playerOneScores.clarity <= 10, true);
+});
+
+Deno.test('Judge: Quality floor gates when both prompts are low quality', () => {
+  const low: JudgeRubricScores = {
+    clarity: 2, originality: 2, specificity: 2,
+    theme_fit: 2, archetype_fit: 2, dramatic_potential: 2,
+  }; // aggregate 12 < floor
+  assertEquals(aggregateScore(low) < RATING_QUALITY_FLOOR, true);
+  assertEquals(isBelowQualityFloor(low, low), true);
+});
+
+Deno.test('Judge: Quality floor does not gate when one prompt is decent', () => {
+  const low: JudgeRubricScores = {
+    clarity: 2, originality: 2, specificity: 2,
+    theme_fit: 2, archetype_fit: 2, dramatic_potential: 2,
+  };
+  const decent: JudgeRubricScores = {
+    clarity: 6, originality: 6, specificity: 6,
+    theme_fit: 6, archetype_fit: 6, dramatic_potential: 6,
+  }; // aggregate 36 >= floor
+  assertEquals(isBelowQualityFloor(low, decent), false);
+  assertEquals(isBelowQualityFloor(decent, low), false);
+  assertEquals(isBelowQualityFloor(decent, decent), false);
 });

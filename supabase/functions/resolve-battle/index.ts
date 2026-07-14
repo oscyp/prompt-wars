@@ -9,7 +9,7 @@ import {
   hasSupabaseSecretAuthorization,
   successResponse,
 } from '../_shared/utils.ts';
-import { runJudgePipeline, JUDGE_PROMPT_VERSION } from '../_shared/judge.ts';
+import { runJudgePipeline, JUDGE_PROMPT_VERSION, isBelowQualityFloor } from '../_shared/judge.ts';
 import { createJudgeProvider } from '../_shared/providers.ts';
 import { computeRatingDeltas } from '../_shared/glicko2.ts';
 import { notifyBattleResult } from '../_shared/push.ts';
@@ -200,10 +200,16 @@ Deno.serve(async (req) => {
           ? battle.player_two_id
           : null;
 
-    // Compute rating deltas (only for ranked)
+    // Compute rating deltas (only for ranked). §7.8 quality floor: when both
+    // prompts score below the floor, ratings stay untouched so throwaway
+    // prompt pairs can't be used for win-trading.
     let ratingDeltaPayload = null;
+    const ratingGatedByQualityFloor = isBelowQualityFloor(
+      judgeResult.player_one_normalized_scores,
+      judgeResult.player_two_normalized_scores,
+    );
 
-    if (battle.mode === 'ranked' && !battle.is_player_two_bot) {
+    if (battle.mode === 'ranked' && !battle.is_player_two_bot && !ratingGatedByQualityFloor) {
       const p1Profile = battle.player_one as unknown as {
         id: string;
         rating: number;
@@ -246,6 +252,7 @@ Deno.serve(async (req) => {
         player_one: p1Prompt.move_type,
         player_two: p2Prompt.move_type,
       },
+      ...(ratingGatedByQualityFloor ? { rating_gated: 'quality_floor' } : {}),
     };
 
     // Get judge model ID from provider

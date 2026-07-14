@@ -314,3 +314,37 @@ export async function getDailyQuests() {
 
   return data;
 }
+
+export interface OpponentMoveProfile {
+  recent_moves: MoveType[];
+  opponent_archetype: string | null;
+  counter_win_rates: Partial<
+    Record<MoveType, { total: number; wins: number; win_rate: number }>
+  >;
+}
+
+/**
+ * Opponent move-type profile for a battle (§7.1 legibility): last 5 move
+ * types from resolved battles + per-move-type win rates vs their archetype.
+ * Server-validated (participants only); returns null on any failure so the
+ * prompt screen never blocks on it.
+ */
+export async function getOpponentMoveProfile(
+  battleId: string,
+): Promise<OpponentMoveProfile | null> {
+  try {
+    const { data, error } = await supabase.rpc('get_opponent_move_profile', {
+      p_battle_id: battleId,
+    });
+
+    if (error || !data) {
+      if (error) console.error('Opponent move profile error:', error);
+      return null;
+    }
+
+    return data as OpponentMoveProfile;
+  } catch (err) {
+    console.error('Opponent move profile exception:', err);
+    return null;
+  }
+}

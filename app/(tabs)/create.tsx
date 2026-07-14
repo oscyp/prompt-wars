@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { BATTLE_MODES, BattleMode } from '@/constants/BattleModes';
@@ -14,13 +15,19 @@ import ModeCard from '@/components/ModeCard';
 export default function CreateScreen() {
   const router = useRouter();
   const colors = useThemedColors();
+  const insets = useSafeAreaInsets();
 
   const startBattle = (mode: BattleMode) => {
     router.push(`/(battle)/matchmaking?mode=${mode}`);
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: colors.background, paddingTop: insets.top + Spacing.sm },
+      ]}
+    >
       <Text style={[styles.title, { color: colors.text }]}>Start a Battle</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         Choose your battle mode

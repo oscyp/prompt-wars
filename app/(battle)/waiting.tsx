@@ -6,11 +6,18 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   ScrollView,
+  ImageBackground,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import {
+  Spacing,
+  Typography,
+  BorderRadius,
+  Elevation,
+} from '@/constants/DesignTokens';
+import { UiArt } from '@/constants/UiArt';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import { useAuth } from '@/providers/AuthProvider';
 import {
@@ -280,48 +287,65 @@ export default function WaitingScreen() {
     }, 5000);
   }, [battle, battleId]);
 
+  const isResolving = battle?.status === 'resolving';
+  const heroTitle = isResolving
+    ? 'The Judge Deliberates'
+    : 'Entering the Arena';
+  const heroSubtitle = isResolving
+    ? 'Weighing every word of both prompts…'
+    : opponentPromptLocked
+      ? 'Both fighters are locked in. Standby…'
+      : 'Your challenger is choosing their move…';
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={styles.content}>
+    <ImageBackground
+      source={UiArt.arenaBackdrop}
+      style={styles.container}
+      resizeMode="cover"
+    >
+      {/* Scrim keeps overlay text AA on top of the arena illustration. */}
+      <View style={styles.scrim} />
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         {isBo3 ? (
-          <View style={{ width: '100%' }}>
+          <View style={styles.seriesBlock}>
             <SeriesScoreIndicator
               score={series_score}
               currentRound={roundNumber}
               format={format}
               bestOf={battle?.best_of ?? 3}
             />
-            <Text style={[styles.subheading, { color: colors.textSecondary }]}>
+            <Text style={styles.seriesCaption}>
               Round {roundNumber} of {battle?.best_of ?? 3} — Locking in
             </Text>
           </View>
         ) : null}
 
+        {/* Hero anticipation block — fixed light text sits on the scrim. */}
         <ActivityIndicator
           size="large"
-          color={colors.primary}
+          color="#FFFFFF"
           style={styles.spinner}
         />
+        <Text style={styles.heroTitle}>{heroTitle}</Text>
+        <Text style={styles.heroSubtitle}>{heroSubtitle}</Text>
 
-        <Text style={[styles.title, { color: colors.text }]}>
-          {battle?.status === 'resolving'
-            ? 'Battle Resolving'
-            : 'Waiting for Opponent'}
-        </Text>
-
-        {battle?.theme && (
-          <View style={[styles.themeCard, { backgroundColor: colors.card }]}>
+        {battle?.theme ? (
+          <View
+            style={[styles.card, { backgroundColor: colors.card }, Elevation.md]}
+          >
             <Text style={[styles.themeLabel, { color: colors.textSecondary }]}>
-              Theme
+              THEME
             </Text>
             <Text style={[styles.themeText, { color: colors.primary }]}>
               {battle.theme}
             </Text>
           </View>
-        )}
+        ) : null}
 
-        {/* Status Checklist */}
-        <View style={[styles.statusCard, { backgroundColor: colors.card }]}>
+        {/* Status checklist on a solid surface (AA in both themes). */}
+        <View
+          style={[styles.card, { backgroundColor: colors.card }, Elevation.md]}
+        >
           <View style={styles.statusRow}>
             <Ionicons
               name={myPromptLocked ? 'checkmark-circle' : 'ellipse-outline'}
@@ -350,7 +374,7 @@ export default function WaitingScreen() {
             </Text>
           </View>
 
-          {battle?.status === 'resolving' && (
+          {isResolving && (
             <View style={styles.statusRow}>
               <Ionicons
                 name="flash"
@@ -359,51 +383,49 @@ export default function WaitingScreen() {
                 style={styles.statusIcon}
               />
               <Text style={[styles.statusText, { color: colors.text }]}>
-                Judge is scoring...
+                Judge is scoring…
               </Text>
             </View>
           )}
         </View>
 
         {!isSubscribed && (
-          <Text
-            style={[styles.realtimeWarning, { color: colors.textSecondary }]}
-          >
-            Realtime updates connecting...
-          </Text>
+          <Text style={styles.onScrimNote}>Realtime updates connecting…</Text>
         )}
 
         {retryMessage && (
-          <Text style={[styles.retryMessage, { color: colors.textSecondary }]}>
+          <Text style={[styles.onScrimNote, styles.retryMessage]}>
             {retryMessage}
           </Text>
         )}
 
-        {/* Back to Home */}
         <TouchableOpacity
-          style={[
-            styles.homeButton,
-            { backgroundColor: colors.backgroundTertiary },
-          ]}
+          style={styles.homeButton}
           onPress={() => router.push('/(tabs)/home')}
           accessibilityLabel="Return to home"
           accessibilityRole="button"
         >
-          <Text style={[styles.homeButtonText, { color: colors.text }]}>
-            Return to Home
-          </Text>
+          <Text style={styles.homeButtonText}>Return to Home</Text>
         </TouchableOpacity>
 
-        <Text style={[styles.hint, { color: colors.textTertiary }]}>
+        <Text style={styles.hint}>
           You'll be notified when the result is ready
         </Text>
       </ScrollView>
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: '#0B0B0F',
+  },
+  scrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(11, 11, 15, 0.55)',
+  },
+  scroll: {
     flex: 1,
   },
   content: {
@@ -412,40 +434,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.lg,
   },
-  subheading: {
+  seriesBlock: {
+    width: '100%',
+  },
+  seriesCaption: {
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
     textAlign: 'center',
+    color: 'rgba(255,255,255,0.85)',
     marginBottom: Spacing.md,
   },
   spinner: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
-  title: {
+  heroTitle: {
     fontSize: Typography.sizes.xxxl,
     fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.lg,
+    color: '#FFFFFF',
     textAlign: 'center',
+    marginBottom: Spacing.sm,
   },
-  themeCard: {
-    padding: Spacing.md,
-    borderRadius: 12,
-    marginBottom: Spacing.lg,
+  heroSubtitle: {
+    fontSize: Typography.sizes.base,
+    color: 'rgba(255,255,255,0.85)',
+    textAlign: 'center',
+    marginBottom: Spacing.xl,
+  },
+  card: {
     width: '100%',
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.lg,
   },
   themeLabel: {
-    fontSize: Typography.sizes.sm,
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    letterSpacing: 1,
     marginBottom: Spacing.xs,
   },
   themeText: {
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
-  },
-  statusCard: {
-    padding: Spacing.lg,
-    borderRadius: 12,
-    width: '100%',
-    marginBottom: Spacing.lg,
   },
   statusRow: {
     flexDirection: 'row',
@@ -460,29 +489,32 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: Typography.sizes.base,
   },
-  realtimeWarning: {
+  onScrimNote: {
     fontSize: Typography.sizes.sm,
-    marginBottom: Spacing.lg,
+    color: 'rgba(255,255,255,0.75)',
     textAlign: 'center',
+    marginBottom: Spacing.lg,
   },
   retryMessage: {
-    fontSize: Typography.sizes.sm,
-    marginBottom: Spacing.lg,
-    textAlign: 'center',
     fontStyle: 'italic',
   },
   homeButton: {
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
-    borderRadius: 8,
+    borderRadius: BorderRadius.md,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
     marginBottom: Spacing.md,
   },
   homeButtonText: {
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
+    color: '#FFFFFF',
   },
   hint: {
     fontSize: Typography.sizes.sm,
     textAlign: 'center',
+    color: 'rgba(255,255,255,0.6)',
   },
 });

@@ -10,7 +10,7 @@ import {
   finalizeRoundUpgradeEntitlement,
   type RoundUpgradeSource,
 } from '../_shared/entitlement-gate.ts';
-import { isRefundableTrigger } from '../_shared/video-constants.ts';
+import { isPastHardTimeout, isRefundableTrigger } from '../_shared/video-constants.ts';
 
 interface ProcessVideoJobRequest {
   video_job_id?: string; // specific job
@@ -56,11 +56,14 @@ Deno.serve(async (req) => {
     } else {
       // Process queued jobs
       const limit = batch_size || 10;
+      // The attempt cap only gates re-submission of queued jobs; submitted/processing
+      // jobs must always be polled so the hard timeout can fire even on the final attempt.
       const { data: jobs, error: jobsError } = await supabase
         .from('video_jobs')
         .select('*')
-        .in('status', ['queued', 'submitted', 'processing'])
-        .lt('attempt_count', MAX_RETRY_ATTEMPTS)
+        .or(
+          `status.in.(submitted,processing),and(status.eq.queued,attempt_count.lt.${MAX_RETRY_ATTEMPTS})`
+        )
         .order('created_at', { ascending: true })
         .limit(limit);
 
@@ -251,6 +254,29 @@ async function processVideoJob(
     }
 
     if (job.status === 'submitted' || job.status === 'processing') {
+      // Hard timeout (§8.6): a job stuck at the provider past HARD_TIMEOUT_SECONDS
+      // is force-failed and refunded instead of being polled forever. Tier 0 stays
+      // authoritative, so legacy battles return to result_ready like other failures.
+      const startedAt = (job as any).submitted_at ?? (job as any).created_at;
+      if (isPastHardTimeout(startedAt, HARD_TIMEOUT_SECONDS)) {
+        await handleTerminalEntitlement(supabase, job, 'failed', 'hard_timeout');
+        await failJob(
+          supabase,
+          job.id,
+          'hard_timeout',
+          `Video generation exceeded ${HARD_TIMEOUT_SECONDS}s hard timeout`
+        );
+
+        if (!(job as any).battle_round_id) {
+          await supabase
+            .from('battles')
+            .update({ status: 'result_ready' })
+            .eq('id', job.battle_id);
+        }
+
+        return { job_id: job.id, status: 'failed', error: 'hard_timeout' };
+      }
+
       // Poll provider status
       if (!job.provider_job_id) {
         await handleTerminalEntitlement(supabase, job, 'failed', 'missing_provider_job_id');
@@ -294,6 +320,7 @@ async function processVideoJob(
             storage_path: videoUrl,
             moderation_status: 'pending', // requires post-gen moderation
             visibility: 'private',
+            is_ai_generated: true, // §22 disclosure travels with the asset row
           })
           .select('id')
           .single();

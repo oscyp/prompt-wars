@@ -112,7 +112,7 @@ export async function createTestUser(
       email,
       password,
       email_confirm: true,
-      user_metadata: { display_name: `PW ${label}` },
+      user_metadata: { display_name: `PW ${label}`, age_confirmed: true },
     });
   assertEquals(createError, null, `createUser failed: ${createError?.message}`);
   assertExists(createdUser.user?.id, 'createUser did not return a user id');

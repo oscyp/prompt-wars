@@ -10,6 +10,7 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
@@ -19,6 +20,7 @@ import { useAuth } from '@/providers/AuthProvider';
 export default function BattlesScreen() {
   const colors = useThemedColors();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [battles, setBattles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -149,7 +151,12 @@ export default function BattlesScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: colors.background, paddingTop: insets.top + Spacing.sm },
+      ]}
+    >
       <Text style={[styles.title, { color: colors.text }]}>Battle History</Text>
       {battles.length === 0 ? (
         <View style={styles.emptyState}>

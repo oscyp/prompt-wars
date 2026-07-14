@@ -295,6 +295,27 @@ const TASKS = [
         `magenta spark, dark background, cinematic depth, composition keeps the left half darker ` +
         `for overlay text. ${NO_TEXT}`,
     },
+    // Per-theme poster MOOD variants. Daily themes are free-text (one row per
+    // date), so instead of one poster per theme the app picks a variant
+    // deterministically by theme-text hash (see constants/ThemeArt.ts). Generate
+    // these, eyeball them, then register their requires in THEME_POSTERS.
+    ...[
+      ['theme-poster-01', 'molten ember and volcanic orange energy'],
+      ['theme-poster-02', 'glacial cyan and frost-white energy shards'],
+      ['theme-poster-03', 'deep-violet cosmic nebula and starfield energy'],
+      ['theme-poster-04', 'surging emerald nature energy and vines of light'],
+      ['theme-poster-05', 'electric storm, blue-white lightning arcs'],
+      ['theme-poster-06', 'crimson and rose-magenta clashing energy'],
+    ].map(([key, mood]) => ({
+      key,
+      aspect: '16:9',
+      size: [1024, 576],
+      prompt:
+        `${BRAND} Wide banner illustration for a "today's battle theme" card, mood variant: ${mood}. ` +
+        `An abstract arena stage with two opposing energy waves colliding in the center with a bright ` +
+        `spark, dark cinematic background, depth, composition keeps the left half darker for overlay ` +
+        `text. ${NO_TEXT}`,
+    })),
   ].map(({ key, aspect, size, prompt }) => ({
     id: `ui:${key}`,
     group: 'ui',

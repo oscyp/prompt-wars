@@ -136,6 +136,21 @@ Deno.serve(async (req) => {
       );
     }
 
+    // §7.8 enforced rate limit: cap prompt submissions per hour and day,
+    // before any moderation-provider spend.
+    {
+      const rateLimitClient = createServiceClient();
+      const { data: rateCheck, error: rateErr } = await rateLimitClient.rpc(
+        'check_rate_limit',
+        { p_profile_id: userId, p_action: 'prompt_submit' },
+      );
+      if (rateErr) {
+        console.error('check_rate_limit error (fail-open):', rateErr);
+      } else if (rateCheck && rateCheck.allowed === false) {
+        return errorResponse('Too many prompts submitted. Try again later.', 429);
+      }
+    }
+
     // Pre-gen moderation for custom prompts
     let moderationStatus:
       | 'approved'

@@ -81,6 +81,24 @@ export function aggregateScore(scores: JudgeRubricScores): number {
 }
 
 /**
+ * §7.8 quality floor: aggregate of normalized rubric scores (max 60) below
+ * which a prompt counts as low quality. Two throwaway prompts must not move
+ * ranked ratings (win-trading defense).
+ */
+export const RATING_QUALITY_FLOOR = 18;
+
+/** True when BOTH prompts fall below the quality floor (§7.8: no rating change). */
+export function isBelowQualityFloor(
+  playerOneNormalized: JudgeRubricScores,
+  playerTwoNormalized: JudgeRubricScores
+): boolean {
+  return (
+    aggregateScore(playerOneNormalized) < RATING_QUALITY_FLOOR &&
+    aggregateScore(playerTwoNormalized) < RATING_QUALITY_FLOOR
+  );
+}
+
+/**
  * Length normalization: reduce marginal benefit of verbosity
  */
 export function normalizeScores(

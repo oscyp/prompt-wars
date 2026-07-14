@@ -4,13 +4,14 @@ import {
   Text,
   StyleSheet,
   Animated,
-  AccessibilityInfo,
   Pressable,
   Image,
 } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
+import { hapticImpact } from '@/utils/haptics';
 import PortraitPreview from './PortraitPreview';
 import StatBar from './StatBar';
 import HPBar from './HPBar';
@@ -54,50 +55,66 @@ export default function FaceOffPortraits({
   continueDelayMs = 2000,
 }: FaceOffPortraitsProps) {
   const colors = useThemedColors();
+  const reducedMotion = useReducedMotion();
   const [canContinue, setCanContinue] = useState(continueDelayMs <= 0);
   const themeOpacity = useRef(new Animated.Value(0)).current;
   const themeScale = useRef(new Animated.Value(0.9)).current;
   const vsScale = useRef(new Animated.Value(0.6)).current;
+  const leftSlide = useRef(new Animated.Value(-240)).current;
+  const rightSlide = useRef(new Animated.Value(240)).current;
   const advancedRef = useRef(false);
+  const clashPlayedRef = useRef(false);
 
+  // Clash choreography: the two cards slide in from opposite edges, the VS
+  // pops with a haptic hit when they land, then the theme banner reveals.
+  // Honors Reduce Motion (OS setting OR the in-app toggle): static/instant.
   useEffect(() => {
-    let cancelled = false;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((reduce) => {
-        if (cancelled) return;
-        if (reduce) {
-          themeOpacity.setValue(1);
-          themeScale.setValue(1);
-          vsScale.setValue(1);
-          return;
-        }
-        Animated.parallel([
-          Animated.timing(themeOpacity, {
-            toValue: 1,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-          Animated.spring(themeScale, {
-            toValue: 1,
-            useNativeDriver: true,
-          }),
-          Animated.spring(vsScale, {
-            toValue: 1,
-            friction: 5,
-            tension: 140,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      })
-      .catch(() => {
-        themeOpacity.setValue(1);
-        themeScale.setValue(1);
-        vsScale.setValue(1);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [themeOpacity, themeScale, vsScale]);
+    if (clashPlayedRef.current) return;
+    clashPlayedRef.current = true;
+
+    if (reducedMotion) {
+      themeOpacity.setValue(1);
+      themeScale.setValue(1);
+      vsScale.setValue(1);
+      leftSlide.setValue(0);
+      rightSlide.setValue(0);
+      return;
+    }
+
+    Animated.parallel([
+      Animated.spring(leftSlide, {
+        toValue: 0,
+        friction: 7,
+        tension: 90,
+        useNativeDriver: true,
+      }),
+      Animated.spring(rightSlide, {
+        toValue: 0,
+        friction: 7,
+        tension: 90,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      hapticImpact();
+      Animated.parallel([
+        Animated.spring(vsScale, {
+          toValue: 1,
+          friction: 5,
+          tension: 140,
+          useNativeDriver: true,
+        }),
+        Animated.timing(themeOpacity, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.spring(themeScale, {
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+  }, [reducedMotion, themeOpacity, themeScale, vsScale, leftSlide, rightSlide]);
 
   useEffect(() => {
     if (continueDelayMs <= 0) {
@@ -118,27 +135,35 @@ export default function FaceOffPortraits({
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
+      {/* Full-width theme banner: the theme is the shared constraint both
+          players write under, so it gets the full line instead of being
+          squeezed (and truncated) inside the narrow VS column. */}
+      <Animated.View
+        style={[
+          styles.themeBanner,
+          {
+            backgroundColor: colors.primary,
+            opacity: themeOpacity,
+            transform: [{ scale: themeScale }],
+          },
+        ]}
+        accessible
+        accessibilityRole="header"
+        accessibilityLabel={`Theme: ${theme ?? 'open battle'}`}
+      >
+        <Text style={styles.themeLabel}>THEME</Text>
+        <Text style={styles.themeText} numberOfLines={2}>
+          {theme ?? 'Open Battle'}
+        </Text>
+      </Animated.View>
+
       <View style={styles.split}>
-        <PlayerSide player={playerOne} side="left" />
+        <Animated.View
+          style={[styles.sideWrap, { transform: [{ translateX: leftSlide }] }]}
+        >
+          <PlayerSide player={playerOne} side="left" />
+        </Animated.View>
         <View style={styles.versus}>
-          <Animated.View
-            style={[
-              styles.themePill,
-              {
-                backgroundColor: colors.primary,
-                opacity: themeOpacity,
-                transform: [{ scale: themeScale }],
-              },
-            ]}
-            accessible
-            accessibilityRole="header"
-            accessibilityLabel={`Theme: ${theme ?? 'open battle'}`}
-          >
-            <Text style={styles.themeLabel}>THEME</Text>
-            <Text style={styles.themeText} numberOfLines={3}>
-              {theme ?? 'Open Battle'}
-            </Text>
-          </Animated.View>
           <Animated.Text
             style={[
               styles.vs,
@@ -150,7 +175,11 @@ export default function FaceOffPortraits({
             VS
           </Animated.Text>
         </View>
-        <PlayerSide player={playerTwo} side="right" />
+        <Animated.View
+          style={[styles.sideWrap, { transform: [{ translateX: rightSlide }] }]}
+        >
+          <PlayerSide player={playerTwo} side="right" />
+        </Animated.View>
       </View>
 
       <View
@@ -229,7 +258,7 @@ function PlayerSide({
         {player.portraitUrl ? (
           <PortraitPreview
             uri={player.portraitUrl}
-            size={140}
+            size={120}
             accessibilityLabel={`${player.displayName} portrait`}
           />
         ) : (
@@ -248,7 +277,12 @@ function PlayerSide({
           </View>
         )}
       </View>
-      <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+      <Text
+        style={[styles.name, { color: colors.text }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+      >
         {player.displayName}
       </Text>
       <View
@@ -257,18 +291,23 @@ function PlayerSide({
           { backgroundColor: player.signatureColor },
         ]}
       >
-        <Text style={styles.archetypeText}>
+        <Text
+          style={styles.archetypeText}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+        >
           {player.archetype.toUpperCase()}
         </Text>
       </View>
-      {player.battleCry ? (
-        <Text
-          style={[styles.battleCry, { color: colors.textSecondary }]}
-          numberOfLines={3}
-        >
-          “{player.battleCry}”
-        </Text>
-      ) : null}
+      {/* Fixed-height slot keeps both columns aligned whether or not a
+          battle cry exists. */}
+      <Text
+        style={[styles.battleCry, { color: colors.textSecondary }]}
+        numberOfLines={2}
+      >
+        {player.battleCry ? `“${player.battleCry}”` : ' '}
+      </Text>
       <View style={styles.statsBlock}>
         <StatBar
           label="STR"
@@ -296,6 +335,7 @@ function PlayerSide({
         max={player.hpMax}
         side={side}
         playerName={player.displayName}
+        showName={false}
         compact
       />
     </View>
@@ -314,6 +354,9 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     gap: Spacing.sm,
   },
+  sideWrap: {
+    flex: 1,
+  },
   sideCol: {
     flex: 1,
     borderRadius: BorderRadius.lg,
@@ -325,29 +368,31 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   portraitFallback: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     borderWidth: 3,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   portraitImage: {
-    width: 132,
-    height: 132,
-    borderRadius: 66,
+    width: 112,
+    height: 112,
+    borderRadius: 56,
   },
   name: {
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
     marginBottom: Spacing.xs,
+    maxWidth: '100%',
   },
   archetypeBadge: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.full,
     marginBottom: Spacing.sm,
+    maxWidth: '100%',
   },
   archetypeText: {
     color: '#FFFFFF',
@@ -360,23 +405,23 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     marginBottom: Spacing.sm,
+    minHeight: 18,
   },
   statsBlock: {
     width: '100%',
     marginBottom: Spacing.sm,
   },
   versus: {
-    width: 96,
+    width: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
   },
-  themePill: {
+  themeBanner: {
     borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     alignItems: 'center',
-    maxWidth: 96,
+    marginBottom: Spacing.md,
   },
   themeLabel: {
     color: '#FFFFFF',
@@ -386,7 +431,7 @@ const styles = StyleSheet.create({
   },
   themeText: {
     color: '#FFFFFF',
-    fontSize: Typography.sizes.sm,
+    fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.bold,
     textAlign: 'center',
   },

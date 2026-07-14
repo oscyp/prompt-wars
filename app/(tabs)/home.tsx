@@ -12,6 +12,7 @@ import {
   Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import {
@@ -21,7 +22,7 @@ import {
   Elevation,
   BorderRadius,
 } from '@/constants/DesignTokens';
-import { UiArt } from '@/constants/UiArt';
+import { accentForTheme, posterForTheme } from '@/constants/ThemeArt';
 import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
 import { getDailyTheme, getMyBattles } from '@/utils/battles';
 import { getWalletBalance } from '@/utils/monetization';
@@ -57,6 +58,7 @@ function getOpponentName(battle: any, currentUserId?: string): string {
 export default function HomeScreen() {
   const colors = useThemedColors();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { offerings, purchasePackage } = useRevenueCat();
   const battleSheet = useBattleSheet();
@@ -156,7 +158,7 @@ export default function HomeScreen() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing.sm }]}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
       }
@@ -204,14 +206,28 @@ export default function HomeScreen() {
         }
       >
         <ImageBackground
-          source={UiArt.themePoster}
+          source={posterForTheme(dailyTheme?.theme_text)}
           style={styles.hero}
           imageStyle={styles.heroImage}
           resizeMode="cover"
         >
+          {/* Deterministic per-theme accent wash under the dark scrim: shifts the
+              poster hue per daily theme while the scrim on top preserves AA. */}
+          <View
+            style={[
+              styles.heroAccent,
+              { backgroundColor: accentForTheme(dailyTheme?.theme_text) },
+            ]}
+          />
           {/* Scrim guarantees AA for the overlay text on the illustration. */}
           <View style={styles.heroScrim} />
           <View style={styles.heroContent}>
+            <View
+              style={[
+                styles.heroKeyline,
+                { backgroundColor: accentForTheme(dailyTheme?.theme_text) },
+              ]}
+            />
             <Text style={styles.heroLabel}>TODAY&apos;S THEME</Text>
             <Text style={styles.heroTheme} numberOfLines={2}>
               {dailyTheme?.theme_text ?? 'Open Arena'}
@@ -434,12 +450,22 @@ const styles = StyleSheet.create({
   heroImage: {
     borderRadius: BorderRadius.lg,
   },
+  heroAccent: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.3,
+  },
   heroScrim: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(11, 11, 15, 0.35)',
   },
   heroContent: {
     padding: Spacing.md,
+  },
+  heroKeyline: {
+    width: 28,
+    height: 3,
+    borderRadius: 2,
+    marginBottom: Spacing.sm,
   },
   heroLabel: {
     color: 'rgba(255,255,255,0.85)',

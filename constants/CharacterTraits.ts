@@ -193,14 +193,6 @@ export const ARCHETYPE_INITIAL: Record<ArchetypeForTraits, string> = {
   engineer: 'E',
 };
 
-export const ITEM_CLASS_GLYPH: Record<ItemClass, string> = {
-  tool: '⚒',
-  symbol: '✦',
-  weaponized_mundane: '⚡',
-  relic: '✧',
-  instrument: '♬',
-};
-
 // ---------------------------------------------------------------------------
 // Art Style — drives the portrait prompt scaffold server-side.
 // Keys must match supabase/functions/_shared/portrait-prompt-resolver.ts.
@@ -240,21 +232,6 @@ export const ART_STYLE_DESCRIPTIONS: Record<ArtStyle, string> = {
   vaporwave: 'Neon synthwave with magenta/cyan grid backdrop.',
 };
 
-/**
- * Emoji-based fallback glyphs used when reference thumbnails are not bundled.
- * UI swaps these out for `assets/images/styles/<key>.webp` when available.
- */
-export const ART_STYLE_GLYPHS: Record<ArtStyle, string> = {
-  painterly: '🎨',
-  anime: '🌸',
-  comic: '💥',
-  pixel: '👾',
-  oil: '🖼️',
-  lowpoly: '🔻',
-  darkfantasy: '🗡️',
-  vaporwave: '🌆',
-};
-
 /** Background gradient (two stops) for style chip fallback rendering. */
 export const ART_STYLE_GRADIENTS: Record<ArtStyle, readonly [string, string]> = {
   painterly: ['#7C3AED', '#EC4899'],
@@ -271,7 +248,8 @@ export const ART_STYLE_GRADIENTS: Record<ArtStyle, readonly [string, string]> = 
  * Bundled reference thumbnails for each art style (512×512 JPEG).
  * Generated via `scripts/generate-assets.mjs` (Google Nano Banana /
  * Gemini 2.5 Flash Image). Rendered by `ArtStylePicker`, which falls back to
- * `ART_STYLE_GLYPHS` if a thumbnail is missing.
+ * a themed vector icon (`ART_STYLE_ICON`, defined in the component) if a
+ * thumbnail is missing.
  *
  * JPEG (not webp) because React Native's core <Image> on iOS cannot decode
  * webp without a third-party loader.

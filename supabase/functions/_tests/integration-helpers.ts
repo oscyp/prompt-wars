@@ -35,7 +35,7 @@ export async function createTestPlayer(
     email,
     password: `Pw-${crypto.randomUUID()}`,
     email_confirm: true,
-    user_metadata: { display_name: opts.displayName },
+    user_metadata: { display_name: opts.displayName, age_confirmed: true },
   });
 
   if (userError || !userData?.user) {

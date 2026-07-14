@@ -28,6 +28,8 @@ export interface BattleUpdate {
   tier0_reveal_payload: unknown;
   created_at: string;
   completed_at: string | null;
+  player_one_prompt_deadline?: string | null;
+  player_two_prompt_deadline?: string | null;
 
   // Bo3 columns (may be null on legacy rows)
   format?: BattleFormat;

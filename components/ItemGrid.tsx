@@ -6,10 +6,23 @@ import {
   StyleSheet,
   Image,
 } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
-import { ITEM_CLASS_GLYPH, ItemClass } from '@/constants/CharacterTraits';
+import { ItemClass } from '@/constants/CharacterTraits';
 import { CatalogSignatureItem } from '@/utils/characters';
+
+/** Designed vector fallback per item class (used when a catalog item has no icon). */
+const ITEM_CLASS_ICON: Record<
+  ItemClass,
+  React.ComponentProps<typeof MaterialCommunityIcons>['name']
+> = {
+  tool: 'hammer-wrench',
+  symbol: 'star-four-points',
+  weaponized_mundane: 'lightning-bolt',
+  relic: 'diamond-stone',
+  instrument: 'music',
+};
 
 export interface ItemGridItem extends CatalogSignatureItem {}
 
@@ -53,9 +66,15 @@ export default function ItemGrid({
                 accessibilityLabel=""
               />
             ) : (
-              <Text style={[styles.glyph, { color: colors.primary }]}>
-                {ITEM_CLASS_GLYPH[item.itemClass as ItemClass] ?? '✦'}
-              </Text>
+              <MaterialCommunityIcons
+                name={
+                  ITEM_CLASS_ICON[item.itemClass as ItemClass] ??
+                  'star-four-points'
+                }
+                size={32}
+                color={colors.primary}
+                style={styles.glyph}
+              />
             )}
             <Text
               numberOfLines={1}
@@ -76,7 +95,12 @@ export default function ItemGrid({
           { borderColor: colors.primary },
         ]}
       >
-        <Text style={[styles.glyph, { color: colors.primary }]}>＋</Text>
+        <Ionicons
+          name="add"
+          size={32}
+          color={colors.primary}
+          style={styles.glyph}
+        />
         <Text style={[styles.name, { color: colors.primary }]}>
           Create your own
         </Text>

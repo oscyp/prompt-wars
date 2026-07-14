@@ -7,17 +7,32 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import {
   ART_STYLES,
   ART_STYLE_LABELS,
   ART_STYLE_DESCRIPTIONS,
-  ART_STYLE_GLYPHS,
   ART_STYLE_GRADIENTS,
   ART_STYLE_THUMBS,
   ArtStyle,
 } from '@/constants/CharacterTraits';
+
+/** Designed vector fallback per art style (used only if a thumbnail is missing). */
+const ART_STYLE_ICON: Record<
+  ArtStyle,
+  React.ComponentProps<typeof MaterialCommunityIcons>['name']
+> = {
+  painterly: 'brush',
+  anime: 'flower',
+  comic: 'flash',
+  pixel: 'grid',
+  oil: 'palette',
+  lowpoly: 'triangle-outline',
+  darkfantasy: 'sword',
+  vaporwave: 'sine-wave',
+};
 
 interface ArtStylePickerProps {
   value: ArtStyle | undefined;
@@ -25,7 +40,7 @@ interface ArtStylePickerProps {
   title?: string;
   /**
    * When true, renders compact circular tiles (used in dense layouts).
-   * Default false → larger card tiles with label + glyph.
+   * Default false → larger card tiles with label + thumbnail.
    */
   compact?: boolean;
   /**
@@ -35,8 +50,8 @@ interface ArtStylePickerProps {
 }
 
 /**
- * Horizontal style picker. Tiles use a 2-stop gradient + emoji glyph as a
- * lightweight thumbnail until reference assets are bundled.
+ * Horizontal style picker. Tiles show the bundled reference thumbnail, falling
+ * back to a 2-stop gradient + themed vector icon if a thumbnail is missing.
  */
 export default function ArtStylePicker({
   value,
@@ -124,7 +139,12 @@ export default function ArtStylePicker({
                     resizeMode="cover"
                   />
                 ) : (
-                  <Text style={styles.glyph}>{ART_STYLE_GLYPHS[key]}</Text>
+                  <MaterialCommunityIcons
+                    name={ART_STYLE_ICON[key]}
+                    size={36}
+                    color="#FFFFFF"
+                    style={styles.glyph}
+                  />
                 )}
                 {isSelected ? (
                   <View
@@ -133,7 +153,7 @@ export default function ArtStylePicker({
                       { backgroundColor: colors.primary },
                     ]}
                   >
-                    <Text style={styles.selectedBadgeText}>✓</Text>
+                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                   </View>
                 ) : null}
               </View>
@@ -208,10 +228,5 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  selectedBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
   },
 });

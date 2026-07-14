@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import type { FirstTimeOffer } from '@/utils/dailyMeta';
@@ -89,7 +90,7 @@ export default function FirstTimeOfferModal({
             </View>
             {offer.exclusive_cosmetic_slug ? (
               <View style={[styles.rewardPill, { backgroundColor: colors.backgroundTertiary }]}>
-                <Text style={[styles.rewardValue, { color: colors.warning }]}>★</Text>
+                <Ionicons name="star" size={26} color={colors.warning} />
                 <Text style={[styles.rewardLabel, { color: colors.textSecondary }]}>
                   exclusive cosmetic
                 </Text>

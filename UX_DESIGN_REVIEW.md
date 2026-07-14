@@ -49,6 +49,31 @@ Verified: `tsc` 0 errors, Jest 4/19 green (incl. new `themeSettings` suite), lin
 Still open: on-device visual QA matrix, per-theme poster art (cost-gated), display
 typeface, high-contrast/dyslexia theming, server-side video watermark tag.
 
+## Implementation status update (2026-07-08)
+
+Follow-up pass — `app/(battle)/waiting.tsx` upgraded to the Cinematic Arena standard and
+residual chrome emoji removed (FTUO star, ItemGrid/ArtStylePicker glyph fallbacks, dormant
+trait/style glyph maps) — plus the reveal + theme-variety slice:
+
+- **Reveal poster on the final result.** `app/(battle)/result.tsx` (single + Bo3 series
+  result) now renders `RoundResultCinematic` as its hero — the §8.1 client-side 9:16 motion
+  poster (locked portrait / bundled archetype fallback, signature-color gradient, Ken Burns,
+  `AI-GENERATED` pill) — inside the shareable capture, replacing the old plain "Battle
+  Summary" text card. No per-battle image generation (unit economics preserved).
+- **Per-theme variety.** `constants/ThemeArt.ts` derives a deterministic on-brand accent
+  (`accentForTheme`) and poster variant (`posterForTheme`) from the free-text daily theme.
+  The Home daily-theme hero uses an accent wash + keyline today; 6 `theme-poster-0N` mood
+  variants were added to `scripts/generate-assets.mjs` and light up via `THEME_POSTERS`
+  once generated (no caller changes).
+- **matchmaking AA fix.** `app/(battle)/matchmaking.tsx` now uses fixed-white on-scrim text
+  + a fixed-dark cinematic container (was themed `colors.text`/`colors.background`, which
+  failed AA in light theme over the dark arena backdrop) — matching `waiting.tsx`.
+
+Verified: `tsc` 0 errors, `yarn lint` 0 errors, Jest 19/19 (4 suites) green, emoji chrome
+scan clean. Still open (needs provider key + backend, documented in the DESIGN_LANGUAGE
+asset recipe): per-character "hero still" generation (concept §8.1 Phase 2+); on-device
+visual QA matrix; server-side video watermark tag.
+
 ## Audit — what exists (verified in code)
 
 **Solid foundation, underused:**

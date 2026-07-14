@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import {
   Spacing,
@@ -20,6 +21,7 @@ import { supabase } from '@/utils/supabase';
 
 export default function RankingsScreen() {
   const colors = useThemedColors();
+  const insets = useSafeAreaInsets();
   const [rankings, setRankings] = useState<any[]>([]);
   const [season, setSeason] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -138,7 +140,12 @@ export default function RankingsScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: colors.background, paddingTop: insets.top + Spacing.sm },
+      ]}
+    >
       <Text style={[styles.title, { color: colors.text }]}>Rankings</Text>
       {season && (
         <Text style={[styles.season, { color: colors.textSecondary }]}>

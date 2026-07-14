@@ -1,13 +1,15 @@
 // Grant Credits Edge Function
-// Server-owned credit grants for daily login, quests, etc.
+// Server-owned credit grants for daily login and quest completion. Both paths
+// derive the granted amount from server state (streak config / quest reward),
+// never from the request: a client-provided amount would let any authenticated
+// user mint credits for themselves. Battle-win rewards flow exclusively
+// through apply_post_battle_rewards inside the resolvers.
 
 import { createServiceClient, corsHeaders, errorResponse, successResponse, getAuthUserId, generateIdempotencyKey } from '../_shared/utils.ts';
 
 interface GrantCreditsRequest {
-  reason: 'daily_login' | 'quest_complete' | 'battle_win' | 'judge_minigame';
-  amount?: number;
+  reason: 'daily_login' | 'quest_complete';
   quest_id?: string;
-  battle_id?: string;
 }
 
 Deno.serve(async (req) => {
@@ -17,7 +19,7 @@ Deno.serve(async (req) => {
   
   try {
     const userId = await getAuthUserId(req);
-    const { reason, amount, quest_id, battle_id }: GrantCreditsRequest = await req.json();
+    const { reason, quest_id }: GrantCreditsRequest = await req.json();
     
     if (!reason) {
       return errorResponse('reason required');
@@ -101,31 +103,6 @@ Deno.serve(async (req) => {
         success: true,
         credits_granted: quest.reward_credits,
         xp_granted: quest.reward_xp,
-      });
-    }
-    
-    // Generic grant (requires amount)
-    if (amount && amount > 0) {
-      const idempotencyKey = generateIdempotencyKey([reason, userId, Date.now().toString()]);
-      
-      const { error: grantError } = await supabase.rpc('grant_credits', {
-        p_profile_id: userId,
-        p_amount: amount,
-        p_reason: reason,
-        p_idempotency_key: idempotencyKey,
-        p_battle_id: battle_id ?? null,
-        p_purchase_id: null,
-        p_metadata: {},
-      });
-      
-      if (grantError) {
-        console.error('Grant credits error:', grantError);
-        return errorResponse('Failed to grant credits', 500);
-      }
-      
-      return successResponse({
-        success: true,
-        credits_granted: amount,
       });
     }
     

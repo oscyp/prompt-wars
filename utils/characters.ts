@@ -18,7 +18,6 @@ import {
   PaletteKey,
   ItemClass,
   ARCHETYPE_INITIAL,
-  ITEM_CLASS_GLYPH,
   ArchetypeForTraits,
   ArtStyle,
   PALETTE_HEX,
@@ -542,7 +541,6 @@ export function getPortraitFallbackUri(input: FallbackPortraitInput): string {
         : '#7C3AED';
 
   const initial = ARCHETYPE_INITIAL[input.archetype] ?? '?';
-  const glyph = input.itemClass ? ITEM_CLASS_GLYPH[input.itemClass] : '';
 
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
@@ -555,12 +553,6 @@ export function getPortraitFallbackUri(input: FallbackPortraitInput): string {
   <rect width="256" height="256" fill="#111827"/>
   <circle cx="128" cy="128" r="96" fill="url(#g)" stroke="${tint}" stroke-width="4"/>
   <text x="128" y="148" font-family="Helvetica,Arial,sans-serif" font-size="96" font-weight="700" fill="#F9FAFB" text-anchor="middle">${initial}</text>
-  ${
-    glyph
-      ? `<circle cx="200" cy="56" r="26" fill="#111827" stroke="${tint}" stroke-width="3"/>
-         <text x="200" y="68" font-family="Helvetica,Arial,sans-serif" font-size="28" fill="${tint}" text-anchor="middle">${glyph}</text>`
-      : ''
-  }
 </svg>`;
 
   // base64 to be safe for RN `<Image>` data URIs

@@ -46,3 +46,5 @@ export {
   useBattleSheet,
 } from './BattleModeSheet';
 export type { BattleModeSheetProps } from './BattleModeSheet';
+export { default as VersusStrip } from './VersusStrip';
+export type { VersusStripProps, VersusStripPlayer } from './VersusStrip';

@@ -114,7 +114,7 @@ export default function MatchmakingScreen() {
   return (
     <ImageBackground
       source={UiArt.arenaBackdrop}
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={styles.container}
       resizeMode="cover"
     >
       {/* Scrim keeps overlay text AA on top of the arena illustration. */}
@@ -132,16 +132,14 @@ export default function MatchmakingScreen() {
           <ActivityIndicator size="large" color={colors.primary} style={styles.spinner} />
         )}
 
-        <Text style={[styles.title, { color: colors.text }]}>
+        <Text style={styles.title}>
           {status === 'matched' ? 'Match Found!' : 'Scanning the Arena'}
         </Text>
 
-        <Text style={[styles.message, { color: colors.textSecondary }]}>
-          {message}
-        </Text>
+        <Text style={styles.message}>{message}</Text>
 
-        <View style={[styles.modeBadge, { backgroundColor: colors.backgroundTertiary }]}>
-          <Text style={[styles.modeText, { color: colors.primary }]}>
+        <View style={styles.modeBadge}>
+          <Text style={styles.modeText}>
             {(mode as string).toUpperCase()} MODE
           </Text>
         </View>
@@ -151,8 +149,12 @@ export default function MatchmakingScreen() {
 }
 
 const styles = StyleSheet.create({
+  // Fixed-dark cinematic surface: the arena backdrop is dark, so the fallback
+  // color must be dark too (a light-theme colors.background flash would break
+  // the mood and the AA of the white-on-scrim text below).
   container: {
     flex: 1,
+    backgroundColor: '#0B0B0F',
   },
   scrim: {
     ...StyleSheet.absoluteFillObject,
@@ -173,24 +175,31 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     marginBottom: Spacing.lg,
   },
+  // On-scrim text uses fixed white (not themed colors) so it stays AA over the
+  // dark arena illustration in both light and dark app themes.
   title: {
     fontSize: Typography.sizes.xxxl,
     fontWeight: Typography.weights.bold,
+    color: '#FFFFFF',
     marginBottom: Spacing.md,
     textAlign: 'center',
   },
   message: {
     fontSize: Typography.sizes.base,
+    color: 'rgba(255,255,255,0.85)',
     textAlign: 'center',
     marginBottom: Spacing.xl,
   },
   modeBadge: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    borderRadius: 16,
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.14)',
   },
   modeText: {
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.bold,
+    color: '#FFFFFF',
+    letterSpacing: 1,
   },
 });

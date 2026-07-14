@@ -158,15 +158,15 @@ export async function getWalletTransactions(limit = 50) {
 }
 
 /**
- * Grant credits (server-owned, for daily login, quests, etc.)
+ * Grant credits (server-owned; amounts are derived server-side from streak
+ * config / quest rewards — the client only names the trigger).
  */
-export async function grantCredits(reason: string, amount?: number, metadata?: Record<string, unknown>) {
+export async function grantCredits(reason: 'daily_login' | 'quest_complete', questId?: string) {
   try {
     const { data, error } = await supabase.functions.invoke('grant-credits', {
       body: {
         reason,
-        amount,
-        ...metadata,
+        ...(questId ? { quest_id: questId } : {}),
       },
     });
 

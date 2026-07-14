@@ -18,6 +18,9 @@ export interface HPBarProps {
   /** Previous HP value, used to animate from->to. Defaults to `current`. */
   animateFrom?: number;
   compact?: boolean;
+  /** Hide the visible name row (still spoken via a11y) when the surrounding
+   * card already shows the player name. */
+  showName?: boolean;
 }
 
 /**
@@ -31,6 +34,7 @@ export default function HPBar({
   playerName,
   animateFrom,
   compact = false,
+  showName = true,
 }: HPBarProps) {
   const colors = useThemedColors();
   const safeMax = Math.max(1, max);
@@ -123,7 +127,7 @@ export default function HPBar({
           importantForAccessibility="no"
         />
         <View style={styles.labels}>
-          {playerName ? (
+          {playerName && showName ? (
             <Text
               style={[styles.name, { color: colors.text }]}
               numberOfLines={1}
@@ -131,9 +135,17 @@ export default function HPBar({
               {playerName}
             </Text>
           ) : null}
-          <Text style={[styles.value, NumericFontVariant, { color: colors.text }]}>
+          <Text
+            style={[
+              styles.value,
+              compact && styles.valueCompact,
+              NumericFontVariant,
+              { color: colors.text },
+            ]}
+            numberOfLines={1}
+          >
             {clampedCurrent}
-            <Text style={{ color: colors.textSecondary }}> / {safeMax} HP</Text>
+            <Text style={{ color: colors.textSecondary }}>/{safeMax} HP</Text>
           </Text>
         </View>
         {lost > 0 ? (
@@ -200,11 +212,17 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.bold,
   },
+  valueCompact: {
+    fontSize: Typography.sizes.sm,
+  },
   lost: {
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
   },
   track: {
+    // alignSelf keeps the track full-width even when `wrapRight` switches the
+    // column's alignItems to flex-end (which otherwise collapses it to 0).
+    alignSelf: 'stretch',
     height: 10,
     borderRadius: BorderRadius.full,
     overflow: 'hidden',

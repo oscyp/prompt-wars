@@ -26,7 +26,9 @@ import { shareResultCard, shareBattleVideo } from '@/utils/share';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import { BattleRound } from '@/types/battle';
-import type { Tier0Payload } from '@/components/RoundResultCinematic';
+import RoundResultCinematic, {
+  type Tier0Payload,
+} from '@/components/RoundResultCinematic';
 
 type CaptionLine = { start_ms: number; end_ms: number; text: string };
 
@@ -324,7 +326,8 @@ export default function ResultScreen() {
     );
   }
 
-  const tier0 = battle.tier0_reveal_payload as { summary?: string } | null;
+  const tier0Payload =
+    (battle.tier0_reveal_payload as Tier0Payload | null) ?? null;
   const scores = battle.score_payload as { explanation?: string } | null;
   const seriesHeader = isBo3
     ? `${series_score.p1}–${series_score.p2} ${
@@ -382,6 +385,28 @@ export default function ResultScreen() {
           )}
         </Animated.View>
 
+        {/* Tier 0 cinematic reveal poster — the emotional payoff. Composed
+            client-side from the winner's locked portrait (or bundled archetype
+            illustration) over a signature-color gradient; never blocks on any
+            AI art. Lives inside the shareable region so exports carry it. */}
+        {tier0Payload ? (
+          <Animated.View
+            entering={
+              reduceMotion
+                ? undefined
+                : FadeInDown.duration(Motion.durations.base).delay(60)
+            }
+          >
+            <RoundResultCinematic
+              tier0Payload={tier0Payload}
+              videoJob={videoJob}
+              isModerationApproved={
+                videoJob?.moderation_status === 'approved'
+              }
+            />
+          </Animated.View>
+        ) : null}
+
         {isBo3 ? (
           <Animated.View
             style={[styles.card, { backgroundColor: colors.card }]}
@@ -409,23 +434,6 @@ export default function ResultScreen() {
             )}
           </Animated.View>
         ) : null}
-
-        {/* Tier 0 Reveal Info */}
-        {tier0 && (
-          <Animated.View
-            style={[styles.card, { backgroundColor: colors.card }]}
-            entering={
-              reduceMotion
-                ? undefined
-                : FadeInDown.duration(Motion.durations.base).delay(120)
-            }
-          >
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Battle Summary</Text>
-            <Text style={[styles.cardText, { color: colors.textSecondary }]}>
-              {tier0.summary || 'Tier 0 reveal rendered'}
-            </Text>
-          </Animated.View>
-        )}
 
         {/* Score Breakdown */}
         {scores && (

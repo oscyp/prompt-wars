@@ -18,6 +18,7 @@ import {
   hasSupabaseSecretAuthorization,
 } from '../_shared/utils.ts';
 import { computeRatingDeltas } from '../_shared/glicko2.ts';
+import { RATING_QUALITY_FLOOR } from '../_shared/judge.ts';
 import { notifyBattleResult } from '../_shared/push.ts';
 
 const RANKED_ROUND_TIMEOUT_MIN = 45;
@@ -142,8 +143,39 @@ Deno.serve(async (req) => {
     }
 
     // ---- Match complete: rating update + final battle row write ----
+
+    // Aggregate the per-round payloads for the battle.score_payload (also
+    // feeds the §7.8 quality-floor gate below).
+    const { data: allRounds } = await supabase
+      .from('battle_rounds')
+      .select(
+        'round_number, round_winner_id, is_draw, is_ko, score_gap, player_one_score, player_two_score, player_one_damage, player_two_damage, player_one_hp_after, player_two_hp_after, judge_payload',
+      )
+      .eq('battle_id', battle_id)
+      .order('round_number', { ascending: true });
+
+    // §7.8 quality floor, match-level: when every scored round had BOTH
+    // players below the floor, the whole match is a throwaway pair and must
+    // not move ranked ratings. Rounds without numeric scores (forfeit/expired)
+    // are ignored; a match with no scored rounds is not gated.
+    const scoredRounds = (allRounds ?? []).filter(
+      (r) => r.player_one_score != null && r.player_two_score != null,
+    );
+    const ratingGatedByQualityFloor =
+      scoredRounds.length > 0 &&
+      scoredRounds.every(
+        (r) =>
+          Number(r.player_one_score) < RATING_QUALITY_FLOOR &&
+          Number(r.player_two_score) < RATING_QUALITY_FLOOR,
+      );
+
     let ratingDeltaPayload: Record<string, unknown> | null = null;
-    if (battle.mode === 'ranked' && !battle.is_player_two_bot && !isDraw) {
+    if (
+      battle.mode === 'ranked' &&
+      !battle.is_player_two_bot &&
+      !isDraw &&
+      !ratingGatedByQualityFloor
+    ) {
       const p1 = battle.player_one as unknown as {
         id: string; rating: number; rating_deviation: number; rating_volatility: number;
       };
@@ -162,20 +194,12 @@ Deno.serve(async (req) => {
       };
     }
 
-    // Aggregate the per-round payloads for the battle.score_payload.
-    const { data: allRounds } = await supabase
-      .from('battle_rounds')
-      .select(
-        'round_number, round_winner_id, is_draw, is_ko, score_gap, player_one_score, player_two_score, player_one_damage, player_two_damage, player_one_hp_after, player_two_hp_after, judge_payload',
-      )
-      .eq('battle_id', battle_id)
-      .order('round_number', { ascending: true });
-
     const scorePayload = {
       format: 'bo3',
       rounds_won: { player_one: p1Wins, player_two: p2Wins },
       ko: !!koWinner,
       rounds: allRounds ?? [],
+      ...(ratingGatedByQualityFloor ? { rating_gated: 'quality_floor' } : {}),
     };
 
     // Reuse the existing resolve_battle DB function so stats / ratings / rivals

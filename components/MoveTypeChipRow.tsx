@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { MOVE_META } from '@/constants/MoveTypes';
 import { MoveType } from '@/utils/battles';
 
 export interface MoveTypeChipRowProps {
@@ -10,15 +12,9 @@ export interface MoveTypeChipRowProps {
   max?: number;
 }
 
-const MOVE_GLYPH: Record<MoveType, string> = {
-  attack: '◆',
-  defense: '■',
-  finisher: '▲',
-};
-
 /**
- * Row of move-type chips for the last N moves. Color + shape glyph so
- * color-blind users get parity.
+ * Row of move-type chips for the last N moves. Color + icon shape (shared
+ * MOVE_META set) so color-blind users get parity with the move buttons.
  */
 export default function MoveTypeChipRow({
   history,
@@ -64,7 +60,7 @@ export default function MoveTypeChipRow({
                 },
               ]}
             >
-              <Text style={styles.glyph}>{MOVE_GLYPH[m]}</Text>
+              <Ionicons name={MOVE_META[m].icon} size={12} color="#FFFFFF" />
               <Text style={styles.chipText}>{m.toUpperCase()}</Text>
             </View>
           ))
@@ -97,11 +93,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-  },
-  glyph: {
-    color: '#FFFFFF',
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.bold,
   },
   chipText: {
     color: '#FFFFFF',

@@ -12,6 +12,7 @@ import {
   Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ARCHETYPES, ArchetypeId } from '@/constants/Archetypes';
 import {
   VIBES,
@@ -1217,11 +1218,16 @@ function StepPreview({ draft }: { draft: Draft }) {
           {arch.name}
         </Text>
         {draft.signatureItem && (
-          <Text
-            style={[styles.previewItem, { color: colors.textSecondary }]}
-          >
-            ✦ {draft.signatureItem.name}
-          </Text>
+          <View style={styles.previewItemRow}>
+            <MaterialCommunityIcons
+              name="star-four-points"
+              size={14}
+              color={colors.textSecondary}
+            />
+            <Text style={[styles.previewItem, { color: colors.textSecondary }]}>
+              {draft.signatureItem.name}
+            </Text>
+          </View>
         )}
         <Text style={[styles.previewCry, { color: colors.text }]}>
           “{draft.battleCry}”
@@ -1478,9 +1484,14 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.semibold,
     marginTop: Spacing.xs,
   },
+  previewItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
   previewItem: {
     fontSize: Typography.sizes.sm,
-    marginTop: Spacing.sm,
   },
   previewCry: {
     fontSize: Typography.sizes.base,
