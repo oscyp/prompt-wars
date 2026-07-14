@@ -45,3 +45,5 @@ supabase/.temp/
 # iOS
 ios/Pods/
 ios/.xcode.env.local
+
+.eas.production.env
