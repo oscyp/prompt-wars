@@ -5,6 +5,7 @@ import { Spacing, Typography } from '@/constants/DesignTokens';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import { getMyBattles } from '@/utils/battles';
+import { PUBLIC_PROFILE_COLUMNS } from '@/utils/profiles';
 
 export default function StatsScreen() {
   const colors = useThemedColors();
@@ -30,7 +31,7 @@ export default function StatsScreen() {
     try {
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('*')
+        .select(PUBLIC_PROFILE_COLUMNS)
         .eq('id', user.id)
         .single();
 

@@ -100,14 +100,20 @@ export async function getWalletBalance(): Promise<WalletBalance | null> {
       return null;
     }
 
-    const { data, error } = await supabase
-      .from('entitlements')
-      .select('*')
-      .eq('profile_id', user.id)
-      .single();
+    // The `entitlements` view is not client-readable (migration 20260822153000):
+    // it ran as its owner, bypassing RLS on profiles/subscriptions/
+    // wallet_transactions, so the `.eq('profile_id', ...)` filter was the only
+    // thing scoping it to one row. This RPC is hard-filtered to auth.uid()
+    // server-side and returns zero rows when unauthenticated.
+    const { data: rows, error } = await supabase.rpc('get_my_entitlements');
 
     if (error) {
       console.error('Entitlements query error:', error);
+      return null;
+    }
+
+    const data = Array.isArray(rows) ? rows[0] : rows;
+    if (!data) {
       return null;
     }
 

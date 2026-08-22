@@ -6,6 +6,7 @@ import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
+import { PUBLIC_PROFILE_COLUMNS } from '@/utils/profiles';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function ProfileScreen() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(PUBLIC_PROFILE_COLUMNS)
         .eq('id', user.id)
         .single();
 
