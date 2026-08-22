@@ -222,6 +222,16 @@ OPENAI_API_KEY=sk-...
 IMAGE_PROVIDER_MODE=  # unset in prod | "fallback" in tests/offline
 ```
 
+## Development / QA Flags (Edge Functions)
+
+```bash
+# Kill switch for dev/QA-only Edge Functions (currently: dev-generate-video).
+# These bypass entitlement gates and charge 0 credits, so they FAIL CLOSED:
+# the function returns 404 unless this is set to exactly "1". Leave UNSET in
+# production so the function is unreachable even by authenticated users.
+DEV_FUNCTIONS_ENABLED=  # unset in prod | "1" in dev/QA only
+```
+
 ## Security Notes
 
 1. **Client vs Server**: Only `EXPO_PUBLIC_*` prefixed vars are safe to bundle in the mobile app.

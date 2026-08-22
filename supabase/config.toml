@@ -113,3 +113,30 @@ file_size_limit = "50MiB"
 # verification must be disabled for this endpoint.
 [functions.revenuecat-webhook]
 verify_jwt = false
+
+# These functions validate user JWTs or service secrets in-function via
+# `_shared/utils.ts`. Platform verification cannot validate the project's
+# asymmetric user JWTs and also rejects `sb_secret_` service chaining.
+[functions.submit-prompt]
+verify_jwt = false
+
+[functions.resolve-battle]
+verify_jwt = false
+
+[functions.round-resolve]
+verify_jwt = false
+
+[functions.battle-advance]
+verify_jwt = false
+
+[functions.process-video-job]
+verify_jwt = false
+
+[functions.moderate-video]
+verify_jwt = false
+
+[functions.request-video-upgrade]
+verify_jwt = false
+
+[functions.sign-battle-video]
+verify_jwt = false
