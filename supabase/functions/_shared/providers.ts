@@ -513,6 +513,221 @@ export class MockTtsProvider implements TtsProvider {
 }
 
 // ============================================================================
+// REAL JUDGE PROVIDER (xAI)
+// ============================================================================
+
+const JUDGE_REQUEST_TIMEOUT_MS = 30_000;
+
+export class JudgeProviderError extends Error {
+  code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = "JudgeProviderError";
+    this.code = code;
+  }
+}
+
+/**
+ * Rubric instructions sent to the judge.
+ *
+ * Frozen per JUDGE_PROMPT_VERSION (_shared/judge.ts). Changing the wording
+ * changes scores, so bump that version alongside any edit here or historical
+ * judge_runs stop being comparable and the calibration set is invalidated.
+ *
+ * Anti-pay-to-win (concept §10.6): the judge is given prompt text, move types
+ * and the theme only. No archetype identity, cosmetics, subscription state,
+ * ratings or wallet data ever reach it -- round-resolve additionally asserts
+ * this via assertNoMonetizationDataInScoring().
+ */
+function buildJudgeSystemPrompt(): string {
+  return [
+    "You are the impartial judge of a competitive prompt-writing duel.",
+    "Score BOTH prompts independently on six criteria, each 0-10:",
+    "  clarity            - unambiguous, well-formed, easy to act on",
+    "  originality        - unexpected angle rather than a generic take",
+    "  specificity        - concrete detail over vague gesturing",
+    "  theme_fit          - answers the stated theme constraint",
+    "  archetype_fit      - internally consistent voice and persona",
+    "  dramatic_potential - would make a compelling short cinematic",
+    "",
+    "Rules:",
+    "- Judge only the writing. Ignore length except where it harms clarity.",
+    "- Do not reward or penalise the declared move type; it is scored separately.",
+    "- Be willing to separate the two prompts. Identical scores should be rare.",
+    "- explanation: 1-3 sentences, under 600 characters, naming the deciding factor.",
+    "",
+    "Respond with JSON only, exactly this shape:",
+    '{"playerOneScores":{"clarity":0,"originality":0,"specificity":0,' +
+      '"theme_fit":0,"archetype_fit":0,"dramatic_potential":0},',
+    '"playerTwoScores":{"clarity":0,"originality":0,"specificity":0,' +
+      '"theme_fit":0,"archetype_fit":0,"dramatic_potential":0},',
+    '"explanation":"..."}',
+  ].join("\n");
+}
+
+/**
+ * xAI (Grok) judge, via the OpenAI-compatible chat-completions endpoint.
+ *
+ * Shape is validated downstream by validateJudgeResponse() in _shared/judge.ts,
+ * so this adapter deliberately does not re-implement range checks -- it returns
+ * what the model produced and lets the single validator reject it.
+ *
+ * NOTE: JUDGE_MODEL_ID is the authority for which model is called. The default
+ * below is a starting point and should be confirmed against x.ai's current
+ * model list before relying on it in production; an unknown model id fails
+ * fast with a client_error rather than degrading silently.
+ */
+export class XAIJudgeProvider implements AiJudgeProvider {
+  private apiKey: string;
+  private baseUrl: string;
+  private model: string;
+
+  constructor() {
+    // JUDGE_API_KEY lets the judge use a separate key/quota from video and
+    // portraits; falls back to the shared xAI key.
+    this.apiKey = Deno.env.get("JUDGE_API_KEY") ||
+      Deno.env.get("XAI_API_KEY") || "";
+    this.baseUrl = Deno.env.get("JUDGE_API_BASE_URL") ||
+      Deno.env.get("XAI_API_BASE_URL") || "https://api.x.ai/v1";
+    this.model = Deno.env.get("JUDGE_MODEL_ID") || "grok-3";
+
+    if (!this.apiKey) {
+      console.warn("JUDGE_API_KEY/XAI_API_KEY not set; judge calls will fail");
+    }
+  }
+
+  getModelId(): string {
+    return this.model;
+  }
+
+  async judge(req: JudgeRequest): Promise<JudgeResponse> {
+    if (!this.apiKey) {
+      throw new JudgeProviderError("no_api_key", "Judge API key not configured");
+    }
+
+    const userContent = [
+      `Theme: ${req.theme ?? "(no theme constraint)"}`,
+      "",
+      `Player one move type: ${req.moveTypeOne}`,
+      `Player one prompt: ${req.promptOne}`,
+      "",
+      `Player two move type: ${req.moveTypeTwo}`,
+      `Player two prompt: ${req.promptTwo}`,
+    ].join("\n");
+
+    let status = 0;
+    try {
+      const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [
+            { role: "system", content: buildJudgeSystemPrompt() },
+            { role: "user", content: userContent },
+          ],
+          response_format: { type: "json_object" },
+          // The pipeline runs the judge twice with different seeds and expects
+          // the runs to be able to disagree; a non-zero temperature is what
+          // makes that double-run meaningful rather than a duplicated call.
+          temperature: 0.4,
+          seed: req.seed,
+        }),
+        signal: AbortSignal.timeout(JUDGE_REQUEST_TIMEOUT_MS),
+      });
+      status = res.status;
+
+      if (!res.ok) {
+        const bodyText = await res.text().catch(() => "");
+        if (res.status >= 500) {
+          throw new JudgeProviderError("server_error", `xAI judge ${res.status}`);
+        }
+        throw new JudgeProviderError(
+          "client_error",
+          `xAI judge ${res.status}: ${bodyText.slice(0, 200)}`,
+        );
+      }
+
+      const data = await res.json();
+      const content = data?.choices?.[0]?.message?.content;
+      if (typeof content !== "string" || content.length === 0) {
+        throw new JudgeProviderError(
+          "malformed_response",
+          "xAI judge response missing message content",
+        );
+      }
+
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(content);
+      } catch {
+        throw new JudgeProviderError(
+          "malformed_response",
+          "xAI judge did not return parseable JSON",
+        );
+      }
+
+      return {
+        playerOneScores: parsed.playerOneScores as JudgeRubricScores,
+        playerTwoScores: parsed.playerTwoScores as JudgeRubricScores,
+        explanation: String(parsed.explanation ?? ""),
+        modelId: this.getModelId(),
+        promptVersion: req.promptVersion,
+      };
+    } catch (err) {
+      if (err instanceof JudgeProviderError) throw err;
+      const isAbort = err instanceof DOMException && err.name === "TimeoutError";
+      throw new JudgeProviderError(
+        isAbort ? "timeout" : "network",
+        err instanceof Error ? err.message : `xAI judge failed (${status})`,
+      );
+    }
+  }
+}
+
+/**
+ * Wraps a real judge so a provider outage degrades instead of failing the
+ * battle.
+ *
+ * This is a hard requirement, not a nicety: round-resolve claims the round into
+ * status 'resolving' BEFORE calling the judge, and nothing sweeps that state
+ * (see round-resolve/index.ts). A judge throw would therefore strand the round
+ * permanently rather than merely erroring.
+ *
+ * The fallback is auditable: MockJudgeProvider reports modelId
+ * "mock-judge-v1.0.0", so any judge_runs row scored by the fallback is
+ * identifiable after the fact and can be excluded from calibration.
+ */
+export class FallbackJudgeProvider implements AiJudgeProvider {
+  private primary: AiJudgeProvider;
+  private fallback: AiJudgeProvider;
+
+  constructor(primary: AiJudgeProvider, fallback: AiJudgeProvider) {
+    this.primary = primary;
+    this.fallback = fallback;
+  }
+
+  getModelId(): string {
+    return this.primary.getModelId();
+  }
+
+  async judge(req: JudgeRequest): Promise<JudgeResponse> {
+    try {
+      return await this.primary.judge(req);
+    } catch (err) {
+      console.error(
+        "Judge provider failed, falling back to mock:",
+        err instanceof Error ? `${err.name}: ${err.message}` : err,
+      );
+      return await this.fallback.judge(req);
+    }
+  }
+}
+
+// ============================================================================
 // PROVIDER FACTORY
 // ============================================================================
 
@@ -522,7 +737,12 @@ export function createJudgeProvider(): AiJudgeProvider {
   switch (providerType) {
     case "mock":
       return new MockJudgeProvider();
-    // Add other providers (OpenAI, xAI, etc.) here
+    case "xai":
+      // Always wrapped: a judge outage must degrade, never strand a round.
+      return new FallbackJudgeProvider(
+        new XAIJudgeProvider(),
+        new MockJudgeProvider(),
+      );
     default:
       console.warn(
         `Unknown judge provider: ${providerType}, falling back to mock`,

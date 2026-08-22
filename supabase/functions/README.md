@@ -43,7 +43,8 @@ Server-owned logic for Prompt Wars gameplay, economy, and AI integrations.
 - `moderate-prompt` - External moderation service (minimal blocklist in submit-prompt for MVP)
 - `moderate-video` - Post-gen video safety checks
 **Provider API Keys** (set as Edge Function secrets):
-- `JUDGE_PROVIDER` - Judge provider type: `mock` (default) | `openai` | `xai`
+- `JUDGE_PROVIDER` - Judge provider type: `mock` (default) | `xai`. `xai` is wrapped in a mock fallback so a provider outage degrades instead of stranding a round in `resolving`. `openai`/`anthropic` are documented elsewhere but not implemented.
+- `JUDGE_API_KEY` / `JUDGE_MODEL_ID` - judge credentials and model (falls back to `XAI_API_KEY`)
 - `VIDEO_PROVIDER` - Video provider type: `mock` (default) | `xai`
 - `XAI_API_KEY` - xAI / X AI API key (required if VIDEO_PROVIDER=xai)
 - `XAI_VIDEO_BASE_URL` - xAI video API base URL (optional, defaults to https://api.x.ai/v1/video)

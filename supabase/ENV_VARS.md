@@ -39,12 +39,33 @@ SUPABASE_DB_URL=postgresql://postgres:your-password@db.your-project.supabase.co:
 
 ### LLM Judge Provider
 ```bash
-# Primary judge model (e.g., OpenAI GPT-4, Anthropic Claude, or xAI Grok)
-JUDGE_PROVIDER=openai  # or "anthropic" | "xai"
-JUDGE_API_KEY=sk-...
-JUDGE_MODEL_ID=gpt-4-turbo-preview  # or model version for reproducibility
-JUDGE_PROMPT_VERSION=v1  # frozen version for battle audit trail
+# Implemented values: "mock" (default) | "xai".
+# Leaving this unset means ranked outcomes are decided by MockJudgeProvider,
+# which scores on word count and seed % 100 -- fine for local work, meaningless
+# as a competitive ladder.
+JUDGE_PROVIDER=xai
+JUDGE_API_KEY=xai-...          # optional; falls back to XAI_API_KEY
+JUDGE_MODEL_ID=grok-3          # authoritative -- confirm against x.ai's current model list
+JUDGE_API_BASE_URL=https://api.x.ai/v1   # optional override
 ```
+
+Notes:
+- `JUDGE_PROVIDER=xai` is always wrapped in `FallbackJudgeProvider`. If the
+  provider times out or errors, the run falls back to the mock rather than
+  throwing, because `round-resolve` claims the round into `resolving` before
+  calling the judge and nothing sweeps that state -- a throw would strand the
+  round permanently.
+- Fallback runs are auditable: they record `model_id = "mock-judge-v1.0.0"` in
+  `judge_runs`, so they can be excluded from calibration.
+- `JUDGE_PROMPT_VERSION` is **not** an env var. It is frozen in code at
+  `_shared/judge.ts` (`JUDGE_PROMPT_VERSION`); bump it there whenever the rubric
+  wording in `buildJudgeSystemPrompt()` changes, or historical `judge_runs` stop
+  being comparable.
+- Cost: `runJudgePipeline` calls the provider **2-3 times per round** (a double
+  run plus a tiebreaker when the two disagree), and every battle is Bo3 -- so up
+  to 9 judge calls per completed battle.
+- `anthropic` and `openai` are not implemented. Adding one means a new adapter
+  plus a `case` in `createJudgeProvider()`.
 
 ### Video Generation Provider
 ```bash
