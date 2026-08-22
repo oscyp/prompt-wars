@@ -1,7 +1,7 @@
 // Client-side cosmetics shop API helpers.
 // Cosmetics are strictly cosmetic; all ownership/purchase/equip is server-owned.
 
-import { supabase, invokeFunctionResult } from './supabase';
+import { invokeFunctionResult } from './supabase';
 
 export type CosmeticType =
   | 'frame'

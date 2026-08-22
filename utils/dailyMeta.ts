@@ -2,7 +2,7 @@
 // All engagement logic is server-owned; these helpers only invoke Edge
 // Functions and surface typed results.
 
-import { supabase, invokeFunctionResult } from './supabase';
+import { invokeFunctionResult } from './supabase';
 
 export interface DailyQuest {
   id: string;

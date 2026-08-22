@@ -1,0 +1,66 @@
+name: CI
+
+# Gates existed and passed, but nothing enforced them: there was no CI at all,
+# so `tsc`, Jest, ESLint and the Deno suite were only ever run by hand. The
+# ORCHESTRATOR_GAP_REVIEW verification checklist was a one-time manual claim.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: App (typecheck, tests, lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Install
+        run: yarn install --frozen-lockfile
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Tests
+        run: yarn test:ci
+
+      # `npx eslint .` and `yarn lint` now agree: supabase/functions (Deno),
+      # landing/ (standalone static site) and jest.setup.js are ignored in
+      # eslint.config.js, because linting Deno code with the Expo config
+      # produced ~35 spurious no-undef errors and made this command unusable.
+      - name: Lint
+        run: yarn lint
+
+  edge-functions:
+    name: Edge functions (Deno)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v2.x
+
+      - name: Typecheck shared modules
+        run: |
+          deno check --config supabase/functions/deno.json \
+            supabase/functions/_shared/*.ts
+
+      # Integration tests self-skip without SUPABASE_URL + a service key, so
+      # this runs the unit suite. Standing up `supabase start` here to
+      # un-skip them is the next step -- they cover the battle state
+      # transitions nothing else does.
+      - name: Test
+        run: |
+          deno test --config supabase/functions/deno.json --allow-all \
+            supabase/functions/_tests/

@@ -1,6 +1,15 @@
 # Prompt Wars Implementation Concept
 
-> Document version: v3 (designer-adjusted). Changes vs. v2: shorter ranked timeout, theme-after-matchmaking decision layer, cinematic Tier 0, judge calibration + appeals, identity additions to character creation, daily meta promoted into MVP, realistic KPI targets, accessibility and compliance hardening.
+> Document version: v3 (designer-adjusted).
+>
+> **Amended 2026-08-22** after an implementation audit. Sections corrected where
+> the code was right and the doc had gone stale: §7.7 (Bo3 is every mode, not
+> Phase 2; move-type is absolute points, not a percentage; damage/KO retuned;
+> round 2-3 ranked timeout is 2h), §10.1 (one credit is one round, not one
+> battle), §2 (RN version). §3's parallel-queue auto-enqueue is marked as
+> unimplemented rather than silently listed as MVP scope. Where the doc and the
+> code disagreed on entitlement round-units, the code's choice was kept and the
+> doc changed. Changes vs. v2: shorter ranked timeout, theme-after-matchmaking decision layer, cinematic Tier 0, judge calibration + appeals, identity additions to character creation, daily meta promoted into MVP, realistic KPI targets, accessibility and compliance hardening.
 
 ## 1. Product Vision
 
@@ -15,7 +24,7 @@ Use the local `/Users/patdom/sources/remedy` project as the baseline implementat
 Recommended stack:
 
 - React Native with Expo SDK 55
-- React Native 0.83.2
+- React Native 0.83.6
 - Expo Router for route groups and navigation
 - Supabase Auth, Postgres, Realtime, Storage, and Edge Functions
 - Supabase migrations for database evolution
@@ -58,7 +67,7 @@ MVP features:
 - Bot opponents for first battle and as a fallback when matchmaking is empty
 - Async 1v1 battle creation, friend challenge by deep link, and matchmaking
 - Theme-after-matchmaking constraint reveal (both players write under the same constraint)- Prompt lock-in by each player with 2h ranked timeout / 8h friend-challenge timeout
-- Auto-enqueue a second battle to a different opponent immediately after lock-in (parallel queue)
+- ~~Auto-enqueue a second battle to a different opponent immediately after lock-in (parallel queue)~~ — **not implemented.** `submit-prompt` returns without any matchmaking call. Listed here and in §4 step 7 as MVP scope; either build it or cut it, but it is not shipped.
 - Server-side battle resolution using LLM-as-judge with rubric, double-run, length normalization, and judge calibration
 - Player appeal flow for ranked losses (capped 1/day)
 - Tier 0 result reveal (always free, cinematic and silent): scored card, rubric breakdown, judge "why," 9:16 motion poster, per-move-type animation
@@ -276,7 +285,9 @@ Draws are first-class in MVP. If aggregate rubric difference is below a small ep
 
 ### 7.7 Best-of-3 Rounds Mode
 
-Best-of-3 (Bo3) is a Phase 2 battle mode that runs the same theme/prompt/judge stack across up to three rounds with HP carryover. It is gated by a per-battle `battles.format` flag: `'single'` (existing behavior, default) or `'bo3'`. The single-format resolver is unchanged; Bo3 runs through a separate `round-resolve` path. All scoring inputs and outputs are server-owned.
+Best-of-3 (Bo3) is **the live battle format for every mode** — ranked, unranked, friend and bot — as of migration `20260802120000_enable_bo3_all_modes.sql`. It runs the theme/prompt/judge stack across up to three rounds with HP carryover through the `round-resolve` path. All scoring inputs and outputs are server-owned.
+
+> The `battles.format` column still defaults to `'single'` and the single-format resolver (plus `expire_timed_out_battles` and `claim_forfeit_timeout_battles`) is still maintained, but **no new battle reaches it** — `create_battle` and `create_bot_battle` both force `'bo3'`. Those paths are legacy-only, for rows created before the flip.
 
 **Character stats.** Each character has four stats — Strength, Stamina, Agility, Focus — each integer 1-10 (default 5), earn-only (no paid boosts). Archetype affinity grants +1 to one stat (mapping defined in the seed). Stats are **snapshotted into the battle row at face-off** (`player_one_stats_snapshot`, `player_two_stats_snapshot` JSONB). All resolution code reads the snapshot — never the live `characters.stat_*` columns — so retroactive stat changes never alter past battles.
 
@@ -287,16 +298,19 @@ Best-of-3 (Bo3) is a Phase 2 battle mode that runs the same theme/prompt/judge s
 
 **Round modifiers.** Per round, after rubric + move-type scoring:
 
-- `stat_modifier ∈ [-0.05, +0.05]` (hard server cap, ±5%).
-- Combined `stat_modifier + move_type_modifier ∈ [-0.20, +0.20]` (hard server cap, ±20%, applied after the per-component cap).
+- `stat_modifier ∈ [-0.05, +0.05]` — a **fraction** of the base rubric aggregate (hard server cap, ±5%).
+- `move_type_modifier ∈ [-0.6, +0.9]` — **absolute aggregate points**, not a fraction. It was ±12%/-8% multiplicative, which on a typical base of 40 opened ~8-point gaps between equal prompts against a 3.0 draw epsilon, so the counter-pick decided close rounds rather than the writing. A favourable counter-pick against an equal prompt now yields a 1.5-point gap — inside the draw band — so it breaks ties instead of creating them.
+- Combined cap: ±20% of the base aggregate, floored at 2.0 points so a low-scoring round cannot false-trip the guard. Enforced in `round-resolve`, the only writer that knows the base.
 - Hard caps are enforced server-side; structured errors are raised if a caller produces values outside range (no silent clamp).
 
 **HP and round outcome.**
 
 - HP is initialized from Stamina at face-off and **carries across rounds**.
 - Round winner: higher final normalized score. Within draw epsilon → `is_draw=true`, `round_winner_id=NULL`, no damage applied.
-- Damage = deterministic formula over score gap and Strength of the winner, applied to the loser's HP after the round.
+- Damage = `clamp(round(12 + score_gap * 2.2 + (winner_strength - 5) * 1.5), 8, 60)`, applied to the loser's HP after the round.
 - KO: `hp ≤ 0` at end of round AND `score_gap ≥ 7`. KO ends the battle immediately and wins it.
+
+> The earlier formula (`gap * (8 + strength/2)` clamped to 40) pinned to its clamp for essentially every non-draw round, since the draw epsilon is 3.0. With 100 HP at default stamina and at most two losses before a match ends, **KO was mathematically unreachable and the "lower HP loses" tiebreaker could never discriminate** — both players always held identical HP. Under the current curve two blowouts KO at default stamina, an even series does not, and stamina 10 survives what stamina 1 does not.
 
 **Battle outcome.**
 
@@ -305,9 +319,11 @@ Best-of-3 (Bo3) is a Phase 2 battle mode that runs the same theme/prompt/judge s
 - Round 3 is only played when standings are 1-1 and no KO has occurred.
 - All-draw tiebreaker (final round draw with 0-0 or 1-1): lower HP loses → higher cumulative judge score → earlier final round lock timestamp.
 
-**Timeouts.** Per-round lock-in deadline; ranked = 45 minutes, friend = 2 hours. Sweeper operates on `battle_rounds.lock_in_deadline`, not the battle-level deadline. Single-sided lock at deadline → opponent forfeits that round only; battle continues unless that loss completes the match.
+**Timeouts.** Per-round lock-in deadline. Round 1 ranked = 45 minutes (the clock starts at face-off, with both players present); **rounds 2-3 ranked = 2 hours**, because they begin whenever the previous round resolves, which in an async game is often while the player is away. Friend = 2 hours throughout. A `round_start` push fires when a new round opens — without it players lost rounds to a clock they were never told had started.
 
-**Entitlements migration.** Subscription and credit allowances for video reveals migrate from "per battle" to "per round-unit"; one Bo3 battle therefore consumes up to three round-units of cinematic allowance. Glicko-2 rating updates remain **one match-level call** per completed Bo3 battle, never per round.
+> This supersedes the battle-level "2h ranked / 8h friend" figure in §7.5 for Bo3, which is now every battle. Only per-round deadlines are swept. Sweeper operates on `battle_rounds.lock_in_deadline`, not the battle-level deadline. Single-sided lock at deadline → opponent forfeits that round only; battle continues unless that loss completes the match.
+
+**Entitlements.** Allowances are denominated in round-units, and one credit buys one **round**, not one battle — a fully cinematic Bo3 costs three. The automatic free video enqueues **one** shared cinematic per completed series (for the final round), not three. Glicko-2 rating updates remain **one match-level call** per completed Bo3 battle, never per round.
 
 **Schema seams (Phase 2).**
 
@@ -321,11 +337,11 @@ Best-of-3 (Bo3) is a Phase 2 battle mode that runs the same theme/prompt/judge s
 Prompt battles are extremely vulnerable to win-trading. Required safeguards from MVP:
 
 - Server-side rate limits on battles created, prompts submitted, and ranked matches per hour and per day.
-- Opponent diversity requirement for ranked rating gains.
-- Heuristic detection of suspicious win-trade patterns (same pair, alternating wins, low prompt quality).
-- Shadow rating that lags public rating during anomaly review.
-- Manual review queue for top-leaderboard accounts.
-- No rating gain when both prompts fall below a minimum quality floor.
+- Opponent diversity requirement for ranked rating gains. **Implemented 2026-08-22** (`ranked_rating_is_diverse`, gating rating in `battle-advance`). Note this defence had never actually run before then: `opponent_history` was never written to, so the check always saw zero prior battles.
+- ~~Heuristic detection of suspicious win-trade patterns (same pair, alternating wins, low prompt quality).~~ — **not implemented.**
+- ~~Shadow rating that lags public rating during anomaly review.~~ — **not implemented:** `profiles.shadow_rating` and `shadow_rating_enabled` exist as columns and are never read or written.
+- ~~Manual review queue for top-leaderboard accounts.~~ — **not implemented.** A general report queue does exist (`moderation_queue` view + `moderation-queue` function), but nothing specifically reviews leaderboard accounts.
+- No rating gain when both prompts fall below a minimum quality floor. **Implemented** (`RATING_QUALITY_FLOOR`, `_shared/judge.ts`).
 
 ## 8. AI Result Reveal Pipeline
 
@@ -473,7 +489,7 @@ Indicative starting price ladder (validate live):
 | Big      | 80      | 9.99  | anchor           |
 | Whale    | 200     | 19.99 | rare buyer       |
 
-One credit equals one battle upgraded to video.
+One credit equals one **round** upgraded to video. Since every battle is Bo3, a fully cinematic battle costs three credits; the free automatic job covers one shared cinematic per completed series.
 
 ### 10.2 Subscription
 
