@@ -12,7 +12,9 @@
 import {
   corsHeaders,
   createServiceClient,
+  errorResponse,
   getSupabaseSecretKey,
+  hasSupabaseSecretAuthorization,
   successResponse,
 } from "../_shared/utils.ts";
 import { computeRatingDeltas } from "../_shared/glicko2.ts";
@@ -35,6 +37,20 @@ interface ForfeitClaimRow {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  // Service-role only. This function forfeits battles and moves ratings, and
+  // had no in-function check at all -- unlike the ten other functions using
+  // this helper. The scheduling migration's header already claimed "each
+  // scheduled Edge Function enforces hasSupabaseSecretAuthorization()", which
+  // was untrue for this one.
+  if (
+    !hasSupabaseSecretAuthorization(
+      req.headers.get("Authorization"),
+      req.headers.get("apikey"),
+    )
+  ) {
+    return errorResponse("Service role required", 403);
   }
 
   try {
@@ -70,6 +86,46 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ---- Reclaim rounds abandoned mid-resolution ----
+    // round-resolve claims a round into 'resolving' BEFORE calling the judge,
+    // and nothing else sweeps that state -- so one Edge Function timeout used
+    // to brick a battle permanently.
+    let reclaimed = 0;
+    let deadLettered = 0;
+    try {
+      const { data: reclaimedRounds, error: reclaimErr } = await supabase.rpc(
+        "reclaim_stuck_rounds",
+        { p_stale_minutes: 10, p_max_attempts: 3 },
+      );
+      if (reclaimErr) {
+        console.error("reclaim_stuck_rounds failed:", reclaimErr);
+      } else {
+        for (const r of (reclaimedRounds ?? []) as {
+          battle_id: string;
+          round_number: number;
+          dead_lettered: boolean;
+        }[]) {
+          if (r.dead_lettered) {
+            deadLettered += 1;
+            continue;
+          }
+          reclaimed += 1;
+          // Hand it straight back to the resolver rather than waiting for the
+          // next tick.
+          try {
+            await invokeFn("round-resolve", {
+              battle_id: r.battle_id,
+              round_number: r.round_number,
+            });
+          } catch (err) {
+            console.error("Re-drive of reclaimed round failed:", err);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("reclaim sweep threw:", err);
+    }
+
     // ---- Bo3 path: per-round deadlines ----
     let bo3Forfeited = 0;
     let bo3Expired = 0;
@@ -86,7 +142,12 @@ Deno.serve(async (req) => {
       `,
       )
       .eq("status", "waiting_for_prompts")
-      .lt("lock_in_deadline", new Date().toISOString());
+      .lt("lock_in_deadline", new Date().toISOString())
+      // Bounded: this ran unbounded with no ordering, so a backlog would have
+      // grown the per-minute sweep without limit. Oldest deadline first so
+      // nothing starves; the next tick picks up the remainder.
+      .order("lock_in_deadline", { ascending: true })
+      .limit(100);
 
     for (const row of timedOutRounds ?? []) {
       // Supabase typings render an embedded relation as an array; coerce to the
@@ -169,6 +230,8 @@ Deno.serve(async (req) => {
     }
 
     return successResponse({
+      reclaimed_rounds: reclaimed,
+      dead_lettered_rounds: deadLettered,
       success: true,
       expired_count: expiredCount ?? 0,
       single_forfeited: singleForfeited,

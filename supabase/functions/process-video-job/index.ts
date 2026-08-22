@@ -708,13 +708,31 @@ async function processVideoJob(
   }
 }
 
+/**
+ * Mark a video job failed, and always release the battle back to result_ready.
+ *
+ * The release used to be duplicated at each call site, and three of them missed
+ * it -- `missing_provider_job_id`, `moderation_unavailable`, and the top-level
+ * submission catch. A legacy (non-round) battle taking the paid upgrade path is
+ * moved to `generating_video` by request-video-upgrade, so those three paths
+ * left it there permanently: the player saw a spinner forever, even though
+ * their Tier 0 result was sitting ready underneath.
+ *
+ * Doing it here rather than at 13 call sites means no future failure path can
+ * forget. The update is scoped to `status = 'generating_video'`, so it is
+ * idempotent, cannot clobber a battle in any other state, and is a no-op for
+ * the paths that already released it explicitly.
+ *
+ * Per-round (Bo3) jobs never touch battles.status at all, so they are
+ * unaffected -- the `battle_round_id IS NULL` check preserves that.
+ */
 async function failJob(
   supabase: ReturnType<typeof createServiceClient>,
   jobId: string,
   errorCode: string,
   errorMessage: string,
 ): Promise<void> {
-  await supabase
+  const { data: failed } = await supabase
     .from("video_jobs")
     .update({
       status: "failed",
@@ -722,7 +740,20 @@ async function failJob(
       error_message: errorMessage,
       completed_at: new Date().toISOString(),
     })
-    .eq("id", jobId);
+    .eq("id", jobId)
+    .select("battle_id, battle_round_id")
+    .maybeSingle();
+
+  if (failed?.battle_id && !failed.battle_round_id) {
+    const { error } = await supabase
+      .from("battles")
+      .update({ status: "result_ready" })
+      .eq("id", failed.battle_id)
+      .eq("status", "generating_video");
+    if (error) {
+      console.error("Failed to release battle after video failure:", error);
+    }
+  }
 }
 
 /**

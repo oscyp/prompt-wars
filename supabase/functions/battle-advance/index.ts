@@ -286,7 +286,7 @@ Deno.serve(async (req) => {
     // round's frozen prompts/outcome. Daily limits are enforced atomically by
     // the database; this background enqueue never gates match completion.
     if (lastRound?.id) {
-      enqueueAutoBattleVideo({
+      await enqueueAutoBattleVideo({
         battleId: battle_id,
         battleRoundId: lastRound.id,
         roundNumber: lastRound.round_number,

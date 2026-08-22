@@ -394,7 +394,7 @@ Deno.serve(async (req) => {
     // One shared silent cinematic is queued after the result is durable. The
     // database applies the per-profile/global daily caps atomically, and the
     // background task never delays or changes the resolved battle state.
-    enqueueAutoBattleVideo({ battleId: battle_id });
+    await enqueueAutoBattleVideo({ battleId: battle_id });
 
     return successResponse({
       battle_id,

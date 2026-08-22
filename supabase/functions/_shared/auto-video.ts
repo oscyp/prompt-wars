@@ -18,7 +18,9 @@ interface AutoVideoTarget {
  * The whole task runs in the Edge Runtime background and never gates Tier 0 or
  * battle completion.
  */
-export function enqueueAutoBattleVideo(target: AutoVideoTarget): void {
+export async function enqueueAutoBattleVideo(
+  target: AutoVideoTarget,
+): Promise<void> {
   const task = enqueue(target).catch((error) => {
     console.error(
       "Automatic battle video enqueue failed (non-blocking):",
@@ -30,7 +32,18 @@ export function enqueueAutoBattleVideo(target: AutoVideoTarget): void {
   if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
     // @ts-ignore EdgeRuntime is provided by Supabase in production.
     EdgeRuntime.waitUntil(task);
+    return;
   }
+
+  // Every other chaining site in this codebase pairs waitUntil with an await
+  // fallback (see invokeFn in submit-prompt). This one did not, so outside the
+  // deployed runtime -- local dev, integration tests -- the task was orphaned
+  // when the function returned and the job was silently never enqueued.
+  //
+  // Awaiting here does not risk the "battle completion never depends on video"
+  // invariant: in production waitUntil returns immediately, and `task` has its
+  // own catch so it never rejects.
+  await task;
 }
 
 async function enqueue(target: AutoVideoTarget): Promise<void> {

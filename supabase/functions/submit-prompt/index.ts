@@ -273,32 +273,47 @@ Deno.serve(async (req) => {
 
     // ---- Bo3 lock-in flow ----
     if (isBo3 && round) {
-      const isP1 = userId === battle.player_one_id;
-      const lockField = isP1 ? "player_one_locked_at" : "player_two_locked_at";
-      const otherLocked = isP1
-        ? round.player_two_locked_at
-        : round.player_one_locked_at;
-      const nowIso = new Date().toISOString();
+      // Decided in SQL under a row lock. Doing this in JS meant two players
+      // submitting at the same instant both read "opponent not locked", so
+      // neither set both_locked_at and neither triggered resolution -- the
+      // round then timed out as a double forfeit despite both submitting.
+      const { data: lockResult, error: lockRoundErr } = await supabase.rpc(
+        "lock_round_side",
+        {
+          p_battle_id: battle_id,
+          p_round_number: roundNumber,
+          p_profile_id: userId,
+        },
+      );
 
-      const update: Record<string, unknown> = {
-        [lockField]: nowIso,
-        updated_at: nowIso,
-      };
-      // Bot battles: human lock immediately satisfies "both locked".
-      const bothLocked = !!otherLocked || battle.is_player_two_bot;
-      if (bothLocked) {
-        update.both_locked_at = nowIso;
+      if (lockRoundErr) {
+        console.error("lock_round_side error:", lockRoundErr);
+        return errorResponse(
+          lockRoundErr.message || "Failed to record lock-in",
+          400,
+        );
       }
-      await supabase.from("battle_rounds").update(update).eq("id", round.id);
+
+      const lock = (lockResult ?? {}) as {
+        both_locked?: boolean;
+        should_resolve?: boolean;
+        status?: string;
+      };
+      const bothLocked = lock.both_locked === true;
 
       if (bothLocked) {
-        try {
-          await invokeFn("round-resolve", {
-            battle_id,
-            round_number: roundNumber,
-          });
-        } catch (e) {
-          console.error("round-resolve invoke failed:", e);
+        // Only the caller whose write flipped both_locked_at fires resolution;
+        // the other one still reports "resolving" and must NOT nudge an
+        // opponent who has already submitted.
+        if (lock.should_resolve === true) {
+          try {
+            await invokeFn("round-resolve", {
+              battle_id,
+              round_number: roundNumber,
+            });
+          } catch (e) {
+            console.error("round-resolve invoke failed:", e);
+          }
         }
         return successResponse({
           success: true,
