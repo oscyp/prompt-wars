@@ -61,8 +61,8 @@ MVP features:
 - Auto-enqueue a second battle to a different opponent immediately after lock-in (parallel queue)
 - Server-side battle resolution using LLM-as-judge with rubric, double-run, length normalization, and judge calibration
 - Player appeal flow for ranked losses (capped 1/day)
-- Tier 0 result reveal (always free, cinematic): scored card, rubric breakdown, judge "why," 9:16 motion poster with character voice line, music sting, per-move-type animation
-- Tier 1 result reveal (paid or sub): one shared 6-12s AI video per battle via xAI / X AI
+- Tier 0 result reveal (always free, cinematic and silent): scored card, rubric breakdown, judge "why," 9:16 motion poster, per-move-type animation
+- Tier 1 result reveal: one shared, silent 6-12s AI video automatically queued after a completed battle when either participant is below the 1/day automatic-video cap; project-wide cap 100/day; paid/sub upgrade remains the overflow path
 - 3 free Tier 1 video reveals in the first 7 days for every new account
 - Draws as a first-class outcome
 - Player stats and battle history
@@ -98,8 +98,8 @@ Out of scope for MVP:
 7. Player locks in the prompt. Player is immediately auto-enqueued for a second parallel battle against a different opponent.
 8. The battle waits until the opponent also locks in (2h ranked / 8h friend timeout).
 9. Backend resolves the battle (LLM-as-judge, double-run, length-normalized, calibrated).
-10. Tier 0 cinematic reveal plays for both players: motion poster, voice line, music sting, scored card.
-11. Optional Tier 1 video upgrade (credits or sub allowance), one shared video for both players.
+10. Tier 0 cinematic reveal plays silently for both players: motion poster, animation, scored card.
+11. Backend automatically queues one shared silent Tier 1 video when either participant is below the 1/day cap (global 100/day); otherwise the existing credits/sub allowance upgrade remains available.
 12. Stats, rankings, rewards, and wallet transactions are updated. Player may file one appeal/day on a ranked loss.
 13. Player can rematch, share (video or scored card image), or start a new battle.
 
@@ -248,7 +248,7 @@ Procedure:
 
 **Player appeal flow**: a player can appeal a ranked loss, capped at 1/day. Appeals enqueue the battle for a third independent judge run with a different model; if the result flips, the original rating change is reversed and the appeal is logged. Even rare appeals materially improve trust.
 
-Scoring inputs explicitly excluded from MVP: player rating difference, recent streaks, paid items. Rating changes are computed *after* scoring, never as part of it.
+Scoring inputs explicitly excluded from MVP: player rating difference, recent streaks, paid items. Rating changes are computed _after_ scoring, never as part of it.
 
 ### 7.4 Draws
 
@@ -279,23 +279,27 @@ Draws are first-class in MVP. If aggregate rubric difference is below a small ep
 Best-of-3 (Bo3) is a Phase 2 battle mode that runs the same theme/prompt/judge stack across up to three rounds with HP carryover. It is gated by a per-battle `battles.format` flag: `'single'` (existing behavior, default) or `'bo3'`. The single-format resolver is unchanged; Bo3 runs through a separate `round-resolve` path. All scoring inputs and outputs are server-owned.
 
 **Character stats.** Each character has four stats — Strength, Stamina, Agility, Focus — each integer 1-10 (default 5), earn-only (no paid boosts). Archetype affinity grants +1 to one stat (mapping defined in the seed). Stats are **snapshotted into the battle row at face-off** (`player_one_stats_snapshot`, `player_two_stats_snapshot` JSONB). All resolution code reads the snapshot — never the live `characters.stat_*` columns — so retroactive stat changes never alter past battles.
+
 - Strength: damage modifier.
 - Stamina: HP. `HP_max = clamp(60 + Stamina * 8, 70, 140)`.
 - Agility: small initiative / tiebreak influence.
 - Focus: reduces variance in stat modifier.
 
 **Round modifiers.** Per round, after rubric + move-type scoring:
+
 - `stat_modifier ∈ [-0.05, +0.05]` (hard server cap, ±5%).
 - Combined `stat_modifier + move_type_modifier ∈ [-0.20, +0.20]` (hard server cap, ±20%, applied after the per-component cap).
 - Hard caps are enforced server-side; structured errors are raised if a caller produces values outside range (no silent clamp).
 
 **HP and round outcome.**
+
 - HP is initialized from Stamina at face-off and **carries across rounds**.
 - Round winner: higher final normalized score. Within draw epsilon → `is_draw=true`, `round_winner_id=NULL`, no damage applied.
 - Damage = deterministic formula over score gap and Strength of the winner, applied to the loser's HP after the round.
 - KO: `hp ≤ 0` at end of round AND `score_gap ≥ 7`. KO ends the battle immediately and wins it.
 
 **Battle outcome.**
+
 - First to 2 round wins → wins the battle.
 - KO at any round → wins the battle.
 - Round 3 is only played when standings are 1-1 and no KO has occurred.
@@ -306,6 +310,7 @@ Best-of-3 (Bo3) is a Phase 2 battle mode that runs the same theme/prompt/judge s
 **Entitlements migration.** Subscription and credit allowances for video reveals migrate from "per battle" to "per round-unit"; one Bo3 battle therefore consumes up to three round-units of cinematic allowance. Glicko-2 rating updates remain **one match-level call** per completed Bo3 battle, never per round.
 
 **Schema seams (Phase 2).**
+
 - `battles.format`, `best_of`, `current_round`, `player_*_hp`, `player_*_hp_max`, `player_*_rounds_won`, `face_off_revealed_at`, `player_*_stats_snapshot`.
 - `characters.stat_strength | stat_stamina | stat_agility | stat_focus`.
 - `battle_prompts.round_number` (default 1).
@@ -328,20 +333,18 @@ The result reveal is the emotional payoff. AI video is the hero format, but it m
 
 ### 8.1 Tiered Reveal
 
-Tier 0 must be the wow moment for free users. A static scorecard is utility, not theater — players judge the app on their first result, so Tier 0 is engineered to *feel* cinematic even though it is templated and cheap.
+Tier 0 must be the wow moment for free users. A static scorecard is utility, not theater — players judge the app on their first result, so Tier 0 is engineered to _feel_ cinematic even though it is templated and cheap.
 
 Every completed battle produces, in order:
 
 1. **Tier 0 - Free, instant, cinematic.** Always free, always shown, never blocked by credits. Includes:
    - 9:16 motion poster composed **client-side** from the character's locked portrait (frozen seed + art style) over a signature-color gradient, with parallax and subtle motion. No per-battle image generation on the free tier — this keeps Tier 0 instant and protects unit economics. A generated per-battle still is an optional, non-blocking later phase (Phase 2+: a cached per-character "hero still"; Phase 3: an async "Tier 0.5" still swapped in after the reveal already rendered).
    - Per-move-type canned animation overlay (3-second sting per attack/defense/finisher).
-   - Music sting (one of ~6 tracks selected by archetype + outcome).
-   - Character voice line: a TTS read of the winner's battle cry.
    - Scored result card: winner, per-category rubric scores, judge "why," character portraits, prompt quotes, signature-color theming, applied move-type modifier.
-2. **Tier 1 - Cinematic short, paid or sub.** A 6-12 second AI-generated video composed from both prompts, both characters, and the battle outcome. Costs credits, included in subscription, generated as ONE shared video per battle (both players watch the same clip). New accounts receive **3 free Tier 1 reveals in the first 7 days** to anchor the hero feature before any paywall pressure.
+2. **Tier 1 - Silent cinematic short, automatic with paid overflow.** A 6-12 second AI-generated video composed from both prompts, both characters, and the battle outcome. The backend automatically queues ONE shared video per completed battle when either participant has not sponsored an automatic video that UTC day, capped at 100 automatic jobs project-wide per day. Automatic jobs spend no credits. When both players have used the daily automatic slot (or the circuit is open), the existing credit/subscription upgrade path remains available. New accounts also retain **3 free Tier 1 upgrades in the first 7 days**.
 3. **Tier 2 - Highlight reel (later phase).** Stitched best moments from the season; for sharing.
 
-This structure protects unit economics, makes the app usable when the provider is degraded, and turns video into a desire-driven upgrade instead of a tax on every battle.
+This structure protects unit economics through atomic daily caps, makes the app usable when the provider is degraded, and still supports desire-driven paid overflow.
 
 ### 8.2 Provider Strategy
 
@@ -353,7 +356,7 @@ This structure protects unit economics, makes the app usable when the provider i
 ### 8.3 Video Generation Flow
 
 1. Battle reaches `result_ready`. Tier 0 result is shown immediately.
-2. If both players (or one paying player; see 8.5) are entitled to a video and request it, server creates one `video_jobs` row with status `queued` for the battle.
+2. At battle completion, a service-role database function atomically checks the 1-per-sponsoring-profile/day and 100-project-wide/day caps, then creates one `auto_free` `video_jobs` row with status `queued`. If capped, either player may use the paid/subscription overflow path.
 3. Edge Function composes the provider prompt from both characters, both prompts, the winner, and tone hints derived from move types.
 4. Edge Function submits to the video provider.
 5. Job state: `queued -> submitted -> processing -> succeeded | failed`.
@@ -373,18 +376,20 @@ Includes:
 - Desired tone derived from archetypes and move types
 - Runtime target 6-12 seconds for MVP
 - Mobile-safe composition (vertical 9:16)
+- Silent output: no speech, music, sound effects, or audio track
 - No real person likeness unless explicitly supported and consented
 - Safety exclusions and platform policy constraints
 
 ### 8.5 Who Pays For The Video
 
-Simple rule: video tier is per-battle, not per-player. One generation, both watch.
+Simple rule: video tier is per-battle, not per-player. One generation, both watch silently.
 
-- If either player is a subscriber, the video is generated within the subscriber's monthly allowance.
-- If neither is a subscriber, either player can spend credits to upgrade the battle to video; the other watches free.
+- The first eligible participant in deterministic player order sponsors the free automatic job, up to 1 automatic job per UTC day. The project-wide automatic circuit stops at 100 jobs/day.
+- Automatic jobs spend no credits or subscription allowance.
+- When no automatic slot is available, either player can spend credits or subscription allowance to upgrade the battle; the other watches free.
 - A player can also pre-commit to "always cinematic" in settings (auto-spend credits or use sub allowance).
 
-This converts video from a tax into a status / generosity moment, which historically performs well for ARPDAU.
+The automatic daily taste anchors the hero experience while paid overflow remains a status / generosity moment.
 
 ### 8.6 Failure And Refund
 
@@ -446,7 +451,7 @@ Primary MVP monetization: **credits + subscription**, layered with a **first-tim
 
 ### 10.1 Credits
 
-Credits gate the optional **video tier** of the result reveal. Tier 0 (cinematic motion poster + voice line + scored card) is always free.
+Credits gate video generation after the daily automatic slot is unavailable. Tier 0 (silent cinematic motion poster + scored card) and the capped automatic Tier 1 job are free.
 
 - Onboarding grant: 3 free Tier 1 video reveals in the first 7 days so a new player experiences the hero feature without paying.
 - Earned (the F2P spine, must support a daily-active free player to feel the hero feature roughly weekly):
@@ -461,12 +466,12 @@ Credits gate the optional **video tier** of the result reveal. Tier 0 (cinematic
 
 Indicative starting price ladder (validate live):
 
-| Pack     | Credits | USD   | Notes              |
-|----------|---------|-------|--------------------|
-| Starter  | 10      | 1.99  | impulse            |
-| Standard | 30      | 4.99  | best value badge   |
-| Big      | 80      | 9.99  | anchor             |
-| Whale    | 200     | 19.99 | rare buyer         |
+| Pack     | Credits | USD   | Notes            |
+| -------- | ------- | ----- | ---------------- |
+| Starter  | 10      | 1.99  | impulse          |
+| Standard | 30      | 4.99  | best value badge |
+| Big      | 80      | 9.99  | anchor           |
+| Whale    | 200     | 19.99 | rare buyer       |
 
 One credit equals one battle upgraded to video.
 
@@ -876,7 +881,7 @@ Async 1v1 dies without opponents. The MVP must guarantee an instant first match,
 - Bot opponents seeded with a curated, archetype-appropriate prompt library, **separate from the human-facing template library** so users cannot memorize bot prompts.
 - Each bot has a plausible persona: name, archetype, avatar, battle cry, signature color. First-battle screenshots must be indistinguishable from real PVP at a glance.
 - First battle is always vs a bot, framed lightly as a "warm-up," but the bot is tuned to **lose 55-60% of the time in week 1**, then drift toward 50% as the player's rating stabilizes. Never below 40% for new users.
-- After the first battle, the player is *immediately* enqueued for a real human match (with bot fallback) so PVP cadence starts on session 1.
+- After the first battle, the player is _immediately_ enqueued for a real human match (with bot fallback) so PVP cadence starts on session 1.
 - Matchmaking falls back to a bot if no human match is found within 60 seconds.
 - Bot wins do not grant ranked rating but do grant XP and credits.
 - Bots are clearly labeled in the post-match summary (not pre-match) to avoid sandbagging while preserving honesty.
@@ -1017,7 +1022,7 @@ Launch targets (must hit to continue investing as designed):
 - D7 retention: **8-12 percent**
 - D30 retention: **3-5 percent**
 - Median battles per DAU: 3+
-- Tier 1 video upgrade rate per battle: 10-18 percent (matures toward 15-25 percent post-FTUO)
+- Automatic Tier 1 enqueue success rate on eligible battles: above 95 percent; paid overflow upgrade rate: 10-18 percent
 - Free-to-paying conversion by D14: 2-4 percent
 - ARPDAU: 0.08-0.15 USD initially, scaling with battle pass
 - Subscription monthly churn: under 14 percent

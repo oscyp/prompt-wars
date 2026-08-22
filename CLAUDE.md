@@ -17,6 +17,7 @@ yarn test -- -t "name"                   # single Jest test by name
 yarn test:watch
 yarn lint                # expo lint (ESLint 9 flat config, extends "expo")
 yarn format              # prettier --write .
+yarn assets:generate     # regenerate app icons/splash via scripts/generate-assets.mjs (sharp)
 ```
 
 Backend (run from repo root unless noted):
@@ -87,6 +88,10 @@ Two formats coexist: `single` and `bo3` (best-of-3 rounds with HP, `battle_round
 - **Invoking functions:** use `invokeAuthenticatedFunction(name, body)` from `utils/supabase.ts` (handles token refresh + a 401 retry), not `supabase.functions.invoke` directly.
 - Ratings use **Glicko-2**. Entitlements/gating on the client come through `RevenueCatProvider`.
 
+### Landing site (`landing/`)
+
+A standalone, zero-build static marketing/legal site (pure HTML/CSS/JS — includes `privacy-policy.html` and `terms-and-conditions.html`). It is deliberately decoupled from the Expo app so it can deploy to any static host on its own cadence; don't fold it into the app or add a build step. See `landing/README.md`.
+
 ## Conventions & gotchas
 
 - **Path alias:** `@/*` → repo root (e.g. `@/utils/supabase`, `@/providers/AuthProvider`).
@@ -96,3 +101,4 @@ Two formats coexist: `single` and `bo3` (best-of-3 rounds with HP, `battle_round
 - **Migrations** are timestamped `YYYYMMDDHHMMSS_name.sql`, ordered by prefix, `timestamptz` everywhere, JSONB for flexible payloads. Write them idempotent where possible.
 - **Reanimated:** `react-native-worklets/plugin` must be **last** in `babel.config.js` or animations silently no-op. SVGs are imported as components via `react-native-svg-transformer` (configured in `metro.config.js`).
 - **Docs:** `docs/prompt-wars-implementation-concept.md` is the authoritative design doc (data models, state machines, RLS). The many `*_REPORT.md` files at the repo root and in `docs/` are historical implementation logs — informative, but the concept doc and the actual schema/code win on conflicts.
+- **Agent definitions exist for three tools and must stay in sync**: `.github/agents/` (VS Code `*.agent.md`), `.claude/agents/` + `.claude/commands/prompt-wars-orchestrator.md` (Claude Code subagents; the orchestrator is a slash command because subagents can't spawn subagents), and `AGENTS.md` (Codex role playbooks). All treat the concept doc as the source of truth — when changing one, update the others.
