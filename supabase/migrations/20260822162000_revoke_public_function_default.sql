@@ -1,0 +1,47 @@
+-- ============================================================================
+-- Default privileges: remove EXECUTE-for-PUBLIC on new functions (partial)
+-- ============================================================================
+--
+-- READ THE LIMITATION BELOW. This migration alone does NOT close the hole;
+-- 20260822163000 does. Both are kept because they address different halves.
+--
+-- Context
+-- -------
+-- 20260822150000 fixed the `pg_default_acl` entry for schema `public`, removing
+-- the explicit anon/authenticated grants that were being stamped onto every new
+-- function. That worked -- the postgres-owned default ACL is now:
+--
+--     postgres=X/postgres | service_role=X/postgres
+--
+-- This migration additionally revokes EXECUTE from PUBLIC in those same default
+-- privileges.
+--
+-- What it does NOT do (measured, not assumed)
+-- -------------------------------------------
+-- PostgreSQL grants EXECUTE on functions to PUBLIC via a built-in default that
+-- `ALTER DEFAULT PRIVILEGES` does not suppress here. Probed on the live
+-- database by creating a throwaway function inside a rolled-back transaction,
+-- AFTER this migration was applied:
+--
+--     proacl    = {=X/postgres, postgres=X/postgres, service_role=X/postgres}
+--     anon      EXECUTE -> true
+--     authenticated EXECUTE -> true
+--
+-- `anon` and `authenticated` are members of PUBLIC, so a new function is still
+-- callable by an unauthenticated client the moment it is created. The default
+-- ACL looking clean is exactly the kind of false confidence that let the
+-- original hole survive for months, so it is written down here rather than
+-- assumed away.
+--
+-- The actual enforcement is the DDL event trigger in
+-- 20260822163000_revoke_public_execute_event_trigger.sql, which strips the
+-- PUBLIC grant at CREATE FUNCTION time.
+--
+-- This migration is retained because the anon/authenticated half of the default
+-- ACL fix is real and worth keeping explicit.
+--
+-- Idempotent: ALTER DEFAULT PRIVILEGES is safe to re-apply.
+-- ============================================================================
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
