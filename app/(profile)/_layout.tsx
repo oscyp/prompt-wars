@@ -20,6 +20,7 @@ export default function ProfileLayout() {
       <Stack.Screen name="stats" />
       <Stack.Screen name="edit-character" />
       <Stack.Screen name="shop" />
+      <Stack.Screen name="blocked" />
     </Stack>
   );
 }

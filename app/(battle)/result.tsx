@@ -25,7 +25,7 @@ import { hapticVictory, hapticDefeat, hapticDraw } from '@/utils/haptics';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import { appealBattle } from '@/utils/battles';
 import { requestVideoUpgrade } from '@/utils/monetization';
-import { reportContent } from '@/utils/safety';
+import { ReportBlockSheet } from '@/components';
 import { shareResultCard, shareBattleVideo } from '@/utils/share';
 import { invokeAuthenticatedFunction, supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
@@ -60,6 +60,7 @@ export default function ResultScreen() {
   const isBo3 = format === 'bo3';
 
   const [signedVideoUrl, setSignedVideoUrl] = useState<string | null>(null);
+  const [showReportSheet, setShowReportSheet] = useState(false);
   const videoUrl = videoJob?.status === 'succeeded' ? signedVideoUrl : null;
   const player = useVideoPlayer(videoUrl, (p) => {
     p.loop = false;
@@ -242,27 +243,11 @@ export default function ResultScreen() {
     }
   };
 
+  // Opens the report sheet, which carries the reason picker and the
+  // "also block" option (App Store 1.2 requires both report and block).
   const handleReport = () => {
     if (!battleId) return;
-    Alert.alert('Report Battle', 'Report this battle for review?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Report',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await reportContent({
-              reportedType: 'battle',
-              reportedId: battleId as string,
-              reason: 'inappropriate',
-            });
-            Alert.alert('Report Submitted', 'Thank you for your report');
-          } catch {
-            Alert.alert('Error', 'Failed to submit report');
-          }
-        },
-      },
-    ]);
+    setShowReportSheet(true);
   };
 
   const handleShareCard = async () => {
@@ -326,6 +311,11 @@ export default function ResultScreen() {
   // the matchup as an informational note from this player's perspective. Legacy
   // rows without move_type_matchup render nothing.
   const isPlayerOnePerspective = battle.player_one_id === user?.id;
+  // Needed so the report sheet can offer "also block": report-intake only
+  // derives the target itself for reported_type 'profile'.
+  const opponentProfileId =
+    (isPlayerOnePerspective ? battle.player_two_id : battle.player_one_id) ??
+    undefined;
   const matchup = scores?.move_type_matchup ?? null;
   const myMove = matchup
     ? isPlayerOnePerspective
@@ -345,6 +335,7 @@ export default function ResultScreen() {
     : null;
 
   return (
+    <>
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
     >
@@ -682,6 +673,15 @@ export default function ResultScreen() {
         </View>
       </View>
     </ScrollView>
+    <ReportBlockSheet
+      visible={showReportSheet}
+      onClose={() => setShowReportSheet(false)}
+      reportedType="battle"
+      reportedId={battleId as string}
+      reportedProfileId={opponentProfileId}
+      subjectLabel="this battle"
+    />
+    </>
   );
 }
 

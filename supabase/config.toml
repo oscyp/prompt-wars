@@ -140,3 +140,12 @@ verify_jwt = false
 
 [functions.sign-battle-video]
 verify_jwt = false
+
+# Validates the user JWT in-function via getAuthUserId, then deletes the auth
+# user. Same asymmetric-JWT reason as the block above.
+[functions.delete-account]
+verify_jwt = false
+
+# Service-role only, gated in-function by hasSupabaseSecretAuthorization.
+[functions.moderation-queue]
+verify_jwt = false

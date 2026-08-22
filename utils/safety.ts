@@ -98,6 +98,52 @@ export async function getBlockedUsers(): Promise<string[]> {
   return data.map((block) => block.blocked_profile_id);
 }
 
+export interface BlockedProfile {
+  profileId: string;
+  displayName: string;
+  username: string | null;
+  blockedAt: string | null;
+}
+
+/**
+ * Blocked users with names, for the management screen.
+ *
+ * Two queries rather than a PostgREST embed: the embed would couple this to the
+ * FK constraint name, and `blocks` has two FKs to `profiles` (blocker and
+ * blocked), so the implicit join is ambiguous.
+ */
+export async function getBlockedProfiles(): Promise<BlockedProfile[]> {
+  const { data: blocks, error } = await supabase
+    .from('blocks')
+    .select('blocked_profile_id, created_at')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message || 'Failed to fetch blocked users');
+  }
+  if (!blocks || blocks.length === 0) return [];
+
+  const ids = blocks.map((b) => b.blocked_profile_id);
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, username, display_name')
+    .in('id', ids);
+
+  const byId = new Map(
+    (profiles ?? []).map((p) => [p.id as string, p as Record<string, string>]),
+  );
+
+  return blocks.map((b) => {
+    const p = byId.get(b.blocked_profile_id);
+    return {
+      profileId: b.blocked_profile_id,
+      displayName: p?.display_name || p?.username || 'Unknown player',
+      username: p?.username ?? null,
+      blockedAt: b.created_at ?? null,
+    };
+  });
+}
+
 export interface AccountGuardParams {
   action: 'signup' | 'ftuo' | 'onboarding_credits';
   deviceFingerprint?: string;

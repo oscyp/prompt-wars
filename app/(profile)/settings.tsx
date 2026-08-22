@@ -6,10 +6,16 @@ import {
   ScrollView,
   Switch,
   Pressable,
+  Alert,
+  Linking,
+  ActivityIndicator,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { Links } from '@/constants/Links';
+import { invokeAuthenticatedFunction, supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import {
   getThemePreference,
@@ -50,6 +56,46 @@ export default function SettingsScreen() {
   useEffect(() => {
     loadThemePreference().then(setTheme);
   }, []);
+
+  const router = useRouter();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // App Store 5.1.1(v). Two-step confirm: the destructive alert, then the
+  // Edge Function, which requires an explicit "DELETE" confirmation string so
+  // a stray invocation cannot erase an account.
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your account and personal data. Past battles ' +
+        'remain on your opponents\u2019 records, anonymized. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              await invokeAuthenticatedFunction('delete-account', {
+                confirm: 'DELETE',
+              });
+              await supabase.auth.signOut();
+              // The auth gate in app/_layout.tsx routes to sign-in once the
+              // session clears.
+            } catch (err) {
+              setIsDeleting(false);
+              Alert.alert(
+                'Could not delete account',
+                err instanceof Error
+                  ? err.message
+                  : 'Something went wrong. Please try again.',
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const selectTheme = (value: ThemePreference) => {
     setTheme(value);
@@ -295,6 +341,84 @@ export default function SettingsScreen() {
         Battle results always notify you. All other categories respect the
         2-per-day cap and your quiet hours.
       </Text>
+
+      {/* Safety — App Store 1.2 wants blocking discoverable and reversible. */}
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Safety</Text>
+        <Pressable
+          style={styles.settingRow}
+          onPress={() => router.push('/(profile)/blocked')}
+          accessibilityRole="button"
+          accessibilityLabel="Blocked players"
+        >
+          <Text style={[styles.settingLabel, { color: colors.text }]}>
+            Blocked Players
+          </Text>
+          <Text style={[styles.settingLabel, { color: colors.textTertiary }]}>
+            ›
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* Legal — App Store 3.1.2 requires these reachable in-app. */}
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Legal</Text>
+        <Pressable
+          style={styles.settingRow}
+          onPress={() => Linking.openURL(Links.privacyPolicy)}
+          accessibilityRole="link"
+          accessibilityLabel="Privacy policy"
+        >
+          <Text style={[styles.settingLabel, { color: colors.text }]}>
+            Privacy Policy
+          </Text>
+          <Text style={[styles.settingLabel, { color: colors.textTertiary }]}>
+            ›
+          </Text>
+        </Pressable>
+        <Pressable
+          style={styles.settingRow}
+          onPress={() => Linking.openURL(Links.termsAndConditions)}
+          accessibilityRole="link"
+          accessibilityLabel="Terms and conditions"
+        >
+          <Text style={[styles.settingLabel, { color: colors.text }]}>
+            Terms &amp; Conditions
+          </Text>
+          <Text style={[styles.settingLabel, { color: colors.textTertiary }]}>
+            ›
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* Account deletion — App Store 5.1.1(v). */}
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Account
+        </Text>
+        <Pressable
+          style={styles.settingRow}
+          onPress={confirmDeleteAccount}
+          disabled={isDeleting}
+          accessibilityRole="button"
+          accessibilityLabel="Delete account"
+        >
+          <Text style={[styles.settingLabel, { color: colors.error }]}>
+            Delete Account
+          </Text>
+          {isDeleting ? (
+            <ActivityIndicator color={colors.error} />
+          ) : (
+            <Text style={[styles.settingLabel, { color: colors.textTertiary }]}>
+              ›
+            </Text>
+          )}
+        </Pressable>
+        <Text style={[styles.note, { color: colors.textTertiary }]}>
+          Permanently deletes your account and personal data. Past battles stay
+          on your opponents&apos; records, anonymized. This cannot be undone.
+        </Text>
+      </View>
     </ScrollView>
   );
 }

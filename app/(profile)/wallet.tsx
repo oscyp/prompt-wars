@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
+  Linking,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
+import { Links } from '@/constants/Links';
 import SubscriberBadge from '@/components/SubscriberBadge';
 import { getWalletBalance, getWalletTransactions, WalletBalance } from '@/utils/monetization';
 import { useRevenueCat } from '@/providers/RevenueCatProvider';
@@ -199,9 +202,37 @@ export default function WalletScreen() {
       ))}
 
       {/* Restore Purchases */}
-      <TouchableOpacity style={styles.restoreButton} onPress={handleRestore} disabled={isPurchasing}>
+      <TouchableOpacity
+        style={styles.restoreButton}
+        onPress={handleRestore}
+        disabled={isPurchasing}
+        accessibilityRole="button"
+        accessibilityLabel="Restore purchases"
+      >
         <Text style={[styles.restoreButtonText, { color: colors.primary }]}>Restore Purchases</Text>
       </TouchableOpacity>
+
+      {/* App Store 3.1.2 requires Terms and Privacy on any surface that sells
+          a subscription or consumable. */}
+      <View style={styles.legalRow}>
+        <Text
+          style={[styles.legalLink, { color: colors.textSecondary }]}
+          onPress={() => Linking.openURL(Links.termsAndConditions)}
+          accessibilityRole="link"
+          accessibilityLabel="Terms and conditions"
+        >
+          Terms &amp; Conditions
+        </Text>
+        <Text style={[styles.legalDot, { color: colors.textTertiary }]}>•</Text>
+        <Text
+          style={[styles.legalLink, { color: colors.textSecondary }]}
+          onPress={() => Linking.openURL(Links.privacyPolicy)}
+          accessibilityRole="link"
+          accessibilityLabel="Privacy policy"
+        >
+          Privacy Policy
+        </Text>
+      </View>
     </ScrollView>
   );
 }
@@ -376,6 +407,21 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
     marginBottom: Spacing.xl,
     alignItems: 'center',
+  },
+  legalRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  legalLink: {
+    fontSize: Typography.sizes.xs,
+    textDecorationLine: 'underline',
+  },
+  legalDot: {
+    fontSize: Typography.sizes.xs,
   },
   restoreButtonText: {
     fontSize: Typography.sizes.base,

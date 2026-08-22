@@ -55,3 +55,5 @@ export type {
   SegmentedCategoryBarProps,
   SegmentedCategoryItem,
 } from './SegmentedCategoryBar';
+export { default as ReportBlockSheet } from './ReportBlockSheet';
+export type { ReportBlockSheetProps } from './ReportBlockSheet';

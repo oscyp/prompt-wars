@@ -7,11 +7,13 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/utils/supabase';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
+import { Links } from '@/constants/Links';
 
 export default function SignUpScreen() {
   const [email, setEmail] = useState('');
@@ -131,8 +133,27 @@ export default function SignUpScreen() {
             </Text>
           </TouchableOpacity>
 
+          {/* App Store 3.1.2: these must be functional links, not prose. */}
           <Text style={[styles.disclaimer, { color: colors.textTertiary }]}>
-            By signing up, you agree to our Terms of Service.
+            By signing up, you agree to our{' '}
+            <Text
+              style={[styles.disclaimerLink, { color: colors.primary }]}
+              onPress={() => Linking.openURL(Links.termsAndConditions)}
+              accessibilityRole="link"
+              accessibilityLabel="Terms and conditions"
+            >
+              Terms &amp; Conditions
+            </Text>{' '}
+            and{' '}
+            <Text
+              style={[styles.disclaimerLink, { color: colors.primary }]}
+              onPress={() => Linking.openURL(Links.privacyPolicy)}
+              accessibilityRole="link"
+              accessibilityLabel="Privacy policy"
+            >
+              Privacy Policy
+            </Text>
+            .
           </Text>
 
           <TouchableOpacity
@@ -227,6 +248,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     marginBottom: Spacing.sm,
     textAlign: 'center',
+  },
+  disclaimerLink: {
+    textDecorationLine: 'underline',
   },
   ageRow: {
     flexDirection: 'row',
