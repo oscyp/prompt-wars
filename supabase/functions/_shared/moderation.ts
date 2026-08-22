@@ -25,6 +25,31 @@ export interface VideoModerationResult {
  * Text moderation provider adapter
  * MVP: blocklist + simple heuristics; production: OpenAI Moderation or Perspective API
  */
+/** True when at least one real text-moderation provider is configured. */
+export function hasTextModerationProvider(): boolean {
+  return Boolean(
+    Deno.env.get('OPENAI_API_KEY') || Deno.env.get('PERSPECTIVE_API_KEY'),
+  );
+}
+
+/**
+ * Throws when no moderation provider is configured outside development.
+ *
+ * Without this, shipping with an unset key degrades silently to the blocklist
+ * and nothing surfaces it -- the failure is invisible precisely when it matters.
+ */
+export function assertTextModerationConfigured(): void {
+  if (hasTextModerationProvider()) return;
+  const env = Deno.env.get('ENVIRONMENT') ?? Deno.env.get('DENO_ENV') ?? '';
+  if (env === 'development' || env === 'test' || Deno.env.get('DENO_TESTING')) {
+    return;
+  }
+  throw new Error(
+    'No text moderation provider configured. Set OPENAI_API_KEY or ' +
+      'PERSPECTIVE_API_KEY before accepting user-generated prompts.',
+  );
+}
+
 export class TextModerationProvider {
   private blocklist: string[] = [
     // Minimal MVP blocklist; expand with production content policy
@@ -45,9 +70,16 @@ export class TextModerationProvider {
   async moderate(text: string): Promise<TextModerationResult> {
     const lowerText = text.toLowerCase().trim();
 
-    // Check blocklist
+    // Word-boundary match, not substring. `includes()` flagged "skill" for
+    // "kill", "soldier" for "die" and "assassin" for "ass" -- in a game whose
+    // whole subject is written combat, that rejected ordinary prompts. It was
+    // also trivially evaded by a single space, so it cost legitimate players
+    // more than it cost anyone acting in bad faith.
     for (const blocked of this.blocklist) {
-      if (lowerText.includes(blocked)) {
+      const pattern = new RegExp(
+        `\\b${blocked.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
+      );
+      if (pattern.test(lowerText)) {
         return {
           status: 'rejected',
           reason: 'Blocked term detected',
@@ -94,13 +126,36 @@ export class TextModerationProvider {
       };
     }
 
-    // Call external provider if configured
+    // Call external provider if configured.
+    //
+    // `callExternalProvider` returns null for two very different situations:
+    // no provider is configured, or a configured provider errored. Treating
+    // both as "approve" meant an OpenAI outage silently downgraded the entire
+    // UGC pipeline -- prompts that reach a video generator -- to a
+    // twelve-word blocklist, with nothing in the logs to say moderation had
+    // stopped working.
+    const configured = hasTextModerationProvider();
     const providerResult = await this.callExternalProvider(text);
     if (providerResult) {
       return providerResult;
     }
 
-    // Default: approve
+    if (configured) {
+      // Configured but returned nothing: the provider failed. Fail closed.
+      // `flagged_human_review` is already blocked by submit-prompt, so the
+      // prompt is held rather than published, and the report lands in the
+      // moderation queue for a human.
+      console.error('Text moderation provider failed; failing closed');
+      return {
+        status: 'flagged_human_review',
+        confidence: 0,
+        provider: 'unavailable',
+        flaggedCategories: ['provider_unavailable'],
+      };
+    }
+
+    // No provider configured at all: development and local test. Production
+    // must configure one -- see assertTextModerationConfigured().
     return {
       status: 'approved',
       confidence: 0.95,

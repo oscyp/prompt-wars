@@ -20,6 +20,7 @@ import {
   getAuthUserId,
 } from '../_shared/utils.ts';
 import { err, ok } from '../_shared/character-creation.ts';
+import { TextModerationProvider } from '../_shared/moderation.ts';
 
 const VIBE = ['heroic', 'sinister', 'mischievous', 'stoic', 'unhinged', 'regal'];
 const SILHOUETTE = [
@@ -181,6 +182,32 @@ Deno.serve(async (req) => {
 
   if (Object.keys(updates).length === 0) {
     return err('bad_request', 'no fields to update', 400);
+  }
+
+  // Character name and battle cry are user-authored text shown to opponents on
+  // the face-off and every reveal screen -- the same exposure as a prompt, and
+  // they were the one UGC surface with no moderation at all. Prompts, portraits
+  // and custom signature items were all already gated.
+  const authoredText = [updates.name, updates.battle_cry]
+    .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+    .join(' \n ');
+
+  if (authoredText.length > 0) {
+    const moderation = await new TextModerationProvider().moderate(authoredText);
+    if (moderation.status === 'rejected') {
+      return err(
+        'bad_request',
+        'That name or battle cry was rejected by moderation. Please choose another.',
+        400,
+      );
+    }
+    if (moderation.status === 'flagged_human_review') {
+      return err(
+        'bad_request',
+        'That name or battle cry needs review. Please choose another for now.',
+        400,
+      );
+    }
   }
 
   const { error: updErr } = await supabase

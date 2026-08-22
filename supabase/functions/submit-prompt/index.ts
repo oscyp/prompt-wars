@@ -140,7 +140,17 @@ Deno.serve(async (req) => {
         { p_profile_id: userId, p_action: "prompt_submit" },
       );
       if (rateErr) {
-        console.error("check_rate_limit error (fail-open):", rateErr);
+        // Fail CLOSED. A rate limiter that opens under load is not a rate
+        // limiter: the moment it matters -- an abuse burst hammering the same
+        // RPC -- is exactly when the query is most likely to error, so
+        // fail-open removed the cap precisely when it was needed. 503 rather
+        // than 429 so the client shows "try again" instead of "you did too
+        // much".
+        console.error("check_rate_limit error (failing closed):", rateErr);
+        return errorResponse(
+          "Cannot verify rate limits right now. Please try again.",
+          503,
+        );
       } else if (rateCheck && rateCheck.allowed === false) {
         return errorResponse(
           "Too many prompts submitted. Try again later.",

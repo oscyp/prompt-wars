@@ -241,7 +241,14 @@ Deno.serve(async (req) => {
       { p_profile_id: userId, p_action: 'battle_create' },
     );
     if (rateErr) {
-      console.error('check_rate_limit error (fail-open):', rateErr);
+      // Fail CLOSED -- see submit-prompt for the reasoning. An abuse burst is
+      // the case where this query is most likely to fail, so opening under
+      // error removed the cap exactly when it mattered.
+      console.error('check_rate_limit error (failing closed):', rateErr);
+      return errorResponse(
+        'Cannot verify rate limits right now. Please try again.',
+        503,
+      );
     } else if (rateCheck && rateCheck.allowed === false) {
       return errorResponse('Too many battles created. Try again later.', 429);
     }

@@ -187,12 +187,38 @@ Deno.serve(async (req) => {
           Number(r.player_two_score) < RATING_QUALITY_FLOOR,
       );
 
+    // §7.8 opponent diversity, applied to RATING GAIN rather than pairing.
+    // opponent_history is now actually written (trigger added in migration
+    // 20260822200000 -- it had never been populated, so this check silently
+    // passed for every battle ever played). Gating the rating rather than the
+    // matchmaking means colluders still get a result and are not told they were
+    // detected, and friend challenges cannot route around it.
+    let ratingGatedByDiversity = false;
+    if (battle.mode === "ranked" && !battle.is_player_two_bot) {
+      const { data: diverse, error: diverseErr } = await supabase.rpc(
+        "ranked_rating_is_diverse",
+        {
+          p_profile_id: battle.player_one_id,
+          p_opponent_id: battle.player_two_id,
+        },
+      );
+      if (diverseErr) {
+        // Fail open on an infrastructure error: withholding rating from an
+        // honest player because a query failed is worse than one extra rated
+        // battle between a pair we are merely suspicious of.
+        console.error("ranked_rating_is_diverse failed:", diverseErr);
+      } else {
+        ratingGatedByDiversity = diverse === false;
+      }
+    }
+
     let ratingDeltaPayload: Record<string, unknown> | null = null;
     if (
       battle.mode === "ranked" &&
       !battle.is_player_two_bot &&
       !isDraw &&
-      !ratingGatedByQualityFloor
+      !ratingGatedByQualityFloor &&
+      !ratingGatedByDiversity
     ) {
       const p1 = battle.player_one as unknown as {
         id: string;
