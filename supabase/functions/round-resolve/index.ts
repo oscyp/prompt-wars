@@ -507,6 +507,8 @@ Deno.serve(async (req) => {
         explanation: judgeResult.explanation,
         aggregate_score_diff: scoreGap,
         run_sequence: roundNumber,
+        // Measured spend for this round's 2-3 judge calls. NULL for the mock.
+        provider_cost_usd: judgeResult.total_cost_usd ?? null,
       });
     }
 

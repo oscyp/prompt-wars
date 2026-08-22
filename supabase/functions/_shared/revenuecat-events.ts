@@ -59,3 +59,29 @@ export function buildSubscriptionLifecycleUpdate(
 
   return update;
 }
+
+/**
+ * Authoritative product -> credits map.
+ *
+ * The webhook used to derive the grant by regexing digits out of the product
+ * id (`/credits_(\d+)/`). That silently ties the amount a player receives to a
+ * store identifier string, so a renamed or mistyped SKU changes the payout, and
+ * an id like `credits_9999` would grant 9999.
+ *
+ * It also made the wallet screen's hardcoded copy impossible to reconcile: it
+ * advertised "50 credits for $3.99" on a button carrying `credits_30`, and the
+ * regex paid 30. Players were shown one number and given another.
+ *
+ * Credit counts here match the ladder in the concept doc §10.1 and the product
+ * ids in utils/revenuecat.ts. An unknown id grants nothing and is rejected.
+ */
+export const CREDIT_PACK_GRANTS: Record<string, number> = {
+  credits_10: 10,
+  credits_30: 30,
+  credits_80: 80,
+  credits_200: 200,
+};
+
+export function creditsForProductId(productId: string): number | null {
+  return CREDIT_PACK_GRANTS[productId] ?? null;
+}

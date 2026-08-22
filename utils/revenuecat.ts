@@ -115,3 +115,31 @@ export const PRODUCT_IDS = {
  * 5. Client subscribes to Realtime updates for video status
  */
 
+
+/**
+ * Credits delivered per pack, mirroring the server's authoritative map in
+ * `supabase/functions/_shared/revenuecat-events.ts`.
+ *
+ * The wallet screen used to hardcode both the credit count and the price, and
+ * they had drifted: it advertised 50 credits for $3.99 on a button carrying
+ * `credits_30`, while the server granted 30. Display now derives from here and
+ * price comes from the store product, so the two can no longer disagree
+ * silently. Keep this in lockstep with the server map.
+ */
+export const CREDIT_PACK_CREDITS: Record<string, number> = {
+  [PRODUCT_IDS.CREDITS_10]: 10,
+  [PRODUCT_IDS.CREDITS_30]: 30,
+  [PRODUCT_IDS.CREDITS_80]: 80,
+  [PRODUCT_IDS.CREDITS_200]: 200,
+};
+
+/** Display name and ordering for the credit packs. */
+export const CREDIT_PACK_META: Record<
+  string,
+  { title: string; order: number; badge?: string }
+> = {
+  [PRODUCT_IDS.CREDITS_10]: { title: 'Starter', order: 1 },
+  [PRODUCT_IDS.CREDITS_30]: { title: 'Standard', order: 2, badge: 'Best value' },
+  [PRODUCT_IDS.CREDITS_80]: { title: 'Big', order: 3 },
+  [PRODUCT_IDS.CREDITS_200]: { title: 'Whale', order: 4 },
+};

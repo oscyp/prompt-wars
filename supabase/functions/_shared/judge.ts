@@ -199,6 +199,24 @@ export async function runJudgePipeline(
   promptVersion = JUDGE_PROMPT_VERSION
 ): Promise<JudgeRunResult> {
   const DRAW_EPSILON = 3.0; // Aggregate difference threshold for draw
+
+  // Accumulated across every provider call this pipeline makes (2, or 3 when
+  // the first two disagree). Recorded per-run so judge_runs shows what the
+  // round actually cost rather than a per-call figure someone has to multiply.
+  let totalCostUsd = 0;
+  let providerCalls = 0;
+  let anyCostReported = false;
+  const accrue = (r: JudgeResponse): void => {
+    providerCalls += 1;
+    if (typeof r.costUsd === 'number') {
+      totalCostUsd += r.costUsd;
+      anyCostReported = true;
+    }
+  };
+  const costFields = () => ({
+    total_cost_usd: anyCostReported ? totalCostUsd : undefined,
+    provider_calls: providerCalls,
+  });
   
   // First run with frozen prompt version
   const run1Raw = await provider.judge({
@@ -210,6 +228,7 @@ export async function runJudgePipeline(
     seed: Math.floor(Math.random() * 10000),
     promptVersion,
   });
+  accrue(run1Raw);
   
   // Validate JSON schema
   const run1 = validateJudgeResponse(run1Raw);
@@ -232,6 +251,7 @@ export async function runJudgePipeline(
     seed: Math.floor(Math.random() * 10000),
     promptVersion,
   });
+  accrue(run2Raw);
   
   const run2 = validateJudgeResponse(run2Raw);
   const run2NormOne = normalizeScores(run2.playerOneScores, wordCountOne);
@@ -254,6 +274,7 @@ export async function runJudgePipeline(
       seed: Math.floor(Math.random() * 10000),
       promptVersion,
     });
+    accrue(run3Raw);
     
     const run3 = validateJudgeResponse(run3Raw);
     const run3NormOne = normalizeScores(run3.playerOneScores, wordCountOne);
@@ -273,6 +294,7 @@ export async function runJudgePipeline(
       is_draw: isDraw,
       explanation: run3.explanation,
       aggregate_score_diff: Math.abs(finalScoreOne - finalScoreTwo),
+      ...costFields(),
     };
   }
   
@@ -292,6 +314,7 @@ export async function runJudgePipeline(
     is_draw: isDraw,
     explanation: run1.explanation,
     aggregate_score_diff: diff,
+    ...costFields(),
   };
 }
 

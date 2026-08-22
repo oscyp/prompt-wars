@@ -19,6 +19,16 @@ export type StageTraitKey =
 /** Credit cost of a single paid trait swap (`traits_single_swap`). */
 export const TRAIT_SWAP_PRICE = 1;
 
+/**
+ * Credit cost of setting all four paid traits at once (`traits_full_reroll`).
+ *
+ * Applying N paid traits as N single swaps costs N credits, but the backend
+ * sets all four for 2 -- so staging three or four traits and applying them one
+ * at a time overcharged the player. Anything from two paid traits up should go
+ * through the batch.
+ */
+export const TRAIT_FULL_REROLL_PRICE = 2;
+
 /** Column on the character row that backs each staged trait. */
 export const TRAIT_FIELD: Record<StageTraitKey, string> = {
   palette: 'palette_key',
@@ -42,15 +52,25 @@ export function isTraitFree(key: StageTraitKey): boolean {
 export function computeStagedTraits(
   current: Record<string, unknown>,
   pending: Partial<Record<StageTraitKey, string>>,
-): { changed: StageTraitKey[]; cost: number } {
+): {
+  changed: StageTraitKey[];
+  cost: number;
+  /** True when applying via one `traits_full_reroll` is cheaper than N swaps. */
+  useBatch: boolean;
+  paidCount: number;
+} {
   const keys = Object.keys(TRAIT_FIELD) as StageTraitKey[];
   const changed = keys.filter((key) => {
     const staged = pending[key];
     return staged != null && staged !== (current[TRAIT_FIELD[key]] ?? undefined);
   });
-  const cost = changed.reduce(
-    (sum, key) => sum + (isTraitFree(key) ? 0 : TRAIT_SWAP_PRICE),
-    0,
-  );
-  return { changed, cost };
+  const paidCount = changed.filter((key) => !isTraitFree(key)).length;
+
+  // Charge whichever route the apply actually takes: N single swaps, or one
+  // full reroll when that is cheaper. Free traits (palette) never contribute.
+  const singleSwapCost = paidCount * TRAIT_SWAP_PRICE;
+  const useBatch = singleSwapCost > TRAIT_FULL_REROLL_PRICE;
+  const cost = useBatch ? TRAIT_FULL_REROLL_PRICE : singleSwapCost;
+
+  return { changed, cost, useBatch, paidCount };
 }

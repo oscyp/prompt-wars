@@ -10,12 +10,41 @@ import { Links } from '@/constants/Links';
 import SubscriberBadge from '@/components/SubscriberBadge';
 import { getWalletBalance, getWalletTransactions, WalletBalance } from '@/utils/monetization';
 import { useRevenueCat } from '@/providers/RevenueCatProvider';
-import { PRODUCT_IDS } from '@/utils/revenuecat';
+import { CREDIT_PACK_CREDITS, CREDIT_PACK_META, PRODUCT_IDS } from '@/utils/revenuecat';
 
 export default function WalletScreen() {
   const colors = useThemedColors();
   const router = useRouter();
   const { offerings, purchasePackage, restorePurchases, isLoading: rcLoading } = useRevenueCat();
+
+  // Derived from the live offering: only packs the store actually sells are
+  // shown, with the store's own localized price string. Unknown product ids are
+  // skipped rather than rendered with a guessed credit count.
+  const isLoadingOfferings = rcLoading;
+  // Same reasoning as the credit packs: the subscription price was a hardcoded
+  // "$9.99/month" that could drift from App Store Connect, and would show the
+  // wrong currency to every non-US user.
+  const plusPackage = (offerings?.current?.availablePackages ?? []).find(
+    (pkg) => pkg.product.identifier === PRODUCT_IDS.PLUS_MONTHLY,
+  );
+
+  const creditPackages = (offerings?.current?.availablePackages ?? [])
+    .map((pkg) => {
+      const productId = pkg.product.identifier;
+      const credits = CREDIT_PACK_CREDITS[productId];
+      const meta = CREDIT_PACK_META[productId];
+      if (credits === undefined || !meta) return null;
+      return {
+        productId,
+        credits,
+        title: meta.title,
+        badge: meta.badge,
+        price: pkg.product.priceString,
+        order: meta.order,
+      };
+    })
+    .filter((p): p is NonNullable<typeof p> => p !== null)
+    .sort((a, b) => a.order - b.order);
 
   const [balance, setBalance] = useState<WalletBalance | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -121,44 +150,46 @@ export default function WalletScreen() {
         />
       </TouchableOpacity>
 
-      {/* Credit Packs */}
+      {/* Credit Packs — rendered from the live RevenueCat offering.
+          These were hardcoded, and the literals had drifted from the products:
+          "Standard" advertised 50 credits for $3.99 on a button carrying
+          credits_30, and the server grants 30. Price came from a literal too,
+          so it could diverge from App Store Connect without anyone noticing.
+          Credits now come from CREDIT_PACK_CREDITS (which mirrors the server's
+          authoritative map) and price from the store product itself. */}
       <Text style={[styles.sectionTitle, { color: colors.text }]}>Credit Packs</Text>
-      <View style={styles.packsContainer}>
-        <CreditPackButton
-          title="Starter"
-          credits={10}
-          price="$0.99"
-          productId={PRODUCT_IDS.CREDITS_10}
-          onPress={handlePurchase}
-          isPurchasing={isPurchasing}
-          colors={colors}
-        />
-        <CreditPackButton
-          title="Standard"
-          credits={50}
-          price="$3.99"
-          productId={PRODUCT_IDS.CREDITS_30}
-          onPress={handlePurchase}
-          isPurchasing={isPurchasing}
-          colors={colors}
-        />
-        <CreditPackButton
-          title="Premium"
-          credits={120}
-          price="$7.99"
-          productId={PRODUCT_IDS.CREDITS_80}
-          onPress={handlePurchase}
-          isPurchasing={isPurchasing}
-          colors={colors}
-        />
-      </View>
+      {creditPackages.length === 0 ? (
+        <Text style={[styles.packsEmpty, { color: colors.textSecondary }]}>
+          {isLoadingOfferings
+            ? 'Loading credit packs…'
+            : 'Credit packs are unavailable right now. Please try again later.'}
+        </Text>
+      ) : (
+        <View style={styles.packsContainer}>
+          {creditPackages.map((pack) => (
+            <CreditPackButton
+              key={pack.productId}
+              title={pack.title}
+              credits={pack.credits}
+              price={pack.price}
+              badge={pack.badge}
+              productId={pack.productId}
+              onPress={handlePurchase}
+              isPurchasing={isPurchasing}
+              colors={colors}
+            />
+          ))}
+        </View>
+      )}
 
       {/* Subscription */}
       {!balance?.is_subscriber && (
         <>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Prompt Wars+</Text>
           <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>$9.99/month</Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              {plusPackage ? `${plusPackage.product.priceString}/month` : 'Prompt Wars+'}
+            </Text>
             <Text style={[styles.benefitText, { color: colors.textSecondary }]}>
               • 30 video reveals per month{'\n'}
               • Exclusive badge{'\n'}
@@ -334,6 +365,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: Spacing.md,
+  },
+  packsEmpty: {
+    fontSize: Typography.sizes.sm,
+    marginBottom: Spacing.lg,
   },
   packCard: {
     flex: 1,

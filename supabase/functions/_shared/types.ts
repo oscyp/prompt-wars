@@ -101,4 +101,16 @@ export interface JudgeRunResult {
   is_draw: boolean;
   explanation: string;
   aggregate_score_diff: number;
+  /**
+   * Summed cost of every provider call this pipeline run made, in USD.
+   *
+   * The pipeline runs the judge twice and adds a third tiebreaker when the two
+   * disagree, so this is 2-3 calls -- and with Bo3 on every mode, up to 9 per
+   * completed battle. Reported per-run so judge_runs records what the round
+   * actually cost rather than a per-call figure someone has to multiply.
+   *
+   * Undefined when no call reported usage (mock provider).
+   */
+  total_cost_usd?: number;
+  provider_calls?: number;
 }

@@ -430,14 +430,23 @@ export default function EditCharacterScreen() {
 
   // --- Trait staging (batched apply) ------------------------------------
 
-  const { changed: pendingChanged, cost: pendingCost } = useMemo(
+  const {
+    changed: pendingChanged,
+    cost: pendingCost,
+    useBatch: pendingUseBatch,
+  } = useMemo(
     () =>
       character
         ? computeStagedTraits(
             character as unknown as Record<string, unknown>,
             pendingTraits,
           )
-        : { changed: [] as StageTraitKey[], cost: 0 },
+        : {
+            changed: [] as StageTraitKey[],
+            cost: 0,
+            useBatch: false,
+            paidCount: 0,
+          },
     [pendingTraits, character],
   );
 
@@ -462,13 +471,47 @@ export default function EditCharacterScreen() {
     const toApply = TRAIT_DEFS.filter((d) => pendingChanged.includes(d.key));
     setBusyKey('applyTraits');
     try {
-      for (const d of toApply) {
-        const value = pendingTraits[d.key];
-        if (value == null) continue;
+      // Palette is free and lives on its own edit kind, so it is always applied
+      // separately regardless of which route the paid traits take.
+      const paletteChange = toApply.find((d) => d.key === 'palette');
+      if (paletteChange) {
+        const value = pendingTraits.palette;
+        if (value != null) {
+          await editCharacter({
+            characterId: character.id,
+            changes: { swapTrait: { key: 'palette', value } },
+          });
+        }
+      }
+
+      if (pendingUseBatch) {
+        // One charged call instead of N. Looping single swaps cost 1 credit
+        // each, so four staged traits cost 4 where the batch costs 2 -- and a
+        // mid-loop failure left the player charged for the swaps that landed.
+        // Unstaged traits are sent at their current value so this sets exactly
+        // what the player sees staged.
+        const current = character as unknown as Record<string, string | null>;
         await editCharacter({
           characterId: character.id,
-          changes: { swapTrait: { key: d.key, value } },
+          changes: {
+            setAllTraits: {
+              vibe: pendingTraits.vibe ?? current.vibe ?? '',
+              silhouette: pendingTraits.silhouette ?? current.silhouette ?? '',
+              era: pendingTraits.era ?? current.era ?? '',
+              expression: pendingTraits.expression ?? current.expression ?? '',
+            },
+          },
         });
+      } else {
+        for (const d of toApply) {
+          if (d.key === 'palette') continue;
+          const value = pendingTraits[d.key];
+          if (value == null) continue;
+          await editCharacter({
+            characterId: character.id,
+            changes: { swapTrait: { key: d.key, value } },
+          });
+        }
       }
       setPendingTraits({});
       setPortraitStale(true);

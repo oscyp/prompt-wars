@@ -3,7 +3,7 @@
 // Validates webhook signatures and enforces idempotency
 
 import { createServiceClient, corsHeaders, errorResponse, successResponse, generateIdempotencyKey } from '../_shared/utils.ts';
-import { buildSubscriptionLifecycleUpdate, isSubscriptionLifecycleEvent } from '../_shared/revenuecat-events.ts';
+import { buildSubscriptionLifecycleUpdate, isSubscriptionLifecycleEvent, creditsForProductId} from '../_shared/revenuecat-events.ts';
 
 interface RevenueCatEvent {
   api_version: string;
@@ -104,15 +104,32 @@ async function processWebhookEvent(webhookData: RevenueCatEvent): Promise<Respon
   const supabase = createServiceClient();
   const profileId = event.app_user_id; // RevenueCat app_user_id = Supabase user ID
   
-  // Idempotency: check if this event was already processed
-  const eventIdempotencyKey = generateIdempotencyKey(['revenuecat_event', event.id]);
-  const { data: existingEvent } = await supabase
-    .from('wallet_transactions')
-    .select('id')
-    .eq('idempotency_key', eventIdempotencyKey)
-    .maybeSingle();
-  
-  if (existingEvent) {
+  // Idempotency. The previous guard looked for a 'revenuecat_event_<id>' key in
+  // wallet_transactions that nothing ever wrote, so it never matched -- leaving
+  // RENEWAL, which resets monthly_*_allowance_used to 0 and has no idempotency
+  // of its own, replayable with a single captured signed body. RevenueCat also
+  // retries on non-2xx, so this could fire without an attacker.
+  //
+  // claim_revenuecat_event() is an atomic INSERT ... ON CONFLICT DO NOTHING, so
+  // concurrent duplicate deliveries cannot both win. Claimed BEFORE any
+  // mutation.
+  const { data: claimed, error: claimError } = await supabase.rpc(
+    'claim_revenuecat_event',
+    {
+      p_event_id: String(event.id ?? ''),
+      p_event_type: String(event.type ?? 'unknown'),
+      p_profile_id: profileId,
+    },
+  );
+
+  if (claimError) {
+    console.error('Failed to claim RevenueCat event:', claimError);
+    // Fail closed. A 500 makes RevenueCat retry, which is safe now that the
+    // claim is the thing preventing double-application.
+    return errorResponse('Failed to record event', 500);
+  }
+
+  if (claimed === false) {
     console.log('Event already processed:', event.id);
     return successResponse({ processed: true, duplicate: true });
   }
@@ -292,14 +309,14 @@ async function handleCreditPackPurchase(
   supabase: ReturnType<typeof createServiceClient>,
   event: RevenueCatEvent['event']
 ): Promise<Response> {
-  // Parse credit amount from product_id using proper regex
-  const match = event.product_id.match(/credits_(\d+)/);
-  if (!match) {
-    console.error('Invalid credit pack product_id:', event.product_id);
+  // Explicit map, not a regex over the product id. Deriving the payout from
+  // digits in a store identifier means a renamed SKU silently changes what a
+  // player receives, and `credits_9999` would have granted 9999.
+  const creditAmount = creditsForProductId(event.product_id);
+  if (creditAmount === null) {
+    console.error('Unknown credit pack product_id:', event.product_id);
     return errorResponse('Invalid product_id', 400);
   }
-  
-  const creditAmount = parseInt(match[1], 10);
   
   // Map RevenueCat store to platform
   const platform = event.store === 'app_store' ? 'ios' 

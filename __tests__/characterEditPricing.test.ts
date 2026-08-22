@@ -1,6 +1,7 @@
 import {
   computeStagedTraits,
   isTraitFree,
+  TRAIT_FULL_REROLL_PRICE,
   TRAIT_SWAP_PRICE,
 } from '@/utils/characterEditPricing';
 
@@ -14,7 +15,12 @@ const character = {
 
 describe('computeStagedTraits', () => {
   it('reports no changes and zero cost when nothing is staged', () => {
-    expect(computeStagedTraits(character, {})).toEqual({ changed: [], cost: 0 });
+    expect(computeStagedTraits(character, {})).toEqual({
+      changed: [],
+      cost: 0,
+      useBatch: false,
+      paidCount: 0,
+    });
   });
 
   it('ignores staged values equal to the current value', () => {
@@ -53,5 +59,53 @@ describe('computeStagedTraits', () => {
     });
     expect(changed).toHaveLength(3);
     expect(cost).toBe(2 * TRAIT_SWAP_PRICE); // palette free, vibe + expression paid
+  });
+
+  // Applying N paid traits as N single swaps costs N credits, but the backend
+  // sets all four for TRAIT_FULL_REROLL_PRICE. The edit screen used to loop
+  // single swaps unconditionally, so staging three or four traits overcharged.
+  it('switches to the full-reroll price once it is cheaper', () => {
+    const three = computeStagedTraits(character, {
+      vibe: 'regal',
+      era: 'cyberpunk',
+      expression: 'roar',
+    });
+    expect(three.paidCount).toBe(3);
+    expect(three.useBatch).toBe(true);
+    expect(three.cost).toBe(TRAIT_FULL_REROLL_PRICE);
+    expect(three.cost).toBeLessThan(3 * TRAIT_SWAP_PRICE);
+
+    const four = computeStagedTraits(character, {
+      vibe: 'regal',
+      silhouette: 'broad_bruiser',
+      era: 'cyberpunk',
+      expression: 'roar',
+    });
+    expect(four.useBatch).toBe(true);
+    expect(four.cost).toBe(TRAIT_FULL_REROLL_PRICE);
+  });
+
+  it('keeps single swaps when they are the cheaper route', () => {
+    const one = computeStagedTraits(character, { vibe: 'regal' });
+    expect(one.useBatch).toBe(false);
+    expect(one.cost).toBe(TRAIT_SWAP_PRICE);
+
+    // Exactly two ties with the reroll price; prefer the simpler path.
+    const two = computeStagedTraits(character, {
+      vibe: 'regal',
+      era: 'cyberpunk',
+    });
+    expect(two.useBatch).toBe(false);
+    expect(two.cost).toBe(2 * TRAIT_SWAP_PRICE);
+    expect(two.cost).toBe(TRAIT_FULL_REROLL_PRICE);
+  });
+
+  it('never lets a free palette change push you into the batch price', () => {
+    const { cost, useBatch } = computeStagedTraits(character, {
+      palette: 'ocean',
+      vibe: 'regal',
+    });
+    expect(useBatch).toBe(false);
+    expect(cost).toBe(TRAIT_SWAP_PRICE);
   });
 });

@@ -27,6 +27,16 @@ export interface JudgeResponse {
   explanation: string;
   modelId: string;
   promptVersion: string;
+  /**
+   * Measured cost of this single call, in USD. Undefined for the mock and for
+   * providers that do not report usage.
+   *
+   * Recorded because the pipeline makes 2-3 judge calls per round and every
+   * battle is Bo3 -- up to 9 per battle. Any allowance or model-choice decision
+   * that treats judging as free will be wrong.
+   */
+  costUsd?: number;
+  latencyMs?: number;
 }
 
 /**
@@ -519,6 +529,35 @@ export class MockTtsProvider implements TtsProvider {
 const JUDGE_REQUEST_TIMEOUT_MS = 30_000;
 
 /**
+ * USD per million tokens, from x.ai's published pricing (checked 2026-08-22).
+ *
+ * Used to turn the usage block a call returns into a real number for
+ * judge_runs.provider_cost_usd. Rates change: an unknown model records no cost
+ * rather than a wrong one, so a missing entry shows up as a gap in the rollup
+ * instead of quietly understating spend.
+ */
+const JUDGE_MODEL_PRICING: Record<string, { inPerM: number; outPerM: number }> = {
+  "grok-4.3": { inPerM: 1.25, outPerM: 2.50 },
+  "grok-4.5": { inPerM: 2.00, outPerM: 6.00 },
+  "grok-4.6": { inPerM: 2.00, outPerM: 6.00 },
+};
+
+function estimateJudgeCostUsd(
+  model: string,
+  promptTokens: number | undefined,
+  completionTokens: number | undefined,
+): number | undefined {
+  const rate = JUDGE_MODEL_PRICING[model];
+  if (!rate || promptTokens === undefined || completionTokens === undefined) {
+    return undefined;
+  }
+  return (
+    (promptTokens / 1_000_000) * rate.inPerM +
+    (completionTokens / 1_000_000) * rate.outPerM
+  );
+}
+
+/**
  * Strict output schema for the judge.
  *
  * Mirrors JudgeRubricScores in _shared/types.ts and the checks in
@@ -656,6 +695,7 @@ export class XAIJudgeProvider implements AiJudgeProvider {
     ].join("\n");
 
     let status = 0;
+    const startedAt = Date.now();
     try {
       const res = await fetch(`${this.baseUrl}/chat/completions`, {
         method: "POST",
@@ -721,12 +761,22 @@ export class XAIJudgeProvider implements AiJudgeProvider {
         );
       }
 
+      const usage = data?.usage as
+        | { prompt_tokens?: number; completion_tokens?: number }
+        | undefined;
+
       return {
         playerOneScores: parsed.playerOneScores as JudgeRubricScores,
         playerTwoScores: parsed.playerTwoScores as JudgeRubricScores,
         explanation: String(parsed.explanation ?? ""),
         modelId: this.getModelId(),
         promptVersion: req.promptVersion,
+        costUsd: estimateJudgeCostUsd(
+          this.model,
+          usage?.prompt_tokens,
+          usage?.completion_tokens,
+        ),
+        latencyMs: Date.now() - startedAt,
       };
     } catch (err) {
       if (err instanceof JudgeProviderError) throw err;

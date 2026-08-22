@@ -129,6 +129,24 @@ export interface EditCharacterInput {
     rePromptPortrait?: { prompt: string };
     swapTrait?: { key: keyof TraitSet; value: string };
     rerollAllTraits?: boolean;
+    /**
+     * Apply several trait changes in ONE charged call.
+     *
+     * The edit screen used to loop `swapTrait` once per staged trait, paying
+     * `traits_single_swap` (1 credit) each time -- so changing four traits cost
+     * 4 credits when `traits_full_reroll` sets all four for 2. The loop was also
+     * non-atomic: a mid-loop failure left the player charged for the swaps that
+     * had already landed.
+     *
+     * Values not supplied keep the character's current value, so this expresses
+     * "set these four traits to exactly this" rather than "reroll randomly".
+     */
+    setAllTraits?: {
+      vibe: string;
+      silhouette: string;
+      era: string;
+      expression: string;
+    };
   };
 }
 
@@ -205,6 +223,18 @@ function toEditCharacterRequest(
       payload: {
         trait: changes.swapTrait.key,
         value: changes.swapTrait.value,
+      },
+    };
+  }
+
+  if (changes.setAllTraits) {
+    return {
+      edit_kind: 'traits_full_reroll',
+      payload: {
+        vibe: changes.setAllTraits.vibe,
+        silhouette: changes.setAllTraits.silhouette,
+        era: changes.setAllTraits.era,
+        expression: changes.setAllTraits.expression,
       },
     };
   }
