@@ -140,25 +140,31 @@ Deno.test('normalizeScores - no penalty below threshold', () => {
   assertEquals(normalized.originality, 8.0);
 });
 
+// The modifier is ABSOLUTE aggregate points as of the Bo3 retune, not a
+// percentage. It was +12%/-8% multiplicative, which on a 0-60 aggregate opened
+// ~8-point gaps between equal prompts against a 3.0 draw epsilon -- the
+// counter-pick, not the writing, decided close rounds. See bo3_math_test.ts for
+// the behavioural properties this enables.
+
 Deno.test('applyMoveTypeModifier - attack beats finisher', () => {
   const baseScore = 50.0;
 
   const modifiedScore = applyMoveTypeModifier(baseScore, 'attack', 'finisher');
-  assertEquals(modifiedScore, 50.0 * 1.12); // +12%
+  assertEquals(modifiedScore, baseScore + 0.9);
 });
 
 Deno.test('applyMoveTypeModifier - defense beats attack', () => {
   const baseScore = 50.0;
 
   const modifiedScore = applyMoveTypeModifier(baseScore, 'defense', 'attack');
-  assertEquals(modifiedScore, 50.0 * 1.12);
+  assertEquals(modifiedScore, baseScore + 0.9);
 });
 
 Deno.test('applyMoveTypeModifier - finisher beats defense', () => {
   const baseScore = 50.0;
 
   const modifiedScore = applyMoveTypeModifier(baseScore, 'finisher', 'defense');
-  assertEquals(modifiedScore, 50.0 * 1.12);
+  assertEquals(modifiedScore, baseScore + 0.9);
 });
 
 Deno.test('applyMoveTypeModifier - same move types neutral', () => {
@@ -172,7 +178,7 @@ Deno.test('applyMoveTypeModifier - losing matchup applies penalty', () => {
   const baseScore = 50.0;
 
   const modifiedScore = applyMoveTypeModifier(baseScore, 'finisher', 'attack');
-  assertEquals(modifiedScore, 50.0 * 0.92); // -8%
+  assertEquals(modifiedScore, baseScore - 0.6);
 });
 
 Deno.test('runJudgePipeline - returns valid result with double-run', async () => {
@@ -220,9 +226,11 @@ Deno.test('runJudgePipeline - applies move type modifier', async () => {
   );
 
   assertExists(result);
-  // Note: Due to mock provider determinism, winner depends on seed and prompt length
-  // Just verify result structure is correct
-  assertExists(result.winner_profile_id);
+  // The winner depends on the mock's seed and prompt length, and under the
+  // retuned (much smaller) move-type modifier a draw is a legitimate outcome
+  // for two similar prompts -- so assert the contract, not a specific winner.
+  // assertExists would fail on a draw, where winner_profile_id is null.
+  assertEquals(['p1', 'p2', null].includes(result.winner_profile_id), true);
 });
 
 Deno.test('runJudgePipeline - detects draw with small score difference', async () => {

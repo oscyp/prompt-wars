@@ -80,7 +80,9 @@ Deno.serve(async (req) => {
         `
         id, battle_id, round_number, status,
         player_one_locked_at, player_two_locked_at, lock_in_deadline,
-        battles!inner(id, format, player_one_id, player_two_id, is_player_two_bot, status)
+        battles!inner(id, format, mode, player_one_id, player_two_id,
+                      player_one_rounds_won, player_two_rounds_won,
+                      is_player_two_bot, status)
       `,
       )
       .eq("status", "waiting_for_prompts")
@@ -94,8 +96,11 @@ Deno.serve(async (req) => {
         (Array.isArray(battlesField) ? battlesField[0] : battlesField) as
           | {
             format: string;
+            mode: string;
             player_one_id: string;
             player_two_id: string;
+            player_one_rounds_won: number | null;
+            player_two_rounds_won: number | null;
           }
           | undefined;
       if (!b || b.format !== "bo3") continue;
@@ -104,7 +109,33 @@ Deno.serve(async (req) => {
       const p2Locked = !!row.player_two_locked_at;
 
       if (!p1Locked && !p2Locked) {
-        // Neither locked → expire round and battle.
+        // Neither side showed up. If one of them is ahead on rounds won, the
+        // series has a legitimate winner and voiding it would take away a win
+        // they already earned -- §7.7 says a timeout forfeits THAT ROUND, not
+        // the match. Only a genuinely level series (0-0 or 1-1) expires.
+        const p1Won = b.player_one_rounds_won ?? 0;
+        const p2Won = b.player_two_rounds_won ?? 0;
+
+        if (p1Won !== p2Won) {
+          const winnerId = p1Won > p2Won ? b.player_one_id : b.player_two_id;
+          const loserId = p1Won > p2Won ? b.player_two_id : b.player_one_id;
+          try {
+            await awardSeriesOnDoubleNoShow(supabase, {
+              battleId: row.battle_id,
+              roundId: row.id,
+              mode: b.mode,
+              winnerId,
+              loserId,
+              roundsWon: `${p1Won}-${p2Won}`,
+            });
+            bo3Forfeited += 1;
+          } catch (err) {
+            console.error("Failed to award series on double no-show:", err);
+          }
+          continue;
+        }
+
+        // Level series → expire round and battle.
         await supabase
           .from("battle_rounds")
           .update({
@@ -160,6 +191,99 @@ Deno.serve(async (req) => {
 // pipeline. The claim RPC already flipped the battle to 'resolving', which the
 // RPC's idempotency guard requires. Rating deltas mirror battle-advance:
 // ranked-only, winner treated as a straight win.
+/**
+ * Close out a Bo3 series where neither player locked in, but one of them is
+ * ahead on rounds won.
+ *
+ * Previously this path voided the whole battle to 'expired' with no result, no
+ * rating change and no reveal -- so a player leading 1-0 lost a round they had
+ * already won. §7.7 is explicit that a lock-in timeout forfeits that round
+ * only; the match continues unless the loss completes it. A double no-show at
+ * 1-0 completes it in the leader's favour.
+ *
+ * Rating maths mirrors resolveForfeit(): ranked-only, winner treated as a
+ * straight win. Ratings are read here rather than joined into the sweep query
+ * because this is the rare path and the sweep runs every minute.
+ */
+async function awardSeriesOnDoubleNoShow(
+  supabase: ReturnType<typeof createServiceClient>,
+  args: {
+    battleId: string;
+    roundId: string;
+    mode: string;
+    winnerId: string;
+    loserId: string;
+    roundsWon: string;
+  },
+): Promise<void> {
+  // Close the abandoned round first so it does not get swept again next tick.
+  await supabase
+    .from("battle_rounds")
+    .update({ status: "expired", resolved_at: new Date().toISOString() })
+    .eq("id", args.roundId);
+
+  let ratingDeltaPayload: Record<string, unknown> | null = null;
+
+  if (args.mode === "ranked") {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, rating, rating_deviation, rating_volatility")
+      .in("id", [args.winnerId, args.loserId]);
+
+    const winner = profiles?.find((p) => p.id === args.winnerId);
+    const loser = profiles?.find((p) => p.id === args.loserId);
+
+    if (winner && loser) {
+      const deltas = computeRatingDeltas(
+        Number(winner.rating),
+        Number(winner.rating_deviation),
+        Number(winner.rating_volatility),
+        Number(loser.rating),
+        Number(loser.rating_deviation),
+        Number(loser.rating_volatility),
+        true,
+        false,
+      );
+      ratingDeltaPayload = {
+        [args.winnerId]: deltas.playerOne,
+        [args.loserId]: deltas.playerTwo,
+      };
+    }
+  }
+
+  const { error } = await supabase.rpc("resolve_battle", {
+    p_battle_id: args.battleId,
+    p_winner_id: args.winnerId,
+    p_is_draw: false,
+    p_score_payload: {
+      resolution: "series_abandoned",
+      reason: "double_no_show",
+      rounds_won: args.roundsWon,
+      explanation:
+        "Neither player locked in before the deadline. The series was awarded " +
+        "to the player leading on rounds won.",
+    },
+    p_rating_delta_payload: ratingDeltaPayload,
+    p_judge_prompt_version: "forfeit-v1",
+    p_judge_model_id: "forfeit",
+    p_judge_seed: 0,
+  });
+
+  if (error) {
+    throw new Error(`resolve_battle failed: ${error.message}`);
+  }
+
+  try {
+    await supabase.rpc("apply_post_battle_rewards", {
+      p_battle_id: args.battleId,
+    });
+  } catch (err) {
+    console.error("apply_post_battle_rewards failed (non-blocking):", err);
+  }
+
+  notifyBattleResult(supabase, args.battleId);
+}
+
 async function resolveForfeit(
   supabase: ReturnType<typeof createServiceClient>,
   row: ForfeitClaimRow,

@@ -44,26 +44,28 @@ Deno.test('Judge: Length normalization penalizes verbosity', () => {
   );
 });
 
+// Absolute aggregate points since the Bo3 retune, not a percentage.
+
 Deno.test('Judge: Move type modifier - attack beats finisher', () => {
   const baseScore = 50;
   const modifiedScore = applyMoveTypeModifier(baseScore, 'attack', 'finisher');
-  
+
   assertEquals(modifiedScore > baseScore, true, 'Attack should beat finisher');
-  assertEquals(modifiedScore, baseScore * 1.12, 'Should apply 12% bonus');
+  assertEquals(modifiedScore, baseScore + 0.9, 'Should apply +0.9 point bonus');
 });
 
 Deno.test('Judge: Move type modifier - defense beats attack', () => {
   const baseScore = 50;
   const modifiedScore = applyMoveTypeModifier(baseScore, 'defense', 'attack');
-  
-  assertEquals(modifiedScore, baseScore * 1.12);
+
+  assertEquals(modifiedScore, baseScore + 0.9);
 });
 
 Deno.test('Judge: Move type modifier - finisher beats defense', () => {
   const baseScore = 50;
   const modifiedScore = applyMoveTypeModifier(baseScore, 'finisher', 'defense');
-  
-  assertEquals(modifiedScore, baseScore * 1.12);
+
+  assertEquals(modifiedScore, baseScore + 0.9);
 });
 
 Deno.test('Judge: Move type modifier - same vs same is neutral', () => {

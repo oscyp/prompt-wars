@@ -122,37 +122,65 @@ export function normalizeScores(
 }
 
 /**
- * Apply move-type matchup modifier: winning matchup +12%, losing matchup -8%
- * attack > finisher, defense > attack, finisher > defense
+ * Move-type matchup modifier, in ABSOLUTE aggregate points.
+ *
+ * Was +12% / -8% multiplicative on the 0-60 aggregate. On a typical base of 40
+ * that opened a gap of roughly 8 points between two otherwise equal prompts --
+ * well past DRAW_EPSILON (3.0) and past KO_SCORE_GAP_THRESHOLD (7). In other
+ * words, the rock-paper-scissors pick, not the writing, decided close rounds,
+ * which contradicts §7.1: the modifier "does not override clear quality
+ * differences".
+ *
+ * Absolute points make the modifier a tie-breaker instead:
+ *   equal prompts + favourable counter-pick -> gap 1.5  -> DRAW (< 3.0)
+ *   5-point quality lead + bad counter-pick  -> gap 3.5  -> better prompt wins
+ *   2-point quality lead + bad counter-pick  -> gap 0.5  -> draw (counter-pick
+ *                                                          rescues a narrow loss)
+ *
+ * Scores are floored at 0 so a losing matchup cannot push an aggregate negative.
+ *
+ * round-resolve/index.ts imports these constants rather than restating them --
+ * the two paths drifting apart is exactly how the old comment ("mirrors
+ * _shared/judge.ts") stopped being true.
  */
-export function applyMoveTypeModifier(
-  normalizedScore: number,
+export const MOVE_TYPE_POINTS_WIN = 0.9;
+export const MOVE_TYPE_POINTS_LOSE = -0.6;
+
+/** Signed aggregate-point adjustment for a move-type matchup. */
+export function moveTypePoints(
   playerMoveType: MoveType,
   opponentMoveType: MoveType
 ): number {
-  const WINNING_MODIFIER = 0.12; // +12% for winning matchup
-  const LOSING_MODIFIER = 0.08;  // -8% for losing matchup
-  
-  // Rock-paper-scissors: winning matchups
+  // Rock-paper-scissors: attack > finisher, defense > attack, finisher > defense
   if (
     (playerMoveType === 'attack' && opponentMoveType === 'finisher') ||
     (playerMoveType === 'defense' && opponentMoveType === 'attack') ||
     (playerMoveType === 'finisher' && opponentMoveType === 'defense')
   ) {
-    return normalizedScore * (1 + WINNING_MODIFIER);
+    return MOVE_TYPE_POINTS_WIN;
   }
-  
-  // Losing matchups
+
   if (
     (playerMoveType === 'finisher' && opponentMoveType === 'attack') ||
     (playerMoveType === 'attack' && opponentMoveType === 'defense') ||
     (playerMoveType === 'defense' && opponentMoveType === 'finisher')
   ) {
-    return normalizedScore * (1 - LOSING_MODIFIER);
+    return MOVE_TYPE_POINTS_LOSE;
   }
-  
+
   // Same vs same: neutral
-  return normalizedScore;
+  return 0;
+}
+
+export function applyMoveTypeModifier(
+  normalizedScore: number,
+  playerMoveType: MoveType,
+  opponentMoveType: MoveType
+): number {
+  return Math.max(
+    0,
+    normalizedScore + moveTypePoints(playerMoveType, opponentMoveType)
+  );
 }
 
 /**

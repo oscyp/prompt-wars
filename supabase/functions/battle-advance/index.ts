@@ -19,10 +19,17 @@ import {
 } from "../_shared/utils.ts";
 import { computeRatingDeltas } from "../_shared/glicko2.ts";
 import { RATING_QUALITY_FLOOR } from "../_shared/judge.ts";
-import { notifyBattleResult } from "../_shared/push.ts";
+import { notifyBattleResult, notifyRoundStarted } from "../_shared/push.ts";
 import { enqueueAutoBattleVideo } from "../_shared/auto-video.ts";
 
-const RANKED_ROUND_TIMEOUT_MIN = 45;
+// Round 1's clock starts at face-off, when both players are present and
+// looking at the screen. Rounds 2 and 3 start whenever the previous round
+// happens to resolve, which in an async game can be hours later and while the
+// player is asleep -- so they get the longer window that §7.5 specifies for
+// ranked play. Pairing this with the round_start push (added alongside) is what
+// stops players losing rounds to a clock they were never told about.
+const RANKED_ROUND_ONE_TIMEOUT_MIN = 45;
+const RANKED_LATER_ROUND_TIMEOUT_MIN = 120; // 2h, per §7.5
 const FRIEND_ROUND_TIMEOUT_MIN = 120; // 2h
 
 interface AdvanceRequest {
@@ -115,7 +122,7 @@ Deno.serve(async (req) => {
       // Spawn next round.
       const nextRound = (battle.current_round ?? 1) + 1;
       const timeoutMin = battle.mode === "ranked"
-        ? RANKED_ROUND_TIMEOUT_MIN
+        ? RANKED_LATER_ROUND_TIMEOUT_MIN
         : FRIEND_ROUND_TIMEOUT_MIN;
       const deadline = new Date(Date.now() + timeoutMin * 60_000).toISOString();
 
@@ -142,6 +149,10 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         })
         .eq("id", battle_id);
+
+      // Fire-and-forget: the round is already open, so a push failure must not
+      // fail the advance.
+      notifyRoundStarted(supabase, battle_id, nextRound);
 
       return successResponse({
         battle_id,

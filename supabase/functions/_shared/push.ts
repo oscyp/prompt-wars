@@ -16,6 +16,7 @@ const EXPO_PUSH_ENDPOINT = 'https://exp.host/--/api/v2/push/send';
 export type PushCategory =
   | 'result_ready'
   | 'opponent_submitted'
+  | 'round_start'
   | 'video_ready'
   | 'daily_quest'
   | 'friend_challenge'
@@ -203,6 +204,32 @@ export function notifyOpponentSubmitted(
         title: 'Your move',
         body: 'Your opponent locked in their prompt. The battle is waiting on you.',
         data: { type: 'opponent_submitted', battleId },
+      });
+    })(),
+  );
+}
+
+/**
+ * round_start: a new Bo3 round has opened and its clock is already running.
+ *
+ * Without this, rounds 2 and 3 spawned with a lock-in deadline and no
+ * notification of any kind -- a player could lose a round to a timer they were
+ * never told had started. That is the sharpest fairness regression introduced
+ * when Bo3 was switched on for every mode (migration 20260802120000).
+ */
+export function notifyRoundStarted(
+  supabase: SupabaseClient,
+  battleId: string,
+  roundNumber: number,
+): void {
+  runInBackground(
+    (async () => {
+      const recipients = await loadHumanParticipants(supabase, battleId);
+      await deliverPushToMany(supabase, recipients, {
+        category: 'round_start',
+        title: `Round ${roundNumber} is live`,
+        body: 'The next round has started and the clock is running. Write your prompt.',
+        data: { type: 'round_start', battleId, roundNumber },
       });
     })(),
   );

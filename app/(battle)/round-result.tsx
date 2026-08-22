@@ -257,7 +257,7 @@ export default function RoundResultScreen() {
               <Text style={{ fontWeight: Typography.weights.bold }}>
                 {oppMove}
               </Text>{' '}
-              ({formatPct(myMoveMod)} move bonus)
+              ({formatPoints(myMoveMod)} move bonus)
             </Text>
             <Text style={[styles.body, { color: colors.text }]}>
               Stat modifier: {formatPct(myStatMod)}
@@ -376,6 +376,21 @@ function formatPct(v: number | null | undefined): string {
   const pct = v * 100;
   const sign = pct > 0 ? '+' : '';
   return `${sign}${pct.toFixed(1)}%`;
+}
+
+/**
+ * Move-type modifier is stored in ABSOLUTE aggregate points, not as a fraction
+ * (migration 20260822170000). Rendering it through formatPct would show the
+ * +0.9 bonus as "+90%".
+ *
+ * Rounds resolved before that migration hold the old fractional values
+ * (+0.12 / -0.08). Those are shown as-is; the magnitude reads as a small point
+ * value, which is close enough to the truth not to warrant a backfill.
+ */
+function formatPoints(v: number | null | undefined): string {
+  if (v == null) return '0';
+  const sign = v > 0 ? '+' : '';
+  return `${sign}${v.toFixed(1)} pts`;
 }
 
 const styles = StyleSheet.create({

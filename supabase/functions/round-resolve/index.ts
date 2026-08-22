@@ -23,7 +23,12 @@ import {
   hasSupabaseSecretAuthorization,
   successResponse,
 } from "../_shared/utils.ts";
-import { JUDGE_PROMPT_VERSION, runJudgePipeline } from "../_shared/judge.ts";
+import {
+  JUDGE_PROMPT_VERSION,
+  MOVE_TYPE_POINTS_WIN,
+  moveTypePoints,
+  runJudgePipeline,
+} from "../_shared/judge.ts";
 import { createJudgeProvider } from "../_shared/providers.ts";
 import { MoveType } from "../_shared/types.ts";
 import {
@@ -37,12 +42,23 @@ interface RoundResolveRequest {
   forfeit_profile_id?: string; // when called by expire-battles for single-sided lock
 }
 
-// Move-type modifier (mirrors _shared/judge.ts applyMoveTypeModifier).
-const MOVE_TYPE_WIN = 0.12;
-const MOVE_TYPE_LOSE = -0.08;
+// Move-type points come from _shared/judge.ts so the Bo3 and legacy
+// single-format paths cannot drift apart.
 
 const STAT_MOD_CAP = 0.05;
 const COMBINED_MOD_CAP = 0.20;
+
+/**
+ * Floor for the combined cap, in aggregate points.
+ *
+ * The §7.7 combined cap is ±20% of the base aggregate. Now that move-type is an
+ * absolute ±0.9/-0.6 rather than a fraction, a very low-scoring round (base ~5,
+ * so a 20% cap of 1.0) could trip the guard on a structurally legal modifier.
+ * The floor keeps the cap meaningful at normal scores (base 40 -> ±8) without
+ * false-positives on floor-scraping rounds.
+ */
+const COMBINED_POINTS_FLOOR = 2.0;
+
 const KO_SCORE_GAP_THRESHOLD = 7;
 
 interface StatsSnapshot {
@@ -50,18 +66,6 @@ interface StatsSnapshot {
   stamina: number;
   agility: number;
   focus: number;
-}
-
-function moveTypeModifier(self: MoveType, opp: MoveType): number {
-  if (self === opp) return 0;
-  if (
-    (self === "attack" && opp === "finisher") ||
-    (self === "defense" && opp === "attack") ||
-    (self === "finisher" && opp === "defense")
-  ) {
-    return MOVE_TYPE_WIN;
-  }
-  return MOVE_TYPE_LOSE;
 }
 
 /**
@@ -85,11 +89,34 @@ function computeStatModifier(
 }
 
 /**
- * Deterministic damage: score_gap * (8 + winner_strength/2), clamped 0..40.
+ * Deterministic damage: 12 + gap*2.2 + (strength-5)*1.5, clamped 8..60.
+ *
+ * The previous formula was `gap * (8 + strength/2)` clamped to 40. Because
+ * DRAW_EPSILON is 3.0, every non-draw round had a gap of at least 3, and at
+ * default strength any gap above ~3.8 already hit the clamp -- so damage was
+ * effectively the constant 40. With HP_max = 60 + stamina*8 (100 at default
+ * stamina) and a match ending at two round wins, a player could absorb at most
+ * 80 damage. KO (hp <= 0) was therefore mathematically unreachable at stamina
+ * >= 5, and the "lower HP loses" all-draw tiebreaker could never discriminate
+ * because both players always sat on identical HP.
+ *
+ * Under the new curve damage rises continuously with the score gap:
+ *
+ *   gap  3 (narrow)   -> 19    two of them = 38   -> survivable at any stamina
+ *   gap 10 (clear)    -> 34    two of them = 68   -> KO only at stamina 1 (68 HP)
+ *   gap 20 (blowout)  -> 56    two of them = 112  -> KO at stamina 5 (100 HP),
+ *                                                    survivable at stamina 10 (140)
+ *
+ * So stamina buys real KO resistance, a genuine two-round blowout can finish a
+ * match, an even series cannot, and HP almost never ties -- which makes the
+ * tiebreaker functional again.
+ *
+ * HP_max is unchanged, so the battles.player_*_hp_max CHECK constraint (floor
+ * 68, migration 20260525170000) still holds and needs no migration.
  */
 function computeDamage(scoreGap: number, winnerStrength: number): number {
-  const raw = Math.abs(scoreGap) * (8 + winnerStrength / 2);
-  return Math.max(0, Math.min(40, Math.round(raw)));
+  const raw = 12 + Math.abs(scoreGap) * 2.2 + (winnerStrength - 5) * 1.5;
+  return Math.max(8, Math.min(60, Math.round(raw)));
 }
 
 function readStatsSnapshot(raw: unknown): StatsSnapshot {
@@ -373,8 +400,11 @@ Deno.serve(async (req) => {
       s.clarity + s.originality + s.specificity +
       s.theme_fit + s.archetype_fit + s.dramatic_potential;
 
-    const p1MoveMod = moveTypeModifier(p1.moveType, p2.moveType);
-    const p2MoveMod = moveTypeModifier(p2.moveType, p1.moveType);
+    // Move-type is now an absolute aggregate-point adjustment; the stat
+    // modifier stays fractional (±5% of base) per §7.7 and is materialized into
+    // points at application time so the two can be summed and capped together.
+    const p1MovePoints = moveTypePoints(p1.moveType, p2.moveType);
+    const p2MovePoints = moveTypePoints(p2.moveType, p1.moveType);
     const p1StatMod = computeStatModifier(p1Stats, p2Stats);
     const p2StatMod = computeStatModifier(p2Stats, p1Stats);
 
@@ -385,13 +415,11 @@ Deno.serve(async (req) => {
     ) {
       return errorResponse("stat_modifier exceeded ±5% cap", 500);
     }
-    const p1Combined = p1MoveMod + p1StatMod;
-    const p2Combined = p2MoveMod + p2StatMod;
     if (
-      Math.abs(p1Combined) > COMBINED_MOD_CAP + 1e-9 ||
-      Math.abs(p2Combined) > COMBINED_MOD_CAP + 1e-9
+      Math.abs(p1MovePoints) > MOVE_TYPE_POINTS_WIN + 1e-9 ||
+      Math.abs(p2MovePoints) > MOVE_TYPE_POINTS_WIN + 1e-9
     ) {
-      return errorResponse("combined modifier exceeded ±20% cap", 500);
+      return errorResponse("move_type modifier exceeded its point bound", 500);
     }
 
     let p1Score = 0;
@@ -403,8 +431,23 @@ Deno.serve(async (req) => {
     if (judgeResult) {
       const p1Base = aggregate(judgeResult.player_one_normalized_scores);
       const p2Base = aggregate(judgeResult.player_two_normalized_scores);
-      p1Score = p1Base * (1 + p1Combined);
-      p2Score = p2Base * (1 + p2Combined);
+
+      const p1CombinedPoints = p1Base * p1StatMod + p1MovePoints;
+      const p2CombinedPoints = p2Base * p2StatMod + p2MovePoints;
+
+      // §7.7 caps the combined modifier at ±20% of the base, with a small
+      // absolute floor so floor-scraping rounds cannot false-trip the guard.
+      const p1Cap = Math.max(COMBINED_MOD_CAP * p1Base, COMBINED_POINTS_FLOOR);
+      const p2Cap = Math.max(COMBINED_MOD_CAP * p2Base, COMBINED_POINTS_FLOOR);
+      if (
+        Math.abs(p1CombinedPoints) > p1Cap + 1e-9 ||
+        Math.abs(p2CombinedPoints) > p2Cap + 1e-9
+      ) {
+        return errorResponse("combined modifier exceeded ±20% cap", 500);
+      }
+
+      p1Score = Math.max(0, p1Base + p1CombinedPoints);
+      p2Score = Math.max(0, p2Base + p2CombinedPoints);
       scoreGap = Math.abs(p1Score - p2Score);
 
       const DRAW_EPSILON = 3.0;
@@ -502,8 +545,9 @@ Deno.serve(async (req) => {
         judge_model_id: judgeProvider.getModelId(),
         stat_modifier_player_one: p1StatMod,
         stat_modifier_player_two: p2StatMod,
-        move_type_modifier_player_one: p1MoveMod,
-        move_type_modifier_player_two: p2MoveMod,
+        // Absolute aggregate points, not a fraction (migration 20260822170000).
+        move_type_modifier_player_one: p1MovePoints,
+        move_type_modifier_player_two: p2MovePoints,
         resolved_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
