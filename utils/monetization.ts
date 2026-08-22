@@ -1,7 +1,7 @@
 // Client-side monetization API helpers
 // Calls server-owned Edge Functions, never grants entitlements client-side
 
-import { supabase } from './supabase';
+import { supabase, invokeFunctionResult } from './supabase';
 
 /**
  * Entitlement check result from server
@@ -53,12 +53,10 @@ export async function requestVideoUpgrade(
   autoSpend = false
 ): Promise<VideoUpgradeResult> {
   try {
-    const { data, error } = await supabase.functions.invoke('request-video-upgrade', {
-      body: {
+    const { data, error } = await invokeFunctionResult<VideoUpgradeResult & Record<string, unknown>>('request-video-upgrade', {
         battle_id: battleId,
         auto_spend: autoSpend,
-      },
-    });
+      });
 
     if (error) {
       console.error('Video upgrade request error:', error);
@@ -66,6 +64,10 @@ export async function requestVideoUpgrade(
         success: false,
         error: error.message || 'Failed to request video upgrade',
       };
+    }
+
+    if (!data) {
+      return { success: false, error: 'Empty response' };
     }
 
     return {
@@ -169,19 +171,17 @@ export async function getWalletTransactions(limit = 50) {
  */
 export async function grantCredits(reason: 'daily_login' | 'quest_complete', questId?: string) {
   try {
-    const { data, error } = await supabase.functions.invoke('grant-credits', {
-      body: {
+    const { data, error } = await invokeFunctionResult<Record<string, unknown>>('grant-credits', {
         reason,
         ...(questId ? { quest_id: questId } : {}),
-      },
-    });
+      });
 
     if (error) {
       console.error('Grant credits error:', error);
       return { success: false, error: error.message };
     }
 
-    return { success: true, ...data };
+    return { success: true, ...(data ?? {}) };
   } catch (err) {
     console.error('Grant credits exception:', err);
     return {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/utils/supabase';
+import { supabase, invokeFunctionResult} from '@/utils/supabase';
 
 export interface BattleCharacterInfo {
   name: string;
@@ -86,9 +86,9 @@ export function useBattleCharacters(
     let cancelled = false;
     async function signPortraits() {
       try {
-        const { data, error } = await supabase.functions.invoke(
+        const { data, error } = await invokeFunctionResult(
           'sign-battle-portraits',
-          { body: { battle_id: battleId } },
+          { battle_id: battleId },
         );
         if (cancelled || error || !data) return;
         const payload = data as {

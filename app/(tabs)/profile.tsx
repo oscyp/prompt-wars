@@ -7,6 +7,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { PUBLIC_PROFILE_COLUMNS } from '@/utils/profiles';
+import { getRivals, type RivalSummary } from '@/utils/battles';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -15,6 +16,13 @@ export default function ProfileScreen() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [rivals, setRivals] = useState<RivalSummary[]>([]);
+
+  // Rivals have been computed and written on every completed battle since
+  // launch and never shown anywhere. Read-only surface over existing data.
+  useEffect(() => {
+    getRivals().then(setRivals).catch(() => setRivals([]));
+  }, [user]);
 
   useEffect(() => {
     loadProfile();
@@ -110,6 +118,29 @@ export default function ProfileScreen() {
               {Math.round(profile.rating || 1500)}
             </Text>
           </View>
+        </View>
+      )}
+
+      {rivals.length > 0 && (
+        <View style={[styles.navCard, { backgroundColor: colors.card }]}>
+          <Text style={[styles.navTitle, { color: colors.text }]}>Rivals</Text>
+          <Text
+            style={[styles.navDescription, { color: colors.textSecondary }]}
+          >
+            Who you have battled most in the last 30 days
+          </Text>
+          {rivals.map((r) => (
+            <View key={r.rivalProfileId} style={styles.rivalRow}>
+              <Text style={[styles.rivalName, { color: colors.text }]}>
+                {r.displayName}
+              </Text>
+              <Text
+                style={[styles.rivalCount, { color: colors.textSecondary }]}
+              >
+                {r.battlesCount} {r.battlesCount === 1 ? 'battle' : 'battles'}
+              </Text>
+            </View>
+          ))}
         </View>
       )}
 
@@ -255,6 +286,19 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   navDescription: {
+    fontSize: Typography.sizes.sm,
+  },
+  rivalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: Spacing.sm,
+  },
+  rivalName: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+  },
+  rivalCount: {
     fontSize: Typography.sizes.sm,
   },
   signOutButton: {

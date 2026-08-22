@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { invokeFunctionResult } from './supabase';
 
 export interface DevGenerateVideoResult {
   success: boolean;
@@ -9,9 +9,7 @@ export interface DevGenerateVideoResult {
 
 export async function devGenerateVideo(battleId: string): Promise<DevGenerateVideoResult> {
   try {
-    const { data, error } = await supabase.functions.invoke('dev-generate-video', {
-      body: { battle_id: battleId },
-    });
+    const { data, error } = await invokeFunctionResult<DevGenerateVideoResult>('dev-generate-video', { battle_id: battleId });
     if (error) {
       return { success: false, error: error.message || 'Function invoke failed' };
     }

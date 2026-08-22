@@ -395,3 +395,62 @@ export async function getOpponentMoveProfile(
     return null;
   }
 }
+
+
+export interface RivalSummary {
+  rivalProfileId: string;
+  displayName: string;
+  username: string | null;
+  battlesCount: number;
+  lastBattleAt: string | null;
+}
+
+/**
+ * Most-played opponents over the last 30 days (concept §5 "Rivals").
+ *
+ * `apply_post_battle_rewards` has been writing the `rivals` table on every
+ * completed non-bot battle since the beginning, and nothing has ever read it --
+ * the table, its purpose-built index and its RLS policy all existed with zero
+ * client references. This is the read path.
+ *
+ * Note `battles_count_30d` is a monotonic counter that nothing decays, so the
+ * "30d" in its name is aspirational. `last_battle_at` is filtered here so a
+ * long-dormant pairing does not sit at the top of the list forever; fixing the
+ * counter itself needs a server-side sweep.
+ */
+export async function getRivals(limit = 5): Promise<RivalSummary[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from('rivals')
+    .select('rival_profile_id, battles_count_30d, last_battle_at')
+    .eq('profile_id', user.id)
+    .gte('last_battle_at', since)
+    .order('battles_count_30d', { ascending: false })
+    .limit(limit);
+
+  if (error || !data || data.length === 0) return [];
+
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, username, display_name')
+    .in('id', data.map((r) => r.rival_profile_id));
+
+  const byId = new Map(
+    (profiles ?? []).map((p) => [p.id as string, p as Record<string, string>]),
+  );
+
+  return data.map((r) => {
+    const p = byId.get(r.rival_profile_id);
+    return {
+      rivalProfileId: r.rival_profile_id,
+      displayName: p?.display_name || p?.username || 'Unknown player',
+      username: p?.username ?? null,
+      battlesCount: r.battles_count_30d ?? 0,
+      lastBattleAt: r.last_battle_at ?? null,
+    };
+  });
+}

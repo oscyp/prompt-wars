@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '@/utils/supabase';
 import { BattleFormat, BattleRound, StatBlock } from '@/types/battle';
@@ -141,6 +142,9 @@ export function useRealtimeBattle(battleId: string | null) {
     fetchBattleData();
 
     let channel: RealtimeChannel;
+    // subscribe() is async, so the effect can tear down before `channel` is
+    // assigned. Without this the channel would leak, never unsubscribed.
+    let cancelled = false;
 
     const subscribe = async () => {
       channel = supabase
@@ -258,9 +262,26 @@ export function useRealtimeBattle(battleId: string | null) {
 
     subscribe();
 
+    // Foreground refetch. supabase-js may rejoin the socket after a background
+    // period, but it may also not -- and `fetchBattleData` applies results only
+    // `if (res.data)`, so a failed refetch silently keeps stale state on screen.
+    // Without this, coming back to a battle after a round transition could show
+    // the previous round indefinitely. The only other AppState listener in the
+    // app is the auth-refresh one in utils/supabase.ts.
+    const appStateSub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'active') {
+        fetchBattleData();
+      }
+    });
+
     return () => {
+      cancelled = true;
+      appStateSub.remove();
       if (channel) {
-        channel.unsubscribe();
+        // removeChannel, not just unsubscribe: unsubscribe leaves the channel
+        // registered on the client, so remounting the same battle accumulates
+        // dead channels for the life of the session.
+        supabase.removeChannel(channel);
       }
       setIsSubscribed(false);
     };

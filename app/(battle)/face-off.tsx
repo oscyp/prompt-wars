@@ -11,7 +11,7 @@ import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import FaceOffPortraits, { FaceOffPlayer } from '@/components/FaceOffPortraits';
-import { supabase } from '@/utils/supabase';
+import { supabase, invokeFunctionResult } from '@/utils/supabase';
 import { StatBlock } from '@/types/battle';
 import { leaveBattle } from '@/utils/battles';
 
@@ -101,9 +101,9 @@ export default function FaceOffScreen() {
     let cancelled = false;
     async function signPortraits() {
       try {
-        const { data, error } = await supabase.functions.invoke(
+        const { data, error } = await invokeFunctionResult(
           'sign-battle-portraits',
-          { body: { battle_id: battleId } },
+          { battle_id: battleId },
         );
         if (cancelled || error || !data) return;
         const payload = data as SignBattlePortraitsResponse;

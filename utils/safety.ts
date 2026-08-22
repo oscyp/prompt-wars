@@ -7,7 +7,7 @@
 import { Platform, Dimensions } from 'react-native';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
-import { supabase } from './supabase';
+import { supabase, invokeFunctionResult } from './supabase';
 
 export interface ReportContentParams {
   reportedType: 'battle' | 'video' | 'profile';
@@ -31,19 +31,19 @@ export interface ReportContentResult {
 export async function reportContent(
   params: ReportContentParams
 ): Promise<ReportContentResult> {
-  const { data, error } = await supabase.functions.invoke('report-intake', {
-    body: {
+  const { data, error } = await invokeFunctionResult<{ report_id: string; blocked: boolean; message: string }>('report-intake', {
       reported_type: params.reportedType,
       reported_id: params.reportedId,
       reported_profile_id: params.reportedProfileId,
       reason: params.reason,
       description: params.description,
       apply_block: params.applyBlock,
-    },
-  });
+    });
 
-  if (error) {
-    throw new Error(error.message || 'Failed to submit report');
+  if (error || !data) {
+    // The wrapper returns data: null on failure; reading fields off it would
+    // have thrown a less useful TypeError than the server's own message.
+    throw new Error(error?.message || 'Failed to submit report');
   }
 
   return {
@@ -58,9 +58,7 @@ export async function reportContent(
  * Calls block-profile Edge Function
  */
 export async function blockUser(blockedProfileId: string): Promise<void> {
-  const { error } = await supabase.functions.invoke('block-profile', {
-    body: { blocked_profile_id: blockedProfileId },
-  });
+  const { error } = await invokeFunctionResult('block-profile', { blocked_profile_id: blockedProfileId });
 
   if (error) {
     throw new Error(error.message || 'Failed to block user');
@@ -72,9 +70,7 @@ export async function blockUser(blockedProfileId: string): Promise<void> {
  * Calls unblock-profile Edge Function
  */
 export async function unblockUser(blockedProfileId: string): Promise<void> {
-  const { error } = await supabase.functions.invoke('unblock-profile', {
-    body: { blocked_profile_id: blockedProfileId },
-  });
+  const { error } = await invokeFunctionResult('unblock-profile', { blocked_profile_id: blockedProfileId });
 
   if (error) {
     throw new Error(error.message || 'Failed to unblock user');
@@ -175,18 +171,16 @@ export interface AccountGuardResult {
 export async function checkAccountEligibility(
   params: AccountGuardParams
 ): Promise<AccountGuardResult> {
-  const { data, error } = await supabase.functions.invoke('account-farm-guard', {
-    body: {
+  const { data, error } = await invokeFunctionResult<AccountGuardResult & Record<string, never>>('account-farm-guard', {
       action: params.action,
       device_fingerprint: params.deviceFingerprint,
       ip_address: params.ipAddress,
       platform: params.platform,
       device_attestation_token: params.deviceAttestationToken,
-    },
-  });
+    });
 
-  if (error) {
-    throw new Error(error.message || 'Failed to check account eligibility');
+  if (error || !data) {
+    throw new Error(error?.message || 'Failed to check account eligibility');
   }
 
   return {

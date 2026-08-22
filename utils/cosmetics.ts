@@ -1,7 +1,7 @@
 // Client-side cosmetics shop API helpers.
 // Cosmetics are strictly cosmetic; all ownership/purchase/equip is server-owned.
 
-import { supabase } from './supabase';
+import { supabase, invokeFunctionResult } from './supabase';
 
 export type CosmeticType =
   | 'frame'
@@ -45,9 +45,7 @@ export interface CosmeticsCatalog {
  * List the cosmetics catalog with ownership flags for the current player.
  */
 export async function listCosmetics(): Promise<CosmeticsCatalog | null> {
-  const { data, error } = await supabase.functions.invoke('cosmetics', {
-    body: { action: 'list' },
-  });
+  const { data, error } = await invokeFunctionResult('cosmetics', { action: 'list' });
   if (error) {
     console.error('listCosmetics error:', error);
     return null;
@@ -62,9 +60,7 @@ export async function listCosmetics(): Promise<CosmeticsCatalog | null> {
 export async function purchaseCosmetic(slug: string): Promise<
   CosmeticsCatalog & { success: boolean; error?: string }
 > {
-  const { data, error } = await supabase.functions.invoke('cosmetics', {
-    body: { action: 'purchase', cosmetic_slug: slug },
-  });
+  const { data, error } = await invokeFunctionResult<CosmeticsCatalog & { success: boolean; error?: string }>('cosmetics', { action: 'purchase', cosmetic_slug: slug });
   if (error) {
     return {
       success: false,
@@ -73,7 +69,10 @@ export async function purchaseCosmetic(slug: string): Promise<
       owned_count: 0,
     };
   }
-  return data;
+  // `data` is nullable now that the call goes through the typed wrapper. It was
+  // implicitly `any` before, so a null body silently became a "successful"
+  // result object with undefined fields.
+  return data ?? { success: false, error: 'Empty response', items: [], owned_count: 0 };
 }
 
 /**
@@ -84,27 +83,27 @@ export async function equipCosmetic(
   cosmeticType: CosmeticType,
   slug: string | null,
 ): Promise<{ success: boolean; error?: string; equipped?: string | null }> {
-  const { data, error } = await supabase.functions.invoke('cosmetics', {
-    body: {
+  const { data, error } = await invokeFunctionResult<{
+    success: boolean;
+    error?: string;
+    equipped?: string | null;
+  }>('cosmetics', {
       action: 'equip',
       character_id: characterId,
       cosmetic_type: cosmeticType,
       cosmetic_slug: slug,
-    },
-  });
+    });
   if (error) {
     return { success: false, error: error.message };
   }
-  return data;
+  return data ?? { success: false, error: 'Empty response' };
 }
 
 /**
  * Grant all free / earned / subscription cosmetics the player now qualifies for.
  */
 export async function syncCosmetics(): Promise<CosmeticsCatalog | null> {
-  const { data, error } = await supabase.functions.invoke('cosmetics', {
-    body: { action: 'sync' },
-  });
+  const { data, error } = await invokeFunctionResult('cosmetics', { action: 'sync' });
   if (error) {
     console.error('syncCosmetics error:', error);
     return null;

@@ -194,23 +194,14 @@ export default function SettingsScreen() {
           Accessibility
         </Text>
 
-        <View style={styles.settingRow}>
-          <Text
-            style={[
-              styles.settingLabel,
-              { color: colors.text },
-              accessibleText,
-            ]}
-          >
-            Dynamic Type
-          </Text>
-          <Switch
-            value={a11y.dynamicType}
-            onValueChange={(v) => toggleA11y('dynamicType', v)}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            accessibilityLabel="Toggle dynamic type"
-          />
-        </View>
+        {/* "Dynamic Type" used to be a switch here. It wrote a preference that
+            nothing read -- no allowFontScaling, no maxFontSizeMultiplier, no
+            consumer anywhere -- so flipping it did nothing at all.
+            It is removed rather than wired because React Native honours the
+            OS text-size setting by default (allowFontScaling defaults to true),
+            so the app already supports Dynamic Type. The switch promised
+            control over something that needs no control, and an accessibility
+            toggle that silently does nothing is worse than no toggle. */}
 
         <View style={styles.settingRow}>
           <Text

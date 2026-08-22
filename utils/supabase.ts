@@ -190,3 +190,35 @@ export async function invokeAuthenticatedFunction<T>(
 
   return data as T;
 }
+
+/**
+ * `{ data, error }` adapter over `invokeAuthenticatedFunction`.
+ *
+ * Seventeen call sites used `supabase.functions.invoke` directly and so got
+ * none of the auth handling this module provides: no pre-emptive refresh when
+ * the token is within 60s of expiry, and no retry on 401. After a token lapse
+ * they simply failed -- silently, in the case of cosmetics purchase, video
+ * upgrade, reporting and the daily-meta claims.
+ *
+ * `invokeAuthenticatedFunction` throws where `functions.invoke` returns an
+ * error object, so converting each site by hand would have meant rewriting
+ * every caller's error handling too. This keeps the existing contract exactly
+ * and changes one line per site.
+ *
+ * Prefer `invokeAuthenticatedFunction` directly in new code -- throwing is the
+ * better interface. This exists so an established pattern could be migrated
+ * without churning thirteen error paths.
+ */
+export async function invokeFunctionResult<T>(
+  functionName: string,
+  body: Record<string, unknown> = {},
+): Promise<{ data: T | null; error: { message: string } | null }> {
+  try {
+    return { data: await invokeAuthenticatedFunction<T>(functionName, body), error: null };
+  } catch (err) {
+    return {
+      data: null,
+      error: { message: err instanceof Error ? err.message : 'Request failed' },
+    };
+  }
+}

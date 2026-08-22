@@ -38,12 +38,24 @@ export default function RankingsScreen() {
 
       setSeason(seasonData);
 
-      // Get rankings for current season
-      const { data: rankingsData, error } = await supabase
+      // Get rankings for current season.
+      //
+      // The season was fetched and then used only for the header text -- the
+      // query itself had no season filter, despite `rankings` being UNIQUE on
+      // (profile_id, season_id). With one season that happens to look right;
+      // the moment a second exists the list interleaves seasons and `rank`
+      // values collide, so two different players both render as rank 1.
+      let query = supabase
         .from('rankings')
         .select('*, profile:profiles(username, display_name)')
         .order('rank', { ascending: true })
         .limit(50);
+
+      if (seasonData?.id) {
+        query = query.eq('season_id', seasonData.id);
+      }
+
+      const { data: rankingsData, error } = await query;
 
       if (error) {
         console.error('Failed to load rankings:', error);

@@ -2,7 +2,7 @@
 // All engagement logic is server-owned; these helpers only invoke Edge
 // Functions and surface typed results.
 
-import { supabase } from './supabase';
+import { supabase, invokeFunctionResult } from './supabase';
 
 export interface DailyQuest {
   id: string;
@@ -57,9 +57,7 @@ export interface FirstTimeOffer {
  * grants newly-earned cosmetics, and returns the daily-meta state.
  */
 export async function syncDailyMeta(): Promise<DailyMetaState | null> {
-  const { data, error } = await supabase.functions.invoke('daily-meta', {
-    body: { action: 'sync' },
-  });
+  const { data, error } = await invokeFunctionResult('daily-meta', { action: 'sync' });
   if (error) {
     console.error('syncDailyMeta error:', error);
     return null;
@@ -73,13 +71,11 @@ export async function syncDailyMeta(): Promise<DailyMetaState | null> {
 export async function claimQuest(
   questId: string,
 ): Promise<{ success: boolean; credits_granted?: number; error?: string }> {
-  const { data, error } = await supabase.functions.invoke('daily-meta', {
-    body: { action: 'claim_quest', quest_id: questId },
-  });
+  const { data, error } = await invokeFunctionResult<{ success: boolean; credits_granted?: number; error?: string }>('daily-meta', { action: 'claim_quest', quest_id: questId });
   if (error) {
     return { success: false, error: error.message };
   }
-  return data;
+  return data ?? { success: false, error: 'Empty response' };
 }
 
 /**
@@ -87,9 +83,7 @@ export async function claimQuest(
  * eligible). Safe to call on every app foreground.
  */
 export async function getFirstTimeOffer(): Promise<FirstTimeOffer | null> {
-  const { data, error } = await supabase.functions.invoke('first-time-offer', {
-    body: { action: 'get' },
-  });
+  const { data, error } = await invokeFunctionResult('first-time-offer', { action: 'get' });
   if (error) {
     console.error('getFirstTimeOffer error:', error);
     return null;
@@ -101,9 +95,7 @@ export async function getFirstTimeOffer(): Promise<FirstTimeOffer | null> {
  * Dismiss the first-time-user offer (a player only ever gets one).
  */
 export async function dismissFirstTimeOffer(): Promise<boolean> {
-  const { data, error } = await supabase.functions.invoke('first-time-offer', {
-    body: { action: 'dismiss' },
-  });
+  const { data, error } = await invokeFunctionResult('first-time-offer', { action: 'dismiss' });
   if (error) {
     console.error('dismissFirstTimeOffer error:', error);
     return false;

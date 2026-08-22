@@ -90,15 +90,29 @@ export default function PromptEntryScreen() {
   const {
     battle: rtBattle,
     prompts,
+    rounds,
     format,
     current_round,
-    current_round_data,
     series_score,
     hp,
     hp_max,
   } = useRealtimeBattle(battleId || null);
 
   const roundNumber = round ? Number(round) : current_round;
+
+  // Derive the round from the number THIS SCREEN is showing, not from
+  // battle.current_round.
+  //
+  // The hook's `current_round_data` is keyed strictly off `battle.current_round`,
+  // but this screen takes its round from the `?round=` param. Right after
+  // round-result navigates to round N+1 the server has not advanced yet, so
+  // `current_round` is still N -- and the countdown and the "opponent locked
+  // in" indicator described the previous round while the player wrote for the
+  // next one. round-result.tsx already derives correctly; this mirrors it.
+  const roundData = useMemo(
+    () => rounds.find((r) => r.round_number === roundNumber) ?? null,
+    [rounds, roundNumber],
+  );
   const isBo3 = format === 'bo3';
 
   const isPlayerOne = rtBattle?.player_one_id === user?.id;
@@ -171,7 +185,7 @@ export default function PromptEntryScreen() {
 
   // Lock-in deadline for the countdown: per-round for Bo3, per-player for single.
   const myDeadline = isBo3
-    ? (current_round_data?.lock_in_deadline ?? null)
+    ? (roundData?.lock_in_deadline ?? null)
     : isPlayerOne
       ? (rtBattle?.player_one_prompt_deadline ?? null)
       : (rtBattle?.player_two_prompt_deadline ?? null);
@@ -182,7 +196,7 @@ export default function PromptEntryScreen() {
   const opponentHasLocked = useMemo<boolean>(() => {
     if (!rtBattle) return false;
     if (isBo3) {
-      const rd = current_round_data;
+      const rd = roundData;
       if (!rd) return false;
       return Boolean(
         isPlayerOne ? rd.player_two_locked_at : rd.player_one_locked_at,
@@ -193,7 +207,7 @@ export default function PromptEntryScreen() {
         ? rtBattle.player_two_locked_at
         : rtBattle.player_one_locked_at,
     );
-  }, [rtBattle, isBo3, current_round_data, isPlayerOne]);
+  }, [rtBattle, isBo3, roundData, isPlayerOne]);
 
   // Live custom-prompt quality hints (mirrors the judge's length
   // normalization; theme check is a simple keyword heuristic).
