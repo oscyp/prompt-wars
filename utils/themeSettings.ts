@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * archetype art) is designed on near-black. Light stays fully supported —
  * users can pick `light` or `system` in Settings → Appearance.
  *
- * Mirrors the module-flag + AsyncStorage pattern of utils/soundSettings.ts /
+ * Mirrors the module-flag + AsyncStorage pattern of
  * utils/accessibilitySettings.ts: synchronous reads for non-React consumers,
  * a subscriber registry for live updates, and a hydrate call on app start.
  */

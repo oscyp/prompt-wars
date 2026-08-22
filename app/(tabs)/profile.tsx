@@ -145,7 +145,7 @@ export default function ProfileScreen() {
       >
         <Text style={[styles.navTitle, { color: colors.text }]}>Battle History</Text>
         <Text style={[styles.navDescription, { color: colors.textSecondary }]}>
-          View your prompt journal and past battles
+          View your stats and past battles
         </Text>
       </TouchableOpacity>
 

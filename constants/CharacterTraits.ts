@@ -148,6 +148,50 @@ export const TRAIT_LABELS: {
   },
 };
 
+/**
+ * Short, evocative descriptions of what each abstract trait value *renders* as.
+ * The portrait is a paid AI render, so users can't preview a trait before
+ * paying — these sentences are the preview. Keep them concrete and visual.
+ */
+export const TRAIT_DESCRIPTIONS: {
+  vibe: Record<Vibe, string>;
+  silhouette: Record<Silhouette, string>;
+  era: Record<Era, string>;
+  expression: Record<Expression, string>;
+} = {
+  vibe: {
+    heroic: 'Noble stance, bright resolve — the champion the crowd roots for.',
+    sinister: 'Shadowed menace with a cruel edge; villainy worn openly.',
+    mischievous: 'A playful glint and loose posture, always one trick ahead.',
+    stoic: 'Unmoved and unreadable — calm that never cracks.',
+    unhinged: 'Wild-eyed and unpredictable, one breath from chaos.',
+    regal: 'Commanding poise and cold confidence; born to rule.',
+  },
+  silhouette: {
+    lean_duelist: 'Slender and poised, built for speed and precise strikes.',
+    heavy_bruiser: 'Massive frame and broad shoulders that punch through walls.',
+    slim_trickster: 'Light, nimble, and hard to pin down.',
+    armored_knight: 'Plated head to toe — a walking fortress.',
+    robed_mystic: 'Flowing robes and arcane weight; power without bulk.',
+    sharp_tactician: 'Trim and deliberate, every line suggesting a plan.',
+  },
+  era: {
+    ancient: 'Bronze, stone, and myth — forged before history.',
+    industrial: 'Soot, brass, and gears from the age of smoke.',
+    modern: 'Clean, contemporary styling grounded in the here and now.',
+    cyberpunk: 'Neon glow, chrome, and street-tech grit.',
+    far_future: 'Sleek alloys and impossible light from ages to come.',
+  },
+  expression: {
+    smirk: 'A half-smile that says they already know the ending.',
+    glare: 'A hard, locked-on stare meant to unsettle.',
+    calm: 'Serene and centered, untouched by the noise.',
+    roar: 'Mid-battle cry — teeth bared, full fury.',
+    smile: 'Warm and open, disarming before the clash.',
+    thousand_yard: 'Distant, haunted eyes of a veteran of too many wars.',
+  },
+};
+
 export type ArchetypeForTraits =
   | 'strategist'
   | 'trickster'

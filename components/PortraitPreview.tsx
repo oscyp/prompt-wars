@@ -12,13 +12,30 @@ import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 
 interface PortraitPreviewProps {
   uri: string;
+  /**
+   * Width of the frame in px. For `fullBody` the height is derived from a
+   * 2:3 aspect ratio (size * 1.5).
+   */
   size?: number;
   loading?: boolean;
   caption?: string;
   accessibilityLabel?: string;
   /** Portraits are AI-generated; the disclosure badge is on by default (§22). */
   showAiBadge?: boolean;
+  /**
+   * `circle` — legacy avatar crop (battle strips, small contexts). Tall
+   * sources are top-aligned so the face survives the crop.
+   * `fullBody` — 2:3 frame with `contain` scaling: the full render (head to
+   * feet, signature item) is always visible regardless of source aspect
+   * (square from some providers, 2:3 vertical from others).
+   */
+  variant?: 'circle' | 'fullBody';
 }
+
+const FRAME_BORDER = 3;
+const FRAME_PADDING = 4;
+/** Full-body renders target a 2:3 (width:height) portrait aspect. */
+const FULL_BODY_ASPECT = 1.5;
 
 export default function PortraitPreview({
   uri,
@@ -27,6 +44,7 @@ export default function PortraitPreview({
   caption,
   accessibilityLabel = 'Character portrait',
   showAiBadge = true,
+  variant = 'circle',
 }: PortraitPreviewProps) {
   const colors = useThemedColors();
   const pulse = useRef(new Animated.Value(0.6)).current;
@@ -54,31 +72,75 @@ export default function PortraitPreview({
     return () => anim.stop();
   }, [loading, pulse]);
 
+  const isFullBody = variant === 'fullBody';
+  const frameWidth = size;
+  const frameHeight = isFullBody ? Math.round(size * FULL_BODY_ASPECT) : size;
+  const frameRadius = isFullBody ? BorderRadius.lg : size / 2;
+  const innerWidth = frameWidth - FRAME_PADDING * 2;
+  const innerHeight = frameHeight - FRAME_PADDING * 2;
+  const innerRadius = isFullBody
+    ? Math.max(BorderRadius.lg - FRAME_PADDING, 0)
+    : innerWidth / 2;
+
   return (
     <View style={styles.wrapper}>
       <Animated.View
         style={[
           styles.frame,
           {
-            width: size,
-            height: size,
-            borderRadius: size / 2,
+            width: frameWidth,
+            height: frameHeight,
+            borderRadius: frameRadius,
             borderColor: colors.primary,
             opacity: pulse,
           },
         ]}
       >
-        <Image
-          source={{ uri }}
-          style={{
-            width: size - 8,
-            height: size - 8,
-            borderRadius: (size - 8) / 2,
-          }}
-          accessibilityLabel={accessibilityLabel}
-        />
+        {isFullBody ? (
+          // Full-body: never crop. `contain` letterboxes non-2:3 sources
+          // against a neutral fill instead of cutting off head or feet.
+          <View
+            style={{
+              width: innerWidth,
+              height: innerHeight,
+              borderRadius: innerRadius,
+              overflow: 'hidden',
+              backgroundColor: colors.backgroundSecondary,
+            }}
+          >
+            <Image
+              source={{ uri }}
+              style={{ width: innerWidth, height: innerHeight }}
+              resizeMode="contain"
+              accessibilityLabel={accessibilityLabel}
+            />
+          </View>
+        ) : (
+          // Circle avatar: full-body sources are tall — anchor the crop to
+          // the top of the image so the face stays in frame.
+          <View
+            style={{
+              width: innerWidth,
+              height: innerHeight,
+              borderRadius: innerRadius,
+              overflow: 'hidden',
+            }}
+          >
+            <Image
+              source={{ uri }}
+              style={{
+                position: 'absolute',
+                top: 0,
+                width: innerWidth,
+                height: Math.round(innerWidth * FULL_BODY_ASPECT),
+              }}
+              resizeMode="cover"
+              accessibilityLabel={accessibilityLabel}
+            />
+          </View>
+        )}
         {loading ? (
-          <View style={styles.spinnerOverlay}>
+          <View style={[styles.spinnerOverlay, { borderRadius: frameRadius }]}>
             <ActivityIndicator color={colors.primary} size="large" />
           </View>
         ) : null}
@@ -107,7 +169,7 @@ const styles = StyleSheet.create({
   frame: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
+    borderWidth: FRAME_BORDER,
     overflow: 'hidden',
   },
   spinnerOverlay: {
@@ -115,7 +177,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.25)',
-    borderRadius: BorderRadius.full,
   },
   caption: {
     marginTop: Spacing.sm,

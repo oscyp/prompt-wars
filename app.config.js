@@ -42,7 +42,6 @@ module.exports = ({ config: _config }) => {
       'expo-apple-authentication',
       'expo-sharing',
       'expo-video',
-      'expo-audio',
     ],
     experiments: {
       typedRoutes: true,

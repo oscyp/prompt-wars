@@ -1,9 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { useThemedColors } from '@/hooks/useThemedColors';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { hapticWarning } from '@/utils/haptics';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
+
+// Timer escalation thresholds, based purely on time remaining (never on the
+// original window length): warning pulse under 10 minutes, critical color +
+// a one-time haptic under 2 minutes.
+const WARNING_MS = 10 * 60_000;
+const CRITICAL_MS = 2 * 60_000;
 
 export interface VersusStripPlayer {
   name: string;
@@ -41,6 +57,7 @@ function formatRemaining(ms: number): string {
  */
 export default function VersusStrip({ left, right, subtitle, deadline }: VersusStripProps) {
   const colors = useThemedColors();
+  const reduceMotion = useReducedMotion();
 
   // Live countdown to the lock-in deadline; 1s tick only while one is shown.
   const deadlineMs = deadline ? Date.parse(deadline) : NaN;
@@ -53,13 +70,55 @@ export default function VersusStrip({ left, right, subtitle, deadline }: VersusS
   }, [hasDeadline]);
 
   const remainingMs = hasDeadline ? deadlineMs - now : 0;
+  const isCritical = hasDeadline && remainingMs > 0 && remainingMs <= CRITICAL_MS;
+  const isWarning =
+    hasDeadline && remainingMs > 0 && remainingMs <= WARNING_MS && !isCritical;
   const countdownColor = !hasDeadline
     ? colors.textSecondary
-    : remainingMs <= 2 * 60_000
+    : remainingMs <= CRITICAL_MS
       ? colors.error
-      : remainingMs <= 10 * 60_000
+      : remainingMs <= WARNING_MS
         ? colors.warning
         : colors.textSecondary;
+
+  // Subtle pulse on the countdown when time runs short; a touch faster and
+  // larger in the critical band. Honors Reduce Motion (static instead).
+  const pulse = useSharedValue(1);
+  useEffect(() => {
+    const active = (isWarning || isCritical) && !reduceMotion;
+    if (!active) {
+      cancelAnimation(pulse);
+      pulse.value = withTiming(1, { duration: 150 });
+      return;
+    }
+    const scale = isCritical ? 1.12 : 1.06;
+    const half = isCritical ? 350 : 600;
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(scale, { duration: half }),
+        withTiming(1, { duration: half }),
+      ),
+      -1,
+      false,
+    );
+    return () => cancelAnimation(pulse);
+  }, [isWarning, isCritical, reduceMotion, pulse]);
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+  }));
+
+  // One-time haptic when crossing into the critical band (not per tick).
+  // Reset if the deadline itself changes (e.g. a new Bo3 round).
+  const criticalHapticFired = useRef(false);
+  useEffect(() => {
+    criticalHapticFired.current = false;
+  }, [deadline]);
+  useEffect(() => {
+    if (isCritical && !criticalHapticFired.current) {
+      criticalHapticFired.current = true;
+      hapticWarning();
+    }
+  }, [isCritical]);
 
   return (
     <View
@@ -82,12 +141,12 @@ export default function VersusStrip({ left, right, subtitle, deadline }: VersusS
           </Text>
         ) : null}
         {hasDeadline ? (
-          <View style={styles.countdownRow}>
+          <Animated.View style={[styles.countdownRow, pulseStyle]}>
             <Ionicons name="time" size={10} color={countdownColor} />
             <Text style={[styles.countdown, { color: countdownColor }]} numberOfLines={1}>
               {formatRemaining(remainingMs)}
             </Text>
-          </View>
+          </Animated.View>
         ) : null}
       </View>
       <Side player={right} align="right" />

@@ -5,6 +5,76 @@ import {
   getThemePreference,
   subscribeThemePreference,
 } from '@/utils/themeSettings';
+import {
+  getAccessibilityPreferences,
+  subscribeAccessibility,
+} from '@/utils/accessibilitySettings';
+
+/** Widened palette shape shared by the standard and high-contrast variants. */
+export type ThemeColors = { [K in keyof typeof Colors.light]: string };
+
+/**
+ * High-contrast palette variants (Settings → Accessibility → High Contrast
+ * Mode, concept §22a). Same shape as `Colors`, with text/background contrast
+ * pushed toward pure black/white, stronger borders, and darker (light) /
+ * lighter (dark) accents so every accent color meets WCAG AA against its
+ * background. Centralized here — `useThemedColors` is the single point where
+ * theme colors are resolved, so every screen picks this up automatically.
+ */
+export const HighContrastColors: Record<ColorStyle, ThemeColors> = {
+  light: {
+    ...Colors.light,
+    primary: '#5B21B6',
+    primaryDark: '#4C1D95',
+    primaryLight: '#6D28D9',
+    background: '#FFFFFF',
+    backgroundSecondary: '#FFFFFF',
+    backgroundTertiary: '#E5E7EB',
+    text: '#000000',
+    textSecondary: '#1F2937',
+    textTertiary: '#374151',
+    border: '#111827',
+    borderLight: '#4B5563',
+    card: '#FFFFFF',
+    shadow: 'rgba(0, 0, 0, 0.3)',
+    success: '#047857',
+    warning: '#92400E',
+    error: '#B91C1C',
+    info: '#1D4ED8',
+    attack: '#B91C1C',
+    defense: '#1D4ED8',
+    finisher: '#5B21B6',
+    link: '#1D4ED8',
+    tabIconDefault: '#374151',
+    tabIconSelected: '#5B21B6',
+  },
+  dark: {
+    ...Colors.dark,
+    primary: '#C4B5FD',
+    primaryDark: '#A78BFA',
+    primaryLight: '#DDD6FE',
+    background: '#000000',
+    backgroundSecondary: '#0A0A0A',
+    backgroundTertiary: '#1F2937',
+    text: '#FFFFFF',
+    textSecondary: '#F3F4F6',
+    textTertiary: '#D1D5DB',
+    border: '#9CA3AF',
+    borderLight: '#6B7280',
+    card: '#0A0A0A',
+    shadow: 'rgba(0, 0, 0, 0.6)',
+    success: '#6EE7B7',
+    warning: '#FCD34D',
+    error: '#FCA5A5',
+    info: '#93C5FD',
+    attack: '#FCA5A5',
+    defense: '#93C5FD',
+    finisher: '#C4B5FD',
+    link: '#93C5FD',
+    tabIconDefault: '#D1D5DB',
+    tabIconSelected: '#C4B5FD',
+  },
+};
 
 /**
  * Allows a subtree (e.g. the cinematic `(battle)` group) to force a specific
@@ -49,7 +119,27 @@ export function useEffectiveColorScheme(): ColorStyle {
   return preference;
 }
 
-/** Hook to get current theme colors for the effective scheme. */
-export function useThemedColors() {
-  return Colors[useEffectiveColorScheme()];
+/**
+ * Reactively read the persisted "High Contrast Mode" preference (Settings →
+ * Accessibility). `subscribeAccessibility` re-runs the snapshot whenever any
+ * accessibility toggle flips, so screens re-render the instant it changes.
+ */
+function useHighContrast(): boolean {
+  return useSyncExternalStore(
+    subscribeAccessibility,
+    () => getAccessibilityPreferences().highContrast,
+    () => getAccessibilityPreferences().highContrast,
+  );
+}
+
+/**
+ * Hook to get current theme colors for the effective scheme. Returns the
+ * high-contrast palette variant when the user has enabled High Contrast Mode.
+ * This is the single point where theme colors are resolved, so wiring it here
+ * makes the toggle take effect app-wide (every screen reads through this hook).
+ */
+export function useThemedColors(): ThemeColors {
+  const scheme = useEffectiveColorScheme();
+  const highContrast = useHighContrast();
+  return highContrast ? HighContrastColors[scheme] : Colors[scheme];
 }

@@ -529,7 +529,9 @@ export interface FallbackPortraitInput {
 
 /**
  * Returns a deterministic data-URI SVG used as the offline/loading placeholder.
- * Colored circle, archetype initial, item-class glyph badge.
+ * Full-body (2:3) silhouette tinted with the signature color, plus the
+ * archetype initial. Matches the aspect of server-generated full-body renders
+ * so it drops into the same containers without layout shift.
  */
 export function getPortraitFallbackUri(input: FallbackPortraitInput): string {
   const colorKey = input.signatureColor;
@@ -543,16 +545,26 @@ export function getPortraitFallbackUri(input: FallbackPortraitInput): string {
   const initial = ARCHETYPE_INITIAL[input.archetype] ?? '?';
 
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 384" width="256" height="384">
   <defs>
-    <radialGradient id="g" cx="50%" cy="40%" r="60%">
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="${tint}" stop-opacity="0.95"/>
-      <stop offset="100%" stop-color="${tint}" stop-opacity="0.55"/>
-    </radialGradient>
+      <stop offset="100%" stop-color="${tint}" stop-opacity="0.5"/>
+    </linearGradient>
   </defs>
-  <rect width="256" height="256" fill="#111827"/>
-  <circle cx="128" cy="128" r="96" fill="url(#g)" stroke="${tint}" stroke-width="4"/>
-  <text x="128" y="148" font-family="Helvetica,Arial,sans-serif" font-size="96" font-weight="700" fill="#F9FAFB" text-anchor="middle">${initial}</text>
+  <rect width="256" height="384" fill="#111827"/>
+  <ellipse cx="128" cy="352" rx="82" ry="14" fill="${tint}" opacity="0.25"/>
+  <g fill="url(#g)" stroke="${tint}" stroke-width="3" stroke-linejoin="round">
+    <circle cx="128" cy="74" r="34"/>
+    <path d="M128 114
+      c -30 0 -50 20 -54 48
+      l -12 66 c -1 8 4 14 11 14 l 13 0
+      l 6 66 c 1 8 6 14 13 14 l 8 0 l 7 -60 l 16 0 l 7 60 l 8 0
+      c 7 0 12 -6 13 -14 l 6 -66 l 13 0
+      c 7 0 12 -6 11 -14 l -12 -66
+      c -4 -28 -24 -48 -54 -48 z"/>
+  </g>
+  <text x="128" y="212" font-family="Helvetica,Arial,sans-serif" font-size="64" font-weight="700" fill="#F9FAFB" text-anchor="middle">${initial}</text>
 </svg>`;
 
   // base64 to be safe for RN `<Image>` data URIs

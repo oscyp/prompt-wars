@@ -248,6 +248,53 @@ export async function getMyBattles(limit = 20) {
   return data;
 }
 
+export interface BattleTemplate {
+  id: string;
+  title: string;
+  body: string;
+  category: string | null;
+  /** One template per move type; null-safe for legacy payloads. */
+  suggested_move_type: MoveType | null;
+}
+
+const MOVE_TYPES: readonly MoveType[] = ['attack', 'defense', 'finisher'];
+
+function asMoveType(value: unknown): MoveType | null {
+  return MOVE_TYPES.includes(value as MoveType) ? (value as MoveType) : null;
+}
+
+/**
+ * Battle-scoped template serving: up to 3 ranked-safe templates (one per move
+ * type) for this battle. Server-validated (participants only). Returns null on
+ * any failure so callers can fall back to `getPromptTemplates()` — e.g. when
+ * the `get_battle_templates` migration hasn't been deployed yet.
+ */
+export async function getBattleTemplates(
+  battleId: string,
+): Promise<BattleTemplate[] | null> {
+  try {
+    const { data, error } = await supabase.rpc('get_battle_templates', {
+      p_battle_id: battleId,
+    });
+
+    if (error || !Array.isArray(data) || data.length === 0) {
+      if (error) console.error('Battle templates error:', error);
+      return null;
+    }
+
+    return (data as Record<string, unknown>[]).slice(0, 3).map((row) => ({
+      id: String(row.id),
+      title: String(row.title ?? ''),
+      body: String(row.body ?? ''),
+      category: row.category == null ? null : String(row.category),
+      suggested_move_type: asMoveType(row.suggested_move_type),
+    }));
+  } catch (err) {
+    console.error('Battle templates exception:', err);
+    return null;
+  }
+}
+
 /**
  * Get prompt templates
  */

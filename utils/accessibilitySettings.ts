@@ -3,8 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 /**
  * Persisted accessibility preferences (concept doc §22a).
  *
- * Mirrors the module-flag + AsyncStorage pattern of utils/soundSettings.ts so
- * non-React consumers (e.g. the shared `useReducedMotion` hook) can read the
+ * Uses a module flag plus AsyncStorage so non-React consumers (e.g. the shared
+ * `useReducedMotion` hook) can read the
  * current value synchronously, while React components can subscribe for live
  * updates when the user flips a toggle in Settings.
  *

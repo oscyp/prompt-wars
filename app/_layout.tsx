@@ -8,7 +8,6 @@ import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { RevenueCatProvider } from '@/providers/RevenueCatProvider';
 import { supabase } from '@/utils/supabase';
-import { loadSoundEnabled } from '@/utils/soundSettings';
 import { loadAccessibilityPreferences } from '@/utils/accessibilitySettings';
 import { loadThemePreference } from '@/utils/themeSettings';
 import { useEffectiveColorScheme } from '@/hooks/useThemedColors';
@@ -103,10 +102,9 @@ export default function RootLayout() {
     // Add custom fonts here if needed
   });
 
-  // Hydrate persisted preferences before the first reveal so audio, motion,
-  // and theme honor the user's saved choices from the very first frame.
+  // Hydrate persisted preferences before the first reveal so motion and theme
+  // honor the user's saved choices from the very first frame.
   useEffect(() => {
-    loadSoundEnabled();
     loadAccessibilityPreferences();
     loadThemePreference();
   }, []);

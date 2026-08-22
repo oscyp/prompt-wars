@@ -220,7 +220,13 @@ const TASKS = [
     async save(buf) {
       // JPEG (not webp): RN core <Image> on iOS cannot decode webp.
       const out = path.join(STYLES_DIR, `${key}.jpg`);
-      await sharp(buf).resize(512, 512, { fit: 'cover' }).jpeg({ quality: 85, mozjpeg: true }).toFile(out);
+      // No mozjpeg: its preset forces progressive encoding (even with
+      // progressive:false), and RN's iOS <Image> can render only the first
+      // scan of progressive JPEGs — a blurry color wash instead of the art.
+      await sharp(buf)
+        .resize(512, 512, { fit: 'cover' })
+        .jpeg({ quality: 85, progressive: false })
+        .toFile(out);
       return [out];
     },
   })),
@@ -325,7 +331,7 @@ const TASKS = [
       const out = path.join(UI_DIR, `${key}.jpg`);
       await sharp(buf)
         .resize(size[0], size[1], { fit: 'cover' })
-        .jpeg({ quality: 85, mozjpeg: true })
+        .jpeg({ quality: 85, progressive: false })
         .toFile(out);
       return [out];
     },

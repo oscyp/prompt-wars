@@ -728,14 +728,16 @@ function StepPortrait({
 
       <PortraitPreview
         uri={portraitUri}
+        variant="fullBody"
+        size={200}
         loading={generating}
         caption={
           generating
-            ? 'Conjuring your character…'
+            ? 'Conjuring your full-body render…'
             : draft.portrait
               ? 'Looking sharp.'
               : draft.portraitFailed
-                ? "We'll keep working on this one."
+                ? 'Placeholder shown — no render yet.'
                 : undefined
         }
       />
@@ -873,22 +875,32 @@ function StepPortrait({
         )}
       </View>
 
-      {errorMsg && (
+      {(errorMsg || draft.portraitFailed) && !generating && !draft.portrait && (
         <View
           style={[styles.banner, { backgroundColor: colors.backgroundTertiary }]}
         >
           <Text style={[styles.bannerText, { color: colors.text }]}>
-            Portrait will be ready soon. {errorMsg}
+            Image generation is unavailable right now — you're seeing a
+            placeholder instead of your character render.
+            {errorMsg ? ` (${errorMsg})` : ''}
           </Text>
-        </View>
-      )}
-      {draft.portraitFailed && !errorMsg && (
-        <View
-          style={[styles.banner, { backgroundColor: colors.backgroundTertiary }]}
-        >
-          <Text style={[styles.bannerText, { color: colors.text }]}>
-            Portrait will be ready soon.
-          </Text>
+          <TouchableOpacity
+            onPress={() => run()}
+            disabled={generating || (isPrompt && draft.prompt.trim().length === 0)}
+            accessibilityRole="button"
+            accessibilityLabel="Retry portrait generation"
+            style={[
+              styles.secondaryBtn,
+              styles.bannerRetryBtn,
+              { borderColor: colors.border },
+              (generating || (isPrompt && draft.prompt.trim().length === 0)) &&
+                styles.btnDisabled,
+            ]}
+          >
+            <Text style={[styles.secondaryBtnText, { color: colors.text }]}>
+              Retry generation
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -1210,7 +1222,16 @@ function StepPreview({ draft }: { draft: Draft }) {
           { borderColor: tint, backgroundColor: colors.card },
         ]}
       >
-        <PortraitPreview uri={portraitUri} size={180} />
+        <PortraitPreview
+          uri={portraitUri}
+          variant="fullBody"
+          size={160}
+          caption={
+            !draft.portrait && draft.portraitFailed
+              ? 'Placeholder image'
+              : undefined
+          }
+        />
         <Text style={[styles.previewName, { color: colors.text }]}>
           {draft.name}
         </Text>
@@ -1402,6 +1423,9 @@ const styles = StyleSheet.create({
   },
   bannerText: {
     fontSize: Typography.sizes.sm,
+  },
+  bannerRetryBtn: {
+    marginTop: Spacing.sm,
   },
   footer: {
     flexDirection: 'row',

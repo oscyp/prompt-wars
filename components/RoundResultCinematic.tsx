@@ -31,9 +31,8 @@ import { VideoJobUpdate } from '@/hooks/useRealtimeBattle';
 import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
 
 /**
- * Winner voice line carried by the reveal payload. `asset_url` is null until
- * server-side TTS enrichment runs; until then the client speaks `text` via
- * on-device `expo-speech`. All fields optional for defensive client parsing.
+ * Legacy voice-line metadata carried by older reveal payloads. The silent
+ * client ignores it; fields remain optional for backward-compatible parsing.
  */
 export interface RevealBattleCryVoice {
   voice_preset?: string;
@@ -43,9 +42,8 @@ export interface RevealBattleCryVoice {
 }
 
 /**
- * Client-facing subset of the server `reveal_spec` (RevealPayloadV1). Only the
- * fields the audio layer needs are typed; ids line up 1:1 with the registry in
- * `constants/RevealAudio.ts`. All fields optional for defensive client parsing.
+ * Client-facing subset of the server `reveal_spec` (RevealPayloadV1). Legacy
+ * audio fields remain typed only for backward-compatible payload parsing.
  */
 export interface RevealSpec {
   composition_type?: 'motion_poster' | 'static_scorecard';
@@ -180,10 +178,7 @@ export default function RoundResultCinematic({
   }));
 
   const tier1Ready =
-    !!videoJob &&
-    videoJob.status === 'succeeded' &&
-    !!videoJob.video_url &&
-    isModerationApproved;
+    !!videoJob && videoJob.status === 'succeeded' && isModerationApproved;
 
   const tier1Pending =
     !!videoJob &&
@@ -192,9 +187,7 @@ export default function RoundResultCinematic({
       videoJob.status === 'pending');
 
   const tier1Blurred =
-    !!videoJob &&
-    videoJob.status === 'succeeded' &&
-    !isModerationApproved;
+    !!videoJob && videoJob.status === 'succeeded' && !isModerationApproved;
 
   const baseColor = tier0Payload?.winnerColor ?? colors.primary;
   const stops = Gradients.poster(baseColor);
@@ -334,9 +327,7 @@ export default function RoundResultCinematic({
       ) : null}
 
       {tier0Payload?.summary ? (
-        <Text
-          style={[styles.summary, { color: colors.textSecondary }]}
-        >
+        <Text style={[styles.summary, { color: colors.textSecondary }]}>
           {tier0Payload.summary}
         </Text>
       ) : null}

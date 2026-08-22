@@ -8,6 +8,7 @@ import {
   Pressable,
 } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
+import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { useAuth } from '@/providers/AuthProvider';
 import {
@@ -16,11 +17,6 @@ import {
   setThemePreference,
   type ThemePreference,
 } from '@/utils/themeSettings';
-import {
-  isSoundEnabled,
-  setSoundEnabled,
-  loadSoundEnabled,
-} from '@/utils/soundSettings';
 import {
   getAccessibilityPreferences,
   loadAccessibilityPreferences,
@@ -43,6 +39,9 @@ const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
 
 export default function SettingsScreen() {
   const colors = useThemedColors();
+  // Dyslexia-friendly spacing (§22a) — applied to the Accessibility section so
+  // toggling it gives immediate on-screen feedback where the switch lives.
+  const accessibleText = useAccessibleTextStyle();
   const { user } = useAuth();
 
   // Theme preference — dark-first (docs/DESIGN_LANGUAGE.md), persisted.
@@ -72,18 +71,6 @@ export default function SettingsScreen() {
     setAccessibilityPreference(key, value);
   };
 
-  // Sound & Music (SFX) preference — persisted, read by the reveal audio layer.
-  const [soundEnabled, setSoundEnabledState] = useState(isSoundEnabled());
-
-  useEffect(() => {
-    loadSoundEnabled().then(setSoundEnabledState);
-  }, []);
-
-  const toggleSound = (value: boolean) => {
-    setSoundEnabledState(value);
-    setSoundEnabled(value);
-  };
-
   // Notification preferences (synced with notification_preferences table)
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(
     DEFAULT_NOTIFICATION_PREFERENCES,
@@ -106,12 +93,16 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
 
       {/* Appearance */}
       <View style={[styles.section, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Appearance</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Appearance
+        </Text>
         <View
           style={styles.segmentRow}
           accessibilityRole="radiogroup"
@@ -151,10 +142,22 @@ export default function SettingsScreen() {
 
       {/* Accessibility */}
       <View style={[styles.section, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Accessibility</Text>
+        <Text
+          style={[styles.sectionTitle, { color: colors.text }, accessibleText]}
+        >
+          Accessibility
+        </Text>
 
         <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Dynamic Type</Text>
+          <Text
+            style={[
+              styles.settingLabel,
+              { color: colors.text },
+              accessibleText,
+            ]}
+          >
+            Dynamic Type
+          </Text>
           <Switch
             value={a11y.dynamicType}
             onValueChange={(v) => toggleA11y('dynamicType', v)}
@@ -164,7 +167,15 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Dyslexia-Friendly Font</Text>
+          <Text
+            style={[
+              styles.settingLabel,
+              { color: colors.text },
+              accessibleText,
+            ]}
+          >
+            Dyslexia-Friendly Font
+          </Text>
           <Switch
             value={a11y.dyslexiaFont}
             onValueChange={(v) => toggleA11y('dyslexiaFont', v)}
@@ -174,7 +185,9 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Reduced Motion</Text>
+          <Text style={[styles.settingLabel, { color: colors.text }]}>
+            Reduced Motion
+          </Text>
           <Switch
             value={a11y.reducedMotion}
             onValueChange={(v) => toggleA11y('reducedMotion', v)}
@@ -184,17 +197,9 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Sound &amp; Music</Text>
-          <Switch
-            value={soundEnabled}
-            onValueChange={toggleSound}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            accessibilityLabel="Toggle sound effects and music"
-          />
-        </View>
-
-        <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>High Contrast Mode</Text>
+          <Text style={[styles.settingLabel, { color: colors.text }]}>
+            High Contrast Mode
+          </Text>
           <Switch
             value={a11y.highContrast}
             onValueChange={(v) => toggleA11y('highContrast', v)}
@@ -206,13 +211,17 @@ export default function SettingsScreen() {
 
       {/* Notifications */}
       <View style={[styles.section, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Notifications</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Notifications
+        </Text>
         <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
           Max 2 per day, must-send only for results
         </Text>
 
         <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Battle Results (Must-Send)</Text>
+          <Text style={[styles.settingLabel, { color: colors.text }]}>
+            Battle Results (Must-Send)
+          </Text>
           <Switch
             value={true}
             disabled
@@ -222,7 +231,9 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Opponent&apos;s Turn</Text>
+          <Text style={[styles.settingLabel, { color: colors.text }]}>
+            Opponent&apos;s Turn
+          </Text>
           <Switch
             value={notifPrefs.opponent_submitted}
             onValueChange={(v) => toggleNotif('opponent_submitted', v)}
@@ -232,7 +243,9 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Cinematic Video Ready</Text>
+          <Text style={[styles.settingLabel, { color: colors.text }]}>
+            Cinematic Video Ready
+          </Text>
           <Switch
             value={notifPrefs.video_ready}
             onValueChange={(v) => toggleNotif('video_ready', v)}
@@ -242,7 +255,9 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Daily Quests</Text>
+          <Text style={[styles.settingLabel, { color: colors.text }]}>
+            Daily Quests
+          </Text>
           <Switch
             value={notifPrefs.daily_quest}
             onValueChange={(v) => toggleNotif('daily_quest', v)}
@@ -252,7 +267,9 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Friend Challenges</Text>
+          <Text style={[styles.settingLabel, { color: colors.text }]}>
+            Friend Challenges
+          </Text>
           <Switch
             value={notifPrefs.friend_challenge}
             onValueChange={(v) => toggleNotif('friend_challenge', v)}
@@ -262,7 +279,9 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.settingRow}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>Season Ending</Text>
+          <Text style={[styles.settingLabel, { color: colors.text }]}>
+            Season Ending
+          </Text>
           <Switch
             value={notifPrefs.season_ending}
             onValueChange={(v) => toggleNotif('season_ending', v)}
@@ -273,8 +292,8 @@ export default function SettingsScreen() {
       </View>
 
       <Text style={[styles.note, { color: colors.textTertiary }]}>
-        Battle results always notify you. All other categories respect the 2-per-day cap and your
-        quiet hours.
+        Battle results always notify you. All other categories respect the
+        2-per-day cap and your quiet hours.
       </Text>
     </ScrollView>
   );

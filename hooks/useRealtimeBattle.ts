@@ -30,6 +30,9 @@ export interface BattleUpdate {
   completed_at: string | null;
   player_one_prompt_deadline?: string | null;
   player_two_prompt_deadline?: string | null;
+  /** Stamped when each player locks in (all formats). Null on legacy rows. */
+  player_one_locked_at?: string | null;
+  player_two_locked_at?: string | null;
 
   // Bo3 columns (may be null on legacy rows)
   format?: BattleFormat;
@@ -52,9 +55,7 @@ export interface VideoJobUpdate {
   /** Nullable for legacy single-format jobs. Set for Bo3 per-round jobs. */
   battle_round_id?: string | null;
   status: string;
-  video_url: string | null;
   thumbnail_url: string | null;
-  moderation_status: string | null;
   error_message: string | null;
   /** Newest-first ordering uses this. */
   created_at?: string;

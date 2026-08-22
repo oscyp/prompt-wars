@@ -5,6 +5,8 @@
 export { default as Button } from './Button';
 export { default as TraitPicker } from './TraitPicker';
 export type { TraitOption } from './TraitPicker';
+export { default as TraitStepper } from './TraitStepper';
+export type { StepperOption } from './TraitStepper';
 export { default as PortraitPreview } from './PortraitPreview';
 export { default as ItemGrid } from './ItemGrid';
 export type { ItemGridItem } from './ItemGrid';
@@ -48,3 +50,8 @@ export {
 export type { BattleModeSheetProps } from './BattleModeSheet';
 export { default as VersusStrip } from './VersusStrip';
 export type { VersusStripProps, VersusStripPlayer } from './VersusStrip';
+export { default as SegmentedCategoryBar } from './SegmentedCategoryBar';
+export type {
+  SegmentedCategoryBarProps,
+  SegmentedCategoryItem,
+} from './SegmentedCategoryBar';

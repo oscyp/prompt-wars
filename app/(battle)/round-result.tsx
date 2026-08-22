@@ -12,10 +12,14 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
-import { Spacing, Typography, BorderRadius, Motion } from '@/constants/DesignTokens';
+import {
+  Spacing,
+  Typography,
+  BorderRadius,
+  Motion,
+} from '@/constants/DesignTokens';
 import { hapticHpLoss } from '@/utils/haptics';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
-import { useRevealAudio } from '@/hooks/useRevealAudio';
 import { useAuth } from '@/providers/AuthProvider';
 import HPBar from '@/components/HPBar';
 import AnimatedCounter from '@/components/AnimatedCounter';
@@ -36,20 +40,17 @@ export default function RoundResultScreen() {
     round?: string;
   }>();
 
-  const {
-    battle,
-    rounds,
-    videoJobsByRound,
-    hp_max,
-    current_round,
-  } = useRealtimeBattle(battleId || null);
+  const { battle, rounds, videoJobsByRound, hp_max, current_round } =
+    useRealtimeBattle(battleId || null);
 
   const roundNumber = round ? Number(round) : current_round;
   const roundData: BattleRound | null = useMemo(() => {
     return rounds.find((r) => r.round_number === roundNumber) ?? null;
   }, [rounds, roundNumber]);
 
-  const roundVideoJob = roundNumber ? videoJobsByRound[roundNumber] ?? null : null;
+  const roundVideoJob = roundNumber
+    ? (videoJobsByRound[roundNumber] ?? null)
+    : null;
 
   const prevRound: BattleRound | null = useMemo(() => {
     if (!roundNumber || roundNumber <= 1) return null;
@@ -61,17 +62,21 @@ export default function RoundResultScreen() {
   const myScores = useMemo<Partial<RubricScoreSet>>(() => {
     const j = roundData?.judge_payload;
     if (!j) return {};
-    return (isPlayerOne
-      ? j.player_one_normalized_scores
-      : j.player_two_normalized_scores) ?? {};
+    return (
+      (isPlayerOne
+        ? j.player_one_normalized_scores
+        : j.player_two_normalized_scores) ?? {}
+    );
   }, [roundData, isPlayerOne]);
 
   const oppScores = useMemo<Partial<RubricScoreSet>>(() => {
     const j = roundData?.judge_payload;
     if (!j) return {};
-    return (isPlayerOne
-      ? j.player_two_normalized_scores
-      : j.player_one_normalized_scores) ?? {};
+    return (
+      (isPlayerOne
+        ? j.player_two_normalized_scores
+        : j.player_one_normalized_scores) ?? {}
+    );
   }, [roundData, isPlayerOne]);
 
   const myMove: MoveType | null = useMemo(() => {
@@ -145,20 +150,6 @@ export default function RoundResultScreen() {
     }
   }, [isResultReady, myDamage]);
 
-  // Fire the best-effort Tier 0 reveal audio once, when the round resolves.
-  // Non-blocking and gated on the Sound setting inside the controller.
-  const revealAudio = useRevealAudio();
-  const revealAudioFired = useRef(false);
-  useEffect(() => {
-    if (revealAudioFired.current) return;
-    if (!isResultReady || !tier0) return;
-    revealAudioFired.current = true;
-    revealAudio.play({
-      reveal_spec: tier0.reveal_spec ?? null,
-      battleCryText: tier0.battleCryText ?? null,
-    });
-  }, [isResultReady, tier0, revealAudio]);
-
   const handleContinue = useCallback(() => {
     if (!battleId) return;
     if (isSeriesComplete) {
@@ -185,14 +176,14 @@ export default function RoundResultScreen() {
   }
 
   return (
-    <SafeAreaView
-      style={[styles.root, { backgroundColor: colors.background }]}
-    >
+    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
         <Animated.Text
           style={[styles.heading, { color: colors.text }]}
           entering={
-            reduceMotion ? undefined : FadeInDown.duration(Motion.durations.base)
+            reduceMotion
+              ? undefined
+              : FadeInDown.duration(Motion.durations.base)
           }
         >
           Round {roundData.round_number} Result
@@ -208,7 +199,7 @@ export default function RoundResultScreen() {
           <RoundResultCinematic
             tier0Payload={tier0}
             videoJob={roundVideoJob}
-            isModerationApproved={roundVideoJob?.moderation_status === 'approved'}
+            isModerationApproved={roundVideoJob?.status === 'succeeded'}
           />
         </Animated.View>
 
@@ -329,9 +320,9 @@ export default function RoundResultScreen() {
                   styles.stripe,
                   {
                     backgroundColor:
-                      (battle.player_two_id === user?.id
+                      battle.player_two_id === user?.id
                         ? colors.attack
-                        : colors.defense),
+                        : colors.defense,
                   },
                 ]}
               />
