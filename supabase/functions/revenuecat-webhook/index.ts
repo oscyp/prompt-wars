@@ -3,6 +3,7 @@
 // Validates webhook signatures and enforces idempotency
 
 import { createServiceClient, corsHeaders, errorResponse, successResponse, generateIdempotencyKey } from '../_shared/utils.ts';
+import { buildSubscriptionLifecycleUpdate, isSubscriptionLifecycleEvent } from '../_shared/revenuecat-events.ts';
 
 interface RevenueCatEvent {
   api_version: string;
@@ -137,8 +138,8 @@ async function processWebhookEvent(webhookData: RevenueCatEvent): Promise<Respon
     return await handleSubscriptionRenewal(supabase, event);
   }
   
-  if (event.type === 'CANCELLATION' || event.type === 'EXPIRATION') {
-    return await handleSubscriptionCancellation(supabase, event);
+  if (isSubscriptionLifecycleEvent(event.type)) {
+    return await handleSubscriptionLifecycle(supabase, event, event.type);
   }
   
   // Handle credit pack purchases
@@ -257,26 +258,31 @@ async function handleSubscriptionRenewal(
 }
 
 /**
- * Handle subscription cancellation/expiration
+ * Handle subscription lifecycle events: CANCELLATION / UNCANCELLATION / EXPIRATION.
+ *
+ * CANCELLATION only turns auto-renew off — the user remains PAID until
+ * expires_at, and the entitlement views grant benefits while
+ * status IN ('active','canceled') AND expires_at > now(). The update built by
+ * buildSubscriptionLifecycleUpdate therefore preserves the stored expires_at
+ * (refreshing it only when RevenueCat supplies expiration_at_ms), and
+ * EXPIRATION remains the terminal status that ends benefits.
  */
-async function handleSubscriptionCancellation(
+async function handleSubscriptionLifecycle(
   supabase: ReturnType<typeof createServiceClient>,
-  event: RevenueCatEvent['event']
+  event: RevenueCatEvent['event'],
+  eventType: 'CANCELLATION' | 'UNCANCELLATION' | 'EXPIRATION'
 ): Promise<Response> {
   const { error: subError } = await supabase
     .from('subscriptions')
-    .update({
-      status: event.type === 'CANCELLATION' ? 'canceled' : 'expired',
-      updated_at: new Date().toISOString(),
-    })
+    .update(buildSubscriptionLifecycleUpdate(eventType, event.expiration_at_ms))
     .eq('revenuecat_subscription_id', event.transaction_id);
-  
+
   if (subError) {
-    console.error('Subscription cancellation error:', subError);
-    return errorResponse('Failed to process cancellation', 500);
+    console.error('Subscription lifecycle update error:', eventType, subError);
+    return errorResponse('Failed to process ' + eventType.toLowerCase(), 500);
   }
-  
-  return successResponse({ processed: true, type: event.type.toLowerCase() });
+
+  return successResponse({ processed: true, type: eventType.toLowerCase() });
 }
 
 /**

@@ -91,10 +91,11 @@ export async function generateCharacterPortrait(
   input: PortraitGenerationInput,
 ): Promise<PortraitGenerationResult> {
   const resolvedPrompt = resolvePortraitPrompt(input);
+  // Vertical canvas so full-body characters render head to feet (OpenAI only;
+  // grok-2-image has no size control and returns its own native dimensions).
   return generateWithRouting({
     resolvedPrompt,
-    seed: input.seed,
-    size: '1024x1024',
+    size: '1024x1536',
   });
 }
 
@@ -104,7 +105,6 @@ export async function generateItemIcon(
   const resolvedPrompt = resolveItemIconPrompt(input);
   return generateWithRouting({
     resolvedPrompt,
-    seed: input.seed,
     size: '1024x1024',
   });
 }
@@ -115,8 +115,9 @@ export async function generateItemIcon(
 
 interface RoutingArgs {
   resolvedPrompt: string;
-  seed: number;
-  size: '1024x1024';
+  // gpt-image-1 supported sizes: 1024x1024 (square icons) and 1024x1536
+  // (portrait/full-body). Only sent to OpenAI; xAI ignores size entirely.
+  size: '1024x1024' | '1024x1536';
 }
 
 async function generateWithRouting(args: RoutingArgs): Promise<PortraitGenerationResult> {
@@ -197,10 +198,12 @@ async function callXai(args: RoutingArgs): Promise<PortraitGenerationResult> {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
+      // grok-2-image only supports model/prompt/n/response_format; `seed`,
+      // `size`, `quality`, `style` are unsupported and would 400 every call
+      // (determinism flavor lives in the resolved prompt as "Composition seed").
       body: JSON.stringify({
         model: XAI_MODEL,
         prompt: args.resolvedPrompt,
-        seed: args.seed,
         response_format: 'b64_json',
         n: 1,
       }),

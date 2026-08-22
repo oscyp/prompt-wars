@@ -122,6 +122,24 @@ Deno.serve(async (req) => {
     return err('conflict', 'portrait_seed already set', 409);
   }
 
+  // Roll back the claimed seed on a NON-safety failure so the free first-portrait
+  // path can be retried instead of 409ing to the paid regenerate flow. Guarded to
+  // clear only the seed WE claimed and only while no portrait exists, so a
+  // concurrent success is never clobbered. Safety refusals keep the seed:
+  // they are deterministic (retrying identical inputs refuses again), mirroring
+  // the video pipeline's isRetryableFailedJob which excludes moderation rejections.
+  const releaseClaimedSeed = async () => {
+    const { error: releaseErr } = await supabase
+      .from('characters')
+      .update({ portrait_seed: null })
+      .eq('id', character.id)
+      .eq('portrait_seed', seed)
+      .is('portrait_id', null);
+    if (releaseErr) {
+      console.error('Failed to release portrait_seed after failure:', releaseErr);
+    }
+  };
+
   // Look up signature item fragment if any.
   let itemFragment: string | undefined;
   if (character.signature_item_id) {
@@ -198,6 +216,9 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       })
       .eq('id', job.id);
+    if (code !== 'moderation_rejected') {
+      await releaseClaimedSeed();
+    }
     return err(code, e instanceof Error ? e.message : 'provider failure', 502);
   }
 
@@ -227,6 +248,7 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       })
       .eq('id', job.id);
+    await releaseClaimedSeed();
     return err('storage_error', uploadRes.error.message, 500);
   }
 
@@ -266,6 +288,7 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       })
       .eq('id', job.id);
+    await releaseClaimedSeed();
     return err('server_error', portraitErr?.message ?? 'portrait insert failed', 500);
   }
 

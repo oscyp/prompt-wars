@@ -16,28 +16,20 @@
 // Single-format battles continue to use resolve-battle and never reach this fn.
 
 import {
-  createServiceClient,
   corsHeaders,
+  createServiceClient,
   errorResponse,
-  successResponse,
-  hasSupabaseSecretAuthorization,
-  getSupabasePublishableKey,
   getSupabaseSecretKey,
-} from '../_shared/utils.ts';
-import {
-  runJudgePipeline,
-  JUDGE_PROMPT_VERSION,
-} from '../_shared/judge.ts';
-import { createJudgeProvider } from '../_shared/providers.ts';
-import { MoveType } from '../_shared/types.ts';
-import { checkRoundUpgradeEntitlement } from '../_shared/entitlement-gate.ts';
-import { composePerRoundPayload } from '../_shared/per-round-payload.ts';
+  hasSupabaseSecretAuthorization,
+  successResponse,
+} from "../_shared/utils.ts";
+import { JUDGE_PROMPT_VERSION, runJudgePipeline } from "../_shared/judge.ts";
+import { createJudgeProvider } from "../_shared/providers.ts";
+import { MoveType } from "../_shared/types.ts";
 import {
   composeRevealPayload,
   writeRoundRevealPayload,
-} from '../_shared/compose-reveal-payload.ts';
-import { hashTier1Payload } from '../_shared/compose-tier1-payload.ts';
-import { TIER1_PER_ROUND_COST_UNITS, type VideoJobTrigger } from '../_shared/video-constants.ts';
+} from "../_shared/compose-reveal-payload.ts";
 
 interface RoundResolveRequest {
   battle_id: string;
@@ -63,9 +55,9 @@ interface StatsSnapshot {
 function moveTypeModifier(self: MoveType, opp: MoveType): number {
   if (self === opp) return 0;
   if (
-    (self === 'attack' && opp === 'finisher') ||
-    (self === 'defense' && opp === 'attack') ||
-    (self === 'finisher' && opp === 'defense')
+    (self === "attack" && opp === "finisher") ||
+    (self === "defense" && opp === "attack") ||
+    (self === "finisher" && opp === "defense")
   ) {
     return MOVE_TYPE_WIN;
   }
@@ -87,8 +79,7 @@ function computeStatModifier(
   self: StatsSnapshot,
   opp: StatsSnapshot,
 ): number {
-  const raw =
-    (self.strength - opp.strength) / 20 +
+  const raw = (self.strength - opp.strength) / 20 +
     (self.focus - opp.focus) / 40;
   return Math.max(-STAT_MOD_CAP, Math.min(STAT_MOD_CAP, raw));
 }
@@ -104,12 +95,12 @@ function computeDamage(scoreGap: number, winnerStrength: number): number {
 function readStatsSnapshot(raw: unknown): StatsSnapshot {
   const obj = (raw ?? {}) as Record<string, unknown>;
   const num = (k: string, d: number) =>
-    typeof obj[k] === 'number' ? (obj[k] as number) : d;
+    typeof obj[k] === "number" ? (obj[k] as number) : d;
   return {
-    strength: num('strength', 5),
-    stamina: num('stamina', 5),
-    agility: num('agility', 5),
-    focus: num('focus', 5),
+    strength: num("strength", 5),
+    stamina: num("stamina", 5),
+    agility: num("agility", 5),
+    focus: num("focus", 5),
   };
 }
 
@@ -119,22 +110,40 @@ function readStatsSnapshot(raw: unknown): StatsSnapshot {
  * defense-in-depth check; the structural invariant is enforced by the judge
  * pipeline signature (see `_shared/judge.ts`).
  */
-function assertNoMonetizationDataInScoring(inputs: Record<string, unknown>): void {
+function assertNoMonetizationDataInScoring(
+  inputs: Record<string, unknown>,
+): void {
   const banned = [
-    'subscription', 'subscriber', 'is_subscriber', 'tier', 'plus',
-    'cosmetic', 'cosmetic_unlocks',
-    'purchase', 'purchase_id', 'product_id',
-    'credit', 'credits', 'credits_balance', 'credits_charged',
-    'allowance', 'allowance_remaining',
-    'grant', 'free_grant', 'new_user_grant',
-    'reservation', 'reservation_id',
-    'entitlement', 'entitlement_source',
-    'revenuecat', 'wallet_transaction',
+    "subscription",
+    "subscriber",
+    "is_subscriber",
+    "tier",
+    "plus",
+    "cosmetic",
+    "cosmetic_unlocks",
+    "purchase",
+    "purchase_id",
+    "product_id",
+    "credit",
+    "credits",
+    "credits_balance",
+    "credits_charged",
+    "allowance",
+    "allowance_remaining",
+    "grant",
+    "free_grant",
+    "new_user_grant",
+    "reservation",
+    "reservation_id",
+    "entitlement",
+    "entitlement_source",
+    "revenuecat",
+    "wallet_transaction",
   ];
   const seen = new Set<string>();
   const walk = (v: unknown): void => {
     if (v === null || v === undefined) return;
-    if (typeof v !== 'object') return;
+    if (typeof v !== "object") return;
     if (seen.has(v as unknown as string)) return;
     seen.add(v as unknown as string);
     for (const k of Object.keys(v as Record<string, unknown>)) {
@@ -151,13 +160,18 @@ function assertNoMonetizationDataInScoring(inputs: Record<string, unknown>): voi
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   // Service-role only.
-  if (!hasSupabaseSecretAuthorization(req.headers.get('Authorization'))) {
-    return errorResponse('Service role required', 403);
+  if (
+    !hasSupabaseSecretAuthorization(
+      req.headers.get("Authorization"),
+      req.headers.get("apikey"),
+    )
+  ) {
+    return errorResponse("Service role required", 403);
   }
 
   try {
@@ -165,14 +179,14 @@ Deno.serve(async (req) => {
     const { battle_id, forfeit_profile_id } = body;
 
     if (!battle_id) {
-      return errorResponse('battle_id required');
+      return errorResponse("battle_id required");
     }
 
     const supabase = createServiceClient();
 
     // Load the battle (with stat snapshots and HP).
     const { data: battle, error: battleErr } = await supabase
-      .from('battles')
+      .from("battles")
       .select(
         `
         id, format, status, mode,
@@ -184,27 +198,27 @@ Deno.serve(async (req) => {
         player_one_stats_snapshot, player_two_stats_snapshot
       `,
       )
-      .eq('id', battle_id)
+      .eq("id", battle_id)
       .single();
 
     if (battleErr || !battle) {
-      return errorResponse('Battle not found', 404);
+      return errorResponse("Battle not found", 404);
     }
 
-    if (battle.format !== 'bo3') {
-      return errorResponse('round-resolve only applies to format=bo3', 400);
+    if (battle.format !== "bo3") {
+      return errorResponse("round-resolve only applies to format=bo3", 400);
     }
 
     const roundNumber: number = body.round_number ?? battle.current_round ?? 1;
 
     // Idempotent claim: waiting_for_prompts -> resolving
     const { data: claimedRound, error: claimErr } = await supabase
-      .from('battle_rounds')
-      .update({ status: 'resolving', updated_at: new Date().toISOString() })
-      .eq('battle_id', battle_id)
-      .eq('round_number', roundNumber)
-      .eq('status', 'waiting_for_prompts')
-      .select('*')
+      .from("battle_rounds")
+      .update({ status: "resolving", updated_at: new Date().toISOString() })
+      .eq("battle_id", battle_id)
+      .eq("round_number", roundNumber)
+      .eq("status", "waiting_for_prompts")
+      .select("*")
       .maybeSingle();
 
     if (claimErr) {
@@ -224,13 +238,13 @@ Deno.serve(async (req) => {
 
     // Load prompts for THIS round only.
     const { data: prompts, error: promptsErr } = await supabase
-      .from('battle_prompts')
-      .select('*')
-      .eq('battle_id', battle_id)
-      .eq('round_number', roundNumber);
+      .from("battle_prompts")
+      .select("*")
+      .eq("battle_id", battle_id)
+      .eq("round_number", roundNumber);
 
     if (promptsErr) {
-      return errorResponse('Failed to fetch round prompts', 500);
+      return errorResponse("Failed to fetch round prompts", 500);
     }
 
     const p1Row = prompts?.find((p) => p.profile_id === battle.player_one_id);
@@ -239,38 +253,41 @@ Deno.serve(async (req) => {
       : prompts?.find((p) => p.profile_id === battle.player_two_id);
 
     // Handle forfeits — if one side is missing and a forfeit was declared.
-    const p1Forfeit =
-      forfeit_profile_id === battle.player_one_id || (!p1Row && !!p2Row);
-    const p2Forfeit =
-      forfeit_profile_id === battle.player_two_id ||
+    const p1Forfeit = forfeit_profile_id === battle.player_one_id ||
+      (!p1Row && !!p2Row);
+    const p2Forfeit = forfeit_profile_id === battle.player_two_id ||
       (!battle.is_player_two_bot && !!p1Row && !p2Row);
 
     if (!battle.is_player_two_bot && !p1Row && !p2Row) {
       // Both forfeited — mark round expired, advance.
       await supabase
-        .from('battle_rounds')
+        .from("battle_rounds")
         .update({
-          status: 'expired',
+          status: "expired",
           resolved_at: new Date().toISOString(),
         })
-        .eq('id', claimedRound.id);
+        .eq("id", claimedRound.id);
       await invokeBattleAdvance(battle_id);
-      return successResponse({ battle_id, round_number: roundNumber, expired: true });
+      return successResponse({
+        battle_id,
+        round_number: roundNumber,
+        expired: true,
+      });
     }
 
     // Resolve prompt text bodies.
     const promptText = async (
       row: typeof p1Row | null | undefined,
     ): Promise<{ text: string; moveType: MoveType; wordCount: number }> => {
-      if (!row) return { text: '', moveType: 'attack', wordCount: 0 };
-      let text = row.custom_prompt_text ?? '';
+      if (!row) return { text: "", moveType: "attack", wordCount: 0 };
+      let text = row.custom_prompt_text ?? "";
       if (!text && row.prompt_template_id) {
         const { data: tpl } = await supabase
-          .from('prompt_templates')
-          .select('body')
-          .eq('id', row.prompt_template_id)
+          .from("prompt_templates")
+          .select("body")
+          .eq("id", row.prompt_template_id)
           .single();
-        text = tpl?.body ?? '';
+        text = tpl?.body ?? "";
       }
       return {
         text,
@@ -285,9 +302,9 @@ Deno.serve(async (req) => {
     // Bot opponent: synthesize prompt from bot_prompt_library.
     if (battle.is_player_two_bot && !p2Row && battle.bot_persona_id) {
       const { data: botPrompts } = await supabase
-        .from('bot_prompt_library')
-        .select('prompt_text, move_type')
-        .eq('bot_persona_id', battle.bot_persona_id);
+        .from("bot_prompt_library")
+        .select("prompt_text, move_type")
+        .eq("bot_persona_id", battle.bot_persona_id);
       if (botPrompts && botPrompts.length > 0) {
         const pick = botPrompts[Math.floor(Math.random() * botPrompts.length)];
         p2 = {
@@ -314,13 +331,17 @@ Deno.serve(async (req) => {
     // prompts, move types, word counts, theme, stats snapshots, and HP.
     // Any new field on `battle` must be explicitly whitelisted here.
     assertNoMonetizationDataInScoring({
-      p1Text: p1.text, p2Text: p2.text,
-      p1Move: p1.moveType, p2Move: p2.moveType,
-      p1Wc: p1.wordCount, p2Wc: p2.wordCount,
+      p1Text: p1.text,
+      p2Text: p2.text,
+      p1Move: p1.moveType,
+      p2Move: p2.moveType,
+      p1Wc: p1.wordCount,
+      p2Wc: p2.wordCount,
       theme: battle.theme,
       p1Stats: battle.player_one_stats_snapshot,
       p2Stats: battle.player_two_stats_snapshot,
-      p1Hp: battle.player_one_hp, p2Hp: battle.player_two_hp,
+      p1Hp: battle.player_one_hp,
+      p2Hp: battle.player_two_hp,
     });
 
     if (p1.text && p2.text && !p1Forfeit && !p2Forfeit) {
@@ -342,8 +363,12 @@ Deno.serve(async (req) => {
     const p2Stats = readStatsSnapshot(battle.player_two_stats_snapshot);
 
     const aggregate = (s: {
-      clarity: number; originality: number; specificity: number;
-      theme_fit: number; archetype_fit: number; dramatic_potential: number;
+      clarity: number;
+      originality: number;
+      specificity: number;
+      theme_fit: number;
+      archetype_fit: number;
+      dramatic_potential: number;
     }) =>
       s.clarity + s.originality + s.specificity +
       s.theme_fit + s.archetype_fit + s.dramatic_potential;
@@ -354,15 +379,19 @@ Deno.serve(async (req) => {
     const p2StatMod = computeStatModifier(p2Stats, p1Stats);
 
     // HARD CAP enforcement — raise rather than silently clamp.
-    if (Math.abs(p1StatMod) > STAT_MOD_CAP + 1e-9 ||
-        Math.abs(p2StatMod) > STAT_MOD_CAP + 1e-9) {
-      return errorResponse('stat_modifier exceeded ±5% cap', 500);
+    if (
+      Math.abs(p1StatMod) > STAT_MOD_CAP + 1e-9 ||
+      Math.abs(p2StatMod) > STAT_MOD_CAP + 1e-9
+    ) {
+      return errorResponse("stat_modifier exceeded ±5% cap", 500);
     }
     const p1Combined = p1MoveMod + p1StatMod;
     const p2Combined = p2MoveMod + p2StatMod;
-    if (Math.abs(p1Combined) > COMBINED_MOD_CAP + 1e-9 ||
-        Math.abs(p2Combined) > COMBINED_MOD_CAP + 1e-9) {
-      return errorResponse('combined modifier exceeded ±20% cap', 500);
+    if (
+      Math.abs(p1Combined) > COMBINED_MOD_CAP + 1e-9 ||
+      Math.abs(p2Combined) > COMBINED_MOD_CAP + 1e-9
+    ) {
+      return errorResponse("combined modifier exceeded ±20% cap", 500);
     }
 
     let p1Score = 0;
@@ -413,8 +442,7 @@ Deno.serve(async (req) => {
     const p1HpAfter = Math.max(0, p1HpBefore - p1Damage);
     const p2HpAfter = Math.max(0, p2HpBefore - p2Damage);
 
-    const isKo =
-      !isDraw &&
+    const isKo = !isDraw &&
       roundWinnerId !== null &&
       scoreGap >= KO_SCORE_GAP_THRESHOLD &&
       ((roundWinnerId === battle.player_one_id && p2HpAfter <= 0) ||
@@ -422,7 +450,7 @@ Deno.serve(async (req) => {
 
     // ---- Persist judge_runs row (per-round audit) ----
     if (judgeResult) {
-      await supabase.from('judge_runs').insert({
+      await supabase.from("judge_runs").insert({
         battle_id,
         judge_prompt_version: JUDGE_PROMPT_VERSION,
         model_id: judgeProvider.getModelId(),
@@ -442,23 +470,23 @@ Deno.serve(async (req) => {
     // ---- Update battle_rounds with full result ----
     const judgePayload = judgeResult
       ? {
-          player_one_raw_scores: judgeResult.player_one_raw_scores,
-          player_two_raw_scores: judgeResult.player_two_raw_scores,
-          player_one_normalized_scores: judgeResult.player_one_normalized_scores,
-          player_two_normalized_scores: judgeResult.player_two_normalized_scores,
-          explanation: judgeResult.explanation,
-          move_type_matchup: {
-            player_one: p1.moveType,
-            player_two: p2.moveType,
-          },
-          forfeit_profile_id: forfeit_profile_id ?? null,
-        }
+        player_one_raw_scores: judgeResult.player_one_raw_scores,
+        player_two_raw_scores: judgeResult.player_two_raw_scores,
+        player_one_normalized_scores: judgeResult.player_one_normalized_scores,
+        player_two_normalized_scores: judgeResult.player_two_normalized_scores,
+        explanation: judgeResult.explanation,
+        move_type_matchup: {
+          player_one: p1.moveType,
+          player_two: p2.moveType,
+        },
+        forfeit_profile_id: forfeit_profile_id ?? null,
+      }
       : { forfeit_profile_id: forfeit_profile_id ?? null };
 
     const { error: roundUpdateErr } = await supabase
-      .from('battle_rounds')
+      .from("battle_rounds")
       .update({
-        status: 'result_ready',
+        status: "result_ready",
         round_winner_id: roundWinnerId,
         is_draw: isDraw,
         player_one_score: p1Score,
@@ -479,7 +507,7 @@ Deno.serve(async (req) => {
         resolved_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', claimedRound.id);
+      .eq("id", claimedRound.id);
 
     if (roundUpdateErr) {
       return errorResponse(
@@ -489,15 +517,13 @@ Deno.serve(async (req) => {
     }
 
     // ---- Update battle HP & round-win tally atomically ----
-    const newP1Wins =
-      (battle.player_one_rounds_won ?? 0) +
+    const newP1Wins = (battle.player_one_rounds_won ?? 0) +
       (roundWinnerId === battle.player_one_id ? 1 : 0);
-    const newP2Wins =
-      (battle.player_two_rounds_won ?? 0) +
+    const newP2Wins = (battle.player_two_rounds_won ?? 0) +
       (roundWinnerId === battle.player_two_id ? 1 : 0);
 
     await supabase
-      .from('battles')
+      .from("battles")
       .update({
         player_one_hp: p1HpAfter,
         player_two_hp: p2HpAfter,
@@ -505,7 +531,7 @@ Deno.serve(async (req) => {
         player_two_rounds_won: newP2Wins,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', battle_id);
+      .eq("id", battle_id);
 
     // ---- Compose Tier 0 reveal SYNCHRONOUSLY (always present) ----
     // The base RevealPayloadV1 is produced here so the reveal is guaranteed the
@@ -522,28 +548,21 @@ Deno.serve(async (req) => {
         roundNumber,
       });
       const { error: battleRevealErr } = await supabase
-        .from('battles')
+        .from("battles")
         .update({ tier0_reveal_payload: revealPayload })
-        .eq('id', battle_id);
+        .eq("id", battle_id);
       if (battleRevealErr) {
         console.error(
-          'Failed to write reveal to battles (non-blocking):',
+          "Failed to write reveal to battles (non-blocking):",
           battleRevealErr,
         );
       }
       await writeRoundRevealPayload(supabase, claimedRound.id, revealPayload);
     } catch (revealErr) {
-      console.error('Tier 0 reveal composition failed (non-blocking):', revealErr);
-    }
-
-    // ---- Tier 1: subscriber auto-enqueue (non-blocking) ----
-    // Per-participant gate: only subscribers receive auto Tier 1. Credit/grant
-    // users upgrade on demand via the mobile UI. This must not block round
-    // completion — fired via EdgeRuntime.waitUntil inside the helper.
-    try {
-      autoEnqueueSubscriberTier1(supabase, battle_id, claimedRound.id, roundNumber);
-    } catch (e) {
-      console.error('Tier 1 subscriber auto-enqueue threw synchronously (non-blocking):', e);
+      console.error(
+        "Tier 0 reveal composition failed (non-blocking):",
+        revealErr,
+      );
     }
 
     // ---- Decide next round / completion ----
@@ -560,200 +579,34 @@ Deno.serve(async (req) => {
       player_two_hp_after: p2HpAfter,
     });
   } catch (error) {
-    console.error('round-resolve error:', error);
+    console.error("round-resolve error:", error);
     return errorResponse(
-      error instanceof Error ? error.message : 'Internal error',
+      error instanceof Error ? error.message : "Internal error",
       500,
     );
   }
 });
 
 async function invokeBattleAdvance(battleId: string): Promise<void> {
-  await invokeFunctionAsync('battle-advance', { battle_id: battleId });
-}
-
-/**
- * Auto-enqueue Tier 1 video for subscriber participants (non-blocking).
- *
- * For each non-bot participant: check round-upgrade entitlement; if and only
- * if the source resolves to `subscriber_full` or `subscriber_round`, compose
- * the Tier 1 payload and insert a `video_jobs` row with
- * `trigger='auto_subscriber'`. Idempotency is enforced by the partial UNIQUE
- * index on `(battle_id, round_number, tier, trigger)`; conflict = silent skip.
- *
- * Non-subscribers (credit / new_user_grant) are intentionally skipped here —
- * those upgrades remain on-demand via the mobile UI / request-video-upgrade.
- *
- * Errors are logged but never thrown back into round-resolve.
- */
-function autoEnqueueSubscriberTier1(
-  supabase: ReturnType<typeof createServiceClient>,
-  battleId: string,
-  battleRoundId: string,
-  roundNumber: number,
-): void {
-  const task = (async () => {
-    try {
-      // Load battle with character joins (compose-payload needs them).
-      const { data: battle, error: battleErr } = await supabase
-        .from('battles')
-        .select(`
-          *,
-          player_one_character:characters!battles_player_one_character_id_fkey(*),
-          player_two_character:characters!battles_player_two_character_id_fkey(*)
-        `)
-        .eq('id', battleId)
-        .single();
-
-      if (battleErr || !battle) {
-        console.error('autoEnqueueSubscriberTier1: battle not found', battleErr);
-        return;
-      }
-
-      const participants: string[] = [battle.player_one_id];
-      if (!battle.is_player_two_bot && battle.player_two_id) {
-        participants.push(battle.player_two_id);
-      }
-
-      for (const profileId of participants) {
-        await tryAutoEnqueueForProfile(
-          supabase,
-          battle as Record<string, any>,
-          battleRoundId,
-          roundNumber,
-          profileId,
-        );
-      }
-    } catch (err) {
-      console.error('autoEnqueueSubscriberTier1 fatal (non-blocking):', err);
-    }
-  })();
-
-  // @ts-ignore EdgeRuntime not declared in Deno types
-  if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
-    // @ts-ignore
-    EdgeRuntime.waitUntil(task);
-  }
-  // No await fallback: this is strictly fire-and-forget. round-resolve has
-  // already returned by the time the task runs in non-EdgeRuntime envs (tests
-  // can mock EdgeRuntime if they need synchronous behavior).
-}
-
-async function tryAutoEnqueueForProfile(
-  supabase: ReturnType<typeof createServiceClient>,
-  battle: Record<string, any>,
-  battleRoundId: string,
-  roundNumber: number,
-  profileId: string,
-): Promise<void> {
-  try {
-    // Cheap pre-check: only consult the gate for subscribers. The gate itself
-    // would otherwise reserve a credit/grant for non-subscribers, which we do
-    // NOT want for the auto path.
-    const { data: ent } = await supabase
-      .from('entitlements_v2')
-      .select('is_subscriber')
-      .eq('profile_id', profileId)
-      .maybeSingle();
-    if (!ent?.is_subscriber) return;
-
-    const gate = await checkRoundUpgradeEntitlement(
-      profileId,
-      battle.id,
-      roundNumber,
-      supabase as any,
-      {
-        battle: {
-          id: battle.id,
-          format: battle.format ?? 'bo3',
-          best_of: battle.best_of ?? 3,
-          player_one_rounds_won: battle.player_one_rounds_won ?? 0,
-          player_two_rounds_won: battle.player_two_rounds_won ?? 0,
-        },
-      },
-    );
-
-    if (!gate.allowed) return;
-    if (gate.source !== 'subscriber_full' && gate.source !== 'subscriber_round') {
-      // Subscriber whose allowance was exhausted may fall through to credit /
-      // grant; auto-enqueue is strictly subscriber-only here.
-      return;
-    }
-
-    // Compose payload + hash for idempotent insert.
-    const composed = await composePerRoundPayload(
-      supabase as any,
-      battle,
-      battleRoundId,
-      roundNumber,
-    );
-    const inputPayloadHash = await hashTier1Payload(composed as any);
-
-    const trigger: VideoJobTrigger = 'auto_subscriber';
-    const { data: inserted, error: insertErr } = await supabase
-      .from('video_jobs')
-      .insert({
-        battle_id: battle.id,
-        battle_round_id: battleRoundId,
-        round_number: roundNumber,
-        tier: 1,
-        trigger,
-        provider: 'xai',
-        status: 'queued',
-        request_payload_hash: inputPayloadHash,
-        input_payload_hash: inputPayloadHash,
-        requester_profile_id: profileId,
-        entitlement_source: gate.source,
-        spend_transaction_id: null, // subscriber path has no reservation
-        credits_charged: 0,
-        cost_units: TIER1_PER_ROUND_COST_UNITS,
-      })
-      .select('id')
-      .maybeSingle();
-
-    if (insertErr) {
-      // UNIQUE conflict on (battle_id, round_number, tier, trigger) is the
-      // expected idempotent skip; everything else gets logged.
-      const code = (insertErr as any).code;
-      if (code !== '23505') {
-        console.error('auto-enqueue insert error:', insertErr);
-      }
-      return;
-    }
-
-    if (inserted?.id) {
-      // Surface the job id on the round so client subscriptions see it.
-      await supabase
-        .from('battle_rounds')
-        .update({
-          cinematic_video_job_id: inserted.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', battleRoundId);
-    }
-  } catch (err) {
-    console.error('tryAutoEnqueueForProfile error (non-blocking):', err);
-  }
+  await invokeFunctionAsync("battle-advance", { battle_id: battleId });
 }
 
 async function invokeFunctionAsync(
   fn: string,
   body: Record<string, unknown>,
 ): Promise<void> {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const publishableKey = getSupabasePublishableKey();
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const secretKey = getSupabaseSecretKey();
-  if (!supabaseUrl || !secretKey || !publishableKey) return;
+  if (!supabaseUrl || !secretKey) return;
 
   const url = `${supabaseUrl}/functions/v1/${fn}`;
   const task = (async () => {
     try {
       const res = await fetch(url, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          apikey: publishableKey,
-          Authorization: `Bearer ${secretKey}`,
+          "Content-Type": "application/json",
+          apikey: secretKey,
         },
         body: JSON.stringify(body),
       });
@@ -766,7 +619,7 @@ async function invokeFunctionAsync(
   })();
 
   // @ts-ignore EdgeRuntime not declared in Deno types
-  if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+  if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
     // @ts-ignore
     EdgeRuntime.waitUntil(task);
   } else {

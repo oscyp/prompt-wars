@@ -31,6 +31,10 @@ function statsSnapshot(c: CharacterStats) {
   };
 }
 
+// HP envelope from stamina. Stamina is 1..10, so this spans 68..140 — exactly
+// the `battles.player_*_hp_max` CHECK range (floor lowered to 68 for stamina-1
+// in migration 20260525170000_bo3_hp_floor_fix). Keep the formula and that
+// constraint in lockstep.
 function hpMaxFromStamina(stamina: number): number {
   return 60 + stamina * 8;
 }

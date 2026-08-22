@@ -1,7 +1,7 @@
 // AI Provider Interfaces and Adapters
 // Implements judge, image, video, and TTS providers with mock fallbacks
 
-import { MoveType, JudgeRubricScores, Archetype } from './types.ts';
+import { Archetype, JudgeRubricScores, MoveType } from "./types.ts";
 
 /**
  * Judge provider interface with strict JSON schema validation
@@ -33,7 +33,9 @@ export interface JudgeResponse {
  * Image provider for Tier 0 motion poster assets
  */
 export interface AiImageProvider {
-  generateMotionPoster(request: MotionPosterRequest): Promise<MotionPosterResponse>;
+  generateMotionPoster(
+    request: MotionPosterRequest,
+  ): Promise<MotionPosterResponse>;
 }
 
 export interface MotionPosterRequest {
@@ -50,7 +52,7 @@ export interface MotionPosterRequest {
 
 export interface MotionPosterResponse {
   // Tier 0 always returns deterministic composition metadata, never blocks battle
-  compositionType: 'motion_poster' | 'static_scorecard';
+  compositionType: "motion_poster" | "static_scorecard";
   backgroundImageUrl?: string; // optional, may be deterministic gradient
   animationPreset: string; // per-move-type animation sting
   musicStingId: string; // selected by archetype + outcome
@@ -65,7 +67,9 @@ export interface MotionPosterResponse {
  * Video provider for Tier 1 cinematic shorts (default xAI / X AI)
  */
 export interface AiVideoProvider {
-  submitVideoGeneration(request: VideoGenerationRequest): Promise<VideoJobSubmission>;
+  submitVideoGeneration(
+    request: VideoGenerationRequest,
+  ): Promise<VideoJobSubmission>;
   pollVideoStatus(providerJobId: string): Promise<VideoJobStatus>;
   getVideoUrl(providerJobId: string): Promise<string>;
 }
@@ -84,7 +88,7 @@ export interface VideoGenerationRequest {
   isDraw: boolean;
   theme: string | null;
   targetDurationSeconds: number; // 6-12s for MVP
-  aspectRatio: '9:16'; // vertical mobile
+  aspectRatio: "9:16"; // vertical mobile
   safetyConstraints: string[];
 }
 
@@ -95,10 +99,47 @@ export interface VideoJobSubmission {
 }
 
 export interface VideoJobStatus {
-  status: 'queued' | 'processing' | 'succeeded' | 'failed';
+  status: "queued" | "processing" | "succeeded" | "failed";
   videoUrl?: string;
+  /** Provider's post-generation safety verdict, when explicitly supplied. */
+  moderationApproved?: boolean;
+  moderationProvider?: string;
   errorCode?: string;
   errorMessage?: string;
+}
+
+export function mapXAIVideoStatus(data: {
+  status?: string;
+  video?: { url?: string; respect_moderation?: unknown };
+  error?: { code?: string; message?: string };
+}): VideoJobStatus {
+  switch (data.status) {
+    case "done":
+      return {
+        status: "succeeded",
+        videoUrl: data.video?.url,
+        moderationApproved: typeof data.video?.respect_moderation ===
+            "boolean"
+          ? data.video.respect_moderation
+          : undefined,
+        moderationProvider: "xai_generation",
+      };
+    case "failed":
+      return {
+        status: "failed",
+        errorCode: data.error?.code || "xai_failed",
+        errorMessage: data.error?.message || "xAI reported failure",
+      };
+    case "expired":
+      return {
+        status: "failed",
+        errorCode: "expired",
+        errorMessage: "xAI video request expired before completion",
+      };
+    case "pending":
+    default:
+      return { status: "processing" };
+  }
 }
 
 /**
@@ -129,7 +170,7 @@ export interface BattleCryResponse {
  */
 export class MockJudgeProvider implements AiJudgeProvider {
   getModelId(): string {
-    return 'mock-judge-v1.0.0';
+    return "mock-judge-v1.0.0";
   }
 
   async judge(req: JudgeRequest): Promise<JudgeResponse> {
@@ -141,13 +182,17 @@ export class MockJudgeProvider implements AiJudgeProvider {
       playerOneScores: scoreOne,
       playerTwoScores: scoreTwo,
       explanation:
-        'Mock judge evaluated both prompts based on length, clarity, move type matchup, and deterministic seed.',
+        "Mock judge evaluated both prompts based on length, clarity, move type matchup, and deterministic seed.",
       modelId: this.getModelId(),
       promptVersion: req.promptVersion,
     };
   }
 
-  private mockScore(prompt: string, moveType: MoveType, seed: number): JudgeRubricScores {
+  private mockScore(
+    prompt: string,
+    moveType: MoveType,
+    seed: number,
+  ): JudgeRubricScores {
     const wordCount = prompt.split(/\s+/).length;
     const lengthScore = Math.min(10, Math.max(3, wordCount / 10)); // 3-10 based on words
 
@@ -169,13 +214,18 @@ export class MockJudgeProvider implements AiJudgeProvider {
  * Mock image provider (returns deterministic Tier 0 composition)
  */
 export class MockImageProvider implements AiImageProvider {
-  async generateMotionPoster(req: MotionPosterRequest): Promise<MotionPosterResponse> {
+  async generateMotionPoster(
+    req: MotionPosterRequest,
+  ): Promise<MotionPosterResponse> {
     // Always returns deterministic metadata, never blocks
-    const animationPreset = this.getAnimationPreset(req.moveTypeWinner, req.isDraw);
+    const animationPreset = this.getAnimationPreset(
+      req.moveTypeWinner,
+      req.isDraw,
+    );
     const musicStingId = this.getMusicSting(req.winnerArchetype, req.isDraw);
 
     return {
-      compositionType: 'motion_poster',
+      compositionType: "motion_poster",
       animationPreset,
       musicStingId,
       metadata: {
@@ -187,32 +237,32 @@ export class MockImageProvider implements AiImageProvider {
   }
 
   private getAnimationPreset(moveType: MoveType, isDraw: boolean): string {
-    if (isDraw) return 'draw_neutral';
+    if (isDraw) return "draw_neutral";
 
     switch (moveType) {
-      case 'attack':
-        return 'attack_sting_3s';
-      case 'defense':
-        return 'defense_counter_3s';
-      case 'finisher':
-        return 'finisher_dramatic_3s';
+      case "attack":
+        return "attack_sting_3s";
+      case "defense":
+        return "defense_counter_3s";
+      case "finisher":
+        return "finisher_dramatic_3s";
       default:
-        return 'default_sting';
+        return "default_sting";
     }
   }
 
   private getMusicSting(archetype: Archetype, isDraw: boolean): string {
-    if (isDraw) return 'music_draw_ambiguous';
+    if (isDraw) return "music_draw_ambiguous";
 
     const stings: Record<Archetype, string> = {
-      strategist: 'music_tactical_victory',
-      trickster: 'music_chaos_triumph',
-      titan: 'music_power_surge',
-      mystic: 'music_ethereal_win',
-      engineer: 'music_precision_success',
+      strategist: "music_tactical_victory",
+      trickster: "music_chaos_triumph",
+      titan: "music_power_surge",
+      mystic: "music_ethereal_win",
+      engineer: "music_precision_success",
     };
 
-    return stings[archetype] || 'music_default_win';
+    return stings[archetype] || "music_default_win";
   }
 }
 
@@ -220,7 +270,9 @@ export class MockImageProvider implements AiImageProvider {
  * Mock video provider (stubs xAI / X AI integration)
  */
 export class MockVideoProvider implements AiVideoProvider {
-  async submitVideoGeneration(req: VideoGenerationRequest): Promise<VideoJobSubmission> {
+  async submitVideoGeneration(
+    req: VideoGenerationRequest,
+  ): Promise<VideoJobSubmission> {
     // In production, compose xAI prompt from req fields
     const providerJobId = `mock-video-${req.battleId}-${Date.now()}`;
 
@@ -234,7 +286,7 @@ export class MockVideoProvider implements AiVideoProvider {
   async pollVideoStatus(providerJobId: string): Promise<VideoJobStatus> {
     // Mock: always succeeds after short delay
     return {
-      status: 'succeeded',
+      status: "succeeded",
       videoUrl: `https://mock-storage.example.com/videos/${providerJobId}.mp4`,
     };
   }
@@ -264,29 +316,31 @@ export class XAIVideoProvider implements AiVideoProvider {
   private resolution: string;
 
   constructor() {
-    this.apiKey = Deno.env.get('XAI_API_KEY') || '';
+    this.apiKey = Deno.env.get("XAI_API_KEY") || "";
     // Ignore legacy XAI_VIDEO_BASE_URL (was hard-coded to non-existent
     // /v1/video path). Allow override via XAI_API_BASE_URL if ever needed.
-    this.baseUrl = Deno.env.get('XAI_API_BASE_URL') || 'https://api.x.ai/v1';
-    this.model = Deno.env.get('XAI_VIDEO_MODEL') || 'grok-imagine-video';
-    this.resolution = Deno.env.get('XAI_VIDEO_RESOLUTION') || '720p';
+    this.baseUrl = Deno.env.get("XAI_API_BASE_URL") || "https://api.x.ai/v1";
+    this.model = Deno.env.get("XAI_VIDEO_MODEL") || "grok-imagine-video";
+    this.resolution = Deno.env.get("XAI_VIDEO_RESOLUTION") || "720p";
 
     if (!this.apiKey) {
-      console.warn('XAI_API_KEY not set, video generation will fail');
+      console.warn("XAI_API_KEY not set, video generation will fail");
     }
   }
 
-  async submitVideoGeneration(req: VideoGenerationRequest): Promise<VideoJobSubmission> {
+  async submitVideoGeneration(
+    req: VideoGenerationRequest,
+  ): Promise<VideoJobSubmission> {
     const prompt = this.composeVideoPrompt(req);
 
     // xAI duration: 1–15 seconds.
     const duration = Math.max(1, Math.min(15, req.targetDurationSeconds || 8));
 
     const response = await fetch(`${this.baseUrl}/videos/generations`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
+        "Authorization": `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: this.model,
@@ -298,14 +352,18 @@ export class XAIVideoProvider implements AiVideoProvider {
     });
 
     if (!response.ok) {
-      const bodyText = await response.text().catch(() => '');
-      throw new Error(`xAI video submission failed: ${response.status} ${response.statusText}${bodyText ? ' — ' + bodyText.slice(0, 500) : ''}`);
+      const bodyText = await response.text().catch(() => "");
+      throw new Error(
+        `xAI video submission failed: ${response.status} ${response.statusText}${
+          bodyText ? " — " + bodyText.slice(0, 500) : ""
+        }`,
+      );
     }
 
     const data = await response.json();
     const requestId = data.request_id;
     if (!requestId) {
-      throw new Error('xAI video submission returned no request_id');
+      throw new Error("xAI video submission returned no request_id");
     }
 
     return {
@@ -318,48 +376,30 @@ export class XAIVideoProvider implements AiVideoProvider {
   async pollVideoStatus(providerJobId: string): Promise<VideoJobStatus> {
     const response = await fetch(`${this.baseUrl}/videos/${providerJobId}`, {
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
+        "Authorization": `Bearer ${this.apiKey}`,
       },
     });
 
     if (!response.ok) {
-      const bodyText = await response.text().catch(() => '');
-      throw new Error(`xAI status poll failed: ${response.status} ${response.statusText}${bodyText ? ' — ' + bodyText.slice(0, 300) : ''}`);
+      const bodyText = await response.text().catch(() => "");
+      throw new Error(
+        `xAI status poll failed: ${response.status} ${response.statusText}${
+          bodyText ? " — " + bodyText.slice(0, 300) : ""
+        }`,
+      );
     }
 
     const data = await response.json();
 
-    // xAI status enum: pending | done | expired | failed
-    // Map to our internal VideoJobStatus: queued | processing | succeeded | failed
-    switch (data.status) {
-      case 'done':
-        return {
-          status: 'succeeded',
-          videoUrl: data.video?.url,
-        };
-      case 'failed':
-        return {
-          status: 'failed',
-          errorCode: data.error?.code || 'xai_failed',
-          errorMessage: data.error?.message || 'xAI reported failure',
-        };
-      case 'expired':
-        return {
-          status: 'failed',
-          errorCode: 'expired',
-          errorMessage: 'xAI video request expired before completion',
-        };
-      case 'pending':
-      default:
-        return { status: 'processing' };
-    }
+    // xAI status enum: pending | done | expired | failed.
+    return mapXAIVideoStatus(data);
   }
 
   async getVideoUrl(providerJobId: string): Promise<string> {
     const status = await this.pollVideoStatus(providerJobId);
 
-    if (status.status !== 'succeeded' || !status.videoUrl) {
-      throw new Error('Video not ready or failed');
+    if (status.status !== "succeeded" || !status.videoUrl) {
+      throw new Error("Video not ready or failed");
     }
 
     return status.videoUrl;
@@ -369,8 +409,12 @@ export class XAIVideoProvider implements AiVideoProvider {
     // Compose narrative prompt from battle context
     // Format: character intros, move types, prompts (sanitized), winner framing
 
-    const winnerName = req.winnerId === 'p1' ? req.playerOneCharacterName : req.playerTwoCharacterName;
-    const loserName = req.winnerId === 'p1' ? req.playerTwoCharacterName : req.playerOneCharacterName;
+    const winnerName = req.winnerId === "p1"
+      ? req.playerOneCharacterName
+      : req.playerTwoCharacterName;
+    const loserName = req.winnerId === "p1"
+      ? req.playerTwoCharacterName
+      : req.playerOneCharacterName;
 
     if (req.isDraw) {
       return `
@@ -379,31 +423,51 @@ A cinematic vertical mobile video (9:16) depicting an intense creative battle be
 Character 1: ${req.playerOneCharacterName}, a ${req.playerOneArchetype} wielding a ${req.playerOneMoveType} approach.
 Character 2: ${req.playerTwoCharacterName}, a ${req.playerTwoArchetype} wielding a ${req.playerTwoMoveType} approach.
 
-Theme: ${req.theme || 'Open battle'}
+Theme: ${req.theme || "Open battle"}
 
-Prompt 1 (${req.playerOneCharacterName}): "${this.sanitizePrompt(req.playerOnePrompt)}"
-Prompt 2 (${req.playerTwoCharacterName}): "${this.sanitizePrompt(req.playerTwoPrompt)}"
+Prompt 1 (${req.playerOneCharacterName}): "${
+        this.sanitizePrompt(req.playerOnePrompt)
+      }"
+Prompt 2 (${req.playerTwoCharacterName}): "${
+        this.sanitizePrompt(req.playerTwoPrompt)
+      }"
 
 The battle is evenly matched. Both characters unleash their strategies simultaneously, resulting in a dramatic stalemate. Energy crackling, tension high, but neither gains the upper hand. The scene fades with both standing strong.
 
-Duration: ${req.targetDurationSeconds} seconds. Vertical mobile format. No real person likenesses. No text overlays. Cinematic, dramatic, abstract energy and motion.
+Duration: ${req.targetDurationSeconds} seconds. Vertical mobile format. No real person likenesses. No text overlays. Silent visual only: no dialogue, voices, music, sound effects, or audio track. Cinematic, dramatic, abstract energy and motion.
       `.trim();
     }
 
     return `
 A cinematic vertical mobile video (9:16) depicting a creative battle between two characters.
 
-Winner: ${winnerName}, a ${req.winnerId === 'p1' ? req.playerOneArchetype : req.playerTwoArchetype} using a ${req.winnerId === 'p1' ? req.playerOneMoveType : req.playerTwoMoveType} approach.
-Challenger: ${loserName}, a ${req.winnerId === 'p1' ? req.playerTwoArchetype : req.playerOneArchetype} using a ${req.winnerId === 'p1' ? req.playerTwoMoveType : req.playerOneMoveType} approach.
+Winner: ${winnerName}, a ${
+      req.winnerId === "p1" ? req.playerOneArchetype : req.playerTwoArchetype
+    } using a ${
+      req.winnerId === "p1" ? req.playerOneMoveType : req.playerTwoMoveType
+    } approach.
+Challenger: ${loserName}, a ${
+      req.winnerId === "p1" ? req.playerTwoArchetype : req.playerOneArchetype
+    } using a ${
+      req.winnerId === "p1" ? req.playerTwoMoveType : req.playerOneMoveType
+    } approach.
 
-Theme: ${req.theme || 'Open battle'}
+Theme: ${req.theme || "Open battle"}
 
-Winning prompt (${winnerName}): "${this.sanitizePrompt(req.winnerId === 'p1' ? req.playerOnePrompt : req.playerTwoPrompt)}"
-Losing prompt (${loserName}): "${this.sanitizePrompt(req.winnerId === 'p1' ? req.playerTwoPrompt : req.playerOnePrompt)}"
+Winning prompt (${winnerName}): "${
+      this.sanitizePrompt(
+        req.winnerId === "p1" ? req.playerOnePrompt : req.playerTwoPrompt,
+      )
+    }"
+Losing prompt (${loserName}): "${
+      this.sanitizePrompt(
+        req.winnerId === "p1" ? req.playerTwoPrompt : req.playerOnePrompt,
+      )
+    }"
 
 The video shows ${winnerName} executing their strategy with precision and dramatic flair. ${loserName} puts up a strong fight but is ultimately outmaneuvered. The scene culminates in ${winnerName}'s victory, with energy and visual effects emphasizing their triumph.
 
-Duration: ${req.targetDurationSeconds} seconds. Vertical mobile format. No real person likenesses. No text overlays. Cinematic, dramatic, abstract energy and motion.
+Duration: ${req.targetDurationSeconds} seconds. Vertical mobile format. No real person likenesses. No text overlays. Silent visual only: no dialogue, voices, music, sound effects, or audio track. Cinematic, dramatic, abstract energy and motion.
     `.trim();
   }
 
@@ -411,11 +475,13 @@ Duration: ${req.targetDurationSeconds} seconds. Vertical mobile format. No real 
     // Truncate long prompts, strip unsafe patterns
     const maxLength = 400;
     const sanitized = prompt
-      .replace(/[<>]/g, '') // strip angle brackets
-      .replace(/\n+/g, ' ') // collapse newlines
+      .replace(/[<>]/g, "") // strip angle brackets
+      .replace(/\n+/g, " ") // collapse newlines
       .trim();
 
-    return sanitized.length > maxLength ? sanitized.substring(0, maxLength) + '...' : sanitized;
+    return sanitized.length > maxLength
+      ? sanitized.substring(0, maxLength) + "..."
+      : sanitized;
   }
 }
 
@@ -435,14 +501,14 @@ export class MockTtsProvider implements TtsProvider {
 
   private getVoicePreset(archetype: Archetype): string {
     const presets: Record<Archetype, string> = {
-      strategist: 'voice_calm_authoritative',
-      trickster: 'voice_playful_chaotic',
-      titan: 'voice_deep_powerful',
-      mystic: 'voice_ethereal_mysterious',
-      engineer: 'voice_precise_technical',
+      strategist: "voice_calm_authoritative",
+      trickster: "voice_playful_chaotic",
+      titan: "voice_deep_powerful",
+      mystic: "voice_ethereal_mysterious",
+      engineer: "voice_precise_technical",
     };
 
-    return presets[archetype] || 'voice_default';
+    return presets[archetype] || "voice_default";
   }
 }
 
@@ -451,14 +517,16 @@ export class MockTtsProvider implements TtsProvider {
 // ============================================================================
 
 export function createJudgeProvider(): AiJudgeProvider {
-  const providerType = Deno.env.get('JUDGE_PROVIDER') || 'mock';
+  const providerType = Deno.env.get("JUDGE_PROVIDER") || "mock";
 
   switch (providerType) {
-    case 'mock':
+    case "mock":
       return new MockJudgeProvider();
     // Add other providers (OpenAI, xAI, etc.) here
     default:
-      console.warn(`Unknown judge provider: ${providerType}, falling back to mock`);
+      console.warn(
+        `Unknown judge provider: ${providerType}, falling back to mock`,
+      );
       return new MockJudgeProvider();
   }
 }
@@ -469,15 +537,17 @@ export function createImageProvider(): AiImageProvider {
 }
 
 export function createVideoProvider(): AiVideoProvider {
-  const providerType = Deno.env.get('VIDEO_PROVIDER') || 'mock';
+  const providerType = Deno.env.get("VIDEO_PROVIDER") || "mock";
 
   switch (providerType) {
-    case 'xai':
+    case "xai":
       return new XAIVideoProvider();
-    case 'mock':
+    case "mock":
       return new MockVideoProvider();
     default:
-      console.warn(`Unknown video provider: ${providerType}, falling back to mock`);
+      console.warn(
+        `Unknown video provider: ${providerType}, falling back to mock`,
+      );
       return new MockVideoProvider();
   }
 }

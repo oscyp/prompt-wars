@@ -11,15 +11,16 @@
 // Service-role only.
 
 import {
-  createServiceClient,
   corsHeaders,
+  createServiceClient,
   errorResponse,
-  successResponse,
   hasSupabaseSecretAuthorization,
-} from '../_shared/utils.ts';
-import { computeRatingDeltas } from '../_shared/glicko2.ts';
-import { RATING_QUALITY_FLOOR } from '../_shared/judge.ts';
-import { notifyBattleResult } from '../_shared/push.ts';
+  successResponse,
+} from "../_shared/utils.ts";
+import { computeRatingDeltas } from "../_shared/glicko2.ts";
+import { RATING_QUALITY_FLOOR } from "../_shared/judge.ts";
+import { notifyBattleResult } from "../_shared/push.ts";
+import { enqueueAutoBattleVideo } from "../_shared/auto-video.ts";
 
 const RANKED_ROUND_TIMEOUT_MIN = 45;
 const FRIEND_ROUND_TIMEOUT_MIN = 120; // 2h
@@ -29,22 +30,27 @@ interface AdvanceRequest {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
-  if (!hasSupabaseSecretAuthorization(req.headers.get('Authorization'))) {
-    return errorResponse('Service role required', 403);
+  if (
+    !hasSupabaseSecretAuthorization(
+      req.headers.get("Authorization"),
+      req.headers.get("apikey"),
+    )
+  ) {
+    return errorResponse("Service role required", 403);
   }
 
   try {
     const { battle_id }: AdvanceRequest = await req.json();
-    if (!battle_id) return errorResponse('battle_id required');
+    if (!battle_id) return errorResponse("battle_id required");
 
     const supabase = createServiceClient();
 
     const { data: battle, error: battleErr } = await supabase
-      .from('battles')
+      .from("battles")
       .select(
         `
         id, format, status, mode,
@@ -56,20 +62,20 @@ Deno.serve(async (req) => {
         player_two:profiles!battles_player_two_id_fkey(id, rating, rating_deviation, rating_volatility)
       `,
       )
-      .eq('id', battle_id)
+      .eq("id", battle_id)
       .single();
 
-    if (battleErr || !battle) return errorResponse('Battle not found', 404);
-    if (battle.format !== 'bo3') {
-      return successResponse({ skipped: true, reason: 'not_bo3' });
+    if (battleErr || !battle) return errorResponse("Battle not found", 404);
+    if (battle.format !== "bo3") {
+      return successResponse({ skipped: true, reason: "not_bo3" });
     }
 
     // Pull the most recent resolved round to check KO.
     const { data: lastRound } = await supabase
-      .from('battle_rounds')
-      .select('round_number, is_ko, round_winner_id, score_gap')
-      .eq('battle_id', battle_id)
-      .order('round_number', { ascending: false })
+      .from("battle_rounds")
+      .select("id, round_number, is_ko, round_winner_id, score_gap")
+      .eq("battle_id", battle_id)
+      .order("round_number", { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -108,32 +114,34 @@ Deno.serve(async (req) => {
     if (!matchOver) {
       // Spawn next round.
       const nextRound = (battle.current_round ?? 1) + 1;
-      const timeoutMin =
-        battle.mode === 'ranked'
-          ? RANKED_ROUND_TIMEOUT_MIN
-          : FRIEND_ROUND_TIMEOUT_MIN;
+      const timeoutMin = battle.mode === "ranked"
+        ? RANKED_ROUND_TIMEOUT_MIN
+        : FRIEND_ROUND_TIMEOUT_MIN;
       const deadline = new Date(Date.now() + timeoutMin * 60_000).toISOString();
 
       const { error: insertErr } = await supabase
-        .from('battle_rounds')
+        .from("battle_rounds")
         .insert({
           battle_id,
           round_number: nextRound,
-          status: 'waiting_for_prompts',
+          status: "waiting_for_prompts",
           lock_in_deadline: deadline,
         });
       if (insertErr && !/duplicate/i.test(insertErr.message)) {
-        return errorResponse(`Failed to create next round: ${insertErr.message}`, 500);
+        return errorResponse(
+          `Failed to create next round: ${insertErr.message}`,
+          500,
+        );
       }
 
       await supabase
-        .from('battles')
+        .from("battles")
         .update({
           current_round: nextRound,
-          status: 'waiting_for_prompts',
+          status: "waiting_for_prompts",
           updated_at: new Date().toISOString(),
         })
-        .eq('id', battle_id);
+        .eq("id", battle_id);
 
       return successResponse({
         battle_id,
@@ -147,12 +155,12 @@ Deno.serve(async (req) => {
     // Aggregate the per-round payloads for the battle.score_payload (also
     // feeds the §7.8 quality-floor gate below).
     const { data: allRounds } = await supabase
-      .from('battle_rounds')
+      .from("battle_rounds")
       .select(
-        'round_number, round_winner_id, is_draw, is_ko, score_gap, player_one_score, player_two_score, player_one_damage, player_two_damage, player_one_hp_after, player_two_hp_after, judge_payload',
+        "round_number, round_winner_id, is_draw, is_ko, score_gap, player_one_score, player_two_score, player_one_damage, player_two_damage, player_one_hp_after, player_two_hp_after, judge_payload",
       )
-      .eq('battle_id', battle_id)
-      .order('round_number', { ascending: true });
+      .eq("battle_id", battle_id)
+      .order("round_number", { ascending: true });
 
     // §7.8 quality floor, match-level: when every scored round had BOTH
     // players below the floor, the whole match is a throwaway pair and must
@@ -161,8 +169,7 @@ Deno.serve(async (req) => {
     const scoredRounds = (allRounds ?? []).filter(
       (r) => r.player_one_score != null && r.player_two_score != null,
     );
-    const ratingGatedByQualityFloor =
-      scoredRounds.length > 0 &&
+    const ratingGatedByQualityFloor = scoredRounds.length > 0 &&
       scoredRounds.every(
         (r) =>
           Number(r.player_one_score) < RATING_QUALITY_FLOOR &&
@@ -171,20 +178,30 @@ Deno.serve(async (req) => {
 
     let ratingDeltaPayload: Record<string, unknown> | null = null;
     if (
-      battle.mode === 'ranked' &&
+      battle.mode === "ranked" &&
       !battle.is_player_two_bot &&
       !isDraw &&
       !ratingGatedByQualityFloor
     ) {
       const p1 = battle.player_one as unknown as {
-        id: string; rating: number; rating_deviation: number; rating_volatility: number;
+        id: string;
+        rating: number;
+        rating_deviation: number;
+        rating_volatility: number;
       };
       const p2 = battle.player_two as unknown as {
-        id: string; rating: number; rating_deviation: number; rating_volatility: number;
+        id: string;
+        rating: number;
+        rating_deviation: number;
+        rating_volatility: number;
       };
       const deltas = computeRatingDeltas(
-        p1.rating, p1.rating_deviation, p1.rating_volatility,
-        p2.rating, p2.rating_deviation, p2.rating_volatility,
+        p1.rating,
+        p1.rating_deviation,
+        p1.rating_volatility,
+        p2.rating,
+        p2.rating_deviation,
+        p2.rating_volatility,
         winnerId === battle.player_one_id,
         isDraw,
       );
@@ -195,52 +212,52 @@ Deno.serve(async (req) => {
     }
 
     const scorePayload = {
-      format: 'bo3',
+      format: "bo3",
       rounds_won: { player_one: p1Wins, player_two: p2Wins },
       ko: !!koWinner,
       rounds: allRounds ?? [],
-      ...(ratingGatedByQualityFloor ? { rating_gated: 'quality_floor' } : {}),
+      ...(ratingGatedByQualityFloor ? { rating_gated: "quality_floor" } : {}),
     };
 
     // Reuse the existing resolve_battle DB function so stats / ratings / rivals
     // get updated through the same code path as single-format battles. It
     // requires status='resolving' first.
     await supabase
-      .from('battles')
-      .update({ status: 'resolving' })
-      .eq('id', battle_id);
+      .from("battles")
+      .update({ status: "resolving" })
+      .eq("id", battle_id);
 
-    const { error: resolveErr } = await supabase.rpc('resolve_battle', {
+    const { error: resolveErr } = await supabase.rpc("resolve_battle", {
       p_battle_id: battle_id,
       p_winner_id: winnerId,
       p_is_draw: isDraw,
       p_score_payload: scorePayload,
       p_rating_delta_payload: ratingDeltaPayload,
-      p_judge_prompt_version: 'bo3-aggregate',
-      p_judge_model_id: 'bo3-aggregate',
+      p_judge_prompt_version: "bo3-aggregate",
+      p_judge_model_id: "bo3-aggregate",
       p_judge_seed: 0,
     });
 
     if (resolveErr) {
-      console.error('resolve_battle failed in battle-advance:', resolveErr);
-      return errorResponse('Failed to finalize battle', 500);
+      console.error("resolve_battle failed in battle-advance:", resolveErr);
+      return errorResponse("Failed to finalize battle", 500);
     }
 
     // Apply daily-meta rewards once per completed Bo3 match (quest progress +
     // win-streak milestone credits). Idempotent + non-blocking.
     try {
       const { error: rewardsError } = await supabase.rpc(
-        'apply_post_battle_rewards',
+        "apply_post_battle_rewards",
         { p_battle_id: battle_id },
       );
       if (rewardsError) {
         console.error(
-          'apply_post_battle_rewards error (non-blocking):',
+          "apply_post_battle_rewards error (non-blocking):",
           rewardsError,
         );
       }
     } catch (rewardsErr) {
-      console.error('Post-battle rewards failed (non-blocking):', rewardsErr);
+      console.error("Post-battle rewards failed (non-blocking):", rewardsErr);
     }
 
     // Must-send "result ready" push to both human players (fire-and-forget).
@@ -249,10 +266,21 @@ Deno.serve(async (req) => {
     // resolve_battle leaves status='result_ready'. Promote to 'completed'
     // — cinematic success is independent and must not gate this.
     await supabase
-      .from('battles')
-      .update({ status: 'completed', updated_at: new Date().toISOString() })
-      .eq('id', battle_id)
-      .eq('status', 'result_ready');
+      .from("battles")
+      .update({ status: "completed", updated_at: new Date().toISOString() })
+      .eq("id", battle_id)
+      .eq("status", "result_ready");
+
+    // Generate one shared cinematic for the completed series, using the final
+    // round's frozen prompts/outcome. Daily limits are enforced atomically by
+    // the database; this background enqueue never gates match completion.
+    if (lastRound?.id) {
+      enqueueAutoBattleVideo({
+        battleId: battle_id,
+        battleRoundId: lastRound.id,
+        roundNumber: lastRound.round_number,
+      });
+    }
 
     return successResponse({
       battle_id,
@@ -262,9 +290,9 @@ Deno.serve(async (req) => {
       ko: !!koWinner,
     });
   } catch (error) {
-    console.error('battle-advance error:', error);
+    console.error("battle-advance error:", error);
     return errorResponse(
-      error instanceof Error ? error.message : 'Internal error',
+      error instanceof Error ? error.message : "Internal error",
       500,
     );
   }
@@ -295,10 +323,10 @@ async function resolveAllDrawTiebreaker(
   }
 
   const { data: rounds } = await supabase
-    .from('battle_rounds')
-    .select('player_one_score, player_two_score, both_locked_at, round_number')
-    .eq('battle_id', battle.id ?? '')
-    .order('round_number', { ascending: true });
+    .from("battle_rounds")
+    .select("player_one_score, player_two_score, both_locked_at, round_number")
+    .eq("battle_id", battle.id ?? "")
+    .order("round_number", { ascending: true });
 
   let p1Total = 0;
   let p2Total = 0;

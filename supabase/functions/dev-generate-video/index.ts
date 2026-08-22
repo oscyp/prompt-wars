@@ -10,6 +10,7 @@ import {
   getAuthUserId,
 } from '../_shared/utils.ts';
 import { XAIVideoProvider, type VideoGenerationRequest } from '../_shared/providers.ts';
+import { isDevFunctionsEnabled } from '../_shared/dev-gate.ts';
 
 interface DevGenerateVideoRequest {
   battle_id?: string;
@@ -22,6 +23,13 @@ declare const EdgeRuntime: {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
+  }
+
+  // Kill switch (checked before auth so production leaks nothing): this
+  // function bypasses entitlement gates and charges 0 credits, so it must
+  // fail closed unless DEV_FUNCTIONS_ENABLED=1 is explicitly set.
+  if (!isDevFunctionsEnabled()) {
+    return errorResponse('Not found', 404);
   }
 
   let userId: string;

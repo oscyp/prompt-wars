@@ -10,15 +10,14 @@
 //      and the battle expired.
 
 import {
-  createServiceClient,
   corsHeaders,
-  successResponse,
-  getSupabasePublishableKey,
+  createServiceClient,
   getSupabaseSecretKey,
-} from '../_shared/utils.ts';
-import { computeRatingDeltas } from '../_shared/glicko2.ts';
-import { composeRevealPayload } from '../_shared/compose-reveal-payload.ts';
-import { notifyBattleResult } from '../_shared/push.ts';
+  successResponse,
+} from "../_shared/utils.ts";
+import { computeRatingDeltas } from "../_shared/glicko2.ts";
+import { composeRevealPayload } from "../_shared/compose-reveal-payload.ts";
+import { notifyBattleResult } from "../_shared/push.ts";
 
 interface ForfeitClaimRow {
   battle_id: string;
@@ -34,8 +33,8 @@ interface ForfeitClaimRow {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -43,20 +42,20 @@ Deno.serve(async (req) => {
 
     // ---- Single-format path (unchanged) ----
     const { data: expiredCount, error: singleErr } = await supabase.rpc(
-      'expire_timed_out_battles',
+      "expire_timed_out_battles",
     );
     if (singleErr) {
-      console.error('Single-format expire error:', singleErr);
+      console.error("Single-format expire error:", singleErr);
     }
 
     // ---- Single-format forfeit path (§7.5 auto-forfeit on expire) ----
     let singleForfeited = 0;
 
     const { data: forfeitRows, error: forfeitErr } = await supabase.rpc(
-      'claim_forfeit_timeout_battles',
+      "claim_forfeit_timeout_battles",
     );
     if (forfeitErr) {
-      console.error('Forfeit claim error:', forfeitErr);
+      console.error("Forfeit claim error:", forfeitErr);
     }
 
     for (const row of (forfeitRows ?? []) as ForfeitClaimRow[]) {
@@ -76,7 +75,7 @@ Deno.serve(async (req) => {
     let bo3Expired = 0;
 
     const { data: timedOutRounds } = await supabase
-      .from('battle_rounds')
+      .from("battle_rounds")
       .select(
         `
         id, battle_id, round_number, status,
@@ -84,23 +83,22 @@ Deno.serve(async (req) => {
         battles!inner(id, format, player_one_id, player_two_id, is_player_two_bot, status)
       `,
       )
-      .eq('status', 'waiting_for_prompts')
-      .lt('lock_in_deadline', new Date().toISOString());
+      .eq("status", "waiting_for_prompts")
+      .lt("lock_in_deadline", new Date().toISOString());
 
     for (const row of timedOutRounds ?? []) {
       // Supabase typings render an embedded relation as an array; coerce to the
       // single row we know we get back from a !inner join on PK.
       const battlesField = (row as unknown as { battles: unknown }).battles;
-      const b = (Array.isArray(battlesField)
-        ? battlesField[0]
-        : battlesField) as
-        | {
+      const b =
+        (Array.isArray(battlesField) ? battlesField[0] : battlesField) as
+          | {
             format: string;
             player_one_id: string;
             player_two_id: string;
           }
-        | undefined;
-      if (!b || b.format !== 'bo3') continue;
+          | undefined;
+      if (!b || b.format !== "bo3") continue;
 
       const p1Locked = !!row.player_one_locked_at;
       const p2Locked = !!row.player_two_locked_at;
@@ -108,19 +106,19 @@ Deno.serve(async (req) => {
       if (!p1Locked && !p2Locked) {
         // Neither locked → expire round and battle.
         await supabase
-          .from('battle_rounds')
+          .from("battle_rounds")
           .update({
-            status: 'expired',
+            status: "expired",
             resolved_at: new Date().toISOString(),
           })
-          .eq('id', row.id);
+          .eq("id", row.id);
         await supabase
-          .from('battles')
+          .from("battles")
           .update({
-            status: 'expired',
+            status: "expired",
             updated_at: new Date().toISOString(),
           })
-          .eq('id', row.battle_id);
+          .eq("id", row.battle_id);
         bo3Expired += 1;
         continue;
       }
@@ -128,14 +126,14 @@ Deno.serve(async (req) => {
       // One side locked → forfeit the other side via round-resolve.
       const forfeitId = p1Locked ? b.player_two_id : b.player_one_id;
       try {
-        await invokeFn('round-resolve', {
+        await invokeFn("round-resolve", {
           battle_id: row.battle_id,
           round_number: row.round_number,
           forfeit_profile_id: forfeitId,
         });
         bo3Forfeited += 1;
       } catch (err) {
-        console.error('Failed to invoke round-resolve for forfeit:', err);
+        console.error("Failed to invoke round-resolve for forfeit:", err);
       }
     }
 
@@ -147,11 +145,11 @@ Deno.serve(async (req) => {
       bo3_expired: bo3Expired,
     });
   } catch (error) {
-    console.error('Expire battles error:', error);
+    console.error("Expire battles error:", error);
     return successResponse(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Internal error',
+        error: error instanceof Error ? error.message : "Internal error",
       },
       500,
     );
@@ -168,7 +166,7 @@ async function resolveForfeit(
 ): Promise<void> {
   let ratingDeltaPayload: Record<string, unknown> | null = null;
 
-  if (row.mode === 'ranked') {
+  if (row.mode === "ranked") {
     const deltas = computeRatingDeltas(
       Number(row.winner_rating),
       Number(row.winner_rating_deviation),
@@ -186,21 +184,21 @@ async function resolveForfeit(
   }
 
   const scorePayload = {
-    resolution: 'forfeit',
-    reason: 'opponent_timeout',
+    resolution: "forfeit",
+    reason: "opponent_timeout",
     forfeited_profile_id: row.loser_id,
     explanation:
-      'Win by forfeit — the opponent did not lock in a prompt before the deadline.',
+      "Win by forfeit — the opponent did not lock in a prompt before the deadline.",
   };
 
-  const { error: resolveErr } = await supabase.rpc('resolve_battle', {
+  const { error: resolveErr } = await supabase.rpc("resolve_battle", {
     p_battle_id: row.battle_id,
     p_winner_id: row.winner_id,
     p_is_draw: false,
     p_score_payload: scorePayload,
     p_rating_delta_payload: ratingDeltaPayload,
-    p_judge_prompt_version: 'forfeit-v1',
-    p_judge_model_id: 'forfeit',
+    p_judge_prompt_version: "forfeit-v1",
+    p_judge_model_id: "forfeit",
     p_judge_seed: 0,
   });
   if (resolveErr) {
@@ -211,14 +209,17 @@ async function resolveForfeit(
   // same non-blocking contract as resolve-battle / battle-advance.
   try {
     const { error: rewardsError } = await supabase.rpc(
-      'apply_post_battle_rewards',
+      "apply_post_battle_rewards",
       { p_battle_id: row.battle_id },
     );
     if (rewardsError) {
-      console.error('apply_post_battle_rewards error (non-blocking):', rewardsError);
+      console.error(
+        "apply_post_battle_rewards error (non-blocking):",
+        rewardsError,
+      );
     }
   } catch (rewardsErr) {
-    console.error('Post-battle rewards failed (non-blocking):', rewardsErr);
+    console.error("Post-battle rewards failed (non-blocking):", rewardsErr);
   }
 
   notifyBattleResult(supabase, row.battle_id);
@@ -228,14 +229,20 @@ async function resolveForfeit(
       battleId: row.battle_id,
     });
     const { error: revealError } = await supabase
-      .from('battles')
+      .from("battles")
       .update({ tier0_reveal_payload: revealPayload })
-      .eq('id', row.battle_id);
+      .eq("id", row.battle_id);
     if (revealError) {
-      console.error('Failed to store Tier 0 reveal (non-blocking):', revealError);
+      console.error(
+        "Failed to store Tier 0 reveal (non-blocking):",
+        revealError,
+      );
     }
   } catch (tier0Error) {
-    console.error('Tier 0 reveal composition failed (non-blocking):', tier0Error);
+    console.error(
+      "Tier 0 reveal composition failed (non-blocking):",
+      tier0Error,
+    );
   }
 }
 
@@ -243,18 +250,16 @@ async function invokeFn(
   fn: string,
   body: Record<string, unknown>,
 ): Promise<void> {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const publishableKey = getSupabasePublishableKey();
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const secretKey = getSupabaseSecretKey();
-  if (!supabaseUrl || !publishableKey || !secretKey) {
-    throw new Error('Missing Supabase environment variables');
+  if (!supabaseUrl || !secretKey) {
+    throw new Error("Missing Supabase environment variables");
   }
   const res = await fetch(`${supabaseUrl}/functions/v1/${fn}`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      apikey: publishableKey,
-      Authorization: `Bearer ${secretKey}`,
+      "Content-Type": "application/json",
+      apikey: secretKey,
     },
     body: JSON.stringify(body),
   });

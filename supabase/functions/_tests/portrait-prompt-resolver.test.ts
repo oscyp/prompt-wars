@@ -129,7 +129,7 @@ Deno.test('item icon resolver produces icon-styled prompt with negatives and see
   assert(out.length <= __internal.MAX_PROMPT_CHARS);
 });
 
-Deno.test('signature_item_fragment is included in portrait prompt', () => {
+Deno.test('signature_item_fragment is included as a mandatory, prominent detail', () => {
   const out = resolvePortraitPrompt({
     archetype: 'engineer',
     signature_color: '#33AA66',
@@ -137,6 +137,58 @@ Deno.test('signature_item_fragment is included in portrait prompt', () => {
     seed: 11,
   });
   assert(out.includes('brass fountain pen'), `signature item missing: ${out}`);
+  assert(out.includes('Signature item, required'), `item not marked required: ${out}`);
+  assert(out.includes('prominently holds or wears'), `item not made prominent: ${out}`);
+  assert(out.includes('clearly visible'), `item visibility clause missing: ${out}`);
+});
+
+Deno.test('every art style demands full-body framing, head to feet, uncropped', () => {
+  for (const style of Object.keys(__internal.ART_STYLE_SCAFFOLDS)) {
+    const out = resolvePortraitPrompt({
+      archetype: 'titan',
+      signature_color: '#FF3300',
+      seed: 3,
+      // deno-lint-ignore no-explicit-any
+      art_style: style as any,
+    });
+    const lower = out.toLowerCase();
+    assert(
+      lower.includes('full-body') || lower.includes('full-length'),
+      `style ${style} missing full-body framing: ${out}`,
+    );
+    assert(lower.includes('head to toe'), `style ${style} missing head-to-toe: ${out}`);
+    assert(lower.includes('feet'), `style ${style} missing feet mention: ${out}`);
+    assert(lower.includes('no crop'), `style ${style} missing no-crop clause: ${out}`);
+    assert(
+      !lower.includes('head-and-shoulders') && !lower.includes('bust'),
+      `style ${style} still crops to bust: ${out}`,
+    );
+  }
+});
+
+Deno.test('style lock reiterates the medium near the end of the prompt', () => {
+  const out = resolvePortraitPrompt({
+    archetype: 'mystic',
+    signature_color: '#112233',
+    seed: 8,
+    art_style: 'vaporwave',
+  });
+  const lockIdx = out.indexOf('Style lock: render strictly in neon synthwave style');
+  assert(lockIdx >= 0, `style lock missing: ${out}`);
+  assert(lockIdx > out.indexOf('Subject:'), 'style lock should come after the subject');
+});
+
+Deno.test('safety constraints survive truncation of over-long prompts', () => {
+  const out = resolvePortraitPrompt({
+    prompt_raw: 'y '.repeat(300),
+    archetype: 'trickster',
+    signature_color: '#00FF88',
+    signature_item_fragment: 'an enormous jeweled key '.repeat(15),
+    seed: 4242,
+  });
+  assert(out.length <= __internal.MAX_PROMPT_CHARS, `over cap: ${out.length}`);
+  assert(out.includes('No real people'), `negatives truncated away: ${out}`);
+  assert(out.includes('watermark'), `watermark negative truncated away: ${out}`);
 });
 
 Deno.test('art_style swaps the scaffold and keyword for each known style', () => {

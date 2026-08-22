@@ -119,24 +119,38 @@ const ITEM_CLASS_FLAVOR: Record<ItemIconPromptInput['item_class'], string> = {
 };
 
 // Style-specific scaffolds. Each scaffold is a single sentence that establishes
-// medium, lighting, and composition. Keep them short to leave room for traits.
+// medium, lighting, and full-body composition. Keep them short to leave room
+// for traits. Every scaffold demands the entire figure, head to feet, uncropped.
 const ART_STYLE_SCAFFOLDS: Record<ArtStyle, string> = {
   painterly:
-    'Stylized illustrated character portrait, painterly digital art, head-and-shoulders framing, dramatic rim lighting, clean studio background, cohesive game-ready hero card composition.',
+    'Stylized painterly digital art full-body character illustration, entire figure visible head to toe including feet, standing full-figure hero pose, no crop, dramatic rim lighting, clean studio background, game-ready hero card composition.',
   anime:
-    'Crisp cel-shaded anime character portrait, bold clean linework, vibrant flat colors with sharp shadow shapes, head-and-shoulders framing, hero card composition.',
+    'Crisp cel-shaded anime full-body character illustration, bold clean linework, vibrant flat colors with sharp shadow shapes, entire figure visible head to toe including feet, standing full-figure pose, no crop, hero card composition.',
   comic:
-    'Inked western comic-book character portrait, bold black outlines, halftone shading with Ben-Day dot accents, saturated flats, head-and-shoulders framing, hero card composition.',
+    'Inked western comic-book full-body character illustration, bold black outlines, halftone shading with Ben-Day dot accents, saturated flats, entire figure visible head to toe including feet, dynamic standing full-figure pose, no crop, hero card composition.',
   pixel:
-    'Retro 64 by 64 pixel-art character bust, hand-placed pixels, dithered shading, limited 16-color palette, head-and-shoulders framing, clean solid background, hero card composition.',
+    'Retro pixel-art full-body character sprite, hand-placed pixels, dithered shading, limited 16-color palette, entire figure visible head to toe including feet, standing full-figure pose, no crop, clean solid background, hero card composition.',
   oil:
-    'Classical oil-painting character bust, visible textured brushwork, rich chiaroscuro lighting, muted earthy palette, head-and-shoulders framing, gallery-style composition.',
+    'Classical oil-painting full-length character portrait, visible textured brushwork, rich chiaroscuro lighting, muted earthy palette, entire figure visible head to toe including feet, standing full-figure pose, no crop, gallery-style composition.',
   lowpoly:
-    'Stylized low-poly 3D character render, faceted geometric shading, soft studio HDR lighting, matte finish, head-and-shoulders framing, hero card composition.',
+    'Stylized low-poly 3D full-body character render, faceted geometric shading, soft studio HDR lighting, matte finish, entire figure visible head to toe including feet, standing full-figure pose, no crop, hero card composition.',
   darkfantasy:
-    'Gritty dark-fantasy character portrait, muted desaturated palette, atmospheric haze and shadow, dramatic side lighting, head-and-shoulders framing, hero card composition.',
+    'Gritty dark-fantasy full-body character illustration, muted desaturated palette, atmospheric haze and shadow, dramatic side lighting, entire figure visible head to toe including feet, standing full-figure pose, no crop, hero card composition.',
   vaporwave:
-    'Neon synthwave character portrait, magenta and cyan rim lighting, retro vaporwave grid backdrop, subtle chromatic aberration, head-and-shoulders framing, hero card composition.',
+    'Neon synthwave full-body character illustration, magenta and cyan rim lighting, retro vaporwave grid backdrop, subtle chromatic aberration, entire figure visible head to toe including feet, standing full-figure pose, no crop, hero card composition.',
+};
+
+// Short per-style medium tags, reiterated near the end of the prompt so the
+// style survives grok-2-image's chat-model prompt revision pass.
+const ART_STYLE_LOCKS: Record<ArtStyle, string> = {
+  painterly: 'painterly digital art',
+  anime: 'cel-shaded anime',
+  comic: 'inked comic-book',
+  pixel: 'retro pixel-art',
+  oil: 'classical oil-painting',
+  lowpoly: 'low-poly 3D',
+  darkfantasy: 'gritty dark-fantasy',
+  vaporwave: 'neon synthwave',
 };
 
 const NEGATIVE_CLAUSES =
@@ -207,10 +221,17 @@ export function describeSignatureColor(hex: string): string {
   return `a ${tone}${family} signature accent`;
 }
 
-function capPrompt(s: string): string {
-  const collapsed = s.replace(/\s+/g, ' ').trim();
-  if (collapsed.length <= MAX_PROMPT_CHARS) return collapsed;
-  return collapsed.slice(0, MAX_PROMPT_CHARS - 1).trimEnd() + '…';
+/**
+ * Cap the prompt while guaranteeing the trailing sentence (safety constraints)
+ * always survives truncation: over-long bodies are trimmed, never the tail.
+ */
+function capPromptWithTail(body: string, tail: string): string {
+  const collapsedTail = tail.replace(/\s+/g, ' ').trim();
+  const collapsedBody = body.replace(/\s+/g, ' ').trim();
+  const joined = `${collapsedBody} ${collapsedTail}`;
+  if (joined.length <= MAX_PROMPT_CHARS) return joined;
+  const budget = MAX_PROMPT_CHARS - collapsedTail.length - 2; // '… ' separator
+  return `${collapsedBody.slice(0, Math.max(0, budget)).trimEnd()}… ${collapsedTail}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -254,20 +275,23 @@ export function resolvePortraitPrompt(input: PortraitPromptInput): string {
       ? input.art_style
       : 'painterly';
   const styleScaffold = ART_STYLE_SCAFFOLDS[styleKey];
+  const styleLock = ART_STYLE_LOCKS[styleKey];
 
   const promptBody = [
     styleScaffold,
     `Subject: ${subject}.`,
     `Archetype hint: ${input.archetype} energy, conveying ${archetypeHint}.`,
     `Palette bias: ${colorPhrase} threading through the composition.`,
-    signatureItem ? `Signature detail: ${signatureItem}.` : null,
+    signatureItem
+      ? `Signature item, required: the character prominently holds or wears ${signatureItem}, clearly visible in frame.`
+      : null,
     `Composition seed: ${input.seed}.`,
-    `Constraints: ${NEGATIVE_CLAUSES}`,
+    `Style lock: render strictly in ${styleLock} style, full figure head to feet, uncropped.`,
   ]
     .filter(Boolean)
     .join(' ');
 
-  return capPrompt(promptBody);
+  return capPromptWithTail(promptBody, `Constraints: ${NEGATIVE_CLAUSES}`);
 }
 
 export function resolveItemIconPrompt(input: ItemIconPromptInput): string {
@@ -280,16 +304,16 @@ export function resolveItemIconPrompt(input: ItemIconPromptInput): string {
     description ? `Detail: ${description}.` : null,
     `Style: ${flavor}, vibrant but clean, game-ready collectible icon.`,
     `Composition seed: ${input.seed}.`,
-    `Constraints: ${NEGATIVE_CLAUSES}`,
   ]
     .filter(Boolean)
     .join(' ');
 
-  return capPrompt(body);
+  return capPromptWithTail(body, `Constraints: ${NEGATIVE_CLAUSES}`);
 }
 
 export const __internal = {
   MAX_PROMPT_CHARS,
   NEGATIVE_CLAUSES,
   ART_STYLE_SCAFFOLDS,
+  ART_STYLE_LOCKS,
 };

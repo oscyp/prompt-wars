@@ -11,6 +11,7 @@ import {
   createImageProvider,
   createVideoProvider,
   createTtsProvider,
+  mapXAIVideoStatus,
 } from '../_shared/providers.ts';
 
 Deno.test('MockJudgeProvider - returns valid scores', async () => {
@@ -158,6 +159,27 @@ Deno.test('MockVideoProvider - polls video status', async () => {
   assertExists(status);
   assertEquals(status.status, 'succeeded');
   assertExists(status.videoUrl);
+});
+
+Deno.test('xAI video status preserves post-generation moderation verdict', () => {
+  const approved = mapXAIVideoStatus({
+    status: 'done',
+    video: {
+      url: 'https://vidgen.x.ai/example.mp4',
+      respect_moderation: true,
+    },
+  });
+  const rejected = mapXAIVideoStatus({
+    status: 'done',
+    video: {
+      url: 'https://vidgen.x.ai/example.mp4',
+      respect_moderation: false,
+    },
+  });
+
+  assertEquals(approved.moderationApproved, true);
+  assertEquals(approved.moderationProvider, 'xai_generation');
+  assertEquals(rejected.moderationApproved, false);
 });
 
 Deno.test('MockTtsProvider - generates battle cry metadata', async () => {
