@@ -45,7 +45,7 @@ SUPABASE_DB_URL=postgresql://postgres:your-password@db.your-project.supabase.co:
 # as a competitive ladder.
 JUDGE_PROVIDER=xai
 JUDGE_API_KEY=xai-...          # optional; falls back to XAI_API_KEY
-JUDGE_MODEL_ID=grok-3          # authoritative -- confirm against x.ai's current model list
+JUDGE_MODEL_ID=grok-4.3        # grok-4.3 (cheapest w/ structured outputs) or grok-4.6 (best)
 JUDGE_API_BASE_URL=https://api.x.ai/v1   # optional override
 ```
 

@@ -518,6 +518,40 @@ export class MockTtsProvider implements TtsProvider {
 
 const JUDGE_REQUEST_TIMEOUT_MS = 30_000;
 
+/**
+ * Strict output schema for the judge.
+ *
+ * Mirrors JudgeRubricScores in _shared/types.ts and the checks in
+ * validateJudgeResponse(). `additionalProperties: false` and a complete
+ * `required` list are mandatory for xAI strict mode.
+ */
+const JUDGE_SCORE_PROPERTIES = {
+  clarity: { type: "number", minimum: 0, maximum: 10 },
+  originality: { type: "number", minimum: 0, maximum: 10 },
+  specificity: { type: "number", minimum: 0, maximum: 10 },
+  theme_fit: { type: "number", minimum: 0, maximum: 10 },
+  archetype_fit: { type: "number", minimum: 0, maximum: 10 },
+  dramatic_potential: { type: "number", minimum: 0, maximum: 10 },
+} as const;
+
+const JUDGE_SCORE_OBJECT = {
+  type: "object",
+  properties: JUDGE_SCORE_PROPERTIES,
+  required: Object.keys(JUDGE_SCORE_PROPERTIES),
+  additionalProperties: false,
+} as const;
+
+const JUDGE_RESPONSE_SCHEMA = {
+  type: "object",
+  properties: {
+    playerOneScores: JUDGE_SCORE_OBJECT,
+    playerTwoScores: JUDGE_SCORE_OBJECT,
+    explanation: { type: "string", minLength: 10, maxLength: 600 },
+  },
+  required: ["playerOneScores", "playerTwoScores", "explanation"],
+  additionalProperties: false,
+} as const;
+
 export class JudgeProviderError extends Error {
   code: string;
   constructor(code: string, message: string) {
@@ -589,7 +623,13 @@ export class XAIJudgeProvider implements AiJudgeProvider {
       Deno.env.get("XAI_API_KEY") || "";
     this.baseUrl = Deno.env.get("JUDGE_API_BASE_URL") ||
       Deno.env.get("XAI_API_BASE_URL") || "https://api.x.ai/v1";
-    this.model = Deno.env.get("JUDGE_MODEL_ID") || "grok-3";
+    // grok-4.3: cheapest Grok 4 model that supports strict structured outputs
+    // ($1.25-2.50 in / $2.50-5.00 out per 1M as of 2026-08). The judge runs
+    // 2-3 times per round and every battle is Bo3, so this is up to 9 calls per
+    // battle -- model choice here is an economics decision, not just a quality
+    // one. Use grok-4.6 if judging quality matters more than cost.
+    // grok-3 and grok-2 are no longer in the xAI catalog; do not default to them.
+    this.model = Deno.env.get("JUDGE_MODEL_ID") || "grok-4.3";
 
     if (!this.apiKey) {
       console.warn("JUDGE_API_KEY/XAI_API_KEY not set; judge calls will fail");
@@ -629,7 +669,18 @@ export class XAIJudgeProvider implements AiJudgeProvider {
             { role: "system", content: buildJudgeSystemPrompt() },
             { role: "user", content: userContent },
           ],
-          response_format: { type: "json_object" },
+          // Strict json_schema rather than json_object: it guarantees all six
+          // rubric fields are present and numeric, which removes the main way a
+          // real judge run would fail validateJudgeResponse() and silently
+          // degrade to the mock. Supported across the Grok 4 family.
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "prompt_wars_judge_verdict",
+              strict: true,
+              schema: JUDGE_RESPONSE_SCHEMA,
+            },
+          },
           // The pipeline runs the judge twice with different seeds and expects
           // the runs to be able to disagree; a non-zero temperature is what
           // makes that double-run meaningful rather than a duplicated call.
