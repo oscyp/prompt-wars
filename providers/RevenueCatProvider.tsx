@@ -10,6 +10,7 @@ import Purchases, {
 } from 'react-native-purchases';
 import { Platform } from 'react-native';
 import { supabase } from '@/utils/supabase';
+import { isPlusActive } from '@/utils/revenuecat';
 
 const IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
 const ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
@@ -157,9 +158,13 @@ export function RevenueCatProvider({ children }: { children: ReactNode }) {
     await fetchCustomerInfo();
   }
 
-  const isSubscriber =
-    customerInfo?.entitlements.active &&
-    Object.keys(customerInfo.entitlements.active).length > 0;
+  // Named entitlement, not "has any entitlement". The previous check was
+  // `Object.keys(entitlements.active).length > 0`, which answers a different
+  // question: it is only accidentally correct while Plus is the sole
+  // entitlement configured. Adding any other one -- a cosmetic bundle, a promo,
+  // a founder's pack -- would silently grant subscriber status, and its
+  // benefits, to everyone holding it.
+  const isSubscriber = isPlusActive(customerInfo);
 
   return (
     <RevenueCatContext.Provider

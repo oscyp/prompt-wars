@@ -49,18 +49,46 @@ export const getCustomerInfo = async () => {
 };
 
 /**
- * Check if user has active subscription
+ * The single RevenueCat entitlement that grants Prompt Wars+.
+ *
+ * This must exactly match the entitlement identifier configured in the
+ * RevenueCat dashboard, and ONLY the Plus subscription products
+ * (`promptwars_plus_monthly` / `_annual`) may be attached to it.
+ *
+ * Credit packs and the first-time offer must NOT grant it: they are
+ * consumables, and Plus is what gates cosmetics, allowance and the subscriber
+ * badge. Attaching them here would hand a $1.99 credit buyer a subscription.
+ */
+export const PLUS_ENTITLEMENT_ID = 'plus';
+
+/**
+ * True when the named Plus entitlement is active.
+ *
+ * Previously this returned `Object.keys(entitlements.active).length > 0`, i.e.
+ * "has ANY active entitlement". That is not the same question. It happens to be
+ * correct only while Plus is the sole entitlement in the dashboard -- the first
+ * time any other one is added (a cosmetic bundle, a founder's pack, a promo),
+ * everyone holding it silently becomes a subscriber. Checking the name is
+ * correct regardless of what else gets configured later.
  */
 export const hasActiveSubscription = async (): Promise<boolean> => {
   try {
     const customerInfo = await getCustomerInfo();
-    const entitlements = customerInfo.entitlements.active;
-    return Object.keys(entitlements).length > 0;
+    return isPlusActive(customerInfo);
   } catch (error) {
     console.error('Error checking subscription status:', error);
     return false;
   }
 };
+
+/** Pure predicate over a CustomerInfo-shaped object, so it is unit-testable. */
+export function isPlusActive(
+  customerInfo: { entitlements?: { active?: Record<string, unknown> } } | null | undefined,
+): boolean {
+  const active = customerInfo?.entitlements?.active;
+  if (!active) return false;
+  return Object.prototype.hasOwnProperty.call(active, PLUS_ENTITLEMENT_ID);
+}
 
 /**
  * Restore purchases (for users who already purchased)
