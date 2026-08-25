@@ -72,8 +72,14 @@ function humanBattle(
     is_player_two_bot: false,
     player_one_character_id: 'c1',
     player_two_character_id: 'c2',
-    player_one_character: { id: 'c1', archetype: 'strategist' },
-    player_two_character: { id: 'c2', archetype: 'titan' },
+    player_one_character: {
+      id: 'c1', archetype: 'strategist',
+      name: 'Mirrorwright', signature_color: '#8B5CF6',
+    },
+    player_two_character: {
+      id: 'c2', archetype: 'titan',
+      name: 'Ironhold', signature_color: '#22C55E',
+    },
     ...overrides,
   };
 }
@@ -121,10 +127,14 @@ Deno.test('resolveBattlePortraits — opponent (player_two) gets BOTH signed por
   assertEquals(result.payload.player_one, {
     portrait_url: 'https://signed.test/u1/c1/p.png?token=abc',
     archetype: 'strategist',
+    name: 'Mirrorwright',
+    signature_color: '#8B5CF6',
   });
   assertEquals(result.payload.player_two, {
     portrait_url: 'https://signed.test/u2/c2/p.png?token=abc',
     archetype: 'titan',
+    name: 'Ironhold',
+    signature_color: '#22C55E',
   });
 });
 
@@ -148,9 +158,12 @@ Deno.test('resolveBattlePortraits — bot side resolves to null portrait + null 
     result.payload.player_one.portrait_url,
     'https://signed.test/u1/c1/p.png?token=abc',
   );
+  // Bot side: no character row, so no identity either.
   assertEquals(result.payload.player_two, {
     portrait_url: null,
     archetype: null,
+    name: null,
+    signature_color: null,
   });
 });
 
@@ -169,6 +182,8 @@ Deno.test('resolveBattlePortraits — human with no current portrait -> null url
   assertEquals(result.payload.player_two, {
     portrait_url: null,
     archetype: 'titan',
+    name: 'Ironhold',
+    signature_color: '#22C55E',
   });
 });
 
@@ -215,4 +230,60 @@ Deno.test('resolveBattlePortraits — signing failure on one side does not fail 
     'https://signed.test/u1/c1/p.png?token=abc',
   );
   assertEquals(result.payload.player_two.portrait_url, null);
+});
+
+
+// The opponent's character row is unreadable by the client: RLS on `characters`
+// is `profile_id = auth.uid()`. This function is the ONLY path by which a player
+// learns their opponent's name, so a payload that omits it leaves the face-off
+// screen permanently showing "Player 1" / "Player 2" and "fighter" -- which is
+// exactly what it did.
+Deno.test('resolveBattlePortraits — payload carries each side\'s name and colour', async () => {
+  const fx: Fixtures = {
+    battle: humanBattle(),
+    portraits: {
+      c1: approvedPortrait('p1.png'),
+      c2: approvedPortrait('p2.png'),
+    },
+  };
+
+  const result = await resolveBattlePortraits(createMockSupabase(fx), {
+    battleId: 'battle-1',
+    callerUserId: 'u1',
+  });
+
+  assertEquals(result.kind, 'ok');
+  if (result.kind !== 'ok') return;
+
+  assertEquals(result.payload.player_one.name, 'Mirrorwright');
+  assertEquals(result.payload.player_one.archetype, 'strategist');
+  assertEquals(result.payload.player_one.signature_color, '#8B5CF6');
+
+  // The caller is u1, so player_two is the opponent -- the side with no other
+  // data path.
+  assertEquals(result.payload.player_two.name, 'Ironhold');
+  assertEquals(result.payload.player_two.archetype, 'titan');
+  assertEquals(result.payload.player_two.signature_color, '#22C55E');
+});
+
+Deno.test('resolveBattlePortraits — identity survives a portrait signing failure', async () => {
+  // A blank portrait must not also cost the opponent their name: those are
+  // independent failures and the screen should degrade to name-without-image,
+  // not to "Player 2".
+  const fx: Fixtures = {
+    battle: humanBattle(),
+    portraits: { c1: approvedPortrait('p1.png'), c2: approvedPortrait('p2.png') },
+    signErrorPaths: ['p2.png'],
+  };
+
+  const result = await resolveBattlePortraits(createMockSupabase(fx), {
+    battleId: 'battle-1',
+    callerUserId: 'u1',
+  });
+
+  assertEquals(result.kind, 'ok');
+  if (result.kind !== 'ok') return;
+  assertEquals(result.payload.player_two.portrait_url, null);
+  assertEquals(result.payload.player_two.name, 'Ironhold');
+  assertEquals(result.payload.player_two.archetype, 'titan');
 });

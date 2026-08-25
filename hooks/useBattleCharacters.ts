@@ -24,6 +24,18 @@ const DEFAULT_COLOR = '#8B5CF6';
  * bucket) and degrade silently to null — callers fall back to the bundled
  * archetype illustrations. Never blocks the caller's screen.
  */
+interface SignedSide {
+  portrait_url: string | null;
+  archetype: string | null;
+  name: string | null;
+  signature_color: string | null;
+}
+
+interface SignedSides {
+  player_one: SignedSide | null;
+  player_two: SignedSide | null;
+}
+
 export function useBattleCharacters(
   battleId: string | null,
   battle: BattleLike | null,
@@ -86,19 +98,43 @@ export function useBattleCharacters(
     let cancelled = false;
     async function signPortraits() {
       try {
-        const { data, error } = await invokeFunctionResult(
+        const { data, error } = await invokeFunctionResult<SignedSides>(
           'sign-battle-portraits',
           { battle_id: battleId },
         );
         if (cancelled || error || !data) return;
-        const payload = data as {
-          player_one: { portrait_url: string | null } | null;
-          player_two: { portrait_url: string | null } | null;
+
+        // Merge the server payload INTO whatever the direct query produced,
+        // creating the side when it produced nothing.
+        //
+        // This previously read `prev ? {...prev, portraitUrl} : prev`, which
+        // dropped the result whenever `prev` was null -- and `prev` is null for
+        // exactly the side the client cannot read. RLS on `characters` is
+        // `profile_id = auth.uid()`, so that is always the OPPONENT: their
+        // portrait was fetched successfully and then discarded, and their name
+        // and archetype had no path at all. The face-off screen showed a blank
+        // circle, "Player 1"/"Player 2" and "fighter" for every human opponent.
+        const apply = (
+          side: SignedSide | null | undefined,
+          fallbackName: string,
+        ) =>
+        (prev: BattleCharacterInfo | null): BattleCharacterInfo | null => {
+          if (!side) return prev;
+          if (prev) {
+            // Own side: keep the authoritative local row, add the portrait.
+            return { ...prev, portraitUrl: side.portrait_url ?? prev.portraitUrl };
+          }
+          // Opponent: the server payload is the only source we have.
+          return {
+            name: side.name ?? fallbackName,
+            archetype: side.archetype ?? 'fighter',
+            signatureColor: side.signature_color ?? DEFAULT_COLOR,
+            portraitUrl: side.portrait_url ?? null,
+          };
         };
-        const p1Url = payload.player_one?.portrait_url ?? null;
-        const p2Url = payload.player_two?.portrait_url ?? null;
-        setP1((prev) => (prev ? { ...prev, portraitUrl: p1Url } : prev));
-        setP2((prev) => (prev ? { ...prev, portraitUrl: p2Url } : prev));
+
+        setP1(apply(data.player_one, 'Player 1'));
+        setP2(apply(data.player_two, isBot ? 'Bot Opponent' : 'Player 2'));
       } catch {
         // Degrade silently to bundled archetype illustrations.
       }
@@ -107,7 +143,7 @@ export function useBattleCharacters(
     return () => {
       cancelled = true;
     };
-  }, [battleId]);
+  }, [battleId, isBot]);
 
   return { p1, p2 };
 }

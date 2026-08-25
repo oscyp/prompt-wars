@@ -30,6 +30,19 @@ export interface BattleSidePortrait {
   portrait_url: string | null;
   /** Archetype from this side's `characters` row; null when absent. */
   archetype: string | null;
+  /**
+   * Character display name; null for bots / missing.
+   *
+   * Included because the client CANNOT read it any other way. RLS on
+   * `characters` is `profile_id = auth.uid()`, so a player can only select
+   * their own row -- meaning the opponent's name had no data path at all and
+   * the face-off screen always fell back to "Player 1" / "Player 2". This
+   * function is already service-role and already participant-gated, so it is
+   * the correct place to surface it.
+   */
+  name: string | null;
+  /** Signature colour, for theming the opponent's card. */
+  signature_color: string | null;
 }
 
 export interface SignBattlePortraitsResponse {
@@ -45,6 +58,8 @@ export type ResolveBattlePortraitsResult =
 interface CharacterLite {
   id?: string | null;
   archetype?: string | null;
+  name?: string | null;
+  signature_color?: string | null;
 }
 
 /**
@@ -61,27 +76,30 @@ async function resolveSide(
 ): Promise<BattleSidePortrait> {
   const archetype = opts.character?.archetype ?? null;
   const characterId = opts.character?.id ?? null;
+  const name = opts.character?.name ?? null;
+  const signatureColor = opts.character?.signature_color ?? null;
+  const identity = { archetype, name, signature_color: signatureColor };
 
   if (opts.isBot || !characterId) {
-    return { portrait_url: null, archetype };
+    return { portrait_url: null, ...identity };
   }
 
   try {
     const portrait = await resolveCurrentPortrait(supabase, characterId);
-    if (!portrait) return { portrait_url: null, archetype };
+    if (!portrait) return { portrait_url: null, ...identity };
 
     const portraitUrl = await signPortraitPath(
       supabase,
       portrait.image_path,
       FACE_OFF_SIGNED_URL_TTL_SECONDS,
     );
-    return { portrait_url: portraitUrl, archetype };
+    return { portrait_url: portraitUrl, ...identity };
   } catch (error) {
     console.error(
       'sign-battle-portraits: side portrait resolution failed (non-blocking):',
       error,
     );
-    return { portrait_url: null, archetype };
+    return { portrait_url: null, ...identity };
   }
 }
 
@@ -102,8 +120,8 @@ export async function resolveBattlePortraits(
       `
       id, player_one_id, player_two_id, is_player_two_bot,
       player_one_character_id, player_two_character_id,
-      player_one_character:characters!battles_player_one_character_id_fkey(id, archetype),
-      player_two_character:characters!battles_player_two_character_id_fkey(id, archetype)
+      player_one_character:characters!battles_player_one_character_id_fkey(id, archetype, name, signature_color),
+      player_two_character:characters!battles_player_two_character_id_fkey(id, archetype, name, signature_color)
     `,
     )
     .eq('id', args.battleId)
