@@ -149,3 +149,83 @@ verify_jwt = false
 # Service-role only, gated in-function by hasSupabaseSecretAuthorization.
 [functions.moderation-queue]
 verify_jwt = false
+
+
+# ---------------------------------------------------------------------------
+# User-JWT functions: platform verification MUST stay off.
+#
+# This project issues ASYMMETRIC user JWTs (SUPABASE_JWKS is configured). The
+# Edge gateway cannot validate them and rejects the request before the function
+# runs, with:
+#
+#     401 {"code":"UNAUTHORIZED_ASYMMETRIC_JWT","message":"Invalid JWT"}
+#
+# which surfaces in the app as "TypeError: Network request failed" -- reported
+# against portrait regeneration, "See new look", and the face-off screen.
+#
+# Every function below validates the caller itself via getAuthUserId() in
+# `_shared/utils.ts`, so platform verification is redundant as well as fatal.
+# Turning it off does NOT weaken auth: the in-function check is the real gate.
+#
+# If you add a user-initiated function, it belongs here too.
+# ---------------------------------------------------------------------------
+
+[functions.account-farm-guard]
+verify_jwt = false
+
+[functions.appeal-battle]
+verify_jwt = false
+
+[functions.block-profile]
+verify_jwt = false
+
+[functions.cosmetics]
+verify_jwt = false
+
+[functions.create-custom-signature-item]
+verify_jwt = false
+
+[functions.daily-meta]
+verify_jwt = false
+
+[functions.dev-generate-video]
+verify_jwt = false
+
+[functions.edit-character]
+verify_jwt = false
+
+[functions.finalize-character-creation]
+verify_jwt = false
+
+[functions.first-time-offer]
+verify_jwt = false
+
+[functions.generate-portrait]
+verify_jwt = false
+
+[functions.grant-credits]
+verify_jwt = false
+
+[functions.leave-battle]
+verify_jwt = false
+
+[functions.list-signature-items-catalog]
+verify_jwt = false
+
+[functions.matchmaking]
+verify_jwt = false
+
+[functions.moderate-prompt]
+verify_jwt = false
+
+[functions.regenerate-portrait]
+verify_jwt = false
+
+[functions.report-intake]
+verify_jwt = false
+
+[functions.sign-battle-portraits]
+verify_jwt = false
+
+[functions.unblock-profile]
+verify_jwt = false
