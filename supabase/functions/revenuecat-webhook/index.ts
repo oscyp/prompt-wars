@@ -130,8 +130,23 @@ async function processWebhookEvent(webhookData: RevenueCatEvent): Promise<Respon
     .maybeSingle();
   
   if (profileError || !profile) {
-    console.error('Profile not found for webhook:', profileId);
-    return errorResponse('Profile not found', 404);
+    // Acknowledge rather than 404. RevenueCat retries on any non-2xx, and an
+    // app_user_id that is not one of our profiles will never become one by
+    // retrying -- so a 404 turns a test event, a deleted account or a
+    // misconfigured app_user_id into an endless redelivery loop against a
+    // permanently unsatisfiable condition.
+    //
+    // Nothing was mutated before this point (the event claim is a dedup record,
+    // not a state change), so acknowledging is safe.
+    console.warn(
+      'RevenueCat event for unknown profile, acknowledging without processing:',
+      profileId,
+    );
+    return successResponse({
+      processed: false,
+      action: 'ignored_unknown_profile',
+      profile_id: profileId,
+    });
   }
   
   // Handle subscription events
