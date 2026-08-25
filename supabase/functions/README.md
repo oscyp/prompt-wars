@@ -47,7 +47,7 @@ Server-owned logic for Prompt Wars gameplay, economy, and AI integrations.
 - `JUDGE_API_KEY` / `JUDGE_MODEL_ID` - judge credentials and model (falls back to `XAI_API_KEY`)
 - `VIDEO_PROVIDER` - Video provider type: `mock` (default) | `xai`
 - `XAI_API_KEY` - xAI / X AI API key (required if VIDEO_PROVIDER=xai)
-- `XAI_VIDEO_BASE_URL` - xAI video API base URL (optional, defaults to https://api.x.ai/v1/video)
+- `XAI_API_BASE_URL` - xAI API base URL (optional, defaults to `https://api.x.ai/v1`). Note the code deliberately ignores the older `XAI_VIDEO_BASE_URL`, which pointed at a non-existent `/v1/video` path; that secret was removed from the project on 2026-08-25.
 
 ## Testing
 
