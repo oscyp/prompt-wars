@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
   Linking,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -67,17 +68,33 @@ export default function WalletScreen() {
   }
 
   async function handlePurchase(productId: string) {
+    // Both failure paths used to `console.warn` and return, so tapping a
+    // purchase button did nothing at all with no on-screen feedback -- which
+    // looks identical to the app being broken. A store misconfiguration is
+    // exactly when the user most needs to be told something, so it surfaces.
     if (!offerings?.current) {
-      console.warn('No offerings available');
+      Alert.alert(
+        'Store unavailable',
+        'Could not load products from the store. Check your connection and try again.',
+      );
       return;
     }
 
     const pkg = offerings.current.availablePackages.find(
-      (p) => p.product.identifier === productId
+      (p) => p.product.identifier === productId,
     );
 
     if (!pkg) {
-      console.warn('Package not found:', productId);
+      console.warn(
+        `Package not found for "${productId}". Available: ` +
+          offerings.current.availablePackages
+            .map((p) => p.product.identifier)
+            .join(', '),
+      );
+      Alert.alert(
+        'Not available',
+        'This item is not available in your region or store account yet.',
+      );
       return;
     }
 
