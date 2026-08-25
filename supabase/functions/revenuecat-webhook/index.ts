@@ -4,6 +4,7 @@
 
 import { createServiceClient, corsHeaders, errorResponse, successResponse, generateIdempotencyKey } from '../_shared/utils.ts';
 import { buildSubscriptionLifecycleUpdate, isSubscriptionLifecycleEvent, creditsForProductId} from '../_shared/revenuecat-events.ts';
+import { validateWebhookSignature } from './verify-signature.ts';
 
 interface RevenueCatEvent {
   api_version: string;
@@ -37,14 +38,28 @@ Deno.serve(async (req) => {
       return errorResponse('Webhook secret not configured', 503);
     }
 
-    // Validate HMAC-SHA256 signature
-    const signature = req.headers.get('X-RevenueCat-Signature');
+    // Validate the HMAC-SHA256 signature.
+    //
+    // Header name and format both matter and both were previously wrong:
+    // RevenueCat sends `X-RevenueCat-Webhook-Signature`, not
+    // `X-RevenueCat-Signature`, and its value is
+    //
+    //     t=<unix_timestamp>,v1=<hmac_sha256_hex>
+    //
+    // not a bare hex digest. The HMAC is computed over `<timestamp>.<raw_body>`,
+    // not over the body alone. With any of those three wrong, every genuine
+    // delivery is rejected -- so the endpoint would have 401'd real traffic
+    // even once the secret was configured.
+    const signature = req.headers.get('X-RevenueCat-Webhook-Signature');
 
     if (!signature) {
       console.error('Missing webhook signature');
       return errorResponse('Unauthorized', 401);
     }
 
+    // Raw body, read once and never re-serialized: HMAC is over the exact bytes
+    // received, so a JSON.parse -> JSON.stringify round-trip breaks valid
+    // requests.
     const body = await req.text();
     const isValid = await validateWebhookSignature(body, signature, webhookSecret);
 
@@ -63,33 +78,6 @@ Deno.serve(async (req) => {
   }
 });
 
-/**
- * Validate RevenueCat webhook signature (HMAC-SHA256)
- */
-async function validateWebhookSignature(
-  body: string,
-  signature: string,
-  secret: string
-): Promise<boolean> {
-  try {
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify']
-    );
-    
-    const signatureBuffer = Uint8Array.from(signature.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-    const dataBuffer = encoder.encode(body);
-    
-    return await crypto.subtle.verify('HMAC', key, signatureBuffer, dataBuffer);
-  } catch (err) {
-    console.error('Signature validation error:', err);
-    return false;
-  }
-}
 
 /**
  * Process webhook event with idempotency
