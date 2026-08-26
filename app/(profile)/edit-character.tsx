@@ -74,6 +74,7 @@ const EDIT_PRICES = {
   signatureItem: 0,
   customizeItem: 0,
   regeneratePortrait: 1,
+  regenerateAvatar: 1,
   rePromptPortrait: 2,
   changeArtStyle: 2,
   swapTrait: 1,
@@ -176,6 +177,7 @@ interface CharacterRow {
   signature_color: string;
   signature_item_id: string | null;
   portrait_id: string | null;
+  avatar_portrait_id: string | null;
   portrait_seed: number | null;
   vibe: Vibe | null;
   silhouette: Silhouette | null;
@@ -195,6 +197,7 @@ export default function EditCharacterScreen() {
 
   const [character, setCharacter] = useState<CharacterRow | null>(null);
   const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -218,7 +221,7 @@ export default function EditCharacterScreen() {
       const { data, error } = await supabase
         .from('characters')
         .select(
-          'id,name,archetype,battle_cry,signature_color,signature_item_id,portrait_id,portrait_seed,vibe,silhouette,palette_key,era,expression,art_style,last_edited_at',
+          'id,name,archetype,battle_cry,signature_color,signature_item_id,portrait_id,avatar_portrait_id,portrait_seed,vibe,silhouette,palette_key,era,expression,art_style,last_edited_at',
         )
         .eq('profile_id', user.id)
         .order('created_at', { ascending: false })
@@ -245,6 +248,28 @@ export default function EditCharacterScreen() {
         }
       } else {
         setPortraitUrl(null);
+      }
+
+      // Avatar is a separate row keyed by its own pointer; characters created
+      // before avatars existed simply have none, which is the normal state.
+      if (data?.avatar_portrait_id) {
+        const { data: avatarRow } = await supabase
+          .from('character_portraits')
+          .select('image_path')
+          .eq('id', data.avatar_portrait_id)
+          .maybeSingle();
+        const avatarPath =
+          (avatarRow as { image_path: string } | null)?.image_path ?? null;
+        if (avatarPath) {
+          const { data: signed, error: signedError } = await supabase.storage
+            .from('character-portraits')
+            .createSignedUrl(avatarPath, 600);
+          setAvatarUrl(signedError ? null : (signed?.signedUrl ?? null));
+        } else {
+          setAvatarUrl(null);
+        }
+      } else {
+        setAvatarUrl(null);
       }
     } catch (err) {
       console.error('Failed to load character:', err);
@@ -427,6 +452,55 @@ export default function EditCharacterScreen() {
       runPortraitRender();
     }
   }, [character, runPortraitRender]);
+
+  /**
+   * Avatar (re)render. Mirrors the fighter flow: the first one is free and runs
+   * immediately, regenerations confirm the credit cost first.
+   */
+  const runAvatarRender = useCallback(async () => {
+    if (!character) return;
+    setBusyKey('regenerateAvatar');
+    try {
+      await regeneratePortrait({
+        characterId: character.id,
+        kind: 'avatar',
+      });
+      showToast(
+        avatarUrl
+          ? `Avatar regenerated · ${EDIT_PRICES.regenerateAvatar} credit spent`
+          : 'Avatar created',
+      );
+      await loadCharacter();
+      await refreshCredits();
+    } catch (err) {
+      console.error('Failed to render avatar', {
+        characterId: character.id,
+        err,
+      });
+      Alert.alert(
+        'Avatar failed',
+        err instanceof Error ? err.message : 'Try again.',
+      );
+    } finally {
+      setBusyKey(null);
+    }
+  }, [character, avatarUrl, loadCharacter, refreshCredits, showToast]);
+
+  const promptAvatarRender = useCallback(() => {
+    if (!character) return;
+    if (avatarUrl) {
+      Alert.alert(
+        'Regenerate avatar',
+        `Spend ${EDIT_PRICES.regenerateAvatar} credit?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Spend', style: 'destructive', onPress: runAvatarRender },
+        ],
+      );
+    } else {
+      runAvatarRender();
+    }
+  }, [character, avatarUrl, runAvatarRender]);
 
   // --- Trait staging (batched apply) ------------------------------------
 
@@ -760,6 +834,41 @@ export default function EditCharacterScreen() {
               cost={hasInitialPortraitSeed ? EDIT_PRICES.regeneratePortrait : 0}
               busy={busyKey === 'regeneratePortrait'}
               onPress={promptPortraitRender}
+            />
+            {/* Avatar: the head/bust render used in battle strips and rings.
+                Separate from the fighter render above, which stays full-body
+                for the reveal poster and the video reference. */}
+            <View style={styles.avatarRow}>
+              <PortraitPreview
+                uri={avatarUrl ?? fallbackUri}
+                variant="circle"
+                size={72}
+                loading={busyKey === 'regenerateAvatar'}
+                accessibilityLabel="Character avatar"
+              />
+              <View style={styles.avatarCopy}>
+                <Text style={[styles.avatarTitle, { color: colors.text }]}>
+                  Avatar
+                </Text>
+                <Text
+                  style={[styles.avatarSubtitle, { color: colors.textSecondary }]}
+                >
+                  {avatarUrl
+                    ? 'Head-and-shoulders render used in battle strips.'
+                    : 'No avatar yet — strips crop your full render instead.'}
+                </Text>
+              </View>
+            </View>
+            <ActionRow
+              title={avatarUrl ? 'Regenerate avatar' : 'Generate avatar'}
+              subtitle={
+                avatarUrl
+                  ? 'A fresh head-and-shoulders render.'
+                  : 'Free — a portrait made for small contexts.'
+              }
+              cost={avatarUrl ? EDIT_PRICES.regenerateAvatar : 0}
+              busy={busyKey === 'regenerateAvatar'}
+              onPress={promptAvatarRender}
             />
             <RePromptRow
               busy={busyKey === 'rePromptPortrait'}
@@ -1619,6 +1728,18 @@ const styles = StyleSheet.create({
   },
   dock: { flex: 1 },
   panelScroll: { flex: 1 },
+  avatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  avatarCopy: { flex: 1 },
+  avatarTitle: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+  },
+  avatarSubtitle: { fontSize: Typography.sizes.xs, marginTop: 2 },
   panel: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,

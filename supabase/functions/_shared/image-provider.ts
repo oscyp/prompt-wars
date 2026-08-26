@@ -8,6 +8,7 @@ import {
   type Archetype,
   type ArtStyle,
   type PortraitTraits,
+  type PortraitKind,
 } from './portrait-prompt-resolver.ts';
 
 // ---------------------------------------------------------------------------
@@ -22,6 +23,8 @@ export interface PortraitGenerationInput {
   signature_item_fragment?: string;
   seed: number;
   art_style?: ArtStyle;
+  /** 'fighter' (full-body, default) or 'avatar' (head/bust). */
+  kind?: PortraitKind;
 }
 
 export interface PortraitGenerationResult {
@@ -91,11 +94,16 @@ export async function generateCharacterPortrait(
   input: PortraitGenerationInput,
 ): Promise<PortraitGenerationResult> {
   const resolvedPrompt = resolvePortraitPrompt(input);
-  // Vertical canvas so full-body characters render head to feet (OpenAI only;
-  // grok-2-image has no size control and returns its own native dimensions).
+  // Canvas follows the framing: a 2:3 vertical for full-body so the figure
+  // renders head to feet, square for a bust so the face fills the frame rather
+  // than floating in dead vertical space.
+  //
+  // This is OpenAI-only. grok-2-image (the primary) accepts no size parameter
+  // at all and returns its native dimensions, so on that path the framing lives
+  // entirely in the prompt text.
   return generateWithRouting({
     resolvedPrompt,
-    size: '1024x1536',
+    size: input.kind === 'avatar' ? '1024x1024' : '1024x1536',
   });
 }
 

@@ -22,11 +22,17 @@ import type {
   PortraitTraits,
 } from '../_shared/portrait-prompt-resolver.ts';
 import { ART_STYLE_KEYS } from '../_shared/portrait-prompt-resolver.ts';
+import type { PortraitKind } from '../_shared/portrait-prompt-resolver.ts';
 
 interface RegenerateRequest {
   character_id: string;
   portrait_prompt_raw?: string; // if provided and differs, uses 'new_portrait' price
   art_style?: ArtStyle; // if provided and differs, uses 'new_portrait' price
+  /**
+   * Which render to (re)generate. Defaults to 'fighter', so every existing
+   * caller keeps regenerating the full-body image exactly as before.
+   */
+  kind?: PortraitKind;
 }
 
 const PORTRAIT_HISTORY_LIMIT = 3;
@@ -83,7 +89,7 @@ Deno.serve(async (req) => {
   const { data: character, error: charErr } = await supabase
     .from('characters')
     .select(
-      'id, profile_id, archetype, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, portrait_seed, portrait_prompt_raw, portrait_prompt_resolved, portrait_id, art_style, portrait_history',
+      'id, profile_id, archetype, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, portrait_seed, portrait_prompt_raw, portrait_prompt_resolved, portrait_id, avatar_portrait_id, art_style, portrait_history',
     )
     .eq('id', body.character_id)
     .maybeSingle();
@@ -104,7 +110,19 @@ Deno.serve(async (req) => {
     ((character as { art_style?: ArtStyle }).art_style ?? 'painterly') as ArtStyle;
   const newArtStyle = (body.art_style as ArtStyle | undefined) ?? currentArtStyle;
   const styleChanged = newArtStyle !== currentArtStyle;
-  const priceKey = (promptChanged || styleChanged) ? 'new_portrait' : 'regenerate_portrait';
+  const portraitKind: PortraitKind = body.kind === 'avatar' ? 'avatar' : 'fighter';
+  const isAvatar = portraitKind === 'avatar';
+  const hasAvatarAlready = Boolean(
+    (character as { avatar_portrait_id?: string | null }).avatar_portrait_id,
+  );
+
+  // Avatar pricing is its own ladder: the first one is free (the fighter render
+  // was already paid for at creation, and charging for the first avatar would
+  // leave battle strips looking broken until someone happened to spend a
+  // credit), regenerations cost the same as a fighter regeneration.
+  const priceKey = isAvatar
+    ? (hasAvatarAlready ? 'regenerate_avatar' : 'initial_avatar')
+    : ((promptChanged || styleChanged) ? 'new_portrait' : 'regenerate_portrait');
   const price = await getEditPrice(supabase, priceKey);
   if (!price) return err('server_error', 'price config missing', 500);
 
@@ -207,6 +225,7 @@ Deno.serve(async (req) => {
       character_id: character.id,
       profile_id: userId,
       kind: 'regenerate',
+      portrait_kind: portraitKind,
       status: 'running',
       seed: character.portrait_seed as number,
       prompt_payload: {
@@ -247,6 +266,9 @@ Deno.serve(async (req) => {
       signature_item_fragment: itemFragment,
       seed: character.portrait_seed as number,
       art_style: newArtStyle,
+      // Both kinds share the character's immutable portrait_seed so the avatar
+      // and the fighter read as the same character rather than two people.
+      kind: portraitKind,
     });
   } catch (e) {
     const code = e instanceof SafetyRefusedError
@@ -299,11 +321,14 @@ Deno.serve(async (req) => {
     return err('storage_error', uploadRes.error.message, 500);
   }
 
-  // Demote prior current portrait.
+  // Demote the prior current portrait OF THIS KIND only. Without the kind
+  // filter, regenerating a fighter would silently retire the avatar (and vice
+  // versa), leaving the character with one live image again.
   await supabase
     .from('character_portraits')
     .update({ is_current: false })
     .eq('character_id', character.id)
+    .eq('kind', portraitKind)
     .eq('is_current', true);
 
   const { data: portrait, error: insertErr } = await supabase
@@ -326,6 +351,7 @@ Deno.serve(async (req) => {
       },
       generation_job_id: job?.id ?? null,
       is_current: true,
+      kind: portraitKind,
       moderation_status: 'approved',
     })
     .select('id')
@@ -336,9 +362,14 @@ Deno.serve(async (req) => {
     return err('server_error', insertErr?.message ?? 'portrait insert failed', 500);
   }
 
-  await supabase
-    .from('characters')
-    .update({
+  // An avatar updates ONLY its own pointer. portrait_prompt_raw/_resolved,
+  // art_style and portrait_history all describe the fighter render -- writing
+  // an avatar's resolved prompt into portrait_prompt_resolved would make the
+  // edit screen show bust framing as the character's prompt, and pushing the
+  // avatar into portrait_history would offer it as a fighter to revert to.
+  const characterPatch: Record<string, unknown> = isAvatar
+    ? { avatar_portrait_id: portrait.id }
+    : {
       portrait_id: portrait.id,
       portrait_prompt_raw: promptRaw || null,
       portrait_prompt_resolved: result.resolved_prompt,
@@ -347,7 +378,11 @@ Deno.serve(async (req) => {
         (character as { portrait_history?: unknown }).portrait_history,
         (character as { portrait_id?: string | null }).portrait_id ?? null,
       ),
-    })
+    };
+
+  await supabase
+    .from('characters')
+    .update(characterPatch)
     .eq('id', character.id);
 
   if (job?.id) {

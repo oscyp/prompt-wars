@@ -94,6 +94,8 @@ export interface RegeneratePortraitInput {
    * backend re-renders and charges the `new_portrait` price tier.
    */
   artStyle?: ArtStyle;
+  /** 'fighter' (full-body, default) or 'avatar' (head/bust). */
+  kind?: 'fighter' | 'avatar';
 }
 
 export interface CreateCustomSignatureItemInput {
@@ -488,6 +490,9 @@ export async function regeneratePortrait(
   }
   if (input.artStyle) {
     body.art_style = input.artStyle;
+  }
+  if (input.kind) {
+    body.kind = input.kind;
   }
   return startPortraitJob('regenerate-portrait', body);
 }

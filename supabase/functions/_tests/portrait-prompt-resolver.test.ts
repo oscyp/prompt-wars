@@ -142,7 +142,7 @@ Deno.test('signature_item_fragment is included as a mandatory, prominent detail'
   assert(out.includes('clearly visible'), `item visibility clause missing: ${out}`);
 });
 
-Deno.test('every art style demands full-body framing, head to feet, uncropped', () => {
+Deno.test('fighter kind: every art style demands full-body framing, head to feet, uncropped', () => {
   for (const style of Object.keys(__internal.ART_STYLE_SCAFFOLDS)) {
     const out = resolvePortraitPrompt({
       archetype: 'titan',
@@ -233,4 +233,78 @@ Deno.test('art_style defaults to painterly when omitted or unknown', () => {
     art_style: 'bogus' as any,
   });
   assert(unknown.toLowerCase().includes('painterly'), 'unknown art_style should default to painterly');
+});
+
+
+// The avatar kind is the mirror image: it must NOT contain the full-body
+// language, and must contain the bust framing. These two tests together are
+// what stops a future edit from collapsing the two kinds back into one prompt.
+Deno.test('avatar kind: every art style demands head-and-shoulders bust framing', () => {
+  for (const style of Object.keys(__internal.ART_STYLE_SCAFFOLDS)) {
+    const out = resolvePortraitPrompt({
+      archetype: 'titan',
+      signature_color: '#FF3300',
+      seed: 3,
+      // deno-lint-ignore no-explicit-any
+      art_style: style as any,
+      kind: 'avatar',
+    });
+    const lower = out.toLowerCase();
+    assert(
+      lower.includes('head-and-shoulders'),
+      `style ${style} missing bust framing: ${out}`,
+    );
+    assert(lower.includes('face'), `style ${style} missing face clause: ${out}`);
+    assert(
+      !lower.includes('head to toe') && !lower.includes('full figure head to feet'),
+      `style ${style} still asks for a full body: ${out}`,
+    );
+    assert(
+      !lower.includes('no crop'),
+      `style ${style} keeps the no-crop clause, which fights bust framing: ${out}`,
+    );
+  }
+});
+
+Deno.test('avatar kind softens the signature-item clause', () => {
+  // A bust crop cannot show something held at waist height; demanding it be
+  // "prominently held and clearly visible" drags the camera back out to full
+  // body, which is the whole failure this avoids.
+  const base = {
+    archetype: 'engineer' as const,
+    signature_color: '#3355FF',
+    seed: 9,
+    signature_item_fragment: 'a brass sextant',
+  };
+
+  const fighter = resolvePortraitPrompt(base);
+  assert(
+    fighter.includes('prominently holds or wears'),
+    `fighter lost its required-item clause: ${fighter}`,
+  );
+
+  const avatar = resolvePortraitPrompt({ ...base, kind: 'avatar' });
+  assert(
+    !avatar.includes('prominently holds or wears'),
+    `avatar keeps the full-body item demand: ${avatar}`,
+  );
+  assert(
+    avatar.includes('shoulder or collar'),
+    `avatar missing the bust-appropriate item clause: ${avatar}`,
+  );
+});
+
+Deno.test('kind defaults to fighter so existing callers are unchanged', () => {
+  const withoutKind = resolvePortraitPrompt({
+    archetype: 'mystic',
+    signature_color: '#8B5CF6',
+    seed: 11,
+  });
+  const explicitFighter = resolvePortraitPrompt({
+    archetype: 'mystic',
+    signature_color: '#8B5CF6',
+    seed: 11,
+    kind: 'fighter',
+  });
+  assertEquals(withoutKind, explicitFighter);
 });

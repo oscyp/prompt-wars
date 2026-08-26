@@ -40,7 +40,18 @@ export interface PortraitPromptInput {
   signature_item_fragment?: string;
   seed: number;
   art_style?: ArtStyle;
+  /**
+   * Which render this prompt is for. Defaults to 'fighter' so every existing
+   * caller is unchanged.
+   *   fighter -- full-body, head to feet. Reveal poster + video reference.
+   *   avatar  -- head-and-shoulders bust. Battle strips and rings, where the
+   *              full figure is cropped to a circle and the face is all that
+   *              survives anyway.
+   */
+  kind?: PortraitKind;
 }
+
+export type PortraitKind = 'fighter' | 'avatar';
 
 export interface ItemIconPromptInput {
   name: string;
@@ -138,6 +149,34 @@ const ART_STYLE_SCAFFOLDS: Record<ArtStyle, string> = {
     'Gritty dark-fantasy full-body character illustration, muted desaturated palette, atmospheric haze and shadow, dramatic side lighting, entire figure visible head to toe including feet, standing full-figure pose, no crop, hero card composition.',
   vaporwave:
     'Neon synthwave full-body character illustration, magenta and cyan rim lighting, retro vaporwave grid backdrop, subtle chromatic aberration, entire figure visible head to toe including feet, standing full-figure pose, no crop, hero card composition.',
+};
+
+// Avatar scaffolds. A deliberate parallel map rather than a refactor of the
+// fighter scaffolds above: those are tuned, and their exact wording is asserted
+// per art style by _tests/portrait-prompt-resolver.test.ts. Sharing a builder
+// between the two would put the fighter prompts one careless edit away from
+// changing.
+//
+// Framing is the only real difference -- the medium/lighting language is kept
+// deliberately close so an avatar and a fighter of the same character read as
+// the same artwork.
+const ART_STYLE_AVATAR_SCAFFOLDS: Record<ArtStyle, string> = {
+  painterly:
+    'Stylized painterly digital art character portrait, head-and-shoulders bust framing, face centered and clearly visible, dramatic rim lighting, clean studio background, profile-avatar composition.',
+  anime:
+    'Crisp cel-shaded anime character portrait, head-and-shoulders bust framing, bold clean linework, vibrant flat colors with sharp shadow shapes, face centered and clearly visible, profile-avatar composition.',
+  comic:
+    'Inked western comic-book character portrait, head-and-shoulders bust framing, bold black outlines, halftone shading with Ben-Day dot accents, face centered and clearly visible, profile-avatar composition.',
+  pixel:
+    'Retro pixel-art character portrait, head-and-shoulders bust framing, hand-placed pixels, dithered shading, limited 16-color palette, face centered and clearly visible, clean solid background, profile-avatar composition.',
+  oil:
+    'Classical oil-painting character portrait, head-and-shoulders bust framing, visible textured brushwork, rich chiaroscuro lighting, muted earthy palette, face centered and clearly visible, gallery-style composition.',
+  lowpoly:
+    'Stylized low-poly 3D character portrait, head-and-shoulders bust framing, faceted geometric shading, soft studio HDR lighting, matte finish, face centered and clearly visible, profile-avatar composition.',
+  darkfantasy:
+    'Gritty dark-fantasy character portrait, head-and-shoulders bust framing, muted desaturated palette, atmospheric haze and shadow, dramatic side lighting, face centered and clearly visible, profile-avatar composition.',
+  vaporwave:
+    'Neon synthwave character portrait, head-and-shoulders bust framing, magenta and cyan rim lighting, retro vaporwave grid backdrop, subtle chromatic aberration, face centered and clearly visible, profile-avatar composition.',
 };
 
 // Short per-style medium tags, reiterated near the end of the prompt so the
@@ -274,7 +313,11 @@ export function resolvePortraitPrompt(input: PortraitPromptInput): string {
     input.art_style && ART_STYLE_SCAFFOLDS[input.art_style]
       ? input.art_style
       : 'painterly';
-  const styleScaffold = ART_STYLE_SCAFFOLDS[styleKey];
+  const kind: PortraitKind = input.kind ?? 'fighter';
+  const isAvatar = kind === 'avatar';
+  const styleScaffold = isAvatar
+    ? ART_STYLE_AVATAR_SCAFFOLDS[styleKey]
+    : ART_STYLE_SCAFFOLDS[styleKey];
   const styleLock = ART_STYLE_LOCKS[styleKey];
 
   const promptBody = [
@@ -282,11 +325,18 @@ export function resolvePortraitPrompt(input: PortraitPromptInput): string {
     `Subject: ${subject}.`,
     `Archetype hint: ${input.archetype} energy, conveying ${archetypeHint}.`,
     `Palette bias: ${colorPhrase} threading through the composition.`,
+    // A bust crop cannot show something held at waist height, so asking the
+    // model to make it "prominently held and clearly visible" fights the
+    // framing and tends to drag the camera back out to full body.
     signatureItem
-      ? `Signature item, required: the character prominently holds or wears ${signatureItem}, clearly visible in frame.`
+      ? isAvatar
+        ? `Signature item: hints of ${signatureItem} may appear at the shoulder or collar if it fits the bust framing.`
+        : `Signature item, required: the character prominently holds or wears ${signatureItem}, clearly visible in frame.`
       : null,
     `Composition seed: ${input.seed}.`,
-    `Style lock: render strictly in ${styleLock} style, full figure head to feet, uncropped.`,
+    isAvatar
+      ? `Style lock: render strictly in ${styleLock} style, head-and-shoulders bust portrait, face fully visible.`
+      : `Style lock: render strictly in ${styleLock} style, full figure head to feet, uncropped.`,
   ]
     .filter(Boolean)
     .join(' ');

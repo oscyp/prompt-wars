@@ -305,3 +305,51 @@ Deno.test('resolveBattlePortraits — identity survives a portrait signing failu
   assertEquals(result.payload.player_two.name, 'Ironhold');
   assertEquals(result.payload.player_two.archetype, 'titan');
 });
+
+// Avatar preference, and the fallback that protects the existing player base.
+//
+// These are circle-cropped surfaces (face-off, VersusStrip), so the avatar is
+// preferred — a circle crop of a full-body fighter render is mostly torso. But
+// every character created before avatars existed has only a fighter render, so
+// the fallback is what stops the face-off going blank for all of them.
+Deno.test('resolveBattlePortraits — prefers the avatar render when one exists', async () => {
+  const fx: Fixtures = {
+    battle: humanBattle(),
+    portraits: { c1: approvedPortrait('p1-fighter.png') },
+    avatars: { c1: approvedPortrait('p1-avatar.png') },
+  };
+
+  const result = await resolveBattlePortraits(createMockSupabase(fx), {
+    battleId: 'battle-1',
+    callerUserId: 'u1',
+  });
+
+  assertEquals(result.kind, 'ok');
+  if (result.kind !== 'ok') return;
+  assertEquals(
+    result.payload.player_one.portrait_url,
+    'https://signed.test/p1-avatar.png?token=abc',
+  );
+});
+
+Deno.test('resolveBattlePortraits — falls back to the fighter render when no avatar exists', async () => {
+  // This is every pre-existing character.
+  const fx: Fixtures = {
+    battle: humanBattle(),
+    portraits: { c1: approvedPortrait('p1-fighter.png') },
+    // no `avatars` fixture at all
+  };
+
+  const result = await resolveBattlePortraits(createMockSupabase(fx), {
+    battleId: 'battle-1',
+    callerUserId: 'u1',
+  });
+
+  assertEquals(result.kind, 'ok');
+  if (result.kind !== 'ok') return;
+  assertEquals(
+    result.payload.player_one.portrait_url,
+    'https://signed.test/p1-fighter.png?token=abc',
+    'a character with no avatar must NOT go blank',
+  );
+});

@@ -85,7 +85,19 @@ async function resolveSide(
   }
 
   try {
-    const portrait = await resolveCurrentPortrait(supabase, characterId);
+    // Prefer the purpose-made avatar; fall back to the full-body fighter.
+    //
+    // The fallback is load-bearing, not defensive: every character that existed
+    // before avatars were introduced has only a fighter render, so without it
+    // the face-off and the battle strips would go blank for the entire existing
+    // player base the moment this shipped.
+    //
+    // These are circle-cropped contexts, which is exactly why the avatar is
+    // preferred — the fighter render is full-body, so a circle crop of it shows
+    // mostly torso.
+    const portrait =
+      (await resolveCurrentPortrait(supabase, characterId, 'avatar')) ??
+      (await resolveCurrentPortrait(supabase, characterId, 'fighter'));
     if (!portrait) return { portrait_url: null, ...identity };
 
     const portraitUrl = await signPortraitPath(
