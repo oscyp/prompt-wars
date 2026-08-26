@@ -19,7 +19,12 @@ import {
   createServiceClient,
   getAuthUserId,
 } from '../_shared/utils.ts';
-import { err, ok } from '../_shared/character-creation.ts';
+import {
+  err,
+  isDraftCharacter,
+  ok,
+  PLACEHOLDER_BATTLE_CRY,
+} from '../_shared/character-creation.ts';
 import { TextModerationProvider } from '../_shared/moderation.ts';
 
 const VIBE = ['heroic', 'sinister', 'mischievous', 'stoic', 'unhinged', 'regal'];
@@ -38,8 +43,6 @@ const ARCHETYPE = ['strategist', 'trickster', 'titan', 'mystic', 'engineer'];
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
-// Must match PLACEHOLDER_BATTLE_CRY in app/(onboarding)/create-character.tsx.
-const PLACEHOLDER_BATTLE_CRY = '…';
 
 interface FinalizeRequest {
   character_id: string;
@@ -83,7 +86,7 @@ Deno.serve(async (req) => {
 
   const { data: character, error: charErr } = await supabase
     .from('characters')
-    .select('id, profile_id, battle_cry')
+    .select('id, profile_id, battle_cry, finalized_at')
     .eq('id', body.character_id)
     .maybeSingle();
 
@@ -91,6 +94,17 @@ Deno.serve(async (req) => {
   if (!character) return err('not_found', 'character not found', 404);
   if (character.profile_id !== userId) {
     return err('forbidden', 'not the owner of this character', 403);
+  }
+  // finalized_at is the authoritative gate -- it is server-owned and the guard
+  // trigger refuses to clear it. The battle_cry check stays as a second
+  // condition so a row that predates finalized_at still behaves correctly, but
+  // it can no longer be used on its own to re-enter the free creation flow.
+  if (!isDraftCharacter(character.finalized_at as string | null)) {
+    return err(
+      'conflict',
+      'character has already been finalized; use edit-character',
+      409,
+    );
   }
   if (character.battle_cry !== PLACEHOLDER_BATTLE_CRY) {
     return err(
@@ -210,11 +224,17 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Stamp the character as finalized in the same write. This closes the free
+  // creation flow: portrait re-rolls now cost credits via regenerate-portrait,
+  // and this function refuses the row from here on.
+  updates.finalized_at = new Date().toISOString();
+
   const { error: updErr } = await supabase
     .from('characters')
     .update(updates)
     .eq('id', character.id)
-    .eq('profile_id', userId);
+    .eq('profile_id', userId)
+    .is('finalized_at', null);
 
   if (updErr) return err('server_error', updErr.message, 500);
 

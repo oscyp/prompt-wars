@@ -1,5 +1,10 @@
 // Generate Portrait Edge Function
-// First-time portrait for a character. No credit charge.
+// Portrait for a character still in the creation flow. No credit charge, and
+// an unfinalized draft may re-roll through here as many times as it likes --
+// picking a look you are happy with is part of creating the character, not a
+// paid edit. The free path closes the moment finalize-character-creation gives
+// the character a real battle_cry; after that, re-rolls cost credits and must
+// go through regenerate-portrait.
 // - Requires characters.portrait_seed IS NULL
 // - Generates a random 32-bit seed and atomically sets it
 // - Runs text moderation on portrait_prompt_raw
@@ -15,6 +20,7 @@ import {
 import { TextModerationProvider } from '../_shared/moderation.ts';
 import {
   err,
+  isDraftCharacter,
   ok,
   randomPortraitSeed,
 } from '../_shared/character-creation.ts';
@@ -34,6 +40,37 @@ interface GeneratePortraitRequest {
   character_id: string;
   portrait_prompt_raw?: string;
   art_style?: ArtStyle;
+  /**
+   * Guided-path traits from the creation screen. They live only in the client's
+   * draft until finalize-character-creation writes them, so during creation the
+   * request body is the only place they exist -- without them every re-roll
+   * renders from archetype alone and the results barely differ.
+   */
+  traits?: PortraitTraits;
+}
+
+const TRAIT_KEYS = ['vibe', 'silhouette', 'palette', 'era', 'expression'] as const;
+const MAX_TRAIT_LEN = 40;
+
+/** Drop undefined entries so a null row column does not mask a body value. */
+function stripUndefined(traits: PortraitTraits): PortraitTraits {
+  return Object.fromEntries(
+    Object.entries(traits).filter(([, v]) => v !== undefined),
+  ) as PortraitTraits;
+}
+
+/** Keep only known trait keys with short string values; ignore anything else. */
+function sanitizeTraits(input: unknown): PortraitTraits {
+  if (!input || typeof input !== 'object') return {};
+  const src = input as Record<string, unknown>;
+  const out: Record<string, string> = {};
+  for (const key of TRAIT_KEYS) {
+    const value = src[key];
+    if (typeof value === 'string' && value.length > 0 && value.length <= MAX_TRAIT_LEN) {
+      out[key] = value;
+    }
+  }
+  return out as PortraitTraits;
 }
 
 Deno.serve(async (req) => {
@@ -71,7 +108,7 @@ Deno.serve(async (req) => {
   const { data: character, error: charErr } = await supabase
     .from('characters')
     .select(
-      'id, profile_id, archetype, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, portrait_seed, portrait_prompt_raw, art_style',
+      'id, profile_id, archetype, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, portrait_seed, portrait_prompt_raw, art_style, finalized_at',
     )
     .eq('id', body.character_id)
     .maybeSingle();
@@ -81,7 +118,10 @@ Deno.serve(async (req) => {
   if (character.profile_id !== userId) {
     return err('forbidden', 'not the owner of this character', 403);
   }
-  if (character.portrait_seed !== null) {
+  // Drafts re-roll freely; finalized characters are sent to the paid flow.
+  const isDraft = isDraftCharacter(character.finalized_at as string | null);
+  const priorSeed = (character.portrait_seed as number | null) ?? null;
+  if (priorSeed !== null && !isDraft) {
     return err(
       'conflict',
       'portrait already initialized; use regenerate-portrait',
@@ -103,17 +143,22 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Atomically claim a seed (only if still null).
+  // Atomically claim a seed. A fresh character claims only while the seed is
+  // still null; a draft re-roll compare-and-swaps against the seed we just
+  // read, so two concurrent re-rolls cannot interleave and leave the row
+  // pointing at one attempt's seed and the other's portrait.
   const seed = randomPortraitSeed();
-  const { data: claimed, error: claimErr } = await supabase
+  const claim = supabase
     .from('characters')
     .update({
       portrait_seed: seed,
       portrait_prompt_raw: promptRaw || null,
       art_style: artStyle,
     })
-    .eq('id', character.id)
-    .is('portrait_seed', null)
+    .eq('id', character.id);
+  const { data: claimed, error: claimErr } = await (
+    priorSeed === null ? claim.is('portrait_seed', null) : claim.eq('portrait_seed', priorSeed)
+  )
     .select('id')
     .maybeSingle();
 
@@ -122,19 +167,24 @@ Deno.serve(async (req) => {
     return err('conflict', 'portrait_seed already set', 409);
   }
 
-  // Roll back the claimed seed on a NON-safety failure so the free first-portrait
-  // path can be retried instead of 409ing to the paid regenerate flow. Guarded to
-  // clear only the seed WE claimed and only while no portrait exists, so a
-  // concurrent success is never clobbered. Safety refusals keep the seed:
-  // they are deterministic (retrying identical inputs refuses again), mirroring
-  // the video pipeline's isRetryableFailedJob which excludes moderation rejections.
+  // Roll back our claim on a NON-safety failure so the free path can be retried
+  // instead of 409ing to the paid regenerate flow. Restores the PREVIOUS seed
+  // and prompt rather than nulling them: a draft re-roll already has a good
+  // portrait on the row, and nulling the seed would strand it. Guarded on the
+  // seed WE claimed, so a concurrent success is never clobbered. Safety refusals
+  // keep the seed: they are deterministic (retrying identical inputs refuses
+  // again), mirroring the video pipeline's isRetryableFailedJob which excludes
+  // moderation rejections.
   const releaseClaimedSeed = async () => {
     const { error: releaseErr } = await supabase
       .from('characters')
-      .update({ portrait_seed: null })
+      .update({
+        portrait_seed: priorSeed,
+        portrait_prompt_raw: character.portrait_prompt_raw,
+        art_style: (character as { art_style?: ArtStyle }).art_style ?? 'painterly',
+      })
       .eq('id', character.id)
-      .eq('portrait_seed', seed)
-      .is('portrait_id', null);
+      .eq('portrait_seed', seed);
     if (releaseErr) {
       console.error('Failed to release portrait_seed after failure:', releaseErr);
     }
@@ -151,13 +201,17 @@ Deno.serve(async (req) => {
     itemFragment = item?.prompt_fragment ?? undefined;
   }
 
-  const traits: PortraitTraits = {
+  // Row values win once they exist; the request body fills the gap while the
+  // character is still a draft. Not persisted here -- finalize-character-creation
+  // remains the single writer of a character's traits.
+  const rowTraits: PortraitTraits = {
     vibe: character.vibe ?? undefined,
     silhouette: character.silhouette ?? undefined,
     palette: character.palette_key ?? undefined,
     era: character.era ?? undefined,
     expression: character.expression ?? undefined,
   };
+  const traits: PortraitTraits = { ...sanitizeTraits(body.traits), ...stripUndefined(rowTraits) };
 
   // Create job row in queued state.
   const { data: job, error: jobErr } = await supabase
@@ -251,6 +305,16 @@ Deno.serve(async (req) => {
     await releaseClaimedSeed();
     return err('storage_error', uploadRes.error.message, 500);
   }
+
+  // Demote the prior current fighter portrait. Draft re-rolls come back through
+  // here repeatedly, and without this the character accumulates several rows
+  // all claiming is_current.
+  await supabase
+    .from('character_portraits')
+    .update({ is_current: false })
+    .eq('character_id', character.id)
+    .eq('kind', 'fighter')
+    .eq('is_current', true);
 
   // Insert character_portraits row.
   const { data: portrait, error: portraitErr } = await supabase

@@ -468,12 +468,15 @@ async function startPortraitJob(
 export async function generatePortrait(
   input: GeneratePortraitInput,
 ): Promise<PortraitJobResult> {
+  // The draft character row carries none of this yet -- traits and battle_cry
+  // are only written at finalize -- so the creation-flow inputs have to travel
+  // in the request body under the field names the Edge Function reads. Sending
+  // `prompt` instead of `portrait_prompt_raw` silently dropped everything the
+  // player typed and rendered from archetype alone.
   return startPortraitJob('generate-portrait', {
     character_id: input.characterId,
-    archetype: input.archetype,
-    mode: input.mode,
-    prompt: input.prompt,
-    traits: input.traits,
+    portrait_prompt_raw: input.mode === 'prompt' ? input.prompt : undefined,
+    traits: input.mode === 'guided' ? input.traits : undefined,
     art_style: input.artStyle,
   });
 }

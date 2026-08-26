@@ -57,7 +57,6 @@ import {
 const getDefaultUsername = (userId: string) =>
   `user_${userId.replace(/-/g, '').slice(0, 15)}`;
 
-const FREE_REGENS = 2;
 const MAX_PROMPT_LEN = 120;
 const MAX_NAME_LEN = 20;
 const MIN_NAME_LEN = 3;
@@ -603,7 +602,6 @@ function StepPortrait({
   const colors = useThemedColors();
   const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
-  const [regens, setRegens] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const portraitUri =
@@ -692,8 +690,10 @@ function StepPortrait({
     patch({ portraitFailed: true, portrait: undefined });
   };
 
+  // Unlimited, and free: settling on a look you like is part of creating the
+  // character. Re-rolls only start costing credits once the character is
+  // finalized and editing goes through regenerate-portrait.
   const regenerate = () => {
-    setRegens((r) => r + 1);
     run();
   };
 
@@ -840,7 +840,7 @@ function StepPortrait({
             </Text>
           </TouchableOpacity>
         )}
-        {draft.portrait && regens < FREE_REGENS && (
+        {draft.portrait && (
           <TouchableOpacity
             onPress={regenerate}
             disabled={generating}
@@ -853,7 +853,7 @@ function StepPortrait({
             ]}
           >
             <Text style={[styles.secondaryBtnText, { color: colors.text }]}>
-              Regenerate ({FREE_REGENS - regens} left)
+              {generating ? 'Generating…' : 'Regenerate'}
             </Text>
           </TouchableOpacity>
         )}

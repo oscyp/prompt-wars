@@ -91,3 +91,25 @@ export function randomPortraitSeed(): number {
   crypto.getRandomValues(buf);
   return buf[0];
 }
+
+/**
+ * The battle_cry the onboarding client writes when it pre-creates a draft
+ * character row. A character carrying this value has not been through
+ * finalize-character-creation yet, so it is still a draft: it cannot battle,
+ * and its portrait may be re-rolled for free as often as the player likes.
+ *
+ * Must match PLACEHOLDER_BATTLE_CRY in app/(onboarding)/create-character.tsx.
+ */
+export const PLACEHOLDER_BATTLE_CRY = '\u2026';
+
+/**
+ * True while a character is an unfinalized creation-flow draft.
+ *
+ * Keyed on finalized_at, NOT on the placeholder battle_cry: `characters` is
+ * client-updatable under RLS and U+2026 is a battle_cry a player could set for
+ * real, so the placeholder is forgeable. finalized_at is written only by
+ * service-role code and a trigger refuses to clear it once set.
+ */
+export function isDraftCharacter(finalizedAt: string | null | undefined): boolean {
+  return finalizedAt === null || finalizedAt === undefined;
+}

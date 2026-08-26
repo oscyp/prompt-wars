@@ -1,5 +1,5 @@
 // Image provider adapter for Prompt Wars character portraits and item icons.
-// Primary: xAI (grok-2-image). Fallback: OpenAI Images (gpt-image-1).
+// Primary: xAI (grok-imagine-image). Fallback: OpenAI Images (gpt-image-1).
 // Deterministic stub when IMAGE_PROVIDER_MODE === 'fallback'.
 
 import {
@@ -71,10 +71,15 @@ export class SafetyRefusedError extends Error {
 // ---------------------------------------------------------------------------
 
 const XAI_URL = 'https://api.x.ai/v1/images/generations';
-const XAI_MODEL = 'grok-2-image';
+const XAI_MODEL = 'grok-imagine-image';
 const OPENAI_URL = 'https://api.openai.com/v1/images/generations';
 const OPENAI_MODEL = 'gpt-image-1';
-const REQUEST_TIMEOUT_MS = 45_000;
+// Per-provider budgets, not one shared number: grok-imagine-image answers in
+// well under 10s, while gpt-image-1 at 1024x1536 measures ~55s and a single
+// 45s budget aborted it on every call. Worst case is XAI + OPENAI, which has to
+// stay inside the Edge Function wall clock.
+const XAI_TIMEOUT_MS = 45_000;
+const OPENAI_TIMEOUT_MS = 90_000;
 
 // 1x1 transparent PNG (deterministic stub)
 const FALLBACK_PNG_BYTES = new Uint8Array([
@@ -98,9 +103,8 @@ export async function generateCharacterPortrait(
   // renders head to feet, square for a bust so the face fills the frame rather
   // than floating in dead vertical space.
   //
-  // This is OpenAI-only. grok-2-image (the primary) accepts no size parameter
-  // at all and returns its native dimensions, so on that path the framing lives
-  // entirely in the prompt text.
+  // Both providers honour it, through different parameters -- OpenAI takes
+  // `size`, xAI takes `aspect_ratio` (and 400s on `size`).
   return generateWithRouting({
     resolvedPrompt,
     size: input.kind === 'avatar' ? '1024x1024' : '1024x1536',
@@ -124,7 +128,8 @@ export async function generateItemIcon(
 interface RoutingArgs {
   resolvedPrompt: string;
   // gpt-image-1 supported sizes: 1024x1024 (square icons) and 1024x1536
-  // (portrait/full-body). Only sent to OpenAI; xAI ignores size entirely.
+  // (portrait/full-body). Sent verbatim to OpenAI; translated to an
+  // `aspect_ratio` for xAI, which rejects `size` outright.
   size: '1024x1024' | '1024x1536';
 }
 
@@ -133,7 +138,9 @@ async function generateWithRouting(args: RoutingArgs): Promise<PortraitGeneratio
     return fallbackResult(args.resolvedPrompt);
   }
 
-  // Try xAI primary.
+  // Try xAI primary. Every non-safety failure falls through to OpenAI,
+  // retryable or not -- there is no third provider to save for.
+  let primaryError = 'none';
   try {
     return await callXai(args);
   } catch (err) {
@@ -141,11 +148,7 @@ async function generateWithRouting(args: RoutingArgs): Promise<PortraitGeneratio
       // Do not retry on the other provider for safety refusals.
       throw err;
     }
-    if (!isRetryable(err)) {
-      // Non-retryable client error (e.g. 400 malformed): try OpenAI as a real fallback.
-      // Other unexpected: also try OpenAI.
-    }
-    // Retryable: fall through to OpenAI.
+    primaryError = err instanceof Error ? err.message : String(err);
   }
 
   try {
@@ -154,9 +157,13 @@ async function generateWithRouting(args: RoutingArgs): Promise<PortraitGeneratio
     if (err instanceof SafetyRefusedError) {
       throw err;
     }
+    // Name both failures. Reporting only the fallback's error hid a retired
+    // primary model behind the fallback's timeout for weeks.
     throw new ImageProviderError(
       'all_providers_failed',
-      `All image providers failed: ${err instanceof Error ? err.message : String(err)}`,
+      `All image providers failed: xai=${primaryError}; openai=${
+        err instanceof Error ? err.message : String(err)
+      }`,
     );
   }
 }
@@ -180,13 +187,6 @@ function fallbackResult(resolvedPrompt: string): PortraitGenerationResult {
   };
 }
 
-function isRetryable(err: unknown): boolean {
-  if (err instanceof ImageProviderError) {
-    return err.code === 'timeout' || err.code === 'network' || err.code === 'server_error';
-  }
-  return true; // unknown errors → try fallback
-}
-
 // ---------------------------------------------------------------------------
 // xAI
 // ---------------------------------------------------------------------------
@@ -206,16 +206,19 @@ async function callXai(args: RoutingArgs): Promise<PortraitGenerationResult> {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      // grok-2-image only supports model/prompt/n/response_format; `seed`,
-      // `size`, `quality`, `style` are unsupported and would 400 every call
-      // (determinism flavor lives in the resolved prompt as "Composition seed").
+      // xAI rejects unknown arguments outright (`size` 400s), so send only
+      // what grok-imagine-image takes: model/prompt/n/response_format plus
+      // `aspect_ratio`. There is no `seed` -- determinism flavor lives in the
+      // resolved prompt as "Composition seed". Without aspect_ratio the model
+      // defaults to landscape, which crops a full-body fighter off at the knees.
       body: JSON.stringify({
         model: XAI_MODEL,
         prompt: args.resolvedPrompt,
         response_format: 'b64_json',
+        aspect_ratio: xaiAspectRatio(args.size),
         n: 1,
       }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(XAI_TIMEOUT_MS),
     });
     status = res.status;
 
@@ -284,7 +287,7 @@ async function callOpenAi(args: RoutingArgs): Promise<PortraitGenerationResult> 
         size: args.size,
         n: 1,
       }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(OPENAI_TIMEOUT_MS),
     });
     status = res.status;
 
@@ -334,6 +337,11 @@ async function callOpenAi(args: RoutingArgs): Promise<PortraitGenerationResult> 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** OpenAI's `size` translated to the equivalent xAI `aspect_ratio`. */
+function xaiAspectRatio(size: RoutingArgs['size']): '1:1' | '2:3' {
+  return size === '1024x1536' ? '2:3' : '1:1';
+}
 
 function safeEnv(key: string): string | undefined {
   try {

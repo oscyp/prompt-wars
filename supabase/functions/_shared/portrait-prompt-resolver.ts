@@ -180,7 +180,7 @@ const ART_STYLE_AVATAR_SCAFFOLDS: Record<ArtStyle, string> = {
 };
 
 // Short per-style medium tags, reiterated near the end of the prompt so the
-// style survives grok-2-image's chat-model prompt revision pass.
+// style survives the image model's chat-model prompt revision pass.
 const ART_STYLE_LOCKS: Record<ArtStyle, string> = {
   painterly: 'painterly digital art',
   anime: 'cel-shaded anime',

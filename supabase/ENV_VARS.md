@@ -157,7 +157,7 @@ retrying the other provider. In `fallback` mode it returns a deterministic 1x1
 PNG so tests and offline runs do not need API keys.
 
 ```bash
-# Primary image provider: xAI (model: grok-2-image)
+# Primary image provider: xAI (model: grok-imagine-image)
 # POST https://api.x.ai/v1/images/generations
 XAI_API_KEY=xai-...
 
