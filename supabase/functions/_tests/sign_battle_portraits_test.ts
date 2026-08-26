@@ -12,6 +12,8 @@ interface Fixtures {
   battle: Record<string, unknown> | null;
   portraits?: Record<string, Record<string, unknown>>;
   /** Storage paths for which createSignedUrl returns an error (robustness). */
+  /** Avatar-kind rows, keyed by character id. Absent = no avatar generated. */
+  avatars?: Record<string, Record<string, unknown>>;
   signErrorPaths?: string[];
 }
 
@@ -21,11 +23,18 @@ function createMockSupabase(fx: Fixtures): any {
     switch (table) {
       case 'battles':
         return { data: fx.battle, error: null };
-      case 'character_portraits':
+      case 'character_portraits': {
+        // Fixtures are keyed by character id and represent the FIGHTER render.
+        // An explicit `avatars` fixture supplies avatar rows; absent one, an
+        // avatar lookup misses, which is what every pre-existing character
+        // looks like and is exactly the fallback path worth testing.
+        const kind = String(filters.kind ?? 'fighter');
+        const table = kind === 'avatar' ? fx.avatars : fx.portraits;
         return {
-          data: fx.portraits?.[String(filters.character_id)] ?? null,
+          data: table?.[String(filters.character_id)] ?? null,
           error: null,
         };
+      }
       default:
         return { data: null, error: null };
     }
@@ -38,6 +47,15 @@ function createMockSupabase(fx: Fixtures): any {
       eq: (col: string, val: unknown) => {
         filters[col] = val;
         return api;
+      },
+      order: () => api,
+      // resolveCurrentPortrait now reads `.order(...).limit(1)` and takes
+      // rows[0] instead of `.maybeSingle()`, so the mock has to terminate on
+      // limit() and hand back an ARRAY.
+      limit: (n: number) => {
+        const res = one(table, filters);
+        const rows = res.data ? [res.data] : [];
+        return Promise.resolve({ data: rows.slice(0, n), error: res.error });
       },
       maybeSingle: () => Promise.resolve(one(table, filters)),
       single: () => Promise.resolve(one(table, filters)),

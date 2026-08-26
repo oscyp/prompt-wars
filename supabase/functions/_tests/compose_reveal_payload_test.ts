@@ -53,6 +53,14 @@ function createMockSupabase(fx: Fixtures): any {
       },
       single: () => Promise.resolve(one(table, filters)),
       maybeSingle: () => Promise.resolve(one(table, filters)),
+      order: () => api,
+      // resolveCurrentPortrait reads `.order(...).limit(1)` and takes rows[0]
+      // rather than `.maybeSingle()`, so limit() terminates with an ARRAY.
+      limit: (n: number) => {
+        const res = one(table, filters);
+        const rows = res.data ? [res.data] : [];
+        return Promise.resolve({ data: rows.slice(0, n), error: res.error });
+      },
       // Thenable so `await query` (list reads) resolves.
       // deno-lint-ignore no-explicit-any
       then: (res: any, rej: any) =>

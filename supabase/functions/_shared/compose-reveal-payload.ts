@@ -478,23 +478,45 @@ export interface CurrentPortrait {
  * Resolve a character's CURRENT, non-rejected portrait storage paths.
  *
  * Single source of truth for the `character_portraits` current-portrait lookup
- * (`is_current = true`, excluding `moderation_status = 'rejected'`). Returns
- * null for bots / missing / rejected portraits and never throws on a query
- * error (returns null so callers degrade gracefully).
+ * (`is_current = true`, matching `kind`, excluding
+ * `moderation_status = 'rejected'`). Returns null for bots / missing / rejected
+ * portraits and never throws -- on a query error, a missing row, or an
+ * unexpected duplicate it degrades rather than failing the caller.
  */
+export type PortraitKind = 'fighter' | 'avatar';
+
 export async function resolveCurrentPortrait(
   supabase: SupabaseClient,
   characterId: string | null | undefined,
+  kind: PortraitKind = 'fighter',
 ): Promise<CurrentPortrait | null> {
   if (!characterId) return null;
 
-  const { data: portrait, error } = await supabase
+  // Two deliberate choices here, both load-bearing.
+  //
+  // 1. `.eq('kind', kind)` restores the one-row invariant now that
+  //    character_portraits is UNIQUE on (character_id, kind) WHERE is_current
+  //    rather than on (character_id) alone.
+  //
+  // 2. `.limit(1)` with an array read instead of `.maybeSingle()`. maybeSingle
+  //    RAISES on more than one row, and this function is the single source of
+  //    truth for BOTH the Tier 0 reveal and sign-battle-portraits -- so a
+  //    single stray duplicate would blank portraits everywhere at once rather
+  //    than degrade. Ordering newest-first and taking one makes that class of
+  //    failure structurally impossible.
+  //
+  // The default of 'fighter' keeps every existing caller behaviourally
+  // identical: the reveal poster stays on the full-body render.
+  const { data: rows, error } = await supabase
     .from('character_portraits')
     .select('image_path, thumb_path, seed, moderation_status')
     .eq('character_id', characterId)
+    .eq('kind', kind)
     .eq('is_current', true)
-    .maybeSingle();
+    .order('created_at', { ascending: false })
+    .limit(1);
 
+  const portrait = rows?.[0];
   if (error || !portrait) return null;
   const imagePath = portrait.image_path as string | undefined;
   if (!imagePath) return null;
