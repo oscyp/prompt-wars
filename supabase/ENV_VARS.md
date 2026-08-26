@@ -73,6 +73,20 @@ Notes:
 XAI_API_KEY=xai-...
 XAI_VIDEO_MODEL=grok-video-v1  # or current model ID
 
+# Reference-to-video: hand the provider the two fighters' full-body portraits
+# so the cinematic shows the players' actual characters. DEFAULT OFF.
+#
+# Two things are unverified until this is switched on against the real API:
+#   1. whether xAI's image fetcher accepts a Supabase signed URL's ?token=
+#      query string;
+#   2. what grok-imagine-video-1.5 costs -- a model bump changes unit
+#      economics silently. Watch `daily_provider_costs` after enabling.
+#
+# Only set to "true" once both are checked. When off, or when no portrait
+# resolves, generation is byte-identical to before the feature existed.
+XAI_VIDEO_REFERENCE_ENABLED=false
+XAI_VIDEO_REFERENCE_MODEL=grok-imagine-video-1.5  # used ONLY when references are sent
+
 # Optional fallback or alternative video provider
 REPLICATE_API_KEY=r8_...
 ```

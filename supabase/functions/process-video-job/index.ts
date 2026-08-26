@@ -11,6 +11,10 @@ import {
   successResponse,
 } from "../_shared/utils.ts";
 import { createVideoProvider } from "../_shared/providers.ts";
+import {
+  resolveCurrentPortrait,
+  signPortraitPath,
+} from "../_shared/compose-reveal-payload.ts";
 import { VideoModerationProvider } from "../_shared/moderation.ts";
 import { notifyVideoReady } from "../_shared/push.ts";
 import {
@@ -24,6 +28,7 @@ import {
   TIER1_MAX_RETRY_ATTEMPTS,
   TIER1_PER_ROUND_DURATION_S,
   TIER1_SINGLE_FORMAT_DURATION_S,
+  VIDEO_REFERENCE_SIGNED_URL_TTL_SECONDS,
 } from "../_shared/video-constants.ts";
 
 interface ProcessVideoJobRequest {
@@ -311,6 +316,47 @@ async function processVideoJob(
         ? battle.bot_persona?.archetype
         : battle.player_two_character?.archetype;
 
+      // Reference images: the two fighters' full-body renders, so the cinematic
+      // shows the players' actual characters rather than a generic figure the
+      // prompt merely describes.
+      //
+      // Entirely best-effort. Every step is allowed to fail to null and the
+      // whole block is wrapped, because "battle completion never depends on
+      // video" is the governing invariant here -- and a video that ignores the
+      // reference is far better than a battle that will not finish.
+      let referenceImageUrls: string[] = [];
+      try {
+        const characterIds = [
+          battle.player_one_character?.id,
+          battle.is_player_two_bot ? null : battle.player_two_character?.id,
+        ].filter(Boolean) as string[];
+
+        const signed = await Promise.all(
+          characterIds.map(async (characterId) => {
+            const portrait = await resolveCurrentPortrait(
+              supabase,
+              characterId,
+              // The FIGHTER render deliberately: it is the full-body image, and
+              // a head/bust avatar would give the model no body to animate.
+              "fighter",
+            );
+            if (!portrait?.image_path) return null;
+            return await signPortraitPath(
+              supabase,
+              portrait.image_path,
+              VIDEO_REFERENCE_SIGNED_URL_TTL_SECONDS,
+            );
+          }),
+        );
+        referenceImageUrls = signed.filter(Boolean) as string[];
+      } catch (refErr) {
+        console.error(
+          "Reference image resolution failed (continuing text-only):",
+          refErr,
+        );
+        referenceImageUrls = [];
+      }
+
       const submission = await videoProvider.submitVideoGeneration({
         battleId: job.battle_id,
         playerOneCharacterName: battle.player_one_character.name,
@@ -333,6 +379,7 @@ async function processVideoJob(
           ? TIER1_PER_ROUND_DURATION_S
           : TIER1_SINGLE_FORMAT_DURATION_S,
         aspectRatio: "9:16",
+        referenceImageUrls,
         safetyConstraints: [
           "no_real_person_likeness",
           "no_violence",

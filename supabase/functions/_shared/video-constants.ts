@@ -13,6 +13,17 @@ export const TIER1_SINGLE_FORMAT_DURATION_S = 12;
 /** Hard timeout for a submitted/processing Tier 1 job before final-failure refund. */
 export const TIER1_HARD_TIMEOUT_S = 300; // 5 minutes
 
+/**
+ * TTL for the signed portrait URLs handed to the video provider as reference
+ * images.
+ *
+ * Must comfortably outlive TIER1_HARD_TIMEOUT_S: the provider fetches the URL
+ * on ITS schedule, not ours, and a URL that expires mid-queue produces a video
+ * that silently ignores the reference. Retries reuse the same job, so the
+ * window covers all TIER1_MAX_RETRY_ATTEMPTS attempts.
+ */
+export const VIDEO_REFERENCE_SIGNED_URL_TTL_SECONDS = 1800; // 30 minutes
+
 /** Max provider submission attempts per Tier 1 job before terminal failure. */
 export const TIER1_MAX_RETRY_ATTEMPTS = 3;
 

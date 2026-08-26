@@ -98,7 +98,16 @@ export interface VideoGenerationRequest {
   isDraw: boolean;
   theme: string | null;
   targetDurationSeconds: number; // 6-12s for MVP
-  aspectRatio: "9:16"; // vertical mobile
+  aspectRatio: "9:16";
+  /**
+   * Signed HTTPS URLs of the two fighters' full-body renders, used as
+   * reference-to-video inputs so the cinematic shows the players' actual
+   * characters instead of a generic figure the prompt merely describes.
+   *
+   * Optional and best-effort: signing failures must degrade to text-only
+   * generation, never block a battle from completing.
+   */
+  referenceImageUrls?: string[]; // vertical mobile
   safetyConstraints: string[];
 }
 
@@ -323,6 +332,8 @@ export class XAIVideoProvider implements AiVideoProvider {
   private apiKey: string;
   private baseUrl: string;
   private model: string;
+  private referenceModel: string;
+  private referencesEnabled: boolean;
   private resolution: string;
 
   constructor() {
@@ -331,6 +342,14 @@ export class XAIVideoProvider implements AiVideoProvider {
     // /v1/video path). Allow override via XAI_API_BASE_URL if ever needed.
     this.baseUrl = Deno.env.get("XAI_API_BASE_URL") || "https://api.x.ai/v1";
     this.model = Deno.env.get("XAI_VIDEO_MODEL") || "grok-imagine-video";
+    // Reference-to-video requires a 1.5-class model; the base model has no
+    // image input at all. Kept as a SEPARATE setting so enabling references
+    // cannot silently change the model used for ordinary text-to-video.
+    this.referenceModel = Deno.env.get("XAI_VIDEO_REFERENCE_MODEL") ||
+      "grok-imagine-video-1.5";
+    this.referencesEnabled =
+      (Deno.env.get("XAI_VIDEO_REFERENCE_ENABLED") || "").toLowerCase() ===
+        "true";
     this.resolution = Deno.env.get("XAI_VIDEO_RESOLUTION") || "720p";
 
     if (!this.apiKey) {
@@ -346,6 +365,14 @@ export class XAIVideoProvider implements AiVideoProvider {
     // xAI duration: 1–15 seconds.
     const duration = Math.max(1, Math.min(15, req.targetDurationSeconds || 8));
 
+    // xAI accepts at most 7 reference images. Truncate rather than error: a
+    // battle has two, so hitting the cap means a future caller changed, and
+    // dropping extras is a better failure than refusing to make the video.
+    const references = this.referencesEnabled
+      ? (req.referenceImageUrls ?? []).filter(Boolean).slice(0, 7)
+      : [];
+    const useReferences = references.length > 0;
+
     const response = await fetch(`${this.baseUrl}/videos/generations`, {
       method: "POST",
       headers: {
@@ -353,11 +380,14 @@ export class XAIVideoProvider implements AiVideoProvider {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: this.model,
+        // Only switch models when references are actually being sent, so
+        // text-to-video keeps its known model, pricing and behaviour.
+        model: useReferences ? this.referenceModel : this.model,
         prompt,
         duration,
         aspect_ratio: req.aspectRatio, // "9:16" supported
         resolution: this.resolution,
+        ...(useReferences ? { reference_image_urls: references } : {}),
       }),
     });
 
