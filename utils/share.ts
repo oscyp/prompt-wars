@@ -32,28 +32,16 @@ export async function shareResultCard(ref: RefObject<View | null>): Promise<bool
   return true;
 }
 
-/**
- * Download the cinematic video to cache and open the share sheet.
- *
- * AI disclosure: the on-screen reveal and the exported result card both carry a
- * visible "AI-GENERATED" label, but the video file itself does not — the video
- * prompt explicitly instructs the provider to render no text overlays
- * (_shared/providers.ts), and re-encoding a burn-in on-device is not viable.
- *
- * Until the label is composited server-side during the storage copy in
- * process-video-job, the disclosure rides on the filename and the share-sheet
- * title, which is what most targets surface. Do not describe this as a
- * watermark: it is not one, and landing/index.html should not claim otherwise.
- */
+/** Download the cinematic video to cache and open the share sheet. */
 export async function shareBattleVideo(videoUrl: string): Promise<boolean> {
   if (!(await Sharing.isAvailableAsync())) return false;
 
-  const target = `${FileSystem.cacheDirectory}prompt-wars-ai-generated-battle-${Date.now()}.mp4`;
+  const target = `${FileSystem.cacheDirectory}prompt-wars-battle-${Date.now()}.mp4`;
   const { uri } = await FileSystem.downloadAsync(videoUrl, target);
 
   await Sharing.shareAsync(uri, {
     mimeType: 'video/mp4',
-    dialogTitle: 'Share your AI-generated Prompt Wars battle',
+    dialogTitle: 'Share your Prompt Wars battle',
     UTI: 'public.movie',
   });
   return true;

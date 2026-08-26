@@ -475,15 +475,6 @@ export default function ResultScreen() {
             </Animated.View>
           )}
 
-          {/* AI-content disclosure baked into the shared capture (concept §22). */}
-          <View style={styles.aiDisclosure}>
-            <Ionicons name="sparkles" size={11} color={colors.textTertiary} />
-            <Text
-              style={[styles.aiDisclosureText, { color: colors.textTertiary }]}
-            >
-              AI-generated content — Prompt Wars
-            </Text>
-          </View>
         </View>
         {/* End shareable scorecard region */}
 
@@ -798,16 +789,10 @@ const styles = StyleSheet.create({
   },
   shareCapture: {
     borderRadius: 12,
-  },
-  aiDisclosure: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
+    // The AI-disclosure row used to be the last child here and supplied the
+    // bottom breathing room via its own paddingBottom. It was removed, so the
+    // capture needs the space back or the exported PNG crops tight.
     paddingBottom: Spacing.sm,
-  },
-  aiDisclosureText: {
-    fontSize: Typography.sizes.xs,
   },
   shareButton: {
     padding: Spacing.md,

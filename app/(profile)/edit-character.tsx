@@ -844,7 +844,6 @@ function Stage({
         variant="fullBody"
         size={116}
         loading={portraitBusy}
-        showAiBadge={hasPortrait}
       />
       <View style={styles.stageMeta}>
         <Text numberOfLines={1} style={[styles.stageName, { color: colors.text }]}>

@@ -955,10 +955,12 @@ User-generated battles are free content; expose them. Most shares on TikTok/Reel
 - Public battles can opt in to a global "recent battles" feed (default off in MVP, on by phase 4).
 - Players can like and share battles.
 - Share export, both formats:
-  - **Vertical 9:16 video** with watermark, AI-disclosure tag, and a deep link to the app (Tier 1 battles).
+  - **Vertical 9:16 video** with watermark and a deep link to the app (Tier 1 battles).
   - **Scored result-card image** with character portraits, signature colors, battle cry, scores, and a deep link (every battle, Tier 0+).
 - Friend invite via deep link awards both inviter and invitee a small credit grant after the invitee finishes their first battle.
-- All shared content carries an AI-generated content disclosure to comply with platform policies.
+- ~~All shared content carries an AI-generated content disclosure to comply with platform policies.~~ **Removed 2026-08-26** by product decision. The in-app AI badges (reveal poster, result card, portrait frame) and the AI-tagged share filename/title were deleted, and the corresponding claims in `landing/index.html`, `privacy-policy.html` and `terms-and-conditions.html` were rewritten so nothing published asserts labeling the app no longer performs. `videos.is_ai_generated` is retained as an internal record only.
+
+> **Store-review note:** this was a deliberate trade. AI-generated UGC is a high-scrutiny category (§22 below), and an explicit disclosure was the strongest argument at submission. If review pushes back, the badges are the thing to restore first.
 - Hashtag and ASO guidance: "AI battle video" trend keywords drive TikTok/Shorts as the primary acquisition funnel; share captions are pre-filled with handle + hashtag set.
 
 ## 22. Safety, Moderation, And Platform Compliance
@@ -970,7 +972,7 @@ Store-readiness commitments (must be reviewable by Apple/Google):
 - App rated **18+**. No minor accounts at signup; failed age gate hard-blocks account creation.
 - All UGC video previews are **blurred until post-gen moderation passes**.
 - UGC report SLA: under 24 hours from report to reviewer action.
-- AI-disclosure label on every reveal, every share, every public profile asset.
+- ~~AI-disclosure label on every reveal, every share, every public profile asset.~~ **Removed 2026-08-26** — see §21.
 
 Moderation pipeline:
 

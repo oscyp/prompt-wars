@@ -20,8 +20,6 @@ interface PortraitPreviewProps {
   loading?: boolean;
   caption?: string;
   accessibilityLabel?: string;
-  /** Portraits are AI-generated; the disclosure badge is on by default (§22). */
-  showAiBadge?: boolean;
   /**
    * `circle` — legacy avatar crop (battle strips, small contexts). Tall
    * sources are top-aligned so the face survives the crop.
@@ -43,7 +41,6 @@ export default function PortraitPreview({
   loading = false,
   caption,
   accessibilityLabel = 'Character portrait',
-  showAiBadge = true,
   variant = 'circle',
 }: PortraitPreviewProps) {
   const colors = useThemedColors();
@@ -144,11 +141,6 @@ export default function PortraitPreview({
             <ActivityIndicator color={colors.primary} size="large" />
           </View>
         ) : null}
-        {showAiBadge && !loading ? (
-          <View style={styles.aiBadge} pointerEvents="none">
-            <Text style={styles.aiBadgeText}>AI</Text>
-          </View>
-        ) : null}
       </Animated.View>
       {caption ? (
         <Text
@@ -186,19 +178,4 @@ const styles = StyleSheet.create({
   },
   // AI-content disclosure (concept §22): portraits are generated assets, so
   // the label rides on the image itself and survives screenshots.
-  aiBadge: {
-    position: 'absolute',
-    bottom: 10,
-    alignSelf: 'center',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.full,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
-  aiBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: Typography.weights.bold,
-    letterSpacing: 0.8,
-  },
 });
