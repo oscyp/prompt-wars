@@ -1,12 +1,26 @@
 # Prompt Wars Environment Variables
 
-Phase 0: Documentation for all required environment variables.
+Every variable below is read by code in this repository. If you add one here,
+add the `Deno.env.get(...)` / `process.env.*` read too — this file was previously
+full of aspirational keys that nothing consumed, which is worse than no docs.
 
-⚠️ **NEVER commit real secrets to version control.** This file documents the required keys only.
+To re-check that claim:
+
+```bash
+grep -rhoE "Deno\.env\.get\([\"'][A-Z0-9_]+[\"']" supabase/functions \
+  | sed -E "s/.*[\"']([A-Z0-9_]+)[\"']/\1/" | sort -u
+```
+
+⚠️ **NEVER commit real secrets to version control.** This file documents key
+names and shapes only.
 
 ## Supabase Configuration
 
 ### Client-Side (Mobile App)
+
+Only `EXPO_PUBLIC_*` variables reach the app bundle. Anything else placed in the
+root `.env` is invisible to the client.
+
 ```bash
 # Supabase project URL (public, safe to bundle in app)
 EXPO_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
@@ -15,14 +29,32 @@ EXPO_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 # Used for client-side auth and RLS-protected queries
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
-# Deep link scheme for auth redirects (e.g., "promptwars://")
-EXPO_PUBLIC_AUTH_REDIRECT_SCHEME=promptwars
+# Legacy fallback, read only if the publishable key above is unset
+# (utils/supabase.ts). New setups should not set this.
+EXPO_PUBLIC_SUPABASE_ANON_KEY=
 
-# App URL for web deep links (production)
-EXPO_PUBLIC_APP_URL=https://promptwars.gg
+# EAS project ID -- required for push notifications (`eas project:info`).
+# Read in app.config.js -> extra.eas.projectId.
+EXPO_PUBLIC_EAS_PROJECT_ID=...
+
+# RevenueCat public SDK keys (see RevenueCat section below)
+EXPO_PUBLIC_REVENUECAT_IOS_KEY=appl_...
+EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=goog_...
 ```
 
-### Server-Side (Edge Functions Only)
+### Injected by the Edge Function runtime
+
+Supabase provides these to every deployed function. **Do not set them by hand**
+and do not add them to `supabase secrets`.
+
+```bash
+SUPABASE_URL
+SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+```
+
+### Edge Function secrets (set explicitly)
+
 ```bash
 # Supabase publishable keys dictionary for Edge Functions
 SUPABASE_PUBLISHABLE_KEYS={"default":"sb_publishable_..."}
@@ -30,14 +62,16 @@ SUPABASE_PUBLISHABLE_KEYS={"default":"sb_publishable_..."}
 # Supabase secret keys dictionary (NEVER expose to client)
 # Used by Edge Functions for server-owned writes (battle resolution, credit grants)
 SUPABASE_SECRET_KEYS={"default":"sb_secret_..."}
-
-# Database direct connection string (for migrations and admin tasks)
-SUPABASE_DB_URL=postgresql://postgres:your-password@db.your-project.supabase.co:5432/postgres
 ```
+
+Read them via `createServiceClient()` / `createUserClient()` in
+`_shared/utils.ts`, which understand both the JSON-dictionary form and the
+legacy single-key fallback.
 
 ## AI Provider Keys (Edge Functions Only)
 
 ### LLM Judge Provider
+
 ```bash
 # Implemented values: "mock" (default) | "xai".
 # Leaving this unset means ranked outcomes are decided by MockJudgeProvider,
@@ -46,7 +80,7 @@ SUPABASE_DB_URL=postgresql://postgres:your-password@db.your-project.supabase.co:
 JUDGE_PROVIDER=xai
 JUDGE_API_KEY=xai-...          # optional; falls back to XAI_API_KEY
 JUDGE_MODEL_ID=grok-4.3        # grok-4.3 (cheapest w/ structured outputs) or grok-4.6 (best)
-JUDGE_API_BASE_URL=https://api.x.ai/v1   # optional override
+JUDGE_API_BASE_URL=https://api.x.ai/v1   # optional; falls back to XAI_API_BASE_URL, then api.x.ai/v1
 ```
 
 Notes:
@@ -83,10 +117,17 @@ rows, because handing a player three lines of mock text they just paid a credit
 for is worse than showing them the generic templates.
 
 ### Video Generation Provider
+
 ```bash
-# xAI / X AI / Grok video generation (primary Tier 1 provider)
+# Implemented values: "mock" (default) | "xai". Unset means Tier 1 reveals are
+# produced by MockVideoProvider.
+VIDEO_PROVIDER=xai
+
+# xAI / X AI / Grok credentials, shared with the judge and image providers
 XAI_API_KEY=xai-...
-XAI_VIDEO_MODEL=grok-video-v1  # or current model ID
+XAI_API_BASE_URL=https://api.x.ai/v1   # optional override
+XAI_VIDEO_MODEL=grok-imagine-video     # default when references are off
+XAI_VIDEO_RESOLUTION=720p              # optional, default 720p
 
 # Reference-to-video: hand the provider the two fighters' full-body portraits
 # so the cinematic shows the players' actual characters. DEFAULT OFF.
@@ -101,161 +142,19 @@ XAI_VIDEO_MODEL=grok-video-v1  # or current model ID
 # resolves, generation is byte-identical to before the feature existed.
 XAI_VIDEO_REFERENCE_ENABLED=false
 XAI_VIDEO_REFERENCE_MODEL=grok-imagine-video-1.5  # used ONLY when references are sent
-
-# Optional fallback or alternative video provider
-REPLICATE_API_KEY=r8_...
 ```
 
-## Safety and Moderation Providers (Edge Functions Only)
+The legacy `XAI_VIDEO_BASE_URL` is deliberately **ignored** by
+`_shared/providers.ts` (it pointed at a non-existent `/v1/video` path) and was
+removed from the project on 2026-08-25. Do not reintroduce it.
 
-### Text Moderation
-```bash
-# OpenAI Moderation API (recommended for pre-gen prompt moderation)
-OPENAI_API_KEY=sk-...
-
-# Google Perspective API (alternative or supplementary)
-PERSPECTIVE_API_KEY=AIza...
-```
-
-### Video Moderation
-```bash
-# Video moderation provider (manual | hive | google)
-VIDEO_MODERATION_PROVIDER=manual  # MVP default, human review queue
-
-# Hive AI Video Moderation (optional, production)
-HIVE_API_KEY=...
-
-# Google Video Intelligence API (optional, alternative)
-GOOGLE_VIDEO_INTELLIGENCE_API_KEY=AIza...
-```
-
-### Account Abuse Prevention
-```bash
-# IP geolocation service (optional, improves account-farm guard)
-IP_GEOLOCATION_API_KEY=...
-
-# Apple DeviceCheck (iOS attestation, optional)
-APPLE_TEAM_ID=...
-APPLE_KEY_ID=...
-APPLE_PRIVATE_KEY=...  # Base64-encoded .p8 file
-
-# Google Play Integrity API (Android attestation, optional)
-GOOGLE_PLAY_INTEGRITY_API_KEY=AIza...
-```
-XAI_VIDEO_TIMEOUT_MS=300000  # 5 min hard timeout
-```
-
-### Image Generation Provider (Tier 0 Motion Poster)
-```bash
-# Fast image model for Tier 0 cinematic reveal
-IMAGE_PROVIDER=replicate  # or "stability" | "openai-dalle"
-IMAGE_API_KEY=r8_...
-IMAGE_MODEL_ID=stability-ai/sdxl  # or equivalent fast model
-```
-
-### Moderation Providers
-```bash
-# Pre-gen prompt text moderation
-TEXT_MODERATION_PROVIDER=openai  # or "hivemoderation" | "perspective"
-TEXT_MODERATION_API_KEY=sk-...
-
-# Post-gen video moderation
-VIDEO_MODERATION_PROVIDER=hivemoderation
-VIDEO_MODERATION_API_KEY=your-hive-api-key
-```
-
-## RevenueCat (Monetization)
-
-### Client-Side
-```bash
-# RevenueCat public SDK key (iOS)
-EXPO_PUBLIC_REVENUECAT_IOS_KEY=appl_...
-
-# RevenueCat public SDK key (Android)
-EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=goog_...
-```
-
-### Server-Side (Webhook Validation)
-```bash
-# RevenueCat webhook secret for signature validation
-REVENUECAT_WEBHOOK_SECRET=sk_...
-
-# RevenueCat REST API key (for server-side entitlement checks)
-REVENUECAT_API_KEY=sk_...
-```
-
-## Push Notifications
-
-```bash
-# Expo push notification access token
-EXPO_PUSH_TOKEN=your-expo-push-token
-
-# Optional: FCM server key for direct Android push (if not using Expo)
-FCM_SERVER_KEY=your-fcm-key
-
-# Optional: APNs auth key for direct iOS push (if not using Expo)
-APNS_KEY_ID=your-apns-key-id
-APNS_TEAM_ID=your-team-id
-APNS_AUTH_KEY=-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----
-```
-
-## App Store Configuration
-
-```bash
-# iOS bundle identifier
-IOS_BUNDLE_ID=com.promptwars.app
-
-# Android package name
-ANDROID_PACKAGE_NAME=com.promptwars.app
-
-# App Store Connect API key (for EAS builds)
-APPLE_APP_STORE_CONNECT_KEY_ID=your-key-id
-APPLE_APP_STORE_CONNECT_ISSUER_ID=your-issuer-id
-APPLE_APP_STORE_CONNECT_KEY=-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----
-
-# Google Play service account JSON (for EAS builds)
-GOOGLE_PLAY_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
-```
-
-## Optional: Analytics & Monitoring
-
-```bash
-# Sentry DSN for error tracking
-EXPO_PUBLIC_SENTRY_DSN=https://...@sentry.io/...
-
-# PostHog project key for analytics (if used)
-EXPO_PUBLIC_POSTHOG_API_KEY=phc_...
-EXPO_PUBLIC_POSTHOG_HOST=https://app.posthog.com
-
-# Datadog API key for backend monitoring (Edge Functions)
-DATADOG_API_KEY=...
-```
-
-## Development & Testing
-
-```bash
-# Node environment
-NODE_ENV=development  # or "production"
-
-# Enable debug logging in Edge Functions
-DEBUG_MODE=true
-
-# Local development Supabase (from `supabase start`)
-EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
-
-# Test mode flags (skip real provider calls in tests)
-SKIP_VIDEO_GENERATION=true
-SKIP_MODERATION=false  # keep moderation active even in test
-USE_MOCK_JUDGE=false  # set true for deterministic test battles
-```
-
-## Character Portrait Image Generation (Edge Functions)
+### Character Portrait / Item Image Generation
 
 The `image-provider.ts` adapter generates character portraits and item icons. It
-routes to xAI as primary and OpenAI Images as fallback. On safety refusals it
-short-circuits without retrying the other provider. In `fallback` mode it
-returns a deterministic 1x1 PNG so tests and offline runs do not need API keys.
+routes to xAI as primary and OpenAI Images as fallback, both hard-coded — there
+is no provider-selection variable. On safety refusals it short-circuits without
+retrying the other provider. In `fallback` mode it returns a deterministic 1x1
+PNG so tests and offline runs do not need API keys.
 
 ```bash
 # Primary image provider: xAI (model: grok-2-image)
@@ -272,6 +171,86 @@ OPENAI_API_KEY=sk-...
 IMAGE_PROVIDER_MODE=  # unset in prod | "fallback" in tests/offline
 ```
 
+Note that the Tier 0 reveal's `createImageProvider()` in `_shared/providers.ts`
+is still hard-wired to `MockImageProvider` and reads no env at all.
+
+## Safety and Moderation Providers (Edge Functions Only)
+
+### Text Moderation
+
+There is no `TEXT_MODERATION_PROVIDER` switch — `_shared/moderation.ts` selects
+a provider purely by which key is present, preferring OpenAI.
+
+```bash
+# OpenAI Moderation API (recommended for pre-gen prompt moderation)
+OPENAI_API_KEY=sk-...
+
+# Google Perspective API (alternative or supplementary)
+PERSPECTIVE_API_KEY=AIza...
+```
+
+`assertTextModerationConfigured()` **throws** when neither key is set, so a
+production deploy cannot silently degrade to the built-in blocklist. That check
+is skipped only in development and test:
+
+```bash
+# Any of these relaxes the fail-closed moderation check. Leave ALL unset in
+# production, or user-generated prompts ship with blocklist-only moderation.
+ENVIRONMENT=development   # or "test"
+DENO_ENV=development      # fallback when ENVIRONMENT is unset
+DENO_TESTING=1            # set by the Deno test suite
+```
+
+### Video Moderation
+
+```bash
+# Implemented values: "manual" (default, human review queue) | "hive".
+# "google" is documented in comments but not implemented.
+VIDEO_MODERATION_PROVIDER=manual
+
+# Hive AI Video Moderation, required only when VIDEO_MODERATION_PROVIDER=hive
+HIVE_API_KEY=...
+```
+
+### Account Abuse Prevention
+
+All optional; `account-farm-guard` degrades gracefully when they are unset.
+
+```bash
+# IP geolocation service (optional, improves account-farm guard)
+IP_GEOLOCATION_API_KEY=...
+
+# Apple DeviceCheck (iOS attestation, optional)
+APPLE_TEAM_ID=...
+APPLE_KEY_ID=...
+APPLE_PRIVATE_KEY=...  # Base64-encoded .p8 file
+
+# Google Play Integrity API (Android attestation, optional)
+GOOGLE_PLAY_INTEGRITY_API_KEY=AIza...
+```
+
+## RevenueCat (Monetization)
+
+```bash
+# Client-side public SDK keys (providers/RevenueCatProvider)
+EXPO_PUBLIC_REVENUECAT_IOS_KEY=appl_...
+EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=goog_...
+
+# Server-side: webhook signature validation (revenuecat-webhook/index.ts)
+REVENUECAT_WEBHOOK_SECRET=sk_...
+```
+
+There is no server-side RevenueCat REST call in this codebase — entitlements are
+derived in Postgres from webhook events — so no RevenueCat **API** key is needed.
+
+## Push Notifications
+
+`_shared/push.ts` POSTs to `https://exp.host/--/api/v2/push/send` **unauthenticated**,
+which is what Expo's push service expects for unauthenticated projects. No push
+credentials belong in Edge Function secrets. The only push-related variable is
+`EXPO_PUBLIC_EAS_PROJECT_ID` on the client (see above); APNs/FCM credentials are
+held by EAS, not by this repo.
+
 ## Development / QA Flags (Edge Functions)
 
 ```bash
@@ -282,22 +261,63 @@ IMAGE_PROVIDER_MODE=  # unset in prod | "fallback" in tests/offline
 DEV_FUNCTIONS_ENABLED=  # unset in prod | "1" in dev/QA only
 ```
 
+## Testing
+
+```bash
+# Remote integration tests hit a real linked Supabase project and self-skip
+# unless this is exactly "1" (see _tests/remote-character-helpers.ts).
+PROMPT_WARS_REMOTE_FUNCTION_TESTS=1
+```
+
+When enabled, those tests resolve their connection from the first variable set
+in each group:
+
+- URL: `SUPABASE_URL` → `EXPO_PUBLIC_SUPABASE_URL`
+- Publishable key: `SUPABASE_PUBLISHABLE_KEY` → `SUPABASE_ANON_KEY` →
+  `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` → `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- Service key: `SUPABASE_SERVICE_ROLE_KEY` → `SUPABASE_SECRET_KEYS`
+
+## Asset Generation Scripts (local dev only)
+
+```bash
+# Used by scripts/generate-assets.mjs and scripts/generate-signature-icons.mjs
+# (`yarn assets:generate`). Not needed to run the app or the backend.
+GEMINI_API_KEY=AIza...
+```
+
+## Not environment variables
+
+Recorded here because they are commonly mistaken for env vars:
+
+- **Bundle identifiers** — hard-coded in `app.config.js`
+  (`gg.promptwars.app` for both platforms).
+- **Deep link scheme** — hard-coded in `app.config.js` (`scheme: 'promptwars'`).
+  Auth is email + password with no OAuth redirect, so there is no redirect-URI
+  variable.
+- **App Store Connect / Google Play signing credentials** — held by EAS
+  (`eas credentials`), never in this repo.
+- **`JUDGE_PROMPT_VERSION`** — frozen in `_shared/judge.ts`.
+- **Analytics / error-monitoring keys** — no Sentry, PostHog, or Datadog
+  integration exists yet. Add the SDK first, then document the key.
+
 ## Security Notes
 
-1. **Client vs Server**: Only `EXPO_PUBLIC_*` prefixed vars are safe to bundle in the mobile app.
+1. **Client vs Server**: Only `EXPO_PUBLIC_*` prefixed vars are bundled in the
+   mobile app. Non-prefixed vars in the root `.env` are silently ignored by the
+   client — put backend values in Supabase secrets, not there.
 2. **Edge Function Secrets**: Store provider API keys using `supabase secrets set KEY=value`.
 3. **RLS Enforcement**: Even with secret keys, RLS protects tables when accessed via publishable keys.
 4. **Rotation**: Rotate all provider keys quarterly and on any suspected compromise.
-5. **.env.local**: Never commit `.env.local` or `.env.production`. Use `.env.example` as template.
+5. **.env files**: `.env`, `.env.integration`, `.eas.production.env` and
+   `supabase/.env` are gitignored. Use `.env.example` as the template.
 
 ## Setup Checklist
 
-- [ ] Create Supabase project and note URL + keys
-- [ ] Set up RevenueCat project and add app bundle IDs
-- [ ] Obtain xAI API key for video generation
-- [ ] Obtain OpenAI/Anthropic key for judge LLM
-- [ ] Configure moderation provider accounts
-- [ ] Set up Expo push notification credentials
-- [ ] Configure Apple/Google signing certificates for EAS
+- [ ] Create Supabase project; copy URL + publishable key into `.env`
+- [ ] `supabase secrets set SUPABASE_SECRET_KEYS=... SUPABASE_PUBLISHABLE_KEYS=...`
+- [ ] Obtain an xAI key; set `XAI_API_KEY`, `JUDGE_PROVIDER=xai`, `VIDEO_PROVIDER=xai`
+- [ ] Set `OPENAI_API_KEY` or `PERSPECTIVE_API_KEY` — moderation fails closed without one
+- [ ] Set up RevenueCat, add bundle IDs, set `REVENUECAT_WEBHOOK_SECRET`
+- [ ] Set `EXPO_PUBLIC_EAS_PROJECT_ID` from `eas project:info` for push
+- [ ] Confirm `DEV_FUNCTIONS_ENABLED` is UNSET in production
 - [ ] Store all secrets in 1Password/team vault
-- [ ] Add `.env.local` to `.gitignore` (already in Supabase scaffold)
