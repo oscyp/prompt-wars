@@ -123,7 +123,7 @@ export default function FaceOffScreen() {
 
   const advance = useCallback(() => {
     if (!battleId) return;
-    router.replace(`/(battle)/prompt-entry?battleId=${battleId}&round=1`);
+    router.replace(`/(battle)/move-select?battleId=${battleId}&round=1`);
   }, [battleId, router]);
 
   const isRankedHumanMatch =

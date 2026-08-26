@@ -34,23 +34,23 @@ import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import {
+  generateMoveSuggestions,
   getBattle,
+  getMoveSuggestions,
   getBattleTemplates,
-  getOpponentMoveProfile,
   getPromptTemplates,
   submitPrompt,
   BattleTemplate,
+  MoveSuggestion,
   MoveType,
-  OpponentMoveProfile,
 } from '@/utils/battles';
-import { MOVE_META, counterOf } from '@/constants/MoveTypes';
+import { MOVE_META } from '@/constants/MoveTypes';
 import { hapticImpact, hapticSelection } from '@/utils/haptics';
 import { useAuth } from '@/providers/AuthProvider';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import { useBattleCharacters } from '@/hooks/useBattleCharacters';
 import SeriesScoreIndicator from '@/components/SeriesScoreIndicator';
 import HPBar from '@/components/HPBar';
-import MoveTypeChipRow from '@/components/MoveTypeChipRow';
 import VersusStrip from '@/components/VersusStrip';
 
 // Judge length normalization (soft target 15–80 words, penalty past 100 —
@@ -62,6 +62,8 @@ const WORDS_PENALTY = 100;
 // Lock-in ceremony: press-and-hold duration before the submit fires.
 const HOLD_DURATION_MS = 600;
 
+const MOVE_TYPES: MoveType[] = ['attack', 'defense', 'finisher'];
+
 export default function PromptEntryScreen() {
   const colors = useThemedColors();
   // Dyslexia-friendly spacing on the theme + prompt-writing surface (§22a).
@@ -69,17 +71,27 @@ export default function PromptEntryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { battleId, round } = useLocalSearchParams<{
+  const { battleId, round, moveType: moveTypeParam } = useLocalSearchParams<{
     battleId: string;
     round?: string;
+    moveType?: string;
   }>();
 
+  // The move type is now chosen on move-select and arrives as a param. It is
+  // NOT defaulted: a silent fallback to 'attack' would submit a move the
+  // player never picked, and they would not find out until the reveal.
+  const moveType = MOVE_TYPES.includes(moveTypeParam as MoveType)
+    ? (moveTypeParam as MoveType)
+    : null;
+
   const [battle, setBattle] = useState<{ theme?: string | null } | null>(null);
-  const [oppProfile, setOppProfile] = useState<OpponentMoveProfile | null>(
+  const [templates, setTemplates] = useState<BattleTemplate[]>([]);
+  const [suggestions, setSuggestions] = useState<MoveSuggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
+  const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(
     null,
   );
-  const [templates, setTemplates] = useState<BattleTemplate[]>([]);
-  const [moveType, setMoveType] = useState<MoveType>('attack');
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [customText, setCustomText] = useState('');
   const [isCustom, setIsCustom] = useState(false);
@@ -89,7 +101,6 @@ export default function PromptEntryScreen() {
   // Realtime Bo3 state (HP, series score, opponent move history).
   const {
     battle: rtBattle,
-    prompts,
     rounds,
     format,
     current_round,
@@ -121,16 +132,6 @@ export default function PromptEntryScreen() {
   const oppHp = isPlayerOne ? hp.p2 : hp.p1;
   const oppHpMax = isPlayerOne ? hp_max.p2 : hp_max.p1;
 
-  // Opponent's last 5 move types across rounds (from battle_prompts).
-  const opponentHistory = useMemo<MoveType[]>(() => {
-    if (!rtBattle || !user) return [];
-    const opp = prompts
-      .filter((p) => p.profile_id !== user.id && p.move_type)
-      .sort((a, b) => (a.round_number ?? 1) - (b.round_number ?? 1))
-      .map((p) => p.move_type as MoveType);
-    return opp.slice(-5);
-  }, [prompts, rtBattle, user]);
-
   // Both characters for the versus header strip (names + signed portraits).
   const { p1: p1Char, p2: p2Char } = useBattleCharacters(
     battleId || null,
@@ -138,50 +139,6 @@ export default function PromptEntryScreen() {
   );
   const myChar = isPlayerOne ? p1Char : p2Char;
   const oppChar = isPlayerOne ? p2Char : p1Char;
-
-  // Cross-battle opponent move profile (§7.1): last-5 from resolved battles +
-  // per-move win rates vs their archetype. Non-blocking; null on failure.
-  useEffect(() => {
-    if (!battleId) return;
-    let cancelled = false;
-    getOpponentMoveProfile(battleId as string).then((profile) => {
-      if (!cancelled) setOppProfile(profile);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [battleId]);
-
-  // Prefer this battle's rounds (Bo3); fall back to the cross-battle profile
-  // so single-format players get move legibility too.
-  const displayedHistory = useMemo<MoveType[]>(
-    () =>
-      opponentHistory.length > 0
-        ? opponentHistory
-        : (oppProfile?.recent_moves ?? []),
-    [opponentHistory, oppProfile],
-  );
-  const historyLabel =
-    opponentHistory.length > 0
-      ? "Opponent's moves this battle"
-      : "Opponent's recent moves";
-
-  // Suggest the move that counters the opponent's most frequent recent move.
-  const suggestedCounter = useMemo<MoveType | null>(() => {
-    if (displayedHistory.length === 0) return null;
-    const counts: Record<MoveType, number> = {
-      attack: 0,
-      defense: 0,
-      finisher: 0,
-    };
-    displayedHistory.forEach((m) => {
-      counts[m] += 1;
-    });
-    const mostFrequent = (Object.keys(counts) as MoveType[]).sort(
-      (a, b) => counts[b] - counts[a],
-    )[0];
-    return counterOf(mostFrequent);
-  }, [displayedHistory]);
 
   // Lock-in deadline for the countdown: per-round for Bo3, per-player for single.
   const myDeadline = isBo3
@@ -223,9 +180,96 @@ export default function PromptEntryScreen() {
     return themeWords.some((w) => text.includes(w));
   }, [battle?.theme, customText]);
 
+  // Mount guard: no valid move type means this screen was reached without a
+  // choice being made. Redirect rather than defaulting -- a silent 'attack'
+  // would submit a move the player never picked and they would only find out
+  // at the reveal. `replace` so back does not bounce them straight back here.
+  useEffect(() => {
+    if (!battleId) return;
+    if (!moveType) {
+      router.replace(
+        `/(battle)/move-select?battleId=${battleId}&round=${roundNumber}`,
+      );
+    }
+  }, [battleId, moveType, roundNumber, router]);
+
   useEffect(() => {
     loadData();
   }, [battleId]);
+
+  /**
+   * Loads the free suggestion set for this move type.
+   *
+   * `paid` is not a request parameter -- the server decides free-vs-paid from
+   * its own index and reports back what happened. This flag only controls the
+   * confirmation copy shown before the call.
+   */
+  const loadSuggestions = useCallback(
+    async (paid: boolean) => {
+      if (!battleId || !moveType) return;
+      setSuggestionsLoading(true);
+      setSuggestionsError(null);
+      try {
+        const result = await generateMoveSuggestions(
+          battleId as string,
+          moveType,
+          roundNumber,
+        );
+        if (result.set) {
+          setSuggestions(result.set.suggestions);
+          setSelectedSuggestion(null);
+        } else if (result.failure === 'insufficient_credits') {
+          setSuggestionsError('Not enough credits for another set.');
+        } else if (result.failure === 'rate_limited') {
+          setSuggestionsError('Too many suggestion requests — try again later.');
+        } else {
+          // The static templates are still on screen, so this is a degraded
+          // state, not a broken one. Say so quietly rather than with an Alert.
+          setSuggestionsError(
+            paid
+              ? 'Could not generate new ideas. You were not charged.'
+              : 'Ideas unavailable — templates below still work.',
+          );
+        }
+      } finally {
+        setSuggestionsLoading(false);
+      }
+    },
+    [battleId, moveType, roundNumber],
+  );
+
+  // On mount, READ any set already generated for this slot; only generate
+  // when there is none.
+  //
+  // Generating on every mount would charge the player for navigating: the free
+  // slot is spent on the first call and every later call for the same
+  // (battle, round, move type) is a paid reroll. Walking back to change the
+  // move and forward again is normal use, not a purchase.
+  //
+  // Not retried on failure either -- every generate call costs money
+  // server-side, and a retry loop during a provider outage would burn the
+  // player's rate limit for nothing.
+  useEffect(() => {
+    if (!battleId || !moveType) return;
+    let cancelled = false;
+    setSuggestionsLoading(true);
+    getMoveSuggestions(battleId as string, moveType, roundNumber)
+      .then((existing) => {
+        if (cancelled) return;
+        if (existing.length > 0) {
+          setSuggestions(existing);
+          setSuggestionsLoading(false);
+        } else {
+          loadSuggestions(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [battleId, moveType, roundNumber, loadSuggestions]);
 
   const loadData = async () => {
     if (!battleId) {
@@ -334,7 +378,9 @@ export default function PromptEntryScreen() {
     try {
       const result = await submitPrompt(
         battleId as string,
-        moveType,
+        // Non-null by the time submit is reachable: the mount guard below
+        // redirects to move-select when the param is missing or invalid.
+        moveType as MoveType,
         isCustom ? undefined : selectedTemplate || undefined,
         isCustom ? customText : undefined,
         isBo3 ? roundNumber : undefined,
@@ -540,112 +586,46 @@ export default function PromptEntryScreen() {
           </>
         ) : null}
 
-        {/* Move Type Selector */}
-        <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.text }]}>Move Type</Text>
-          {displayedHistory.length > 0 ? (
-            <MoveTypeChipRow history={displayedHistory} label={historyLabel} />
-          ) : null}
-          <View style={styles.moveTypeButtons}>
-            {(['attack', 'defense', 'finisher'] as MoveType[]).map((type) => {
-              const selected = moveType === type;
-              return (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.moveTypeButton,
-                    { backgroundColor: selected ? colors[type] : colors.card },
-                    selected && styles.moveTypeButtonSelected,
-                  ]}
-                  onPress={() => {
-                    hapticSelection();
-                    setMoveType(type);
-                  }}
-                  accessibilityLabel={`Select ${type} move${suggestedCounter === type ? ', counters opponent pattern' : ''}`}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                >
-                  {suggestedCounter === type ? (
-                    <View
-                      style={[
-                        styles.counterPill,
-                        { backgroundColor: colors.success },
-                      ]}
-                    >
-                      <Text style={styles.counterPillText}>COUNTER</Text>
-                    </View>
-                  ) : null}
-                  <Ionicons
-                    name={MOVE_META[type].icon}
-                    size={20}
-                    color={selected ? '#FFFFFF' : colors[type]}
-                  />
-                  <Text
-                    style={[
-                      styles.moveTypeText,
-                      { color: selected ? '#FFFFFF' : colors.text },
-                    ]}
-                  >
-                    {type.toUpperCase()}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Live matchup hint for the selected move (replaces the static rule line). */}
+        {/* Read-only move chip. The choice was made on move-select; this is
+            a reminder plus a way back, not a second selector -- two places to
+            change one value is how a player ends up submitting a move they
+            thought they had changed. */}
+        <TouchableOpacity
+          style={[styles.moveChip, { backgroundColor: colors.card }]}
+          onPress={() => {
+            hapticSelection();
+            router.back();
+          }}
+          accessibilityLabel={`Move type ${moveType}. Tap to change.`}
+          accessibilityRole="button"
+        >
           <View
-            style={[styles.matchupHint, { backgroundColor: colors.card }]}
-            accessible
-            accessibilityLabel={`${moveType} beats ${MOVE_META[moveType].beats}, loses to ${MOVE_META[moveType].losesTo}`}
+            style={[
+              styles.moveChipBadge,
+              { backgroundColor: moveType ? colors[moveType] : colors.card },
+            ]}
           >
-            <Ionicons name="trending-up" size={14} color={colors.success} />
-            <Text style={[styles.matchupText, { color: colors.textSecondary }]}>
-              beats{' '}
-              <Text
-                style={{
-                  color: colors[MOVE_META[moveType].beats],
-                  fontWeight: Typography.weights.bold,
-                }}
-              >
-                {MOVE_META[moveType].beats.toUpperCase()}
-              </Text>
-            </Text>
-            <View
-              style={[
-                styles.matchupDivider,
-                { backgroundColor: colors.border },
-              ]}
+            <Ionicons
+              name={moveType ? MOVE_META[moveType].icon : 'help'}
+              size={14}
+              color="#FFFFFF"
             />
-            <Ionicons name="trending-down" size={14} color={colors.error} />
-            <Text style={[styles.matchupText, { color: colors.textSecondary }]}>
-              loses to{' '}
-              <Text
-                style={{
-                  color: colors[MOVE_META[moveType].losesTo],
-                  fontWeight: Typography.weights.bold,
-                }}
-              >
-                {MOVE_META[moveType].losesTo.toUpperCase()}
-              </Text>
+            <Text style={styles.moveChipBadgeText}>
+              {(moveType ?? '').toUpperCase()}
             </Text>
           </View>
-
-          {/* §7.1 counter-pick win rate vs the opponent's archetype (RPC data). */}
-          {(() => {
-            const rate = oppProfile?.counter_win_rates?.[moveType];
-            const archetype = oppProfile?.opponent_archetype;
-            if (!rate || !archetype || rate.total < 3) return null;
-            return (
-              <Text
-                style={[styles.winRateText, { color: colors.textTertiary }]}
-              >
-                {moveType.toUpperCase()} wins {Math.round(rate.win_rate * 100)}%
-                vs {archetype.toUpperCase()} ({rate.total} battles)
-              </Text>
-            );
-          })()}
-        </View>
+          <Text style={[styles.moveChipHint, { color: colors.textSecondary }]}>
+            {moveType
+              ? `beats ${MOVE_META[moveType].beats.toUpperCase()}`
+              : ''}
+          </Text>
+          <View style={styles.moveChipChange}>
+            <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
+            <Text style={[styles.moveChipChangeText, { color: colors.primary }]}>
+              Change
+            </Text>
+          </View>
+        </TouchableOpacity>
 
         {/* Template/Custom segmented control */}
         <View style={[styles.segmented, { backgroundColor: colors.card }]}>
@@ -710,6 +690,104 @@ export default function PromptEntryScreen() {
             : 'Pick a ready-made prompt — a safe start that still scores on theme fit.'}
         </Text>
 
+        {/* Suggestions written for THIS fighter and THIS move type. Sit above
+            the generic templates because they are the better answer when they
+            are available; the templates stay as the fallback for when they are
+            not. */}
+        {!isCustom && (suggestions.length > 0 || suggestionsLoading || suggestionsError) ? (
+          <View style={styles.section}>
+            <View style={styles.suggestionHeader}>
+              <Ionicons name="bulb" size={14} color={colors.primary} />
+              <Text style={[styles.suggestionTitle, { color: colors.text }]}>
+                Ideas for {myChar?.name ?? 'your fighter'}
+              </Text>
+            </View>
+
+            {suggestionsLoading ? (
+              <View style={[styles.suggestionCard, { backgroundColor: colors.card }]}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : null}
+
+            {!suggestionsLoading && suggestionsError ? (
+              <Text style={[styles.suggestionError, { color: colors.textTertiary }]}>
+                {suggestionsError}
+              </Text>
+            ) : null}
+
+            {!suggestionsLoading &&
+              suggestions.map((suggestion, index) => (
+                <TouchableOpacity
+                  key={`${index}-${suggestion.title}`}
+                  style={[
+                    styles.suggestionCard,
+                    { backgroundColor: colors.card },
+                    selectedSuggestion === index && {
+                      borderColor: colors.primary,
+                      borderWidth: 2,
+                    },
+                  ]}
+                  onPress={() => {
+                    hapticSelection();
+                    // A suggestion becomes the player's own custom text, so it
+                    // is editable before lock-in and travels the ordinary
+                    // custom-prompt path (moderation, length hints, judging).
+                    setSelectedSuggestion(index);
+                    setSelectedTemplate(null);
+                    setCustomText(suggestion.body);
+                  }}
+                  accessibilityLabel={`Use suggestion: ${suggestion.title}`}
+                  accessibilityRole="button"
+                >
+                  <Text
+                    style={[styles.suggestionCardTitle, { color: colors.text }]}
+                    numberOfLines={1}
+                  >
+                    {suggestion.title}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.suggestionCardBody,
+                      { color: colors.textSecondary },
+                      accessibleText,
+                    ]}
+                  >
+                    {suggestion.body}
+                  </Text>
+                  <View style={styles.suggestionUse}>
+                    <Ionicons name="create-outline" size={14} color={colors.primary} />
+                    <Text style={[styles.suggestionUseText, { color: colors.primary }]}>
+                      Use and edit
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+            <TouchableOpacity
+              style={[styles.rerollButton, { borderColor: colors.border }]}
+              onPress={() => {
+                Alert.alert(
+                  'New ideas',
+                  'Generate three new suggestions for 1 credit?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Spend 1 credit', onPress: () => loadSuggestions(true) },
+                  ],
+                );
+              }}
+              disabled={suggestionsLoading}
+              accessibilityLabel="Generate new suggestions for one credit"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: suggestionsLoading }}
+            >
+              <Ionicons name="refresh" size={14} color={colors.textSecondary} />
+              <Text style={[styles.rerollText, { color: colors.textSecondary }]}>
+                New suggestions — 1 credit
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {/* Template List */}
         {!isCustom && (
           <View style={styles.section}>
@@ -727,11 +805,10 @@ export default function PromptEntryScreen() {
                 onPress={() => {
                   hapticSelection();
                   setSelectedTemplate(template.id);
-                  // Selecting a template also selects its suggested move; the
-                  // user can still override via the move-type selector above.
-                  if (template.suggested_move_type) {
-                    setMoveType(template.suggested_move_type);
-                  }
+                  // No longer overrides the move type: that is a param chosen
+                  // on move-select, and silently changing it here would submit
+                  // a move the player did not pick.
+                  setSelectedSuggestion(null);
                 }}
                 accessibilityLabel={`Select template: ${template.title}${
                   template.suggested_move_type
@@ -1014,38 +1091,92 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.semibold,
     marginBottom: Spacing.md,
   },
-  moveTypeButtons: {
+  moveChip: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
   },
-  moveTypeButton: {
-    flex: 1,
-    padding: Spacing.md,
-    borderRadius: 8,
+  moveChipBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
   },
-  moveTypeButtonSelected: {
-    transform: [{ scale: 1.03 }],
+  moveChipBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: Typography.weights.bold,
+    letterSpacing: 0.5,
   },
-  moveTypeText: {
+  moveChipHint: {
+    flex: 1,
+    fontSize: Typography.sizes.xs,
+  },
+  moveChipChange: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  moveChipChangeText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.semibold,
+  },
+  suggestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  suggestionTitle: {
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.bold,
   },
-  counterPill: {
-    position: 'absolute',
-    top: -8,
-    alignSelf: 'center',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 1,
-    borderRadius: BorderRadius.full,
-    zIndex: 1,
+  suggestionCard: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+    gap: Spacing.xs,
   },
-  counterPillText: {
-    color: '#FFFFFF',
-    fontSize: 9,
+  suggestionCardTitle: {
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.bold,
-    letterSpacing: 0.5,
+  },
+  suggestionCardBody: {
+    fontSize: Typography.sizes.xs,
+    lineHeight: 18,
+  },
+  suggestionUse: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: Spacing.xs,
+  },
+  suggestionUseText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.semibold,
+  },
+  suggestionError: {
+    fontSize: Typography.sizes.xs,
+    marginBottom: Spacing.sm,
+  },
+  rerollButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  rerollText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.semibold,
   },
   matchupHint: {
     flexDirection: 'row',

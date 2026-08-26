@@ -64,7 +64,10 @@ export default function BattlesScreen() {
 
   const navigateToBattle = (battle: any) => {
     if (battle.status === 'waiting_for_prompts') {
-      router.push(`/(battle)/prompt-entry?battleId=${battle.id}`);
+      // Round passed explicitly; see the matching call in home.tsx.
+      router.push(
+        `/(battle)/move-select?battleId=${battle.id}&round=${battle.current_round ?? 1}`,
+      );
     } else if (battle.status === 'result_ready' || battle.status === 'completed') {
       router.push(`/(battle)/result?battleId=${battle.id}`);
     } else {

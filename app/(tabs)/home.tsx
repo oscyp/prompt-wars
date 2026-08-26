@@ -330,7 +330,12 @@ export default function HomeScreen() {
               onPress={() => {
                 // Navigate based on battle status
                 if (battle.status === 'waiting_for_prompts') {
-                  router.push(`/(battle)/prompt-entry?battleId=${battle.id}`);
+                  // Round passed explicitly: getMyBattles() selects '*', so
+                  // current_round is already in hand, and the arena should not
+                  // have to re-derive what the caller already knows.
+                  router.push(
+                    `/(battle)/move-select?battleId=${battle.id}&round=${battle.current_round ?? 1}`,
+                  );
                 } else if (battle.status === 'result_ready' || battle.status === 'completed') {
                   router.push(`/(battle)/result?battleId=${battle.id}`);
                 } else {

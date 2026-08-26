@@ -228,11 +228,12 @@ export default function WaitingScreen() {
         return;
       }
       // If a new round has been opened and we haven't submitted yet, push
-      // back to prompt-entry for that new round.
+      // back to move-select for that new round -- the move is chosen fresh
+      // each round, so re-entry starts at the choice, not at the writing.
       const battleRound = battle.current_round ?? 1;
       if (battleRound !== roundNumber && !myPromptLocked) {
         router.replace(
-          `/(battle)/prompt-entry?battleId=${battleId}&round=${battleRound}`,
+          `/(battle)/move-select?battleId=${battleId}&round=${battleRound}`,
         );
       }
       return;

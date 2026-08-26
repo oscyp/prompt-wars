@@ -27,6 +27,7 @@ export default function BattleLayout() {
           name="face-off"
           options={{ gestureEnabled: false, headerShown: false }}
         />
+        <Stack.Screen name="move-select" />
         <Stack.Screen name="prompt-entry" />
         <Stack.Screen name="waiting" />
         <Stack.Screen

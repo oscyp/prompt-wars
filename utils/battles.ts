@@ -3,7 +3,11 @@
  * Client-safe wrappers for battle Edge Functions
  */
 
-import { invokeAuthenticatedFunction, supabase } from './supabase';
+import {
+  invokeAuthenticatedFunction,
+  invokeFunctionResult,
+  supabase,
+} from './supabase';
 
 export type BattleStatus =
   | 'created'
@@ -293,6 +297,147 @@ export async function getBattleTemplates(
     console.error('Battle templates exception:', err);
     return null;
   }
+}
+
+export interface MoveSuggestion {
+  title: string;
+  body: string;
+}
+
+export interface MoveSuggestionSet {
+  id: string;
+  suggestions: MoveSuggestion[];
+  isPaid: boolean;
+  creditsSpent: number;
+}
+
+export type MoveSuggestionFailure =
+  | 'insufficient_credits'
+  | 'rate_limited'
+  | 'unavailable'
+  | 'failed';
+
+export interface MoveSuggestionResult {
+  set: MoveSuggestionSet | null;
+  failure: MoveSuggestionFailure | null;
+  message: string | null;
+}
+
+/**
+ * Reads suggestion sets ALREADY generated for this (battle, round, move type).
+ *
+ * This exists to stop the arena from charging a player for simply walking back
+ * into the screen. `generateMoveSuggestions` spends the free slot on its first
+ * call and charges a credit on every call after -- so calling it on mount
+ * would bill someone for navigating back from prompt-entry and forward again.
+ * Mount reads; only an explicit reroll generates.
+ *
+ * Owner-only under RLS (`move_prompt_suggestions_select_own`), and the client
+ * holds SELECT and nothing else, so this cannot be used to see an opponent's
+ * suggestions or to forge one.
+ */
+export async function getMoveSuggestions(
+  battleId: string,
+  moveType: MoveType,
+  roundNumber: number,
+): Promise<MoveSuggestion[]> {
+  try {
+    const { data, error } = await supabase
+      .from('move_prompt_suggestions')
+      .select('suggestions, created_at, moderation_status')
+      .eq('battle_id', battleId)
+      .eq('round_number', roundNumber)
+      .eq('move_type', moveType)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (error || !Array.isArray(data) || data.length === 0) {
+      if (error) console.error('Move suggestions read error:', error);
+      return [];
+    }
+
+    const row = data[0] as {
+      suggestions?: unknown;
+      moderation_status?: string | null;
+    };
+    // A rejected set must not resurface on a later visit.
+    if (row.moderation_status === 'rejected') return [];
+    return Array.isArray(row.suggestions)
+      ? (row.suggestions as MoveSuggestion[])
+      : [];
+  } catch (err) {
+    console.error('Move suggestions read exception:', err);
+    return [];
+  }
+}
+
+/**
+ * Three prompt suggestions written for this player's fighter.
+ *
+ * The FIRST set per (battle, round, move type) is free; the server decides
+ * that, not this call -- there is no "is this free" parameter, because a
+ * client-asserted answer would be both racy and trivially forged. The returned
+ * `isPaid` reports what actually happened.
+ *
+ * Failures are classified rather than thrown: the arena has a working fallback
+ * (the static templates), so an outage here should degrade the screen, not
+ * break it. Only `insufficient_credits` needs a distinct message to the player.
+ */
+export async function generateMoveSuggestions(
+  battleId: string,
+  moveType: MoveType,
+  roundNumber: number,
+): Promise<MoveSuggestionResult> {
+  const { data, error } = await invokeFunctionResult<{
+    ok?: boolean;
+    data?: {
+      id: string;
+      suggestions: MoveSuggestion[];
+      is_paid: boolean;
+      credits_spent: number;
+    };
+    error?: { code?: string; message?: string };
+  }>('generate-move-suggestions', {
+    battle_id: battleId,
+    move_type: moveType,
+    round_number: roundNumber,
+  });
+
+  if (error || !data) {
+    // invokeAuthenticatedFunction surfaces a non-2xx as a thrown error, so a
+    // 402 arrives here as a message rather than a parsed body. Match on the
+    // code we send so the paywall case stays distinguishable from an outage.
+    const message = error?.message ?? 'Suggestions unavailable';
+    const failure: MoveSuggestionFailure = message.includes(
+        'insufficient_credits',
+      )
+      ? 'insufficient_credits'
+      : message.includes('rate_limited')
+      ? 'rate_limited'
+      : 'unavailable';
+    console.error('Move suggestions error:', message);
+    return { set: null, failure, message };
+  }
+
+  const payload = data.data;
+  if (!payload || !Array.isArray(payload.suggestions)) {
+    return {
+      set: null,
+      failure: 'failed',
+      message: data.error?.message ?? 'Suggestions unavailable',
+    };
+  }
+
+  return {
+    set: {
+      id: payload.id,
+      suggestions: payload.suggestions,
+      isPaid: Boolean(payload.is_paid),
+      creditsSpent: Number(payload.credits_spent ?? 0),
+    },
+    failure: null,
+    message: null,
+  };
 }
 
 /**

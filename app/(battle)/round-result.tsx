@@ -157,7 +157,7 @@ export default function RoundResultScreen() {
     } else {
       const next = (roundNumber ?? 1) + 1;
       router.replace(
-        `/(battle)/prompt-entry?battleId=${battleId}&round=${next}`,
+        `/(battle)/move-select?battleId=${battleId}&round=${next}`,
       );
     }
   }, [battleId, isSeriesComplete, roundNumber, router]);
