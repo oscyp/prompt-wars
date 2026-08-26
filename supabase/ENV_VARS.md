@@ -67,6 +67,21 @@ Notes:
 - `anthropic` and `openai` are not implemented. Adding one means a new adapter
   plus a `case` in `createJudgeProvider()`.
 
+### Move Prompt Suggestions
+
+```bash
+# Per-fighter prompt suggestions (generate-move-suggestions). Both optional --
+# they fall back to the judge's key and model, which is usually what you want:
+# same provider, same family, and suggestions are a cheaper call than judging.
+SUGGESTIONS_API_KEY=xai-...      # falls back to JUDGE_API_KEY, then XAI_API_KEY
+SUGGESTIONS_MODEL_ID=grok-4.3    # falls back to JUDGE_MODEL_ID, then grok-4.3
+```
+
+There is deliberately NO mock fallback here. With no key configured the
+endpoint returns 503 and the arena falls back to the static `prompt_templates`
+rows, because handing a player three lines of mock text they just paid a credit
+for is worse than showing them the generic templates.
+
 ### Video Generation Provider
 ```bash
 # xAI / X AI / Grok video generation (primary Tier 1 provider)

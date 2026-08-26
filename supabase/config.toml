@@ -229,3 +229,10 @@ verify_jwt = false
 
 [functions.unblock-profile]
 verify_jwt = false
+
+# Validates the user JWT in-function via getAuthUserId. Same asymmetric-JWT
+# reason as every entry above: the gateway cannot verify this project's user
+# tokens, so leaving verification on returns UNAUTHORIZED_ASYMMETRIC_JWT before
+# the handler ever runs.
+[functions.generate-move-suggestions]
+verify_jwt = false
