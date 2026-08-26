@@ -85,3 +85,49 @@ export const CREDIT_PACK_GRANTS: Record<string, number> = {
 export function creditsForProductId(productId: string): number | null {
   return CREDIT_PACK_GRANTS[productId] ?? null;
 }
+
+/**
+ * RevenueCat `store` -> our `purchases.platform` value.
+ *
+ * RevenueCat sends this field UPPERCASE (`APP_STORE`, `PLAY_STORE`,
+ * `TEST_STORE`, ...). The webhook used to compare it against lowercase
+ * literals, so every branch missed and every purchase ever recorded landed as
+ * platform='unknown' -- including real App Store ones, not just Test Store.
+ * Matching is case-insensitive here so neither casing can regress it.
+ *
+ * TEST_STORE gets its own value rather than collapsing into 'unknown': test
+ * purchases are simulated and generate no revenue, so any revenue reporting
+ * over this table has to be able to exclude them.
+ */
+const STORE_PLATFORMS: Record<string, string> = {
+  APP_STORE: 'ios',
+  MAC_APP_STORE: 'ios',
+  PLAY_STORE: 'android',
+  AMAZON: 'android',
+  STRIPE: 'web',
+  RC_BILLING: 'web',
+  PADDLE: 'web',
+  ROKU: 'web',
+  TEST_STORE: 'test',
+  PROMOTIONAL: 'promotional',
+};
+
+export function platformForStore(store: string | undefined | null): string {
+  if (!store) return 'unknown';
+  return STORE_PLATFORMS[store.toUpperCase()] ?? 'unknown';
+}
+
+/**
+ * Event types that represent a completed one-off purchase.
+ *
+ * Consumables (credit packs) and non-consumables (the FTUO bundle) arrive as
+ * NON_RENEWING_PURCHASE, NOT INITIAL_PURCHASE -- INITIAL_PURCHASE is only sent
+ * for a new *subscription*. The webhook originally routed credit packs and the
+ * FTUO on INITIAL_PURCHASE alone, so every credit pack ever bought fell through
+ * to the "unknown event type" branch and was acknowledged with a 200 without
+ * granting anything. RevenueCat showed the delivery as "Sent" and the player
+ * got nothing.
+ */
+export function isOneOffPurchaseEvent(eventType: string): boolean {
+  return eventType === 'NON_RENEWING_PURCHASE' || eventType === 'INITIAL_PURCHASE';
+}

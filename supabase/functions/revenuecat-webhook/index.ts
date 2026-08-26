@@ -3,7 +3,7 @@
 // Validates webhook signatures and enforces idempotency
 
 import { createServiceClient, corsHeaders, errorResponse, successResponse, generateIdempotencyKey } from '../_shared/utils.ts';
-import { buildSubscriptionLifecycleUpdate, isSubscriptionLifecycleEvent, creditsForProductId} from '../_shared/revenuecat-events.ts';
+import { buildSubscriptionLifecycleUpdate, isSubscriptionLifecycleEvent, creditsForProductId, platformForStore, isOneOffPurchaseEvent } from '../_shared/revenuecat-events.ts';
 import { validateWebhookSignature } from './verify-signature.ts';
 
 interface RevenueCatEvent {
@@ -18,7 +18,7 @@ interface RevenueCatEvent {
     transaction_id: string;
     expiration_at_ms?: number;
     period_type?: string;
-    store: string; // app_store | play_store | stripe
+    store: string; // UPPERCASE: APP_STORE | PLAY_STORE | STRIPE | TEST_STORE | ...
   };
 }
 
@@ -163,12 +163,12 @@ async function processWebhookEvent(webhookData: RevenueCatEvent): Promise<Respon
   }
   
   // Handle credit pack purchases
-  if (event.type === 'INITIAL_PURCHASE' && event.product_id.startsWith('credits_')) {
+  if (isOneOffPurchaseEvent(event.type) && event.product_id.startsWith('credits_')) {
     return await handleCreditPackPurchase(supabase, event);
   }
   
   // Handle first-time-user offer (FTUO) bundle purchase
-  if (event.type === 'INITIAL_PURCHASE' && event.product_id.startsWith('ftuo_')) {
+  if (isOneOffPurchaseEvent(event.type) && event.product_id.startsWith('ftuo_')) {
     return await handleFirstTimeOfferPurchase(supabase, event);
   }
   
@@ -189,10 +189,7 @@ async function handleSubscriptionActivation(
     : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // Default 30 days
   
   // Map RevenueCat store to platform
-  const platform = event.store === 'app_store' ? 'ios' 
-    : event.store === 'play_store' ? 'android'
-    : event.store === 'stripe' ? 'web'
-    : 'unknown';
+  const platform = platformForStore(event.store);
   
   const { error: subError } = await supabase
     .from('subscriptions')
@@ -322,10 +319,7 @@ async function handleCreditPackPurchase(
   }
   
   // Map RevenueCat store to platform
-  const platform = event.store === 'app_store' ? 'ios' 
-    : event.store === 'play_store' ? 'android'
-    : event.store === 'stripe' ? 'web'
-    : 'unknown';
+  const platform = platformForStore(event.store);
   
   // Check for existing purchase (duplicate webhook)
   const { data: existingPurchase } = await supabase
@@ -397,10 +391,7 @@ async function handleFirstTimeOfferPurchase(
   supabase: ReturnType<typeof createServiceClient>,
   event: RevenueCatEvent['event']
 ): Promise<Response> {
-  const platform = event.store === 'app_store' ? 'ios'
-    : event.store === 'play_store' ? 'android'
-    : event.store === 'stripe' ? 'web'
-    : 'unknown';
+  const platform = platformForStore(event.store);
 
   // Find or create the purchase record (idempotent on transaction id).
   const { data: existingPurchase } = await supabase
