@@ -15,11 +15,13 @@
 import {
   corsHeaders,
   createServiceClient,
+  generateIdempotencyKey,
   getAuthUserId,
 } from '../_shared/utils.ts';
 import { TextModerationProvider } from '../_shared/moderation.ts';
 import {
   err,
+  getEditPrice,
   isDraftCharacter,
   ok,
   randomPortraitSeed,
@@ -74,6 +76,9 @@ function sanitizeTraits(input: unknown): PortraitTraits {
   return out as PortraitTraits;
 }
 
+/** Free portrait renders while a character is still a draft. */
+const DRAFT_FREE_RENDERS = 3;
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -109,7 +114,7 @@ Deno.serve(async (req) => {
   const { data: character, error: charErr } = await supabase
     .from('characters')
     .select(
-      'id, profile_id, archetype, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, portrait_seed, portrait_prompt_raw, art_style, finalized_at, appearance_version',
+      'id, profile_id, draft_portrait_renders, archetype, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, portrait_seed, portrait_prompt_raw, art_style, finalized_at, appearance_version',
     )
     .eq('id', body.character_id)
     .maybeSingle();
@@ -129,6 +134,60 @@ Deno.serve(async (req) => {
       409,
     );
   }
+
+  // Three free re-rolls, then the same price as any other render.
+  //
+  // Uncapped free re-rolls made creation an unbounded 2-image path, but capping
+  // it at one would be worse than the cost: the render is non-deterministic, so
+  // a player's first impression of the game would be a character they may
+  // dislike and cannot change. Three matches PORTRAIT_HISTORY_LIMIT, so they
+  // generate exactly the set the app can remember and restore between.
+  const rendersUsed = (character.draft_portrait_renders as number | null) ?? 0;
+  const freeRender = !isDraft || rendersUsed < DRAFT_FREE_RENDERS;
+
+  let walletTxId: string | null = null;
+  let creditsSpent = 0;
+  if (!freeRender) {
+    const price = await getEditPrice(supabase, 'render_look');
+    if (!price) return err('server_error', 'price config missing', 500);
+    if (price.credits > 0) {
+      const { data: txId, error: spendErr } = await supabase.rpc('spend_credits', {
+        p_profile_id: userId,
+        p_amount: price.credits,
+        p_reason: 'draft_render',
+        p_idempotency_key: generateIdempotencyKey([
+          'draft_render', character.id, String(rendersUsed),
+        ]),
+        p_battle_id: null,
+        p_video_job_id: null,
+        p_metadata: { character_id: character.id, renders_used: rendersUsed },
+      });
+      if (spendErr) {
+        if (/Insufficient credits/i.test(spendErr.message ?? '')) {
+          return err('insufficient_credits', spendErr.message, 402, {
+            free_renders_used: rendersUsed,
+            free_renders_total: DRAFT_FREE_RENDERS,
+          });
+        }
+        return err('server_error', spendErr.message, 500);
+      }
+      walletTxId = (txId as unknown as string) ?? null;
+      creditsSpent = price.credits;
+    }
+  }
+
+  const refundDraftRender = async (reason: string): Promise<void> => {
+    if (!walletTxId || creditsSpent <= 0) return;
+    await supabase.rpc('grant_credits', {
+      p_profile_id: userId,
+      p_amount: creditsSpent,
+      p_reason: `draft_render_refund:${reason}`,
+      p_idempotency_key: `refund_${walletTxId}`,
+      p_battle_id: null,
+      p_purchase_id: null,
+      p_metadata: { character_id: character.id },
+    });
+  };
 
   const promptRaw = body.portrait_prompt_raw ?? character.portrait_prompt_raw ?? '';
   const artStyle: ArtStyle =
@@ -236,6 +295,7 @@ Deno.serve(async (req) => {
     .single();
 
   if (jobErr || !job) {
+    await refundDraftRender('job_insert_failed');
     return err('server_error', jobErr?.message ?? 'job insert failed', 500);
   }
 
@@ -274,6 +334,7 @@ Deno.serve(async (req) => {
     if (code !== 'moderation_rejected') {
       await releaseClaimedSeed();
     }
+    await refundDraftRender(code);
     return err(code, e instanceof Error ? e.message : 'provider failure', 502);
   }
 
@@ -304,6 +365,7 @@ Deno.serve(async (req) => {
       })
       .eq('id', job.id);
     await releaseClaimedSeed();
+    await refundDraftRender('storage_upload_failed');
     return err('storage_error', uploadRes.error.message, 500);
   }
 
@@ -359,6 +421,7 @@ Deno.serve(async (req) => {
       })
       .eq('id', job.id);
     await releaseClaimedSeed();
+    await refundDraftRender('portrait_insert_failed');
     return err('server_error', portraitErr?.message ?? 'portrait insert failed', 500);
   }
 
@@ -420,11 +483,25 @@ Deno.serve(async (req) => {
     })
     .eq('id', job.id);
 
+  // Counted only on success: a provider failure must not burn an allowance the
+  // player got nothing for.
+  const rendersAfter = rendersUsed + 1;
+  if (isDraft) {
+    await supabase
+      .from('characters')
+      .update({ draft_portrait_renders: rendersAfter })
+      .eq('id', character.id);
+  }
+
   return ok({
     portrait_id: portrait.id,
     job_id: job.id,
     image_path: storagePath,
     provider: result.provider,
     provider_model: result.provider_model,
+    credits_spent: creditsSpent,
+    free_renders_left: isDraft
+      ? Math.max(0, DRAFT_FREE_RENDERS - rendersAfter)
+      : 0,
   });
 });

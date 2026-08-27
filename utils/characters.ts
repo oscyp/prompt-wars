@@ -80,6 +80,16 @@ export interface PortraitJobResult {
   imageUrl: string;
   seed: string;
   status: 'succeeded';
+  /**
+   * Free draft re-rolls remaining, from `generate-portrait`.
+   *
+   * Creation gives three free renders and then charges the normal render price,
+   * so the flow has to be able to say which one the player is on before they
+   * tap again. Absent once the character is finalized.
+   */
+  freeRendersLeft?: number;
+  /** Credits this render cost. 0 while the free allowance lasts. */
+  creditsSpent?: number;
 }
 
 export interface RenderLookInput {
@@ -408,6 +418,8 @@ async function getCurrentProfileId(): Promise<string> {
 // ---------------------------------------------------------------------------
 
 interface PortraitJobStartResponse {
+  free_renders_left?: number;
+  credits_spent?: number;
   job_id: string;
   portrait_id?: string;
   image_path?: string;
@@ -445,6 +457,8 @@ async function startPortraitJob(
       imageUrl,
       seed: data.seed != null ? String(data.seed) : '',
       status: 'succeeded',
+      freeRendersLeft: data.free_renders_left,
+      creditsSpent: data.credits_spent,
     };
   }
 

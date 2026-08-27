@@ -15,6 +15,8 @@ import {
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ARCHETYPES, ARCHETYPE_ART, ArchetypeId } from '@/constants/Archetypes';
+import { formatCredits } from '@/utils/credits';
+import { fetchEditPricing } from '@/utils/editCooldowns';
 import {
   VIBES,
   SILHOUETTES,
@@ -102,6 +104,15 @@ const INITIAL_DRAFT: Draft = {
 };
 
 const TOTAL_STEPS = 9;
+
+/**
+ * Free portrait renders during creation, mirroring DRAFT_FREE_RENDERS in
+ * generate-portrait. Display only — the server decides and reports the count.
+ */
+const DRAFT_FREE_RENDERS = 3;
+
+/** Shown only until live pricing lands; the server charges its own price. */
+const DRAFT_RENDER_COST_FALLBACK = 3;
 
 export default function CreateCharacterScreen() {
   const router = useRouter();
@@ -622,6 +633,26 @@ function StepPortrait({
   const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Server-owned: the client cannot be the authority on an allowance that
+  // spends credits, so this only ever mirrors what the last render reported.
+  const [freeRendersLeft, setFreeRendersLeft] = useState<number | null>(null);
+  const [renderCost, setRenderCost] = useState(DRAFT_RENDER_COST_FALLBACK);
+
+  useEffect(() => {
+    if (!draft.characterId) return;
+    let active = true;
+    void fetchEditPricing(draft.characterId)
+      .then(({ prices }) => {
+        if (active && prices.render_look) setRenderCost(prices.render_look.credits);
+      })
+      .catch(() => {
+        // Non-fatal: the fallback only drives copy, and the server is the one
+        // that actually charges.
+      });
+    return () => {
+      active = false;
+    };
+  }, [draft.characterId]);
 
   const portraitUri =
     draft.portrait?.imageUrl ??
@@ -690,6 +721,9 @@ function StepPortrait({
           artStyle: merged.artStyle,
         });
         patch({ portrait: result, portraitFailed: false });
+        if (typeof result.freeRendersLeft === 'number') {
+          setFreeRendersLeft(result.freeRendersLeft);
+        }
       } catch (err) {
         console.warn('Portrait generation failed:', err);
         setErrorMsg(
@@ -709,11 +743,27 @@ function StepPortrait({
     patch({ portraitFailed: true, portrait: undefined });
   };
 
-  // Unlimited, and free: settling on a look you like is part of creating the
-  // character. Re-rolls only start costing credits once the character is
-  // finalized and editing goes through regenerate-portrait.
+  // Three free, then the same price as any other render.
+  //
+  // Settling on a look you like is part of creating the character, so the first
+  // few are free; unlimited free renders made creation an unbounded two-image
+  // path. The count comes back from the server rather than being tracked here,
+  // because the client cannot be the authority on an allowance that spends
+  // credits.
+  const outOfFreeRenders = freeRendersLeft === 0;
   const regenerate = () => {
-    run();
+    if (!outOfFreeRenders) {
+      run();
+      return;
+    }
+    Alert.alert(
+      'Out of free re-rolls',
+      `You've used your ${DRAFT_FREE_RENDERS} free portraits. Another one costs ${formatCredits(renderCost, 'sentence')}.`,
+      [
+        { text: 'Keep this one', style: 'cancel' },
+        { text: 'Spend', style: 'destructive', onPress: () => run() },
+      ],
+    );
   };
 
   const isPrompt = draft.path === 'prompt';
@@ -872,7 +922,11 @@ function StepPortrait({
             ]}
           >
             <Text style={[styles.secondaryBtnText, { color: colors.text }]}>
-              {generating ? 'Generating…' : 'Regenerate'}
+              {generating
+                ? 'Generating…'
+                : outOfFreeRenders
+                  ? `Regenerate · ${formatCredits(renderCost)}`
+                  : 'Regenerate'}
             </Text>
           </TouchableOpacity>
         )}
@@ -893,6 +947,17 @@ function StepPortrait({
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Said before the last free one is spent, not after: a player who
+          discovers the allowance by hitting the end of it has already made the
+          decision they were not told they were making. */}
+      {draft.portrait && freeRendersLeft !== null && !generating ? (
+        <Text style={[styles.allowance, { color: colors.textSecondary }]}>
+          {freeRendersLeft > 0
+            ? `${freeRendersLeft} free re-roll${freeRendersLeft === 1 ? '' : 's'} left`
+            : `No free re-rolls left · ${formatCredits(renderCost)} each. You can change your look any time after this.`}
+        </Text>
+      ) : null}
 
       {(errorMsg || draft.portraitFailed) && !generating && !draft.portrait && (
         <View
@@ -1445,6 +1510,11 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.semibold,
   },
   btnDisabled: { opacity: 0.5 },
+  allowance: {
+    marginTop: 8,
+    fontSize: 12,
+    textAlign: 'center',
+  },
   banner: {
     marginTop: Spacing.md,
     padding: Spacing.md,
