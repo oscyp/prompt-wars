@@ -53,9 +53,26 @@ export function isTraitFree(key: StageTraitKey): boolean {
  * Given the current character fields and the locally staged values, return the
  * trait keys that genuinely changed and the total credit cost of applying them.
  */
+/**
+ * Live prices for the two trait routes, from `character_edit_prices`.
+ *
+ * Individual controls have always quoted live prices while the staged total was
+ * computed from the constants above, so the bottom bar could promise 2 credits
+ * while the server charged something else. Callers pass what they fetched;
+ * the constants remain only as the pre-fetch fallback.
+ */
+export interface TraitPrices {
+  swap: number;
+  fullReroll: number;
+}
+
 export function computeStagedTraits(
   current: Record<string, unknown>,
   pending: Partial<Record<StageTraitKey, string>>,
+  prices: TraitPrices = {
+    swap: TRAIT_SWAP_PRICE,
+    fullReroll: TRAIT_FULL_REROLL_PRICE,
+  },
 ): {
   changed: StageTraitKey[];
   cost: number;
@@ -66,15 +83,19 @@ export function computeStagedTraits(
   const keys = Object.keys(TRAIT_FIELD) as StageTraitKey[];
   const changed = keys.filter((key) => {
     const staged = pending[key];
-    return staged != null && staged !== (current[TRAIT_FIELD[key]] ?? undefined);
+    return (
+      staged != null && staged !== (current[TRAIT_FIELD[key]] ?? undefined)
+    );
   });
   const paidCount = changed.filter((key) => !isTraitFree(key)).length;
 
   // Charge whichever route the apply actually takes: N single swaps, or one
   // full reroll when that is cheaper. Free traits (palette) never contribute.
-  const singleSwapCost = paidCount * TRAIT_SWAP_PRICE;
-  const useBatch = singleSwapCost >= TRAIT_FULL_REROLL_PRICE;
-  const cost = useBatch ? TRAIT_FULL_REROLL_PRICE : singleSwapCost;
+  const singleSwapCost = paidCount * prices.swap;
+  // Never "batch" a no-op: with nothing paid staged there is nothing to send,
+  // and a zero-priced full reroll would otherwise look like the cheaper route.
+  const useBatch = paidCount > 0 && singleSwapCost >= prices.fullReroll;
+  const cost = useBatch ? prices.fullReroll : singleSwapCost;
 
   return { changed, cost, useBatch, paidCount };
 }

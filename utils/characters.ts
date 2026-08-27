@@ -124,9 +124,32 @@ export interface CatalogSignatureItem {
   isCustom?: boolean;
 }
 
+/** Fields the batched `identity` edit kind accepts. At least one is required. */
+export interface IdentityChanges {
+  name?: string;
+  archetype?: string;
+  battleCry?: string;
+  /** Palette key or a raw `#RRGGBB` hex. */
+  signatureColor?: PaletteKey | string;
+}
+
 export interface EditCharacterInput {
   characterId: string;
   changes: {
+    /**
+     * Apply any subset of name / archetype / battle cry / signature colour in
+     * ONE request.
+     *
+     * The edit screen stages all four behind a single "Save changes" action, so
+     * sending them as separate calls meant a cooldown rejection on the third
+     * field left the first two already committed, with no way to tell the
+     * player which half of their edit survived. The server validates and
+     * cooldown-checks every field before writing anything.
+     *
+     * Each field keeps its own cooldown (name 7d, archetype 14d, the other two
+     * 24h) -- the batch is a transport detail, not a shared meter.
+     */
+    identity?: IdentityChanges;
     battleCry?: string;
     signatureColor?: PaletteKey | string;
     signatureItemId?: string | null;
@@ -161,6 +184,10 @@ export interface EditCharacterResult {
   };
   edit_id: string | null;
   credits_spent: number;
+  /** Identity batches only: the fields that actually changed. */
+  applied?: string[];
+  /** Identity batches only: true when every staged field already held its value. */
+  unchanged?: boolean;
 }
 
 interface FunctionEnvelope<T> {
@@ -174,6 +201,7 @@ interface FunctionEnvelope<T> {
 
 type EditCharacterInvokeRequest = {
   edit_kind:
+    | 'identity'
     | 'battle_cry'
     | 'signature_color'
     | 'signature_item_swap'
@@ -190,6 +218,26 @@ function pickRandom<T>(list: readonly T[]): T {
 function toEditCharacterRequest(
   changes: EditCharacterInput['changes'],
 ): EditCharacterInvokeRequest {
+  if (changes.identity) {
+    const { name, archetype, battleCry, signatureColor } = changes.identity;
+    const payload: Record<string, unknown> = {};
+    if (typeof name === 'string') payload.name = name;
+    if (typeof archetype === 'string') payload.archetype = archetype;
+    if (typeof battleCry === 'string') payload.battle_cry = battleCry;
+    if (signatureColor != null) {
+      // Same normalisation the single-field branch does: the server stores hex,
+      // the UI may hand us a palette key.
+      payload.signature_color =
+        signatureColor in PALETTE_HEX
+          ? PALETTE_HEX[signatureColor as PaletteKey]
+          : signatureColor;
+    }
+    if (Object.keys(payload).length === 0) {
+      throw new Error('An identity edit needs at least one field.');
+    }
+    return { edit_kind: 'identity', payload };
+  }
+
   if (typeof changes.battleCry === 'string') {
     return {
       edit_kind: 'battle_cry',
@@ -627,6 +675,27 @@ export interface FallbackPortraitInput {
   itemClass?: ItemClass;
 }
 
+/** Brand purple, used when a character has no usable signature colour. */
+export const DEFAULT_SIGNATURE_HEX = '#7C3AED';
+
+/**
+ * Resolves whatever a character carries as its signature colour into a hex.
+ *
+ * The column stores hex, but palette keys reach this code too (the creation
+ * flow, and any caller that passes a `PaletteKey` straight through). This was
+ * inlined in the portrait fallback and reimplemented with three different
+ * defaults elsewhere, so a character with a blue signature could still be
+ * framed in brand purple.
+ */
+export function resolveSignatureHex(
+  color: PaletteKey | string | null | undefined,
+): string {
+  if (!color) return DEFAULT_SIGNATURE_HEX;
+  if (color in PALETTE_HEX) return PALETTE_HEX[color as PaletteKey];
+  if (typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color)) return color;
+  return DEFAULT_SIGNATURE_HEX;
+}
+
 /**
  * Returns a deterministic data-URI SVG used as the offline/loading placeholder.
  * Full-body (2:3) silhouette tinted with the signature color, plus the
@@ -634,13 +703,7 @@ export interface FallbackPortraitInput {
  * so it drops into the same containers without layout shift.
  */
 export function getPortraitFallbackUri(input: FallbackPortraitInput): string {
-  const colorKey = input.signatureColor;
-  const tint =
-    colorKey && colorKey in PALETTE_HEX
-      ? PALETTE_HEX[colorKey as PaletteKey]
-      : typeof colorKey === 'string' && colorKey.startsWith('#')
-        ? colorKey
-        : '#7C3AED';
+  const tint = resolveSignatureHex(input.signatureColor);
 
   const initial = ARCHETYPE_INITIAL[input.archetype] ?? '?';
 

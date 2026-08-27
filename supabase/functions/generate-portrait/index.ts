@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
   const { data: character, error: charErr } = await supabase
     .from('characters')
     .select(
-      'id, profile_id, archetype, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, portrait_seed, portrait_prompt_raw, art_style, finalized_at',
+      'id, profile_id, archetype, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, portrait_seed, portrait_prompt_raw, art_style, finalized_at, appearance_version',
     )
     .eq('id', body.character_id)
     .maybeSingle();
@@ -338,6 +338,11 @@ Deno.serve(async (req) => {
       generation_job_id: job.id,
       is_current: true,
       moderation_status: 'approved',
+      // Stamps which version of the character's look this render depicts. The
+      // only character columns written below are portrait_id and
+      // portrait_prompt_resolved, neither of which the prompt reads, so the
+      // value loaded above is still current at insert time.
+      appearance_version: character.appearance_version ?? 0,
     })
     .select('id')
     .single();

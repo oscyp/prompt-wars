@@ -61,3 +61,23 @@ export type {
 } from './SegmentedCategoryBar';
 export { default as ReportBlockSheet } from './ReportBlockSheet';
 export type { ReportBlockSheetProps } from './ReportBlockSheet';
+
+// --- Shared primitives lifted out of the edit-character screen -------------
+export { default as Toast } from './Toast';
+export type { ToastProps } from './Toast';
+export { default as CreditChip } from './CreditChip';
+export type { CreditChipProps } from './CreditChip';
+export { default as InlineBanner } from './InlineBanner';
+export type { InlineBannerProps, BannerTone } from './InlineBanner';
+export {
+  default as ColorSwatchGrid,
+  withCustomOption,
+  selectedValueForHex,
+} from './ColorSwatchGrid';
+export type {
+  ColorSwatchGridProps,
+  ColorSwatchOption,
+} from './ColorSwatchGrid';
+
+// --- Edit-character panels -------------------------------------------------
+export * from './edit-character';

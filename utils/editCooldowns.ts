@@ -112,3 +112,34 @@ export async function fetchEditPricing(
 
   return { prices, cooldownMs };
 }
+
+/**
+ * Remaining cooldown as a short, player-facing duration.
+ *
+ * Cooldowns here run from 24 hours to 14 days, so hours-and-minutes alone
+ * produced things like "312h 0m".
+ */
+export function formatCooldown(ms: number): string {
+  const totalMinutes = Math.max(0, Math.ceil(ms / (60 * 1000)));
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+/**
+ * How long an edit locks its field once made, in prose.
+ *
+ * Used before the edit, in the save confirmation, where "14d" reads as jargon
+ * and the whole point is that the player understands what they are committing
+ * to. `formatCooldown` covers the after-the-fact countdown instead.
+ */
+export function describeCooldownLength(seconds: number): string | null {
+  if (!seconds || seconds <= 0) return null;
+  const days = Math.round(seconds / 86400);
+  if (days >= 1) return days === 1 ? '1 day' : `${days} days`;
+  const hours = Math.max(1, Math.round(seconds / 3600));
+  return hours === 1 ? '1 hour' : `${hours} hours`;
+}

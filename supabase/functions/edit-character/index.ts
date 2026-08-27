@@ -11,8 +11,13 @@ import {
 } from '../_shared/utils.ts';
 import { err, getEditPrice, ok } from '../_shared/character-creation.ts';
 import { isTestUser } from '../_shared/test-user.ts';
+import {
+  planIdentityBatch,
+  type PlannedIdentityChange,
+} from '../_shared/identity-edit.ts';
 
 type EditKind =
+  | 'identity'
   | 'rename'
   | 'archetype'
   | 'signature_color'
@@ -43,6 +48,10 @@ const ARCHETYPE = ['strategist','trickster','titan','mystic','engineer'];
 // Maps the price/key edit_kind to the character_edits.edit_kind enum value.
 function editLogKind(k: EditKind): string {
   switch (k) {
+    // 'identity' is a batch of independently-priced fields and writes one log
+    // row per field, so it has no single log kind of its own. Callers must not
+    // reach here with it.
+    case 'identity': return 'identity';
     case 'rename': return 'name';
     case 'traits_single_swap':
     case 'traits_full_reroll': return 'traits';
@@ -52,6 +61,214 @@ function editLogKind(k: EditKind): string {
     case 'signature_color': return 'signature_color';
     case 'battle_cry': return 'battle_cry';
   }
+}
+
+// ---------------------------------------------------------------------------
+// Identity batch
+// ---------------------------------------------------------------------------
+
+// deno-lint-ignore no-explicit-any
+type Db = any;
+
+/**
+ * Applies any subset of the identity fields in one transaction-shaped request.
+ *
+ * Validation and cooldown checks all happen BEFORE anything is written, and
+ * cooldown rejections name every blocked field at once -- the screen disables
+ * the offending inputs rather than showing one opaque "on cooldown" message
+ * after the player has already composed their edit.
+ */
+async function handleIdentityBatch(
+  supabase: Db,
+  userId: string,
+  // deno-lint-ignore no-explicit-any
+  character: Record<string, any>,
+  testUser: boolean,
+  payload: Record<string, unknown>,
+  idempotencyKey: string | null,
+): Promise<Response> {
+  // Per-field keys, because character_edits has a UNIQUE(profile_id,
+  // idempotency_key) and this writes one row per field. A replay is detected by
+  // the shared prefix instead of an exact match.
+  if (idempotencyKey) {
+    const { data: replayed } = await supabase
+      .from('character_edits')
+      .select('id')
+      .eq('profile_id', userId)
+      .like('idempotency_key', `${idempotencyKey}:%`)
+      .limit(1);
+    if (replayed && replayed.length > 0) {
+      return ok({ idempotent: true, character, credits_spent: 0, applied: [] });
+    }
+  }
+
+  const plan = planIdentityBatch(character, payload);
+  if (!plan.ok) {
+    return err(
+      'bad_request',
+      plan.reason,
+      400,
+      plan.field ? { field: plan.field } : undefined,
+    );
+  }
+  const { changed, update } = plan;
+
+  if (changed.length === 0) {
+    return ok({ character, credits_spent: 0, applied: [], unchanged: true });
+  }
+
+  // Price every changed field up front so a missing price row fails before any
+  // credits move.
+  const priced: {
+    change: PlannedIdentityChange;
+    credits: number;
+    cooldown: number;
+  }[] = [];
+  for (const change of changed) {
+    const price = await getEditPrice(supabase, change.priceKey);
+    if (!price) {
+      return err('bad_request', `unknown edit_kind: ${change.priceKey}`, 400);
+    }
+    priced.push({
+      change,
+      credits: price.credits,
+      cooldown: price.cooldown_seconds,
+    });
+  }
+
+  // Collect EVERY blocked field, not just the first.
+  if (!testUser) {
+    const blocked: { field: string; retry_after_seconds: number }[] = [];
+    for (const entry of priced) {
+      if (entry.cooldown <= 0) continue;
+      const { data: latest, error: latestErr } = await supabase
+        .from('character_edits')
+        .select('created_at')
+        .eq('character_id', character.id)
+        .eq('edit_kind', entry.change.logKind)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestErr) return err('server_error', latestErr.message, 500);
+      if (!latest?.created_at) continue;
+      const next =
+        new Date(latest.created_at).getTime() + entry.cooldown * 1000;
+      if (Date.now() < next) {
+        blocked.push({
+          field: entry.change.field,
+          retry_after_seconds: Math.ceil((next - Date.now()) / 1000),
+        });
+      }
+    }
+    if (blocked.length > 0) {
+      return err(
+        'cooldown',
+        'one or more identity fields are on cooldown',
+        429,
+        {
+          fields: blocked,
+          retry_after_seconds: Math.max(
+            ...blocked.map((b) => b.retry_after_seconds),
+          ),
+        },
+      );
+    }
+  }
+
+  // All four fields are free today, but the total is summed from the price
+  // table rather than assumed, so raising any of them stays correct here.
+  const totalCredits = priced.reduce((sum, entry) => sum + entry.credits, 0);
+
+  let walletTxId: string | null = null;
+  if (totalCredits > 0) {
+    const spendKey = idempotencyKey
+      ? `spend_${idempotencyKey}:identity`
+      : generateIdempotencyKey([
+          'spend',
+          'identity',
+          character.id,
+          crypto.randomUUID(),
+        ]);
+    const { data: txId, error: spendErr } = await supabase.rpc(
+      'spend_credits',
+      {
+        p_profile_id: userId,
+        p_amount: totalCredits,
+        p_reason: 'identity',
+        p_idempotency_key: spendKey,
+        p_battle_id: null,
+        p_video_job_id: null,
+        p_metadata: {
+          character_id: character.id,
+          edit_kind: 'identity',
+          fields: changed.map((c) => c.field),
+        },
+      },
+    );
+    if (spendErr) {
+      if (/Insufficient credits/i.test(spendErr.message ?? '')) {
+        return err('insufficient_credits', spendErr.message, 402);
+      }
+      return err('server_error', spendErr.message, 500);
+    }
+    walletTxId = (txId as unknown as string) ?? null;
+  }
+
+  const { data: updated, error: updErr } = await supabase
+    .from('characters')
+    .update(update)
+    .eq('id', character.id)
+    .select('*')
+    .single();
+
+  if (updErr || !updated) {
+    if (walletTxId && totalCredits > 0) {
+      await supabase.rpc('grant_credits', {
+        p_profile_id: userId,
+        p_amount: totalCredits,
+        p_reason: 'identity_refund:update_failed',
+        p_idempotency_key: `refund_${walletTxId}`,
+        p_battle_id: null,
+        p_purchase_id: null,
+        p_metadata: { character_id: character.id },
+      });
+    }
+    return err('server_error', updErr?.message ?? 'update failed', 500);
+  }
+
+  // One row per field: each field's cooldown runs on its own clock. They share
+  // a wallet transaction because the spend was a single charge.
+  const { error: logErr } = await supabase.from('character_edits').insert(
+    priced.map((entry) => ({
+      character_id: character.id,
+      profile_id: userId,
+      edit_kind: entry.change.logKind,
+      before: { [entry.change.column]: entry.change.current },
+      after: { [entry.change.column]: entry.change.value },
+      credits_spent: entry.credits,
+      wallet_transaction_id: walletTxId,
+      idempotency_key: idempotencyKey
+        ? `${idempotencyKey}:${entry.change.field}`
+        : null,
+    })),
+  );
+  // The write already landed; a failed audit row must not fail the request, but
+  // it must not vanish either -- cooldowns are derived from this table, so a
+  // silent loss hands the player a free re-edit.
+  if (logErr) {
+    console.error('identity edit applied but audit log insert failed', {
+      character_id: character.id,
+      fields: changed.map((c) => c.field),
+      error: logErr.message,
+    });
+  }
+
+  return ok({
+    character: updated,
+    edit_id: null,
+    credits_spent: totalCredits,
+    applied: changed.map((c) => c.field),
+  });
 }
 
 Deno.serve(async (req) => {
@@ -127,6 +344,19 @@ Deno.serve(async (req) => {
     if (activeBattles && activeBattles.length > 0) {
       return err('battle_locked', 'character is in an active battle', 409);
     }
+  }
+
+  // Identity is a batch of independently priced and independently cooled-down
+  // fields, so it does not go through the single-price path below.
+  if (body.edit_kind === 'identity') {
+    return await handleIdentityBatch(
+      supabase,
+      userId,
+      character,
+      testUser,
+      body.payload ?? {},
+      idempotencyKey,
+    );
   }
 
   const price = await getEditPrice(supabase, body.edit_kind);
@@ -313,7 +543,7 @@ Deno.serve(async (req) => {
     return err('server_error', updErr?.message ?? 'update failed', 500);
   }
 
-  const { data: edit } = await supabase
+  const { data: edit, error: logErr } = await supabase
     .from('character_edits')
     .insert({
       character_id: character.id,
@@ -327,6 +557,17 @@ Deno.serve(async (req) => {
     })
     .select('id')
     .single();
+
+  // Cooldowns are derived from character_edits, so a lost audit row silently
+  // hands the player a free re-edit. The write already landed and must not be
+  // rolled back, but the loss has to be visible in the logs.
+  if (logErr) {
+    console.error('character edit applied but audit log insert failed', {
+      character_id: character.id,
+      edit_kind: body.edit_kind,
+      error: logErr.message,
+    });
+  }
 
   return ok({
     character: updated,

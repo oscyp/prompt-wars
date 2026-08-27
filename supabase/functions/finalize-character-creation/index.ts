@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
 
   const { data: character, error: charErr } = await supabase
     .from('characters')
-    .select('id, profile_id, battle_cry, finalized_at')
+    .select('id, profile_id, battle_cry, finalized_at, portrait_id')
     .eq('id', body.character_id)
     .maybeSingle();
 
@@ -229,14 +229,34 @@ Deno.serve(async (req) => {
   // and this function refuses the row from here on.
   updates.finalized_at = new Date().toISOString();
 
-  const { error: updErr } = await supabase
+  const { data: finalized, error: updErr } = await supabase
     .from('characters')
     .update(updates)
     .eq('id', character.id)
     .eq('profile_id', userId)
-    .is('finalized_at', null);
+    .is('finalized_at', null)
+    .select('appearance_version')
+    .maybeSingle();
 
   if (updErr) return err('server_error', updErr.message, 500);
+
+  // This write can carry traits and a signature item alongside the portrait
+  // pointer, and all three feed the portrait prompt -- so it bumps
+  // appearance_version. The render being pointed at IS the character's look by
+  // definition at finalization, so re-stamp it to match; otherwise every new
+  // character would arrive already telling its owner that the portrait they
+  // just picked is out of date.
+  const chosenPortraitId = updates.portrait_id ?? character.portrait_id;
+  if (typeof chosenPortraitId === 'string' && finalized) {
+    await supabase
+      .from('character_portraits')
+      .update({
+        appearance_version:
+          (finalized as { appearance_version?: number }).appearance_version ?? 0,
+      })
+      .eq('id', chosenPortraitId)
+      .eq('character_id', character.id);
+  }
 
   return ok({ character_id: character.id });
 });

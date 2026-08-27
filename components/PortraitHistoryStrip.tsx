@@ -16,20 +16,26 @@ export interface PortraitHistoryStripProps {
   entries: PortraitHistoryEntry[];
   /** Portrait id currently being restored, if any. */
   restoringId?: string | null;
-  onRestore: (portraitId: string) => void;
+  /** Opens the render for a full-size look. Restoring happens from there. */
+  onSelect: (portraitId: string) => void;
 }
 
 /**
- * Previous renders, newest first, with one-tap restore.
+ * Previous renders, newest first. Tapping previews; restoring happens in the
+ * viewer.
  *
  * Regenerating is paid and random, so without a way back the only remedy for a
  * bad roll is to pay again. Restoring is free and deliberately labelled as
  * such: the point is to make re-rolling feel low-stakes.
+ *
+ * A tap used to swap the live portrait immediately, which meant judging a
+ * render and committing to it were the same gesture on a 46pt thumbnail. The
+ * two are now separate.
  */
 export default function PortraitHistoryStrip({
   entries,
   restoringId,
-  onRestore,
+  onSelect,
 }: PortraitHistoryStripProps) {
   const colors = useThemedColors();
   if (entries.length === 0) return null;
@@ -48,10 +54,10 @@ export default function PortraitHistoryStrip({
           return (
             <TouchableOpacity
               key={entry.portraitId}
-              onPress={() => onRestore(entry.portraitId)}
+              onPress={() => onSelect(entry.portraitId)}
               disabled={Boolean(restoringId)}
               accessibilityRole="button"
-              accessibilityLabel="Restore this earlier render, free"
+              accessibilityLabel="Preview this earlier render"
               style={[
                 styles.thumb,
                 {

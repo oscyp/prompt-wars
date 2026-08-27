@@ -17,6 +17,19 @@ export interface PortraitViewerProps {
   /** Shown under the image, e.g. the character's name. */
   caption?: string;
   onClose: () => void;
+  /**
+   * Optional action rendered under the image, e.g. restoring an earlier render.
+   *
+   * The history strip used to restore on tap of a 46pt thumbnail, so judging a
+   * render and committing to it were the same gesture. Previewing first and
+   * acting from here separates them.
+   */
+  footerAction?: {
+    label: string;
+    onPress: () => void;
+    busy?: boolean;
+    disabled?: boolean;
+  };
 }
 
 /**
@@ -34,6 +47,7 @@ export default function PortraitViewer({
   uri,
   caption,
   onClose,
+  footerAction,
 }: PortraitViewerProps) {
   const { width, height } = useWindowDimensions();
   // 2:3, matching the render's own aspect, fitted to whichever axis binds.
@@ -66,6 +80,26 @@ export default function PortraitViewer({
             />
           ) : null}
           {caption ? <Text style={styles.caption}>{caption}</Text> : null}
+          {footerAction ? (
+            <TouchableOpacity
+              onPress={footerAction.onPress}
+              disabled={footerAction.busy || footerAction.disabled}
+              accessibilityRole="button"
+              accessibilityLabel={footerAction.label}
+              accessibilityState={{
+                disabled: !!(footerAction.busy || footerAction.disabled),
+              }}
+              style={[
+                styles.footerAction,
+                (footerAction.busy || footerAction.disabled) &&
+                  styles.footerDisabled,
+              ]}
+            >
+              <Text style={styles.footerActionText}>
+                {footerAction.busy ? 'Restoring…' : footerAction.label}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity
             onPress={onClose}
             accessibilityRole="button"
@@ -102,11 +136,26 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -Spacing.xl,
     right: 0,
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  footerAction: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  footerDisabled: {
+    opacity: 0.5,
+  },
+  footerActionText: {
+    color: '#FFFFFF',
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
   },
 });

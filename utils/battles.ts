@@ -22,6 +22,23 @@ export type BattleStatus =
   | 'moderation_failed'
   | 'generation_failed';
 
+/**
+ * Statuses a battle never leaves. Anything else means the battle is still live.
+ *
+ * This is the exact list the Edge Functions use to decide whether a character
+ * is locked (`assertNoActiveBattleForCharacter`, `edit-character`,
+ * `regenerate-portrait`, `restore-portrait`). Client-side checks must use the
+ * same list: the home screen's shorter one omits the two failure states, which
+ * would leave a character looking locked forever after a moderation failure.
+ */
+export const FINAL_BATTLE_STATUSES: readonly BattleStatus[] = [
+  'completed',
+  'expired',
+  'canceled',
+  'moderation_failed',
+  'generation_failed',
+];
+
 export type BattleMode =
   | 'ranked'
   | 'unranked'

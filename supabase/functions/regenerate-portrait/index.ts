@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
   const { data: character, error: charErr } = await supabase
     .from('characters')
     .select(
-      'id, profile_id, archetype, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, portrait_seed, portrait_prompt_raw, portrait_prompt_resolved, portrait_id, avatar_portrait_id, art_style, portrait_history',
+      'id, profile_id, archetype, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, portrait_seed, portrait_prompt_raw, portrait_prompt_resolved, portrait_id, avatar_portrait_id, art_style, portrait_history, appearance_version',
     )
     .eq('id', body.character_id)
     .maybeSingle();
@@ -380,10 +380,27 @@ Deno.serve(async (req) => {
       ),
     };
 
-  await supabase
+  // The patch can carry art_style and portrait_prompt_raw, both of which the
+  // portrait prompt reads, so applying it bumps characters.appearance_version.
+  // Stamp the render from the value AFTER that write: taking it from the row
+  // loaded at the top of the request would mark a portrait stale the instant it
+  // was produced -- the exact false-stale bug appearance_version exists to fix.
+  const { data: patched } = await supabase
     .from('characters')
     .update(characterPatch)
-    .eq('id', character.id);
+    .eq('id', character.id)
+    .select('appearance_version')
+    .maybeSingle();
+
+  await supabase
+    .from('character_portraits')
+    .update({
+      appearance_version:
+        (patched as { appearance_version?: number } | null)?.appearance_version ??
+        (character as { appearance_version?: number }).appearance_version ??
+        0,
+    })
+    .eq('id', portrait.id);
 
   if (job?.id) {
     await supabase

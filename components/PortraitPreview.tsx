@@ -28,6 +28,14 @@ interface PortraitPreviewProps {
    * (square from some providers, 2:3 vertical from others).
    */
   variant?: 'circle' | 'fullBody';
+  /**
+   * Frame colour. Defaults to brand purple.
+   *
+   * Per the design language, the frame around a character belongs to that
+   * character: pass their signature colour so a blue fighter is not presented
+   * in the game's purple.
+   */
+  accentColor?: string;
 }
 
 const FRAME_BORDER = 3;
@@ -42,6 +50,7 @@ export default function PortraitPreview({
   caption,
   accessibilityLabel = 'Character portrait',
   variant = 'circle',
+  accentColor,
 }: PortraitPreviewProps) {
   const colors = useThemedColors();
   const pulse = useRef(new Animated.Value(0.6)).current;
@@ -88,7 +97,7 @@ export default function PortraitPreview({
             width: frameWidth,
             height: frameHeight,
             borderRadius: frameRadius,
-            borderColor: colors.primary,
+            borderColor: accentColor ?? colors.primary,
             opacity: pulse,
           },
         ]}

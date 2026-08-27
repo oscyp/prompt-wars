@@ -102,6 +102,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    // Four equal-width segments each need the 44pt minimum in their own right;
+    // vertical padding alone left them at ~36pt.
+    minHeight: 44,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.xs,
     borderRadius: BorderRadius.full,

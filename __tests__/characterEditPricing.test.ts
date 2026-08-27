@@ -114,3 +114,62 @@ describe('computeStagedTraits', () => {
     expect(cost).toBe(TRAIT_SWAP_PRICE);
   });
 });
+
+describe('computeStagedTraits with live prices', () => {
+  const current = {
+    palette_key: 'ember',
+    vibe: 'heroic',
+    silhouette: 'lean_duelist',
+    era: 'modern',
+    expression: 'calm',
+  };
+
+  it('uses the injected swap price instead of the constant', () => {
+    const result = computeStagedTraits(
+      current,
+      { vibe: 'sinister' },
+      { swap: 3, fullReroll: 9 },
+    );
+    expect(result.cost).toBe(3);
+    expect(result.useBatch).toBe(false);
+  });
+
+  it('switches to the batch route at the injected threshold', () => {
+    // Three swaps at 3 credits each is 9; the batch is 5, so the batch wins.
+    const result = computeStagedTraits(
+      current,
+      { vibe: 'sinister', era: 'cyberpunk', expression: 'roar' },
+      { swap: 3, fullReroll: 5 },
+    );
+    expect(result.cost).toBe(5);
+    expect(result.useBatch).toBe(true);
+  });
+
+  it('keeps single swaps when the batch is more expensive', () => {
+    const result = computeStagedTraits(
+      current,
+      { vibe: 'sinister', era: 'cyberpunk' },
+      { swap: 1, fullReroll: 6 },
+    );
+    expect(result.cost).toBe(2);
+    expect(result.useBatch).toBe(false);
+  });
+
+  it('never batches a free-only change, even at a zero reroll price', () => {
+    // A zero-priced reroll would otherwise read as "cheaper" than doing
+    // nothing, sending a full-reroll call for a palette-only edit.
+    const result = computeStagedTraits(
+      current,
+      { palette: 'neon' },
+      { swap: 1, fullReroll: 0 },
+    );
+    expect(result.changed).toEqual(['palette']);
+    expect(result.useBatch).toBe(false);
+    expect(result.cost).toBe(0);
+  });
+
+  it('falls back to the constants when no prices are supplied', () => {
+    const result = computeStagedTraits(current, { vibe: 'sinister' });
+    expect(result.cost).toBe(TRAIT_SWAP_PRICE);
+  });
+});
