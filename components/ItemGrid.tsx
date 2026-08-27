@@ -30,7 +30,12 @@ interface ItemGridProps {
   items: ItemGridItem[];
   selectedId: string | undefined;
   onSelect: (id: string) => void;
-  onCreateCustom: () => void;
+  /**
+   * Renders the "Create your own" tile when provided. Optional because the
+   * panel shows two grids (catalog + the player's own items) and the tile must
+   * appear exactly once across both.
+   */
+  onCreateCustom?: () => void;
 }
 
 export default function ItemGrid({
@@ -85,26 +90,28 @@ export default function ItemGrid({
           </TouchableOpacity>
         );
       })}
-      <TouchableOpacity
-        onPress={onCreateCustom}
-        accessibilityRole="button"
-        accessibilityLabel="Create your own signature item"
-        style={[
-          styles.tile,
-          styles.customTile,
-          { borderColor: colors.primary },
-        ]}
-      >
-        <Ionicons
-          name="add"
-          size={32}
-          color={colors.primary}
-          style={styles.glyph}
-        />
-        <Text style={[styles.name, { color: colors.primary }]}>
-          Create your own
-        </Text>
-      </TouchableOpacity>
+      {onCreateCustom ? (
+        <TouchableOpacity
+          onPress={onCreateCustom}
+          accessibilityRole="button"
+          accessibilityLabel="Create your own signature item"
+          style={[
+            styles.tile,
+            styles.customTile,
+            { borderColor: colors.primary },
+          ]}
+        >
+          <Ionicons
+            name="add"
+            size={32}
+            color={colors.primary}
+            style={styles.glyph}
+          />
+          <Text style={[styles.name, { color: colors.primary }]}>
+            Create your own
+          </Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }

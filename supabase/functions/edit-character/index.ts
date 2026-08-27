@@ -149,7 +149,14 @@ Deno.serve(async (req) => {
       const last = new Date(latestEdit.created_at).getTime();
       const next = last + price.cooldown_seconds * 1000;
       if (Date.now() < next) {
-        return err('cooldown', `next allowed at ${new Date(next).toISOString()}`, 429);
+        // Send the delay as a number too. The message alone is a developer
+        // string, and the app used to show it to players verbatim.
+        return err(
+          'cooldown',
+          `next allowed at ${new Date(next).toISOString()}`,
+          429,
+          { retry_after_seconds: Math.ceil((next - Date.now()) / 1000) },
+        );
       }
     }
   }

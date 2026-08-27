@@ -24,8 +24,12 @@ export const TRAIT_SWAP_PRICE = 1;
  *
  * Applying N paid traits as N single swaps costs N credits, but the backend
  * sets all four for 2 -- so staging three or four traits and applying them one
- * at a time overcharged the player. Anything from two paid traits up should go
- * through the batch.
+ * at a time overcharged the player.
+ *
+ * The threshold is `>=`, not `>`: two paid swaps cost 2 credits either way, but
+ * the batch is a single request. Looping means a failure partway through (a
+ * cooldown, a dropped connection) leaves the player charged for the swaps that
+ * already landed, with no way to tell which. Same price, one transaction.
  */
 export const TRAIT_FULL_REROLL_PRICE = 2;
 
@@ -69,7 +73,7 @@ export function computeStagedTraits(
   // Charge whichever route the apply actually takes: N single swaps, or one
   // full reroll when that is cheaper. Free traits (palette) never contribute.
   const singleSwapCost = paidCount * TRAIT_SWAP_PRICE;
-  const useBatch = singleSwapCost > TRAIT_FULL_REROLL_PRICE;
+  const useBatch = singleSwapCost >= TRAIT_FULL_REROLL_PRICE;
   const cost = useBatch ? TRAIT_FULL_REROLL_PRICE : singleSwapCost;
 
   return { changed, cost, useBatch, paidCount };

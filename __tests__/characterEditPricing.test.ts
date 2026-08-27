@@ -85,19 +85,24 @@ describe('computeStagedTraits', () => {
     expect(four.cost).toBe(TRAIT_FULL_REROLL_PRICE);
   });
 
-  it('keeps single swaps when they are the cheaper route', () => {
+  it('keeps a single swap on the single-swap route', () => {
     const one = computeStagedTraits(character, { vibe: 'regal' });
     expect(one.useBatch).toBe(false);
     expect(one.cost).toBe(TRAIT_SWAP_PRICE);
+  });
 
-    // Exactly two ties with the reroll price; prefer the simpler path.
+  // Two paid swaps tie with the reroll price, so the tie is broken on safety
+  // rather than cost: looping two requests can charge for the first and then
+  // fail the second, leaving the player paid-up with a half-applied change.
+  it('batches at exactly two paid swaps, for the same price', () => {
     const two = computeStagedTraits(character, {
       vibe: 'regal',
       era: 'cyberpunk',
     });
-    expect(two.useBatch).toBe(false);
-    expect(two.cost).toBe(2 * TRAIT_SWAP_PRICE);
+    expect(two.paidCount).toBe(2);
+    expect(two.useBatch).toBe(true);
     expect(two.cost).toBe(TRAIT_FULL_REROLL_PRICE);
+    expect(two.cost).toBe(2 * TRAIT_SWAP_PRICE);
   });
 
   it('never lets a free palette change push you into the batch price', () => {

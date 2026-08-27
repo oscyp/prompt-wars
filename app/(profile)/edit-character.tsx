@@ -4,11 +4,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  Modal,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
   TextInput,
-  Switch,
   Animated,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
@@ -17,6 +17,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/providers/AuthProvider';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useCredits } from '@/hooks/useCredits';
+import { describeEditError } from '@/utils/editErrors';
+import { fetchEditPricing, type EditPriceKey } from '@/utils/editCooldowns';
+import { formatCredits } from '@/utils/credits';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { supabase } from '@/utils/supabase';
 import {
@@ -25,6 +28,9 @@ import {
   regeneratePortrait,
   listSignatureItemsCatalog,
   createCustomSignatureItem,
+  listPortraitHistory,
+  restorePortrait,
+  type PortraitHistoryEntry,
   getPortraitFallbackUri,
   CatalogSignatureItem,
 } from '@/utils/characters';
@@ -60,19 +66,30 @@ import {
   TraitStepper,
   StepperOption,
   ArtStylePicker,
+  PortraitHistoryStrip,
+  PortraitViewer,
   AnimatedCounter,
   SegmentedCategoryBar,
 } from '@/components';
 
 /**
- * Hardcoded mirror of backend seed pricing. Backend remains source of truth
- * and will reject mismatched calls — these values are display-only.
+ * Fallback pricing, used only until `fetchEditPricing` returns.
+ *
+ * This used to be the sole source of prices on this screen, and it drifted:
+ * it claimed custom items were free while the server charged 3 credits. Live
+ * values now come from `character_edit_prices`; keep this table in step, but
+ * it is no longer what the player is quoted.
  */
 const EDIT_PRICES = {
   battleCry: 0,
   signatureColor: 0,
   signatureItem: 0,
-  customizeItem: 0,
+  // Creating a signature item is NOT free, and these two differ: the server
+  // charges `custom_item_text` for a name+description and `custom_item_image`
+  // when it also renders an icon. The old single `customizeItem: 0` was both
+  // wrong and unused, so the form spent 3 credits without ever saying so.
+  customItemText: 1,
+  customItemImage: 3,
   regeneratePortrait: 1,
   regenerateAvatar: 1,
   rePromptPortrait: 2,
@@ -80,6 +97,23 @@ const EDIT_PRICES = {
   swapTrait: 1,
   rerollAllTraits: 2,
 } as const;
+
+type EditPriceShape = typeof EDIT_PRICES;
+
+/** Which `character_edit_prices` row backs each name used on this screen. */
+const PRICE_KEY_BY_FIELD: Record<keyof EditPriceShape, EditPriceKey> = {
+  battleCry: 'battle_cry',
+  signatureColor: 'signature_color',
+  signatureItem: 'signature_item_swap',
+  customItemText: 'custom_item_text',
+  customItemImage: 'custom_item_image',
+  regeneratePortrait: 'regenerate_portrait',
+  regenerateAvatar: 'regenerate_avatar',
+  rePromptPortrait: 'new_portrait',
+  changeArtStyle: 'new_portrait',
+  swapTrait: 'traits_single_swap',
+  rerollAllTraits: 'traits_full_reroll',
+};
 
 type Category = 'identity' | 'item' | 'traits' | 'portrait';
 
@@ -207,7 +241,41 @@ export default function EditCharacterScreen() {
   >({});
   // True after staged traits are applied but the portrait hasn't been
   // re-rendered yet — drives the persistent "See new look" CTA on the Stage.
-  const [portraitStale, setPortraitStale] = useState(false);
+  const [portraitCreatedAt, setPortraitCreatedAt] = useState<string | null>(null);
+  // Live prices + cooldowns from the database, falling back to EDIT_PRICES
+  // until the fetch lands so the first paint never shows a blank price.
+  const [prices, setPrices] = useState<EditPriceShape>(EDIT_PRICES);
+  const [history, setHistory] = useState<PortraitHistoryEntry[]>([]);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [cooldowns, setCooldowns] = useState<
+    Partial<Record<EditPriceKey, number>>
+  >({});
+
+  const loadPricing = useCallback(async (characterId: string) => {
+    try {
+      const { prices: live, cooldownMs } = await fetchEditPricing(characterId);
+      setCooldowns(cooldownMs);
+      setPrices((prev) => {
+        const next = { ...prev } as Record<string, number>;
+        for (const [field, key] of Object.entries(PRICE_KEY_BY_FIELD)) {
+          const row = live[key];
+          if (row) next[field] = row.credits;
+        }
+        return next as EditPriceShape;
+      });
+    } catch (err) {
+      // Non-fatal: the fallback table still gives every control a price, and
+      // the server rejects any mismatch anyway.
+      console.warn('Could not load live edit pricing', err);
+    }
+  }, []);
+
+  /** Alert with player-facing copy. Never surfaces a raw server string. */
+  const alertEditError = useCallback((err: unknown, fallbackTitle: string) => {
+    const { title, message } = describeEditError(err, fallbackTitle);
+    Alert.alert(title, message);
+  }, []);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -233,11 +301,14 @@ export default function EditCharacterScreen() {
       if (data?.portrait_id) {
         const { data: portrait } = await supabase
           .from('character_portraits')
-          .select('image_path')
+          .select('image_path, created_at')
           .eq('id', data.portrait_id)
           .maybeSingle();
-        const imagePath =
-          (portrait as { image_path: string } | null)?.image_path ?? null;
+        const portraitRow = portrait as
+          | { image_path: string; created_at: string }
+          | null;
+        const imagePath = portraitRow?.image_path ?? null;
+        setPortraitCreatedAt(portraitRow?.created_at ?? null);
         if (imagePath) {
           const { data: signed, error: signedError } = await supabase.storage
             .from('character-portraits')
@@ -248,6 +319,7 @@ export default function EditCharacterScreen() {
         }
       } else {
         setPortraitUrl(null);
+        setPortraitCreatedAt(null);
       }
 
       // Avatar is a separate row keyed by its own pointer; characters created
@@ -273,18 +345,58 @@ export default function EditCharacterScreen() {
       }
     } catch (err) {
       console.error('Failed to load character:', err);
-      Alert.alert(
-        'Error',
-        err instanceof Error ? err.message : 'Failed to load character.',
-      );
+      alertEditError(err, 'Could not load your character');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, alertEditError]);
 
   useEffect(() => {
     loadCharacter();
   }, [loadCharacter]);
+
+  // Prices and cooldowns depend on the character, so this waits for the load.
+  // Re-runs on every edit (character.last_edited_at changes), which is exactly
+  // when a cooldown starts.
+  useEffect(() => {
+    if (character?.id) void loadPricing(character.id);
+  }, [character?.id, character?.last_edited_at, loadPricing]);
+
+  // Re-read after every render change so a fresh regeneration immediately
+  // pushes the previous look into the strip.
+  useEffect(() => {
+    if (!character?.id) {
+      setHistory([]);
+      return;
+    }
+    let active = true;
+    void listPortraitHistory(character.id).then((entries) => {
+      if (active) setHistory(entries);
+    });
+    return () => {
+      active = false;
+    };
+  }, [character?.id, character?.portrait_id]);
+
+  const runRestorePortrait = useCallback(
+    async (portraitId: string) => {
+      if (!character) return;
+      setRestoringId(portraitId);
+      try {
+        await restorePortrait({ characterId: character.id, portraitId });
+        await loadCharacter();
+        // The restored render matches whatever traits produced it, so the
+        // "see your new look" nudge no longer applies.
+        showToast('Earlier render restored · free');
+      } catch (err) {
+        console.error('Failed to restore portrait', { portraitId, err });
+        alertEditError(err, 'Could not restore that render');
+      } finally {
+        setRestoringId(null);
+      }
+    },
+    [character, loadCharacter, showToast, alertEditError],
+  );
 
   const runEdit = useCallback(
     async (
@@ -302,21 +414,18 @@ export default function EditCharacterScreen() {
         const creditsLabel =
           result.credits_spent === 0
             ? 'free'
-            : `${result.credits_spent} credit${result.credits_spent === 1 ? '' : 's'} spent`;
+            : `${formatCredits(result.credits_spent, 'sentence')} spent`;
         showToast(`${successMsg} · ${creditsLabel}`);
         await loadCharacter();
         await refreshCredits();
       } catch (err) {
         console.error('Failed to edit character', { key, changes, err });
-        Alert.alert(
-          'Edit failed',
-          err instanceof Error ? err.message : 'Try again.',
-        );
+        alertEditError(err, 'Edit failed');
       } finally {
         setBusyKey(null);
       }
     },
-    [character, loadCharacter, refreshCredits, showToast],
+    [character, loadCharacter, refreshCredits, showToast, alertEditError],
   );
 
   const runPortraitRender = useCallback(async () => {
@@ -344,7 +453,6 @@ export default function EditCharacterScreen() {
         });
         showToast('Portrait regenerated · 1 credit spent');
       }
-      setPortraitStale(false);
       await loadCharacter();
       await refreshCredits();
     } catch (err) {
@@ -354,16 +462,16 @@ export default function EditCharacterScreen() {
         portraitId: character.portrait_id,
         err,
       });
-      Alert.alert(
+      alertEditError(
+        err,
         character.portrait_seed === null
           ? 'Could not generate portrait'
-          : 'Edit failed',
-        err instanceof Error ? err.message : 'Try again.',
+          : 'Could not regenerate portrait',
       );
     } finally {
       setBusyKey(null);
     }
-  }, [character, loadCharacter, refreshCredits, showToast]);
+  }, [character, loadCharacter, refreshCredits, showToast, alertEditError]);
 
   const runRePromptPortrait = useCallback(
     async (prompt: string) => {
@@ -375,7 +483,7 @@ export default function EditCharacterScreen() {
           paid: true,
           portraitPromptRaw: prompt,
         });
-        showToast(`Portrait re-prompted · ${EDIT_PRICES.rePromptPortrait} credits spent`);
+        showToast(`Portrait re-prompted · ${formatCredits(prices.rePromptPortrait, 'sentence')} spent`);
         await loadCharacter();
         await refreshCredits();
       } catch (err) {
@@ -384,15 +492,12 @@ export default function EditCharacterScreen() {
           prompt,
           err,
         });
-        Alert.alert(
-          'Edit failed',
-          err instanceof Error ? err.message : 'Try again.',
-        );
+        alertEditError(err, 'Edit failed');
       } finally {
         setBusyKey(null);
       }
     },
-    [character, loadCharacter, refreshCredits, showToast],
+    [character, loadCharacter, refreshCredits, showToast, alertEditError, prices.rePromptPortrait],
   );
 
   const runChangeArtStyle = useCallback(
@@ -406,7 +511,7 @@ export default function EditCharacterScreen() {
           artStyle: style,
         });
         showToast(
-          `Style changed · ${EDIT_PRICES.changeArtStyle} credits spent`,
+          `Style changed · ${formatCredits(prices.changeArtStyle, 'sentence')} spent`,
         );
         await loadCharacter();
         await refreshCredits();
@@ -416,15 +521,12 @@ export default function EditCharacterScreen() {
           style,
           err,
         });
-        Alert.alert(
-          'Edit failed',
-          err instanceof Error ? err.message : 'Try again.',
-        );
+        alertEditError(err, 'Edit failed');
       } finally {
         setBusyKey(null);
       }
     },
-    [character, loadCharacter, refreshCredits, showToast],
+    [character, loadCharacter, refreshCredits, showToast, alertEditError, prices.changeArtStyle],
   );
 
   const hasInitialPortraitSeed = character?.portrait_seed !== null;
@@ -438,7 +540,7 @@ export default function EditCharacterScreen() {
     if (character.portrait_seed !== null) {
       Alert.alert(
         'Regenerate portrait',
-        `Spend ${EDIT_PRICES.regeneratePortrait} credit?`,
+        `Spend ${formatCredits(prices.regeneratePortrait, 'sentence')}?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -451,7 +553,7 @@ export default function EditCharacterScreen() {
     } else {
       runPortraitRender();
     }
-  }, [character, runPortraitRender]);
+  }, [character, runPortraitRender, prices.regeneratePortrait]);
 
   /**
    * Avatar (re)render. Mirrors the fighter flow: the first one is free and runs
@@ -467,7 +569,7 @@ export default function EditCharacterScreen() {
       });
       showToast(
         avatarUrl
-          ? `Avatar regenerated · ${EDIT_PRICES.regenerateAvatar} credit spent`
+          ? `Avatar regenerated · ${formatCredits(prices.regenerateAvatar, 'sentence')} spent`
           : 'Avatar created',
       );
       await loadCharacter();
@@ -477,21 +579,18 @@ export default function EditCharacterScreen() {
         characterId: character.id,
         err,
       });
-      Alert.alert(
-        'Avatar failed',
-        err instanceof Error ? err.message : 'Try again.',
-      );
+      alertEditError(err, 'Could not regenerate avatar');
     } finally {
       setBusyKey(null);
     }
-  }, [character, avatarUrl, loadCharacter, refreshCredits, showToast]);
+  }, [character, avatarUrl, loadCharacter, refreshCredits, showToast, alertEditError, prices.regenerateAvatar]);
 
   const promptAvatarRender = useCallback(() => {
     if (!character) return;
     if (avatarUrl) {
       Alert.alert(
         'Regenerate avatar',
-        `Spend ${EDIT_PRICES.regenerateAvatar} credit?`,
+        `Spend ${formatCredits(prices.regenerateAvatar, 'sentence')}?`,
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Spend', style: 'destructive', onPress: runAvatarRender },
@@ -500,7 +599,7 @@ export default function EditCharacterScreen() {
     } else {
       runAvatarRender();
     }
-  }, [character, avatarUrl, runAvatarRender]);
+  }, [character, avatarUrl, runAvatarRender, prices.regenerateAvatar]);
 
   // --- Trait staging (batched apply) ------------------------------------
 
@@ -535,10 +634,27 @@ export default function EditCharacterScreen() {
     [pendingChanged, pendingTraits],
   );
 
+  /**
+   * True when traits have been edited since the live render was produced.
+   *
+   * Derived rather than remembered: this was session state, so applying traits
+   * and then leaving the screen silently dropped the nudge, and the player came
+   * back to a portrait that no longer matched their character with nothing
+   * saying so.
+   */
+  const portraitStale = useMemo(() => {
+    if (!character?.last_edited_at || !portraitCreatedAt) return false;
+    const edited = new Date(character.last_edited_at).getTime();
+    const rendered = new Date(portraitCreatedAt).getTime();
+    if (!Number.isFinite(edited) || !Number.isFinite(rendered)) return false;
+    // A second of slack: the edit and its render land in the same request.
+    return edited > rendered + 1000;
+  }, [character?.last_edited_at, portraitCreatedAt]);
+
   const regenCost =
     character && character.portrait_seed === null
       ? 0
-      : EDIT_PRICES.regeneratePortrait;
+      : prices.regeneratePortrait;
 
   const doApplyStagedTraits = useCallback(async () => {
     if (!character) return;
@@ -546,17 +662,12 @@ export default function EditCharacterScreen() {
     setBusyKey('applyTraits');
     try {
       // Palette is free and lives on its own edit kind, so it is always applied
-      // separately regardless of which route the paid traits take.
+      // separately regardless of which route the paid traits take. It goes
+      // LAST: palette carries a 24h cooldown, and running it first meant a
+      // cooldown rejection aborted the whole apply before the paid traits were
+      // ever sent. Paid work first, then the free extra -- and if only the
+      // palette fails, say so instead of reporting a total failure.
       const paletteChange = toApply.find((d) => d.key === 'palette');
-      if (paletteChange) {
-        const value = pendingTraits.palette;
-        if (value != null) {
-          await editCharacter({
-            characterId: character.id,
-            changes: { swapTrait: { key: 'palette', value } },
-          });
-        }
-      }
 
       if (pendingUseBatch) {
         // One charged call instead of N. Looping single swaps cost 1 credit
@@ -587,17 +698,35 @@ export default function EditCharacterScreen() {
           });
         }
       }
+
+      let paletteFailed = false;
+      if (paletteChange) {
+        const value = pendingTraits.palette;
+        if (value != null) {
+          try {
+            await editCharacter({
+              characterId: character.id,
+              changes: { swapTrait: { key: 'palette', value } },
+            });
+          } catch (paletteErr) {
+            // The paid traits already landed, so this is not a failed apply.
+            paletteFailed = true;
+            console.warn('Palette change rejected after traits applied', paletteErr);
+            const { message } = describeEditError(paletteErr, 'Palette unchanged');
+            Alert.alert('Palette unchanged', message);
+          }
+        }
+      }
+
       setPendingTraits({});
-      setPortraitStale(true);
       await loadCharacter();
       await refreshCredits();
-      showToast('Traits updated · regenerate to see your new look');
+      if (!paletteFailed) {
+        showToast('Traits updated · regenerate to see your new look');
+      }
     } catch (err) {
       console.error('Failed to apply staged traits', { pendingChanged, err });
-      Alert.alert(
-        'Edit failed',
-        err instanceof Error ? err.message : 'Try again.',
-      );
+      alertEditError(err, 'Edit failed');
     } finally {
       setBusyKey(null);
     }
@@ -605,9 +734,11 @@ export default function EditCharacterScreen() {
     character,
     pendingChanged,
     pendingTraits,
+    pendingUseBatch,
     loadCharacter,
     refreshCredits,
     showToast,
+    alertEditError,
   ]);
 
   const applyStagedTraits = useCallback(() => {
@@ -615,14 +746,14 @@ export default function EditCharacterScreen() {
     if (pendingCost > credits) {
       Alert.alert(
         'Not enough credits',
-        `You need ${pendingCost} credit${pendingCost === 1 ? '' : 's'} to apply these changes.`,
+        `You need ${formatCredits(pendingCost, 'sentence')} to apply these changes.`,
       );
       return;
     }
     Alert.alert(
       'Apply changes',
       `Apply ${pendingChanged.length} change${pendingChanged.length === 1 ? '' : 's'}${
-        pendingCost > 0 ? ` · ${pendingCost} cr` : ' · free'
+        pendingCost > 0 ? ` · ${formatCredits(pendingCost)}` : ' · free'
       }?`,
       [
         { text: 'Cancel', style: 'cancel' },
@@ -634,7 +765,7 @@ export default function EditCharacterScreen() {
   const randomizeTraits = useCallback(() => {
     Alert.alert(
       'Randomize traits',
-      `Spend ${EDIT_PRICES.rerollAllTraits} credits for a fresh random set?`,
+      `Spend ${formatCredits(prices.rerollAllTraits, 'sentence')} for a fresh random set?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -651,7 +782,7 @@ export default function EditCharacterScreen() {
         },
       ],
     );
-  }, [runEdit]);
+  }, [runEdit, prices.rerollAllTraits]);
 
   const fallbackUri = useMemo(() => {
     if (!character) return '';
@@ -725,13 +856,21 @@ export default function EditCharacterScreen() {
           hasStaged={stagedDiff.length > 0}
           portraitStale={portraitStale}
           regenCost={regenCost}
+          expanded={activeCategory === 'portrait'}
+          onOpenViewer={() => setViewerOpen(true)}
           onGenerate={promptPortraitRender}
           onSeeNewLook={promptPortraitRender}
         />
+        {stagedDiff.length === 0 && (
+          <PortraitHistoryStrip
+            entries={history}
+            restoringId={restoringId}
+            onRestore={runRestorePortrait}
+          />
+        )}
         {stagedDiff.length > 0 && (
           <StagedStrip
             diff={stagedDiff}
-            cost={pendingCost}
             onReview={() => setActiveCategory('traits')}
           />
         )}
@@ -751,6 +890,8 @@ export default function EditCharacterScreen() {
           >
             <BattleCryRow
               character={character}
+              cost={prices.battleCry}
+              cooldownMs={cooldowns.battle_cry}
               busy={busyKey === 'battleCry'}
               onSave={(v) =>
                 runEdit('battleCry', { battleCry: v }, 'Battle cry updated')
@@ -758,6 +899,8 @@ export default function EditCharacterScreen() {
             />
             <SignatureColorRow
               character={character}
+              cost={prices.signatureColor}
+              cooldownMs={cooldowns.signature_color}
               busy={busyKey === 'signatureColor'}
               onSave={(v) =>
                 runEdit('signatureColor', { signatureColor: v }, 'Color updated')
@@ -769,6 +912,7 @@ export default function EditCharacterScreen() {
         {activeCategory === 'item' && (
           <ItemPanel
             character={character}
+            customCost={prices.customItemImage}
             busy={busyKey === 'signatureItem'}
             onSelect={(id) =>
               runEdit(
@@ -783,6 +927,9 @@ export default function EditCharacterScreen() {
         {activeCategory === 'traits' && (
           <TraitsPanel
             character={character}
+            swapCost={prices.swapTrait}
+            rerollCost={prices.rerollAllTraits}
+            paletteCooldownMs={cooldowns.palette}
             pendingTraits={pendingTraits}
             onStage={(key, value) =>
               setPendingTraits((prev) => ({ ...prev, [key]: value }))
@@ -804,11 +951,12 @@ export default function EditCharacterScreen() {
           >
             <ArtStyleRow
               currentStyle={character.art_style ?? 'painterly'}
+              cost={prices.changeArtStyle}
               busy={busyKey === 'changeArtStyle'}
               onApply={(style) =>
                 Alert.alert(
                   'Change art style',
-                  `Re-render in ${ART_STYLE_LABELS[style]} for ${EDIT_PRICES.changeArtStyle} credits?`,
+                  `Re-render in ${ART_STYLE_LABELS[style]} for ${formatCredits(prices.changeArtStyle, 'sentence')}?`,
                   [
                     { text: 'Cancel', style: 'cancel' },
                     {
@@ -831,7 +979,10 @@ export default function EditCharacterScreen() {
                   ? 'Keep your traits, get a new render.'
                   : 'Create your first character render.'
               }
-              cost={hasInitialPortraitSeed ? EDIT_PRICES.regeneratePortrait : 0}
+              cost={hasInitialPortraitSeed ? prices.regeneratePortrait : 0}
+              actionLabel={
+                hasInitialPortraitSeed ? 'Regenerate' : 'Generate portrait'
+              }
               busy={busyKey === 'regeneratePortrait'}
               onPress={promptPortraitRender}
             />
@@ -866,16 +1017,18 @@ export default function EditCharacterScreen() {
                   ? 'A fresh head-and-shoulders render.'
                   : 'Free — a portrait made for small contexts.'
               }
-              cost={avatarUrl ? EDIT_PRICES.regenerateAvatar : 0}
+              cost={avatarUrl ? prices.regenerateAvatar : 0}
+              actionLabel={avatarUrl ? 'Regenerate avatar' : 'Generate avatar'}
               busy={busyKey === 'regenerateAvatar'}
               onPress={promptAvatarRender}
             />
             <RePromptRow
+              cost={prices.rePromptPortrait}
               busy={busyKey === 'rePromptPortrait'}
               onSave={(prompt) =>
                 Alert.alert(
                   'Re-prompt portrait',
-                  `Spend ${EDIT_PRICES.rePromptPortrait} credits?`,
+                  `Spend ${formatCredits(prices.rePromptPortrait, 'sentence')}?`,
                   [
                     { text: 'Cancel', style: 'cancel' },
                     {
@@ -891,6 +1044,12 @@ export default function EditCharacterScreen() {
         )}
       </View>
 
+      <PortraitViewer
+        visible={viewerOpen}
+        uri={portraitUrl}
+        caption={character.name}
+        onClose={() => setViewerOpen(false)}
+      />
       {toast && <Toast text={toast} />}
     </View>
   );
@@ -931,6 +1090,8 @@ function Stage({
   hasStaged,
   portraitStale,
   regenCost,
+  expanded,
+  onOpenViewer,
   onGenerate,
   onSeeNewLook,
 }: {
@@ -941,20 +1102,37 @@ function Stage({
   hasStaged: boolean;
   portraitStale: boolean;
   regenCost: number;
+  /** True on the Portrait tab, where the render is the subject, not a label. */
+  expanded: boolean;
+  onOpenViewer: () => void;
   onGenerate: () => void;
   onSeeNewLook: () => void;
 }) {
   const colors = useThemedColors();
-  const costLabel = regenCost === 0 ? 'free' : `${regenCost} cr`;
+  const costLabel = formatCredits(regenCost);
+  // No portrait yet -> first render. Traits changed since the last render ->
+  // nudge toward seeing them. Otherwise a plain re-roll.
+  const ctaVerb = !hasPortrait
+    ? 'Generate'
+    : portraitStale
+      ? 'See new look'
+      : 'Regenerate';
   return (
-    <View style={styles.stage}>
-      <PortraitPreview
-        uri={portraitUri}
-        variant="fullBody"
-        size={116}
-        loading={portraitBusy}
-      />
-      <View style={styles.stageMeta}>
+    <View style={expanded ? styles.stageExpanded : styles.stage}>
+      <TouchableOpacity
+        onPress={onOpenViewer}
+        disabled={!hasPortrait}
+        accessibilityRole="button"
+        accessibilityLabel="View portrait full screen"
+      >
+        <PortraitPreview
+          uri={portraitUri}
+          variant="fullBody"
+          size={expanded ? 208 : 116}
+          loading={portraitBusy}
+        />
+      </TouchableOpacity>
+      <View style={expanded ? styles.stageMetaExpanded : styles.stageMeta}>
         <Text numberOfLines={1} style={[styles.stageName, { color: colors.text }]}>
           {character.name}
         </Text>
@@ -976,29 +1154,24 @@ function Stage({
           </Text>
         </View>
         {/* Staged (unpaid) changes take priority and are summarized in the
-            StagedStrip below, so the Stage CTA only handles rendering. */}
-        {!hasStaged && portraitStale ? (
+            StagedStrip below, so the Stage CTA only handles rendering.
+            Otherwise there is ALWAYS a CTA here: the settled state used to
+            fall through to null, which meant a player happy with their traits
+            had no way to simply re-roll the render from anywhere on the
+            screen. Only the wording changes with state. */}
+        {hasStaged ? null : (
           <TouchableOpacity
-            onPress={onSeeNewLook}
+            onPress={hasPortrait ? onSeeNewLook : onGenerate}
             accessibilityRole="button"
-            accessibilityLabel={`See your new look, ${costLabel}`}
-            style={[styles.stageCta, { backgroundColor: colors.primary }]}
-          >
-            <Ionicons name="sparkles" size={13} color="#FFFFFF" />
-            <Text style={styles.stageCtaText}>See new look · {costLabel}</Text>
-          </TouchableOpacity>
-        ) : !hasStaged && !hasPortrait ? (
-          <TouchableOpacity
-            onPress={onGenerate}
-            accessibilityRole="button"
+            accessibilityLabel={`${ctaVerb}, ${costLabel}`}
             style={[styles.stageCta, { backgroundColor: colors.primary }]}
           >
             <Ionicons name="sparkles" size={13} color="#FFFFFF" />
             <Text style={styles.stageCtaText}>
-              {regenCost === 0 ? 'Generate now · free' : `Generate · ${regenCost} cr`}
+              {ctaVerb} · {costLabel}
             </Text>
           </TouchableOpacity>
-        ) : null}
+        )}
       </View>
     </View>
   );
@@ -1008,13 +1181,19 @@ function Stage({
 // StagedStrip — full-width summary of staged (not-yet-applied) trait changes
 // ---------------------------------------------------------------------------
 
+/**
+ * A pointer to the staged changes, not a transaction.
+ *
+ * This and the apply bar at the bottom of the Traits panel both summarise the
+ * same state at opposite ends of the screen. The strip used to show a price
+ * too, which implied tapping it would charge -- it only navigates. The count,
+ * the total and the irreversible tap all belong to the apply bar.
+ */
 function StagedStrip({
   diff,
-  cost,
   onReview,
 }: {
   diff: { key: StageTraitKey; to: string }[];
-  cost: number;
   onReview: () => void;
 }) {
   const colors = useThemedColors();
@@ -1052,7 +1231,7 @@ function StagedStrip({
         ) : null}
       </View>
       <Text style={[styles.stagedReview, { color: colors.primary }]}>
-        {cost > 0 ? `${cost} cr · Review` : 'Review'}
+        Review
       </Text>
       <Ionicons name="chevron-forward" size={16} color={colors.primary} />
     </TouchableOpacity>
@@ -1065,10 +1244,12 @@ function StagedStrip({
 
 function ItemPanel({
   character,
+  customCost,
   busy,
   onSelect,
 }: {
   character: CharacterRow;
+  customCost: number;
   busy: boolean;
   onSelect: (id: string) => void;
 }) {
@@ -1079,31 +1260,49 @@ function ItemPanel({
   const [customName, setCustomName] = useState('');
   const [customDesc, setCustomDesc] = useState('');
   const [customClass, setCustomClass] = useState<ItemClass>('tool');
-  const [customIcon, setCustomIcon] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [itemsError, setItemsError] = useState<string | null>(null);
+
+  const loadItems = useCallback(async () => {
+    try {
+      const list = await listSignatureItemsCatalog();
+      setItems(list);
+      setItemsError(null);
+    } catch (err) {
+      console.error('Failed to load signature items', err);
+      // Inline, not an alert: an alert is dismissed and leaves an empty grid
+      // with no explanation of why it is empty.
+      setItemsError(describeEditError(err, 'Could not load items').message);
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
     (async () => {
-      try {
-        const list = await listSignatureItemsCatalog();
-        if (active) setItems(list);
-      } catch (err) {
-        console.error('Failed to load signature items', err);
-        if (active) {
-          Alert.alert(
-            'Could not load items',
-            err instanceof Error ? err.message : 'Try again.',
-          );
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
+      await loadItems();
+      if (active) setLoading(false);
     })();
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadItems]);
+
+  // Custom items always get a generated icon -- an item with no art is a blank
+  // tile in the grid, so the text-only tier is not offered. Price arrives from
+  // `character_edit_prices`, not a local constant.
+
+  // Every other paid action here confirms first. This one charged silently.
+  const confirmCustom = () => {
+    if (!customName.trim() || !customDesc.trim()) return;
+    Alert.alert(
+      'Create signature item',
+      `Create this item with a generated icon for ${formatCredits(customCost, 'sentence')}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Spend', style: 'destructive', onPress: submitCustom },
+      ],
+    );
+  };
 
   const submitCustom = async () => {
     const name = customName.trim();
@@ -1115,11 +1314,14 @@ function ItemPanel({
         name,
         description: desc,
         itemClass: customClass,
-        generateIcon: customIcon,
+        generateIcon: true,
       });
       setCustomOpen(false);
       setCustomName('');
       setCustomDesc('');
+      // The list is fetched once on mount; without this the item the player
+      // just paid for would not appear until the screen was remounted.
+      await loadItems();
       onSelect(item.id);
     } catch (err) {
       console.error('Failed to create custom signature item', {
@@ -1127,12 +1329,10 @@ function ItemPanel({
         name,
         description: desc,
         itemClass: customClass,
-        generateIcon: customIcon,
+        generateIcon: true,
       });
-      Alert.alert(
-        'Could not create item',
-        err instanceof Error ? err.message : 'Try again.',
-      );
+      const { title, message } = describeEditError(err, 'Could not create item');
+      Alert.alert(title, message);
     } finally {
       setCreating(false);
     }
@@ -1146,23 +1346,87 @@ function ItemPanel({
     );
   }
 
+  const catalogItems = items.filter((i) => !i.isCustom);
+  const customItems = items.filter((i) => i.isCustom);
+
   return (
     <ScrollView
       style={styles.panelScroll}
       contentContainerStyle={styles.panel}
       keyboardShouldPersistTaps="handled"
     >
+      {itemsError ? (
+        <View style={[styles.itemsError, { borderColor: colors.border }]}>
+          <Text style={[styles.cardSub, { color: colors.textSecondary }]}>
+            {itemsError}
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              setItemsError(null);
+              void loadItems();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading items"
+            style={[styles.secondaryBtn, { borderColor: colors.primary }]}
+          >
+            <Text style={[styles.secondaryBtnText, { color: colors.primary }]}>
+              Retry
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       <Text style={[styles.panelHint, { color: colors.textSecondary }]}>
         Free swap from catalog
       </Text>
       <ItemGrid
-        items={items.slice(0, 15)}
+        items={catalogItems.slice(0, 15)}
         selectedId={character.signature_item_id ?? undefined}
         onSelect={(id) => !busy && onSelect(id)}
-        onCreateCustom={() => setCustomOpen(true)}
+        // The tile belongs with "Your items" once that section exists, so it
+        // sits here only while the player has none.
+        onCreateCustom={
+          customItems.length === 0 ? () => setCustomOpen(true) : undefined
+        }
       />
-      {customOpen && (
-        <View style={[styles.customForm, { backgroundColor: colors.card }]}>
+      {customItems.length > 0 && (
+        <>
+          <Text style={[styles.panelHint, { color: colors.textSecondary }]}>
+            Your items
+          </Text>
+          <ItemGrid
+            items={customItems}
+            selectedId={character.signature_item_id ?? undefined}
+            onSelect={(id) => !busy && onSelect(id)}
+            onCreateCustom={() => setCustomOpen(true)}
+          />
+        </>
+      )}
+      <Modal
+        visible={customOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCustomOpen(false)}
+      >
+        <View style={styles.sheetBackdrop} accessibilityViewIsModal>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            onPress={() => setCustomOpen(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          />
+          <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>
+                Create a signature item
+              </Text>
+              <TouchableOpacity
+                onPress={() => setCustomOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
           <TextInput
             value={customName}
             onChangeText={setCustomName}
@@ -1198,15 +1462,14 @@ function ItemPanel({
               label: TRAIT_LABELS.itemClass[c],
             }))}
           />
-          <View style={styles.switchRow}>
-            <Text style={{ color: colors.text }}>Generate icon</Text>
-            <Switch value={customIcon} onValueChange={setCustomIcon} />
-          </View>
+          <Text style={[styles.panelHint, { color: colors.textTertiary }]}>
+            {`Includes a generated icon · ${formatCredits(customCost, 'sentence')}`}
+          </Text>
           <TouchableOpacity
-            onPress={submitCustom}
+            onPress={confirmCustom}
             disabled={creating || !customName.trim() || !customDesc.trim()}
             accessibilityRole="button"
-            accessibilityLabel="Save custom item"
+            accessibilityLabel={`Save custom item for ${formatCredits(customCost, 'sentence')}`}
             style={[
               styles.primaryBtn,
               { backgroundColor: colors.primary },
@@ -1215,17 +1478,21 @@ function ItemPanel({
             ]}
           >
             <Text style={styles.primaryBtnText}>
-              {creating ? 'Saving…' : 'Save'}
+              {creating ? 'Saving…' : `Save · ${formatCredits(customCost)}`}
             </Text>
           </TouchableOpacity>
+          </View>
         </View>
-      )}
+      </Modal>
     </ScrollView>
   );
 }
 
 function TraitsPanel({
   character,
+  swapCost,
+  rerollCost,
+  paletteCooldownMs,
   pendingTraits,
   onStage,
   pendingChanged,
@@ -1237,6 +1504,9 @@ function TraitsPanel({
   onClear,
 }: {
   character: CharacterRow;
+  swapCost: number;
+  rerollCost: number;
+  paletteCooldownMs?: number;
   pendingTraits: Partial<Record<StageTraitKey, string>>;
   onStage: (key: StageTraitKey, value: string) => void;
   pendingChanged: StageTraitKey[];
@@ -1265,7 +1535,7 @@ function TraitsPanel({
           <TraitStepper
             key={def.key}
             title={def.title}
-            costLabel={`${EDIT_PRICES.swapTrait} cr`}
+            costLabel={formatCredits(swapCost)}
             options={stepperOptions(def.key)}
             value={
               pendingTraits[def.key] ??
@@ -1289,7 +1559,7 @@ function TraitsPanel({
           ]}
         >
           <Text style={[styles.secondaryBtnText, { color: colors.text }]}>
-            Randomize all ({EDIT_PRICES.rerollAllTraits} cr)
+            Randomize all ({formatCredits(rerollCost)})
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -1312,10 +1582,8 @@ function TraitsPanel({
               ]}
             >
               {insufficient
-                ? `Need ${pendingCost} credits`
-                : pendingCost > 0
-                  ? `${pendingCost} cr`
-                  : 'Free'}
+                ? `Need ${formatCredits(pendingCost, 'sentence')}`
+                : formatCredits(pendingCost)}
             </Text>
           </View>
           <TouchableOpacity
@@ -1405,9 +1673,15 @@ function PaletteRow({
 // ---------------------------------------------------------------------------
 
 function formatCooldown(ms: number): string {
-  const hours = Math.floor(ms / (60 * 60 * 1000));
-  const minutes = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
-  return `${hours}h ${minutes}m`;
+  // Cooldowns here run from 24 hours to 14 days, so hours-and-minutes alone
+  // produced things like "312h 0m".
+  const totalMinutes = Math.max(0, Math.ceil(ms / (60 * 1000)));
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
 }
 
 function CardShell({
@@ -1424,6 +1698,11 @@ function CardShell({
   children?: React.ReactNode;
 }) {
   const colors = useThemedColors();
+  // While a cooldown is running the action cannot succeed, so the badge shows
+  // the wait instead of a price and the controls stop taking taps. Previously
+  // this prop was never passed and the player learned about the block only by
+  // tapping and receiving a server error.
+  const cooling = typeof cooldownMs === 'number' && cooldownMs > 0;
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
       <View style={styles.cardHeader}>
@@ -1441,29 +1720,44 @@ function CardShell({
           <Text
             style={[
               styles.costText,
-              { color: cost === 0 ? colors.success : colors.primary },
+              {
+                color: cooling
+                  ? colors.warning
+                  : cost === 0
+                    ? colors.success
+                    : colors.primary,
+              },
             ]}
           >
-            {cost === 0 ? 'Free' : `${cost} cr`}
+            {cooling ? formatCooldown(cooldownMs) : formatCredits(cost)}
           </Text>
         </View>
       </View>
-      {cooldownMs && cooldownMs > 0 ? (
+      {cooling ? (
         <Text style={[styles.cooldown, { color: colors.warning }]}>
           Available in {formatCooldown(cooldownMs)}
         </Text>
       ) : null}
-      {children}
+      <View
+        pointerEvents={cooling ? 'none' : 'auto'}
+        style={cooling ? styles.cooledDown : undefined}
+      >
+        {children}
+      </View>
     </View>
   );
 }
 
 function BattleCryRow({
   character,
+  cost,
+  cooldownMs,
   busy,
   onSave,
 }: {
   character: CharacterRow;
+  cost: number;
+  cooldownMs?: number;
   busy: boolean;
   onSave: (v: string) => void;
 }) {
@@ -1474,7 +1768,8 @@ function BattleCryRow({
     <CardShell
       title="Battle cry"
       subtitle="Free · 24h cooldown"
-      cost={EDIT_PRICES.battleCry}
+      cost={cost}
+      cooldownMs={cooldownMs}
     >
       <TextInput
         value={value}
@@ -1510,10 +1805,14 @@ function BattleCryRow({
 
 function SignatureColorRow({
   character,
+  cost,
+  cooldownMs,
   busy,
   onSave,
 }: {
   character: CharacterRow;
+  cost: number;
+  cooldownMs?: number;
   busy: boolean;
   onSave: (v: PaletteKey) => void;
 }) {
@@ -1522,7 +1821,8 @@ function SignatureColorRow({
     <CardShell
       title="Signature color"
       subtitle="Free · 24h cooldown"
-      cost={EDIT_PRICES.signatureColor}
+      cost={cost}
+      cooldownMs={cooldownMs}
     >
       <View style={styles.swatchRow}>
         {PALETTES.map((p) => {
@@ -1557,23 +1857,43 @@ function ActionRow({
   title,
   subtitle,
   cost,
+  actionLabel,
+  cooldownMs,
   busy,
   onPress,
 }: {
   title: string;
   subtitle?: string;
   cost: number;
+  /**
+   * The verb on the button. Every action used to read "Continue" -- a
+   * navigation word on a control that spends currency, telling the player
+   * neither what happens nor what it costs.
+   */
+  actionLabel: string;
+  cooldownMs?: number;
   busy: boolean;
   onPress: () => void;
 }) {
   const colors = useThemedColors();
+  const priced = cost > 0;
+  const label = priced ? `${actionLabel} · ${formatCredits(cost)}` : actionLabel;
   return (
-    <CardShell title={title} subtitle={subtitle} cost={cost}>
+    <CardShell
+      title={title}
+      subtitle={subtitle}
+      cost={cost}
+      cooldownMs={cooldownMs}
+    >
       <TouchableOpacity
         onPress={onPress}
         disabled={busy}
         accessibilityRole="button"
-        accessibilityLabel={title}
+        accessibilityLabel={
+          priced
+            ? `${actionLabel}, ${formatCredits(cost, 'sentence')}`
+            : `${actionLabel}, free`
+        }
         style={[
           styles.primaryBtn,
           { backgroundColor: colors.primary },
@@ -1583,7 +1903,7 @@ function ActionRow({
         {busy ? (
           <ActivityIndicator color="#FFFFFF" />
         ) : (
-          <Text style={styles.primaryBtnText}>Continue</Text>
+          <Text style={styles.primaryBtnText}>{label}</Text>
         )}
       </TouchableOpacity>
     </CardShell>
@@ -1592,10 +1912,12 @@ function ActionRow({
 
 function ArtStyleRow({
   currentStyle,
+  cost,
   busy,
   onApply,
 }: {
   currentStyle: ArtStyle;
+  cost: number;
   busy: boolean;
   onApply: (style: ArtStyle) => void;
 }) {
@@ -1606,7 +1928,7 @@ function ArtStyleRow({
     <CardShell
       title="Art style"
       subtitle={`Currently: ${ART_STYLE_LABELS[currentStyle]}. Re-renders your portrait.`}
-      cost={EDIT_PRICES.changeArtStyle}
+      cost={cost}
     >
       <ArtStylePicker
         title=""
@@ -1638,9 +1960,11 @@ function ArtStyleRow({
 }
 
 function RePromptRow({
+  cost,
   busy,
   onSave,
 }: {
+  cost: number;
   busy: boolean;
   onSave: (prompt: string) => void;
 }) {
@@ -1651,7 +1975,7 @@ function RePromptRow({
     <CardShell
       title="Re-prompt portrait"
       subtitle="Write a new description for your portrait."
-      cost={EDIT_PRICES.rePromptPortrait}
+      cost={cost}
     >
       <TextInput
         value={value}
@@ -1753,6 +2077,17 @@ const styles = StyleSheet.create({
   stage: {
     flexDirection: 'row',
     marginBottom: Spacing.md,
+  },
+  // On the Portrait tab the render is the subject of the screen, so it gets
+  // real size and the metadata sits under it rather than beside it.
+  stageExpanded: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  stageMetaExpanded: {
+    alignItems: 'center',
+    marginTop: Spacing.md,
   },
   stageMeta: {
     flex: 1,
@@ -1992,10 +2327,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginVertical: Spacing.sm,
   },
-  customForm: {
-    marginTop: Spacing.md,
-    padding: Spacing.sm,
+  cooledDown: { opacity: 0.45 },
+  itemsError: {
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
     borderRadius: BorderRadius.md,
+  },
+  // The form used to render inline after the grid inside the same ScrollView,
+  // with no scroll-into-view, so opening it stranded the player mid-list with
+  // a screenful of dead space above the fields.
+  sheetBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(6,6,9,0.6)',
+  },
+  sheet: {
+    padding: Spacing.lg,
+    borderTopLeftRadius: BorderRadius.lg,
+    borderTopRightRadius: BorderRadius.lg,
+    gap: Spacing.sm,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
   },
   toast: {
     position: 'absolute',

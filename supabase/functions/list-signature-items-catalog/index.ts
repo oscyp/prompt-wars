@@ -1,5 +1,9 @@
 // List Signature Items Catalog Edge Function
-// Returns active catalog items with public URLs for their icons.
+// Returns active catalog items with public URLs for their icons, followed by
+// the caller's own custom items. Custom items live in the same table with
+// kind='custom' and no catalog_id, so the catalog join below can never reach
+// them -- without the second query a freshly created (and paid for) item never
+// appears in the picker.
 
 import {
   corsHeaders,
@@ -13,8 +17,9 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  let userId: string;
   try {
-    await getAuthUserId(req);
+    userId = await getAuthUserId(req);
   } catch {
     return err('unauthorized', 'authentication required', 401);
   }
@@ -73,5 +78,46 @@ Deno.serve(async (req) => {
     };
   });
 
-  return ok({ items });
+  // The caller's own custom items, newest first. Rejected ones are withheld;
+  // 'pending' ones are still shown -- the player paid for them and moderation
+  // is asynchronous, so hiding them would look exactly like the bug this
+  // query fixes.
+  const { data: customRows, error: customError } = await supabase
+    .from('signature_items')
+    .select('id, name, description, item_class, prompt_fragment, image_path')
+    .eq('kind', 'custom')
+    .eq('profile_id', userId)
+    .neq('moderation_status', 'rejected')
+    .order('created_at', { ascending: false });
+
+  if (customError) return err('server_error', customError.message, 500);
+
+  // signature-items-custom is a PRIVATE bucket, unlike the catalog one, so
+  // these need signed URLs rather than getPublicUrl.
+  const customItems = await Promise.all(
+    (customRows ?? []).map(async (row) => {
+      let iconUrl: string | null = null;
+      if (row.image_path) {
+        const { data: signed } = await supabase.storage
+          .from('signature-items-custom')
+          .createSignedUrl(row.image_path, 60 * 60);
+        iconUrl = signed?.signedUrl ?? null;
+      }
+      return {
+        id: row.id,
+        catalogId: null,
+        slug: null,
+        name: row.name,
+        description: row.description ?? '',
+        itemClass: row.item_class,
+        archetypeAffinity: [],
+        iconUrl,
+        promptFragment: row.prompt_fragment,
+        minSubscriptionTier: null,
+        isCustom: true,
+      };
+    }),
+  );
+
+  return ok({ items: [...items, ...customItems] });
 });

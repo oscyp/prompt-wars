@@ -9,7 +9,13 @@ export interface OkResponse<T> {
 
 export interface ErrResponse {
   ok: false;
-  error: { code: string; message: string };
+  /**
+   * `code` is the contract; `message` is a developer string and must never be
+   * the only thing a client has to work with. Structured extras (e.g.
+   * `retry_after_seconds`) let the app write its own copy instead of parsing
+   * prose -- see utils/editErrors.ts.
+   */
+  error: { code: string; message: string; [key: string]: unknown };
 }
 
 export function ok<T>(data: T, status = 200): Response {
@@ -20,8 +26,13 @@ export function ok<T>(data: T, status = 200): Response {
   });
 }
 
-export function err(code: string, message: string, status = 400): Response {
-  const body: ErrResponse = { ok: false, error: { code, message } };
+export function err(
+  code: string,
+  message: string,
+  status = 400,
+  extra?: Record<string, unknown>,
+): Response {
+  const body: ErrResponse = { ok: false, error: { code, message, ...extra } };
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },

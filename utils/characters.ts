@@ -10,6 +10,7 @@
  */
 
 import { invokeAuthenticatedFunction, supabase } from './supabase';
+import { throwEditError } from './editErrors';
 import {
   Vibe,
   Silhouette,
@@ -119,6 +120,8 @@ export interface CatalogSignatureItem {
   description: string;
   itemClass: ItemClass;
   iconUrl?: string;
+  /** True for the caller's own creations; absent/false for shared catalog items. */
+  isCustom?: boolean;
 }
 
 export interface EditCharacterInput {
@@ -442,9 +445,7 @@ async function startPortraitJob(
   });
 
   if (!response.ok || !response.data?.job_id) {
-    throw new Error(
-      response.error?.message || 'Failed to start portrait generation.',
-    );
+    throwEditError(response, 'Failed to start portrait generation.');
   }
 
   const data = response.data;
@@ -500,6 +501,71 @@ export async function regeneratePortrait(
   return startPortraitJob('regenerate-portrait', body);
 }
 
+export interface PortraitHistoryEntry {
+  portraitId: string;
+  imageUrl: string;
+  createdAt: string;
+}
+
+/**
+ * Earlier renders for a character, newest first, excluding the live one.
+ *
+ * Read directly from `character_portraits` (RLS policy
+ * `character_portraits_select_own`) rather than from
+ * `characters.portrait_history`, which stores ids without the paths needed to
+ * display them.
+ */
+export async function listPortraitHistory(
+  characterId: string,
+  kind: 'fighter' | 'avatar' = 'fighter',
+  limit = 3,
+): Promise<PortraitHistoryEntry[]> {
+  const { data, error } = await supabase
+    .from('character_portraits')
+    .select('id, image_path, created_at, is_current, moderation_status')
+    .eq('character_id', characterId)
+    .eq('kind', kind)
+    .eq('is_current', false)
+    .neq('moderation_status', 'rejected')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error || !data) return [];
+
+  const entries = await Promise.all(
+    data.map(async (row) => {
+      const imageUrl = await signPortraitUrl(row.image_path as string).catch(
+        () => null,
+      );
+      return imageUrl
+        ? {
+            portraitId: row.id as string,
+            imageUrl,
+            createdAt: row.created_at as string,
+          }
+        : null;
+    }),
+  );
+  return entries.filter((e): e is PortraitHistoryEntry => e !== null);
+}
+
+/** Point the character back at an earlier render. Free. */
+export async function restorePortrait(input: {
+  characterId: string;
+  portraitId: string;
+}): Promise<{ portraitId: string }> {
+  const response = await invokeAuthenticatedFunction<
+    FunctionEnvelope<{ portrait_id: string }>
+  >('restore-portrait', {
+    character_id: input.characterId,
+    portrait_id: input.portraitId,
+  });
+  if (!response.ok || !response.data) {
+    throwEditError(response, 'Failed to restore that render.');
+  }
+  return { portraitId: response.data.portrait_id };
+}
+
 export async function createCustomSignatureItem(
   input: CreateCustomSignatureItemInput,
 ): Promise<CustomSignatureItem> {
@@ -515,9 +581,7 @@ export async function createCustomSignatureItem(
     idempotency_key: idempotencyKey,
   });
   if (!response.ok || !response.data?.item) {
-    throw new Error(
-      response.error?.message || 'Failed to create signature item.',
-    );
+    throwEditError(response, 'Failed to create signature item.');
   }
   return response.data.item;
 }
@@ -536,7 +600,7 @@ export async function editCharacter(
     idempotency_key: idempotencyKey,
   });
   if (!response.ok || !response.data) {
-    throw new Error(response.error?.message || 'Failed to edit character.');
+    throwEditError(response, 'Failed to edit character.');
   }
   return response.data;
 }
@@ -548,9 +612,7 @@ export async function listSignatureItemsCatalog(): Promise<
     FunctionEnvelope<{ items: CatalogSignatureItem[] }>
   >('list-signature-items-catalog', {});
   if (!response.ok || !response.data?.items) {
-    throw new Error(
-      response.error?.message || 'Failed to load signature items.',
-    );
+    throwEditError(response, 'Failed to load signature items.');
   }
   return response.data.items;
 }
