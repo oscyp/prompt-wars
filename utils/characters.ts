@@ -82,21 +82,17 @@ export interface PortraitJobResult {
   status: 'succeeded';
 }
 
-export interface RegeneratePortraitInput {
+export interface RenderLookInput {
   characterId: string;
-  paid?: boolean;
   /**
-   * When provided, the backend treats this as a re-prompt and charges the
-   * `new_portrait` price instead of `regenerate_portrait`.
+   * `render` redraws the saved look for `render_look`. `random` shuffles every
+   * trait first and costs `random_character`.
+   *
+   * Nothing about the description travels in this request any more. Art style
+   * and the custom prompt are free edits saved through `editCharacter`, so by
+   * the time this runs the server already knows what to draw.
    */
-  portraitPromptRaw?: string;
-  /**
-   * When provided and different from the character's current art_style, the
-   * backend re-renders and charges the `new_portrait` price tier.
-   */
-  artStyle?: ArtStyle;
-  /** 'fighter' (full-body, default) or 'avatar' (head/bust). */
-  kind?: 'fighter' | 'avatar';
+  mode?: 'render' | 'random';
 }
 
 export interface CreateCustomSignatureItemInput {
@@ -133,6 +129,23 @@ export interface IdentityChanges {
   signatureColor?: PaletteKey | string;
 }
 
+/** Fields the batched `look` edit kind accepts. All free. */
+export interface LookChanges {
+  artStyle?: ArtStyle;
+  /**
+   * The player's own description. `null` clears it and returns the character to
+   * the guided traits — the prompt resolver reads the traits again the moment
+   * this is empty, so clearing it is what "switch back to Guided" means.
+   */
+  portraitPromptRaw?: string | null;
+  palette?: PaletteKey;
+  vibe?: string;
+  silhouette?: string;
+  era?: string;
+  expression?: string;
+  signatureItemId?: string;
+}
+
 export interface EditCharacterInput {
   characterId: string;
   changes: {
@@ -150,31 +163,17 @@ export interface EditCharacterInput {
      * 24h) -- the batch is a transport detail, not a shared meter.
      */
     identity?: IdentityChanges;
-    battleCry?: string;
-    signatureColor?: PaletteKey | string;
-    signatureItemId?: string | null;
-    regeneratePortrait?: boolean;
-    rePromptPortrait?: { prompt: string };
-    swapTrait?: { key: keyof TraitSet; value: string };
-    rerollAllTraits?: boolean;
     /**
-     * Apply several trait changes in ONE charged call.
+     * Apply any subset of the describing fields in ONE free request.
      *
-     * The edit screen used to loop `swapTrait` once per staged trait, paying
-     * `traits_single_swap` (1 credit) each time -- so changing four traits cost
-     * 4 credits when `traits_full_reroll` sets all four for 2. The loop was also
-     * non-atomic: a mid-loop failure left the player charged for the swaps that
-     * had already landed.
-     *
-     * Values not supplied keep the character's current value, so this expresses
-     * "set these four traits to exactly this" rather than "reroll randomly".
+     * This replaces `swapTrait`, `setAllTraits` and `rerollAllTraits`, which
+     * existed because traits were charged per swap and the screen had to pick
+     * the cheapest route through them. A trait is an input to a render and no
+     * image is generated when somebody taps through Vibe, so describing is free
+     * and the money moved to `renderLook`. With nothing to price, there is
+     * nothing to route: one call sets whatever changed.
      */
-    setAllTraits?: {
-      vibe: string;
-      silhouette: string;
-      era: string;
-      expression: string;
-    };
+    look?: LookChanges;
   };
 }
 
@@ -200,14 +199,7 @@ interface FunctionEnvelope<T> {
 }
 
 type EditCharacterInvokeRequest = {
-  edit_kind:
-    | 'identity'
-    | 'battle_cry'
-    | 'signature_color'
-    | 'signature_item_swap'
-    | 'traits_single_swap'
-    | 'traits_full_reroll'
-    | 'palette';
+  edit_kind: 'identity' | 'look';
   payload: Record<string, unknown>;
 };
 
@@ -225,8 +217,7 @@ function toEditCharacterRequest(
     if (typeof archetype === 'string') payload.archetype = archetype;
     if (typeof battleCry === 'string') payload.battle_cry = battleCry;
     if (signatureColor != null) {
-      // Same normalisation the single-field branch does: the server stores hex,
-      // the UI may hand us a palette key.
+      // The server stores hex; the UI may hand us a palette key.
       payload.signature_color =
         signatureColor in PALETTE_HEX
           ? PALETTE_HEX[signatureColor as PaletteKey]
@@ -238,78 +229,25 @@ function toEditCharacterRequest(
     return { edit_kind: 'identity', payload };
   }
 
-  if (typeof changes.battleCry === 'string') {
-    return {
-      edit_kind: 'battle_cry',
-      payload: { battle_cry: changes.battleCry },
-    };
-  }
-
-  if (changes.signatureColor != null) {
-    const color =
-      changes.signatureColor in PALETTE_HEX
-        ? PALETTE_HEX[changes.signatureColor as PaletteKey]
-        : changes.signatureColor;
-    return {
-      edit_kind: 'signature_color',
-      payload: { signature_color: color },
-    };
-  }
-
-  if ('signatureItemId' in changes) {
-    return {
-      edit_kind: 'signature_item_swap',
-      payload: { signature_item_id: changes.signatureItemId ?? null },
-    };
-  }
-
-  if (changes.swapTrait) {
-    // Palette lives on its own edit kind in the Edge Function contract.
-    if (changes.swapTrait.key === 'palette') {
-      return {
-        edit_kind: 'palette',
-        payload: { palette_key: changes.swapTrait.value },
-      };
+  if (changes.look) {
+    const l = changes.look;
+    const payload: Record<string, unknown> = {};
+    if (l.artStyle) payload.art_style = l.artStyle;
+    if (l.palette) payload.palette_key = l.palette;
+    if (l.vibe) payload.vibe = l.vibe;
+    if (l.silhouette) payload.silhouette = l.silhouette;
+    if (l.era) payload.era = l.era;
+    if (l.expression) payload.expression = l.expression;
+    if (l.signatureItemId) payload.signature_item_id = l.signatureItemId;
+    // Presence, not truthiness: null is the meaningful value here, and `if
+    // (l.portraitPromptRaw)` would silently drop every attempt to clear it.
+    if ('portraitPromptRaw' in l) {
+      payload.portrait_prompt_raw = l.portraitPromptRaw ?? null;
     }
-    return {
-      edit_kind: 'traits_single_swap',
-      payload: {
-        trait: changes.swapTrait.key,
-        value: changes.swapTrait.value,
-      },
-    };
-  }
-
-  if (changes.setAllTraits) {
-    return {
-      edit_kind: 'traits_full_reroll',
-      payload: {
-        vibe: changes.setAllTraits.vibe,
-        silhouette: changes.setAllTraits.silhouette,
-        era: changes.setAllTraits.era,
-        expression: changes.setAllTraits.expression,
-      },
-    };
-  }
-
-  if (changes.rerollAllTraits) {
-    return {
-      edit_kind: 'traits_full_reroll',
-      payload: {
-        vibe: pickRandom(VIBES),
-        silhouette: pickRandom(SILHOUETTES),
-        era: pickRandom(ERAS),
-        expression: pickRandom(EXPRESSIONS),
-      },
-    };
-  }
-
-  if (changes.regeneratePortrait) {
-    throw new Error('Portrait regeneration must use the regeneratePortrait function.');
-  }
-
-  if (changes.rePromptPortrait) {
-    throw new Error('Portrait re-prompting must use generatePortrait with prompt mode.');
+    if (Object.keys(payload).length === 0) {
+      throw new Error('A look edit needs at least one field.');
+    }
+    return { edit_kind: 'look', payload };
   }
 
   throw new Error('No supported character edit was provided.');
@@ -530,23 +468,21 @@ export async function generatePortrait(
   });
 }
 
-export async function regeneratePortrait(
-  input: RegeneratePortraitInput,
+/**
+ * The one paid action on the edit screen: draws the character's saved look as
+ * both a full-body portrait and an avatar, for a single charge.
+ *
+ * These were two separate purchases, which meant players could buy their
+ * fighter and then be asked to buy their own face. They are two framings of one
+ * character and one seed; splitting them was a storage detail showing through.
+ */
+export async function renderLook(
+  input: RenderLookInput,
 ): Promise<PortraitJobResult> {
-  const body: Record<string, unknown> = {
+  return startPortraitJob('regenerate-portrait', {
     character_id: input.characterId,
-    paid: input.paid ?? false,
-  };
-  if (typeof input.portraitPromptRaw === 'string') {
-    body.portrait_prompt_raw = input.portraitPromptRaw;
-  }
-  if (input.artStyle) {
-    body.art_style = input.artStyle;
-  }
-  if (input.kind) {
-    body.kind = input.kind;
-  }
-  return startPortraitJob('regenerate-portrait', body);
+    mode: input.mode ?? 'render',
+  });
 }
 
 export interface PortraitHistoryEntry {

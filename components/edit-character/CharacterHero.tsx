@@ -1,9 +1,16 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { formatCredits } from '@/utils/credits';
 import PortraitPreview from '../PortraitPreview';
 
 export interface CharacterHeroProps {
@@ -16,19 +23,27 @@ export interface CharacterHeroProps {
   hasPortrait: boolean;
   /** True when the live render predates the character's current look. */
   portraitStale: boolean;
+  /** Credits the render costs. */
+  renderCost: number;
+  /** True when saving must happen first, which changes the button's promise. */
+  hasUnsaved: boolean;
+  rendering?: boolean;
+  renderDisabled?: boolean;
+  onRender: () => void;
   onOpenViewer: () => void;
 }
 
 const THUMB = 64;
 
 /**
- * The character, kept at one size on every tab.
+ * The character, and the one paid action on the screen.
  *
- * Previously the hero grew to 208pt on the Portrait tab -- the one tab whose
- * own content is a portrait -- pushing the actual portrait tools below the
- * fold, and it carried the paid "See new look" button, so the same purchase
- * existed in two places. It is now identity only: tapping opens the viewer and
- * never spends anything.
+ * The render button lives here because there is now exactly one of it. It used
+ * to be duplicated -- a CTA here and a Regenerate row inside the Portraits tab,
+ * with different labels and different prices for the same purchase -- so round
+ * one stripped it out of the hero entirely. With the Portraits tab gone and one
+ * render to buy, it belongs beside the thing it changes and visible from every
+ * tab.
  */
 export default function CharacterHero({
   name,
@@ -38,6 +53,11 @@ export default function CharacterHero({
   busy = false,
   hasPortrait,
   portraitStale,
+  renderCost,
+  hasUnsaved,
+  rendering = false,
+  renderDisabled = false,
+  onRender,
   onOpenViewer,
 }: CharacterHeroProps) {
   const colors = useThemedColors();
@@ -80,6 +100,33 @@ export default function CharacterHero({
             </Text>
           </View>
         ) : null}
+        {/* Saving first is not optional: rendering a staged-but-unsaved look
+            would draw the character the player had BEFORE their edits, which is
+            the most confusing outcome this screen can produce. */}
+        <TouchableOpacity
+          onPress={onRender}
+          disabled={rendering || renderDisabled}
+          accessibilityRole="button"
+          accessibilityLabel={
+            hasUnsaved
+              ? `Save and render new look, ${formatCredits(renderCost, 'sentence')}`
+              : `Render new look, ${formatCredits(renderCost, 'sentence')}`
+          }
+          accessibilityState={{ disabled: rendering || renderDisabled }}
+          style={[
+            styles.renderBtn,
+            { backgroundColor: colors.primary },
+            (rendering || renderDisabled) && styles.renderDisabled,
+          ]}
+        >
+          {rendering ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.renderText} numberOfLines={1}>
+              {`${hasUnsaved ? 'Save & render' : 'Render new look'} · ${formatCredits(renderCost)}`}
+            </Text>
+          )}
+        </TouchableOpacity>
         <TouchableOpacity
           onPress={onOpenViewer}
           disabled={!hasPortrait}
@@ -133,6 +180,20 @@ const styles = StyleSheet.create({
   },
   stale: {
     fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.semibold,
+  },
+  renderBtn: {
+    marginTop: Spacing.sm,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  renderDisabled: { opacity: 0.5 },
+  renderText: {
+    color: '#FFFFFF',
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
   viewerLink: {

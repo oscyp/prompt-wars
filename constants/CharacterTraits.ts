@@ -309,3 +309,122 @@ export const ART_STYLE_THUMBS: Record<ArtStyle, ImageSourcePropType> = {
   vaporwave: require('../assets/images/styles/vaporwave.jpg'),
 };
 
+
+// ---------------------------------------------------------------------------
+// Portrait description preview
+// ---------------------------------------------------------------------------
+
+/**
+ * Staged look fields, in the order they read in a sentence.
+ *
+ * Lives here rather than in a pricing module: these used to be "the traits you
+ * pay per swap for", and the module that named them existed to price them.
+ * Describing is free now, so they are simply what a character looks like.
+ */
+export type StageTraitKey =
+  | 'palette'
+  | 'vibe'
+  | 'silhouette'
+  | 'era'
+  | 'expression';
+
+/**
+ * The phrase each trait contributes to the image prompt.
+ *
+ * A mirror of the tables in `supabase/functions/_shared/portrait-prompt-resolver.ts`,
+ * which remains the source of truth — the resolver runs server-side in Deno and
+ * cannot be imported here. Kept so the player can read the description they are
+ * building before paying to have it drawn.
+ *
+ * `__tests__/portraitDescription.test.ts` asserts every trait value has a phrase.
+ * That catches coverage drift, which is the failure that matters: the resolver
+ * falls back to the raw key when a phrase is missing, so a gap ships
+ * `lean_duelist` to the image model rather than failing loudly. It cannot catch
+ * wording drift, which degrades the preview without misleading anyone about
+ * which trait was chosen.
+ */
+export const PORTRAIT_PHRASES: {
+  vibe: Record<Vibe, string>;
+  silhouette: Record<Silhouette, string>;
+  era: Record<Era, string>;
+  expression: Record<Expression, string>;
+  palette: Record<PaletteKey, string>;
+} = {
+  vibe: {
+    heroic: 'heroic and steadfast',
+    sinister: 'a sinister grin',
+    mischievous: 'a mischievous gleam',
+    stoic: 'a stoic gaze',
+    unhinged: 'unhinged energy',
+    regal: 'regal poise',
+  },
+  silhouette: {
+    lean_duelist: 'a lean duelist build',
+    heavy_bruiser: 'a heavy bruiser silhouette',
+    slim_trickster: 'a slim trickster frame',
+    armored_knight: 'an armored knight stance',
+    robed_mystic: 'a robed mystic figure',
+    sharp_tactician: 'a sharp tactician posture',
+  },
+  era: {
+    ancient: 'an ancient mythic setting',
+    industrial: 'an industrial steam-era setting',
+    modern: 'a modern stylized setting',
+    cyberpunk: 'a cyberpunk neon setting',
+    far_future: 'a far-future sci-fi setting',
+  },
+  expression: {
+    smirk: 'a subtle smirk',
+    glare: 'a fierce glare',
+    calm: 'a calm gaze',
+    roar: 'an open roar',
+    smile: 'a warm smile',
+    thousand_yard: 'a thousand-yard stare',
+  },
+  palette: {
+    ember: 'ember reds and oranges',
+    ocean: 'deep ocean blues',
+    neon: 'neon magenta and cyan',
+    bone: 'bleached bone whites',
+    forest: 'deep forest greens',
+    royal: 'royal purples and gold',
+    ash: 'ashen grays',
+    gold: 'warm golds',
+  },
+};
+
+export interface DescribedLook {
+  vibe?: Vibe | null;
+  silhouette?: Silhouette | null;
+  expression?: Expression | null;
+  palette?: PaletteKey | null;
+  era?: Era | null;
+  artStyle?: ArtStyle | null;
+}
+
+/**
+ * The character being described, in plain English.
+ *
+ * Four of these controls are abstract adjectives with no thumbnail, and until a
+ * render exists there is nothing on screen connecting them to anything. Showing
+ * the sentence they build closes that gap for free — and it is what surfaced the
+ * resolver keys shipping `lean_duelist` verbatim to the image model.
+ *
+ * Order matches the resolver's: vibe, silhouette, expression, palette, era.
+ */
+export function describeLook(look: DescribedLook): string {
+  const parts: string[] = [];
+  if (look.vibe) parts.push(PORTRAIT_PHRASES.vibe[look.vibe]);
+  if (look.silhouette) parts.push(PORTRAIT_PHRASES.silhouette[look.silhouette]);
+  if (look.expression) parts.push(PORTRAIT_PHRASES.expression[look.expression]);
+  if (look.palette) parts.push(`a colour story of ${PORTRAIT_PHRASES.palette[look.palette]}`);
+  if (look.era) parts.push(PORTRAIT_PHRASES.era[look.era]);
+
+  const subject = parts.length > 0
+    ? `A champion with ${parts.join(', ')}`
+    : 'A champion';
+
+  return look.artStyle
+    ? `${subject} — drawn as ${ART_STYLE_LABELS[look.artStyle].toLowerCase()}.`
+    : `${subject}.`;
+}

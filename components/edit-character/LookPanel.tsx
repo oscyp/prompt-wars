@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -10,30 +10,29 @@ import {
   SILHOUETTES,
   ERAS,
   EXPRESSIONS,
+  describeLook,
+  type StageTraitKey,
   type PaletteKey,
+  type ArtStyle,
 } from '@/constants/CharacterTraits';
 import { formatCredits } from '@/utils/credits';
-import { formatCooldown, type EditPricing } from '@/utils/editCooldowns';
-import type { StageTraitKey } from '@/utils/characterEditPricing';
+import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import TraitStepper, { type StepperOption } from '../TraitStepper';
+import ArtStylePicker from '../ArtStylePicker';
 import ColorSwatchGrid, { type ColorSwatchOption } from '../ColorSwatchGrid';
 import EditCardShell from './EditCardShell';
+import ModeToggle, { type DescribeMode } from './ModeToggle';
 import { editStyles as s } from './styles';
 
+const PROMPT_MAX = 200;
+
+/** Ordered by how much each changes the render. */
 const STEPPERS: { key: StageTraitKey; title: string }[] = [
   { key: 'vibe', title: 'Vibe' },
   { key: 'silhouette', title: 'Silhouette' },
   { key: 'era', title: 'Era' },
   { key: 'expression', title: 'Expression' },
 ];
-
-const COLUMN: Record<StageTraitKey, string> = {
-  palette: 'palette_key',
-  vibe: 'vibe',
-  silhouette: 'silhouette',
-  era: 'era',
-  expression: 'expression',
-};
 
 const PALETTE_OPTIONS: ColorSwatchOption[] = PALETTES.map((p) => ({
   value: p.key,
@@ -51,156 +50,240 @@ export function stepperOptions(key: StageTraitKey): StepperOption[] {
       }));
     case 'vibe':
       return VIBES.map((v) => ({
-        value: v,
-        label: TRAIT_LABELS.vibe[v],
-        description: TRAIT_DESCRIPTIONS.vibe[v],
+        value: v, label: TRAIT_LABELS.vibe[v], description: TRAIT_DESCRIPTIONS.vibe[v],
       }));
     case 'silhouette':
       return SILHOUETTES.map((v) => ({
-        value: v,
-        label: TRAIT_LABELS.silhouette[v],
-        description: TRAIT_DESCRIPTIONS.silhouette[v],
+        value: v, label: TRAIT_LABELS.silhouette[v], description: TRAIT_DESCRIPTIONS.silhouette[v],
       }));
     case 'era':
       return ERAS.map((v) => ({
-        value: v,
-        label: TRAIT_LABELS.era[v],
-        description: TRAIT_DESCRIPTIONS.era[v],
+        value: v, label: TRAIT_LABELS.era[v], description: TRAIT_DESCRIPTIONS.era[v],
       }));
     case 'expression':
       return EXPRESSIONS.map((v) => ({
-        value: v,
-        label: TRAIT_LABELS.expression[v],
-        description: TRAIT_DESCRIPTIONS.expression[v],
+        value: v, label: TRAIT_LABELS.expression[v], description: TRAIT_DESCRIPTIONS.expression[v],
       }));
   }
 }
 
 export interface LookPanelProps {
-  character: Record<string, unknown>;
-  staged: Partial<Record<StageTraitKey, string>>;
-  changed: StageTraitKey[];
-  pricing: EditPricing;
-  /** False when live prices could not be read; paid controls are held back. */
-  pricingVerified: boolean;
+  /** Saved values merged with anything staged. */
+  look: {
+    artStyle: ArtStyle;
+    palette: PaletteKey | null;
+    vibe: string | null;
+    silhouette: string | null;
+    era: string | null;
+    expression: string | null;
+    portraitPromptRaw: string | null;
+  };
+  changedKeys: Set<string>;
+  randomCost: number;
   disabled?: boolean;
-  busy?: boolean;
-  onStage: (key: StageTraitKey, value: string) => void;
-  onRandomize: () => void;
+  onStage: (key: string, value: string | null) => void;
+  onRandomCharacter: () => void;
 }
 
 /**
- * Outfit palette and the four abstract traits.
+ * Everything about how the character looks — and none of it costs anything.
  *
- * Renamed from "Traits": what this tab changes is how the fighter looks, and
- * "trait" reads like a stat. The palette's 24-hour cooldown is enforced here --
- * it was fetched and passed into this panel all along, then never rendered, so
- * the first the player heard of it was a server error after staging a change.
+ * Traits were priced per swap, which put a taxi meter on the one behaviour the
+ * screen exists to encourage and, worse, charged for a change nobody could see:
+ * the portrait did not move until the player paid again to render it. A trait is
+ * an input to a render, no image is generated when somebody taps through Vibe,
+ * so the money moved to the render and this tab has no prices on it at all.
  */
 export default function LookPanel({
-  character,
-  staged,
-  changed,
-  pricing,
-  pricingVerified,
+  look,
+  changedKeys,
+  randomCost,
   disabled = false,
-  busy = false,
   onStage,
-  onRandomize,
+  onRandomCharacter,
 }: LookPanelProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
 
-  const paletteCooldown = pricing.cooldownMs.palette ?? 0;
-  const paletteCooling = paletteCooldown > 0;
-  const swapCost = pricing.prices.traits_single_swap?.credits ?? 1;
-  const rerollCost = pricing.prices.traits_full_reroll?.credits ?? 2;
-  const paletteValue =
-    staged.palette ??
-    (character[COLUMN.palette] as PaletteKey | null) ??
-    undefined;
+  const mode: DescribeMode = look.portraitPromptRaw != null ? 'prompt' : 'guided';
+  const guided = mode === 'guided';
+
+  const setMode = (next: DescribeMode) => {
+    // Clearing the prompt is what returns the resolver to the traits; the trait
+    // values were never touched, so switching back is lossless.
+    onStage('portraitPromptRaw', next === 'prompt' ? (look.portraitPromptRaw ?? '') : null);
+  };
 
   return (
     <ScrollView
       style={s.panelScroll}
       contentContainerStyle={s.panel}
+      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
+      <View style={[s.card, { backgroundColor: colors.card }]}>
+        <ModeToggle value={mode} onChange={setMode} disabled={disabled} />
+      </View>
+
+      {/* The description the player is building, in plain English. Four of the
+          controls below are abstract adjectives with no thumbnail, so without
+          this there is nothing on screen connecting them to anything until a
+          render exists. */}
+      <View style={[styles.preview, { borderColor: colors.border, backgroundColor: colors.backgroundSecondary }]}>
+        <Text style={[styles.previewLabel, { color: colors.textTertiary }]}>
+          You&apos;re describing
+        </Text>
+        <Text style={[styles.previewText, accessibleText, { color: colors.text }]}>
+          {guided
+            ? describeLook({
+                vibe: look.vibe as never,
+                silhouette: look.silhouette as never,
+                expression: look.expression as never,
+                palette: look.palette,
+                era: look.era as never,
+                artStyle: look.artStyle,
+              })
+            : (look.portraitPromptRaw?.trim() ||
+               'Write a description and it will appear here.')}
+        </Text>
+      </View>
+
+      {!guided ? (
+        <EditCardShell
+          title="Your description"
+          subtitle="Replaces the traits below entirely."
+          cost={0}
+          changed={changedKeys.has('portraitPromptRaw')}
+          disabled={disabled}
+        >
+          <TextInput
+            value={look.portraitPromptRaw ?? ''}
+            onChangeText={(v) => onStage('portraitPromptRaw', v)}
+            placeholder="A knight forged from stained glass"
+            placeholderTextColor={colors.textTertiary}
+            maxLength={PROMPT_MAX}
+            multiline
+            style={[s.input, s.multiline, { backgroundColor: colors.background, color: colors.text }]}
+            accessibilityLabel="Your portrait description"
+          />
+          <Text style={[s.counter, { color: colors.textTertiary }]}>
+            {`${(look.portraitPromptRaw ?? '').length}/${PROMPT_MAX}`}
+          </Text>
+        </EditCardShell>
+      ) : null}
+
+      {/* Art style leads: it changes the render more than any single trait. */}
       <EditCardShell
-        title="Outfit palette"
-        subtitle="The colour story your render is built around."
-        cost={pricing.prices.palette?.credits ?? 0}
-        cooldownMs={paletteCooldown}
-        changed={changed.includes('palette')}
+        title="Art style"
+        subtitle="The biggest single change you can make to the render."
+        cost={0}
+        changed={changedKeys.has('artStyle')}
         disabled={disabled}
       >
-        <ColorSwatchGrid
-          groupLabel="Outfit palette"
-          options={PALETTE_OPTIONS}
-          value={paletteValue}
-          onChange={(v) => onStage('palette', v)}
-          disabled={disabled || paletteCooling}
-          disabledReason={
-            paletteCooling
-              ? `Available in ${formatCooldown(paletteCooldown)}`
-              : undefined
-          }
+        <ArtStylePicker
+          title=""
+          value={look.artStyle}
+          onChange={(v) => onStage('artStyle', v)}
+          disabled={disabled}
         />
       </EditCardShell>
 
-      {STEPPERS.map((def) => (
-        <EditCardShell
-          key={def.key}
-          title={def.title}
-          cost={swapCost}
-          changed={changed.includes(def.key)}
-          disabled={disabled || !pricingVerified}
-        >
-          <TraitStepper
-            title=""
-            costLabel={formatCredits(swapCost)}
-            options={stepperOptions(def.key)}
-            value={
-              staged[def.key] ??
-              (character[COLUMN[def.key]] as string | null) ??
-              undefined
-            }
-            onChange={(v) => onStage(def.key, v)}
-            changed={changed.includes(def.key)}
-            disabled={busy || disabled || !pricingVerified}
-          />
-        </EditCardShell>
-      ))}
+      {!guided ? (
+        <Text style={[s.hint, accessibleText, styles.inertNote, { color: colors.warning }]}>
+          The traits below aren&apos;t used while you&apos;re writing your own
+          description. Switch back to Guided to use them again — nothing is lost.
+        </Text>
+      ) : null}
+
+      <View
+        style={!guided ? styles.inert : undefined}
+        pointerEvents={guided ? 'auto' : 'none'}
+      >
+        <View style={styles.stack}>
+          <EditCardShell
+            title="Outfit palette"
+            subtitle="The colour story your render is built around."
+            cost={0}
+            changed={changedKeys.has('palette')}
+            disabled={disabled}
+          >
+            <ColorSwatchGrid
+              groupLabel="Outfit palette"
+              options={PALETTE_OPTIONS}
+              value={look.palette ?? undefined}
+              onChange={(v) => onStage('palette', v)}
+              disabled={disabled}
+            />
+          </EditCardShell>
+
+          {STEPPERS.map((def) => (
+            <EditCardShell
+              key={def.key}
+              title={def.title}
+              cost={0}
+              changed={changedKeys.has(def.key)}
+              disabled={disabled}
+            >
+              <TraitStepper
+                label={def.title}
+                options={stepperOptions(def.key)}
+                value={(look[def.key as keyof typeof look] as string | null) ?? undefined}
+                onChange={(v) => onStage(def.key, v)}
+                disabled={disabled}
+              />
+            </EditCardShell>
+          ))}
+        </View>
+      </View>
 
       <View style={[s.card, { backgroundColor: colors.card }]}>
         <Text style={[s.cardTitle, accessibleText, { color: colors.text }]}>
-          Randomize traits
+          Generate a random character
         </Text>
-        {/* Spelled out because the visible result of this costs another credit:
-            new traits leave the existing render in place until it is re-rendered,
-            and players read "randomize" as "show me something new". */}
-        <Text
-          style={[s.cardSub, accessibleText, { color: colors.textSecondary }]}
-        >
-          A fresh random set of traits. Doesn&apos;t include a new portrait
-          render.
+        <Text style={[s.cardSub, accessibleText, { color: colors.textSecondary }]}>
+          Shuffles every trait and draws the result — portrait and avatar both.
+          Replaces anything you have staged here.
         </Text>
         <TouchableOpacity
-          onPress={onRandomize}
-          disabled={busy || disabled || !pricingVerified}
+          onPress={onRandomCharacter}
+          disabled={disabled}
           accessibilityRole="button"
-          accessibilityLabel={`Randomize traits, ${formatCredits(rerollCost, 'sentence')}`}
+          accessibilityLabel={`Generate a random character, ${formatCredits(randomCost, 'sentence')}`}
           style={[
             s.secondaryBtn,
-            { borderColor: colors.border },
-            (busy || disabled || !pricingVerified) && s.btnDisabled,
+            { borderColor: colors.primary },
+            disabled && s.btnDisabled,
           ]}
         >
-          <Text style={[s.secondaryBtnText, { color: colors.text }]}>
-            {`Randomize traits · ${formatCredits(rerollCost)}`}
+          <Text style={[s.secondaryBtnText, { color: colors.primary }]}>
+            {`Generate random character · ${formatCredits(randomCost)}`}
           </Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  preview: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+  previewLabel: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  previewText: {
+    fontSize: Typography.sizes.sm,
+    lineHeight: 21,
+  },
+  stack: { gap: Spacing.md },
+  // Greyed rather than hidden: the values are still on the row, so switching
+  // back is obviously available and obviously lossless.
+  inert: { opacity: 0.4 },
+  inertNote: { paddingHorizontal: Spacing.xs },
+});

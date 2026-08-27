@@ -24,6 +24,7 @@ import {
   ok,
   randomPortraitSeed,
 } from '../_shared/character-creation.ts';
+import { renderOnePortrait } from '../_shared/render-portrait.ts';
 import {
   generateCharacterPortrait,
   ImageProviderError,
@@ -368,6 +369,45 @@ Deno.serve(async (req) => {
       portrait_prompt_resolved: result.resolved_prompt,
     })
     .eq('id', character.id);
+
+  // Render the avatar alongside the fighter, so a character has both images
+  // from the moment it first exists.
+  //
+  // Until now the creation flow produced only the full-body render and nothing
+  // ever made an avatar unless the player went to the edit screen and paid for
+  // one -- which is why battle strips crop the full-body image for most
+  // characters. Same seed, so the two read as the same person.
+  //
+  // Failure here is not fatal: creation is free, the fighter render is what the
+  // player is looking at, and a missing avatar degrades to the existing crop.
+  const avatar = await renderOnePortrait({
+    supabase,
+    userId,
+    character,
+    kind: 'avatar',
+    promptRaw,
+    artStyle,
+    traits,
+    itemFragment,
+    seed,
+    jobKind: 'generate',
+  });
+
+  if (avatar.ok) {
+    await supabase
+      .from('characters')
+      .update({ avatar_portrait_id: avatar.portraitId })
+      .eq('id', character.id);
+    await supabase
+      .from('character_portraits')
+      .update({ appearance_version: character.appearance_version ?? 0 })
+      .eq('id', avatar.portraitId);
+  } else {
+    console.warn('avatar leg failed during first generation; fighter kept', {
+      character_id: character.id,
+      code: avatar.code,
+    });
+  }
 
   await supabase
     .from('portrait_jobs')

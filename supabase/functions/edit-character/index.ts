@@ -15,9 +15,11 @@ import {
   planIdentityBatch,
   type PlannedIdentityChange,
 } from '../_shared/identity-edit.ts';
+import { planLookBatch } from '../_shared/look-edit.ts';
 
 type EditKind =
   | 'identity'
+  | 'look'
   | 'rename'
   | 'archetype'
   | 'signature_color'
@@ -52,6 +54,8 @@ function editLogKind(k: EditKind): string {
     // row per field, so it has no single log kind of its own. Callers must not
     // reach here with it.
     case 'identity': return 'identity';
+    // Same shape as 'identity': a batch that writes one row per changed field.
+    case 'look': return 'look';
     case 'rename': return 'name';
     case 'traits_single_swap':
     case 'traits_full_reroll': return 'traits';
@@ -271,6 +275,122 @@ async function handleIdentityBatch(
   });
 }
 
+
+// ---------------------------------------------------------------------------
+// Look batch
+// ---------------------------------------------------------------------------
+
+/**
+ * Applies any subset of the describing fields in one free write.
+ *
+ * Everything here is free: a trait is an input to a render, and no image is
+ * generated when somebody taps through Vibe. The money moves to the render
+ * itself (`render_look`), which is the only step that costs anything at the
+ * provider.
+ *
+ * That makes this considerably simpler than the path it replaces. The screen
+ * used to issue one charged call per staged trait and deliberately apply palette
+ * LAST, because palette carried a 24-hour cooldown and a rejection there would
+ * abort the paid traits queued behind it. Free and cooldown-free, the whole
+ * sequence is a single UPDATE.
+ */
+async function handleLookBatch(
+  supabase: Db,
+  userId: string,
+  // deno-lint-ignore no-explicit-any
+  character: Record<string, any>,
+  payload: Record<string, unknown>,
+  idempotencyKey: string | null,
+): Promise<Response> {
+  if (idempotencyKey) {
+    const { data: replayed } = await supabase
+      .from('character_edits')
+      .select('id')
+      .eq('profile_id', userId)
+      .like('idempotency_key', `${idempotencyKey}:%`)
+      .limit(1);
+    if (replayed && replayed.length > 0) {
+      return ok({ idempotent: true, character, credits_spent: 0, applied: [] });
+    }
+  }
+
+  const plan = planLookBatch(character, payload);
+  if (!plan.ok) {
+    return err('bad_request', plan.reason, 400, plan.field ? { field: plan.field } : undefined);
+  }
+  const { changed, update } = plan;
+
+  if (changed.length === 0) {
+    return ok({ character, credits_spent: 0, applied: [], unchanged: true });
+  }
+
+  // The item is the one field whose value points at another table, so it is the
+  // one that needs a database check rather than a format check.
+  const itemChange = changed.find((c) => c.field === 'signature_item_id');
+  if (itemChange) {
+    const { data: item } = await supabase
+      .from('signature_items')
+      .select('id, profile_id, kind, moderation_status')
+      .eq('id', itemChange.value)
+      .maybeSingle();
+    if (!item) return err('bad_request', 'signature item not found', 400);
+    if (item.kind === 'custom' && item.profile_id !== userId) {
+      return err('forbidden', "cannot equip another user's custom item", 403);
+    }
+    if (item.moderation_status === 'rejected') {
+      return err('bad_request', 'signature item is rejected', 400);
+    }
+  }
+
+  // Traits changing means the render that depicts them is out of date; the
+  // appearance_version trigger handles telling the player, this keeps the
+  // existing counter honest for anything reading it.
+  if (changed.some((c) => c.logKind === 'traits' || c.logKind === 'palette')) {
+    update.traits_version = (character.traits_version ?? 0) + 1;
+  }
+
+  const { data: updated, error: updErr } = await supabase
+    .from('characters')
+    .update(update)
+    .eq('id', character.id)
+    .select('*')
+    .single();
+
+  if (updErr || !updated) {
+    // No refund branch: nothing was charged.
+    return err('server_error', updErr?.message ?? 'update failed', 500);
+  }
+
+  // One row per changed field, matching the identity batch, so each keeps its
+  // own audit trail and its own cooldown clock.
+  const { error: logErr } = await supabase.from('character_edits').insert(
+    changed.map((c) => ({
+      character_id: character.id,
+      profile_id: userId,
+      edit_kind: c.logKind,
+      before: { [c.field]: c.current },
+      after: { [c.field]: c.value },
+      credits_spent: 0,
+      wallet_transaction_id: null,
+      idempotency_key: idempotencyKey ? `${idempotencyKey}:${c.field}` : null,
+    })),
+  );
+  if (logErr) {
+    console.error('look edit applied but audit log insert failed', {
+      character_id: character.id,
+      fields: changed.map((c) => c.field),
+      error: logErr.message,
+    });
+  }
+
+  return ok({
+    character: updated,
+    edit_id: null,
+    credits_spent: 0,
+    applied: changed.map((c) => c.field),
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -315,7 +435,7 @@ Deno.serve(async (req) => {
   const { data: character, error: charErr } = await supabase
     .from('characters')
     .select(
-      'id, profile_id, name, archetype, battle_cry, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, traits_version, last_edited_at',
+      'id, profile_id, name, archetype, battle_cry, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, art_style, portrait_prompt_raw, traits_version, last_edited_at',
     )
     .eq('id', body.character_id)
     .maybeSingle();
@@ -344,6 +464,17 @@ Deno.serve(async (req) => {
     if (activeBattles && activeBattles.length > 0) {
       return err('battle_locked', 'character is in an active battle', 409);
     }
+  }
+
+  // Look is free and has no cooldown, so it skips pricing entirely.
+  if (body.edit_kind === 'look') {
+    return await handleLookBatch(
+      supabase,
+      userId,
+      character,
+      body.payload ?? {},
+      idempotencyKey,
+    );
   }
 
   // Identity is a batch of independently priced and independently cooled-down

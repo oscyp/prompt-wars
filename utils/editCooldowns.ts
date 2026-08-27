@@ -15,6 +15,10 @@ import { supabase } from './supabase';
 
 /** Price keys used by the edit screen, as they appear in the price table. */
 export type EditPriceKey =
+  // The two paid actions on the edit screen. Everything else describing a
+  // character is free.
+  | 'render_look'
+  | 'random_character'
   | 'rename'
   | 'battle_cry'
   | 'signature_color'
@@ -23,6 +27,9 @@ export type EditPriceKey =
   | 'archetype'
   | 'traits_single_swap'
   | 'traits_full_reroll'
+  // Retired: regenerate-portrait priced every render through these four and now
+  // reads render_look / random_character instead. Rows remain so historical
+  // character_edits still resolve a price.
   | 'regenerate_portrait'
   | 'regenerate_avatar'
   | 'initial_avatar'

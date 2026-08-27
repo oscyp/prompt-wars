@@ -24,7 +24,10 @@ Deno.test('resolver composes from each trait phrase when no prompt_raw', () => {
   const out = resolvePortraitPrompt({
     traits: {
       vibe: 'sinister',
-      silhouette: 'knight',
+      // The real column value, not the abbreviation the phrase table used to be
+      // keyed on -- 'knight' is not a silhouette any character can hold, so this
+      // test was asserting a contract the app could never exercise.
+      silhouette: 'armored_knight',
       palette: 'ember',
       era: 'industrial',
       expression: 'glare',
@@ -307,4 +310,69 @@ Deno.test('kind defaults to fighter so existing callers are unchanged', () => {
     kind: 'fighter',
   });
   assertEquals(withoutKind, explicitFighter);
+});
+
+// ---------------------------------------------------------------------------
+// Phrase coverage
+// ---------------------------------------------------------------------------
+//
+// lookupPhrase falls back to the raw key when a trait has no phrase, so a
+// missing entry does not throw or render blank -- it quietly ships the snake
+// case identifier to the image model. Every silhouette shipped that way for
+// months, along with far_future, thousand_yard and ash, because the phrase
+// tables were keyed on abbreviations that no column ever contained.
+//
+// These assertions are the guard: a trait value with no phrase is a defect.
+
+import {
+  VIBE_PHRASES,
+  SILHOUETTE_PHRASES,
+  PALETTE_PHRASES,
+  ERA_PHRASES,
+  EXPRESSION_PHRASES,
+} from '../_shared/portrait-prompt-resolver.ts';
+import {
+  VIBE, SILHOUETTE, ERA, EXPRESSION, PALETTE,
+} from '../_shared/look-edit.ts';
+
+const COVERAGE: [string, string[], Record<string, string>][] = [
+  ['vibe', VIBE, VIBE_PHRASES],
+  ['silhouette', SILHOUETTE, SILHOUETTE_PHRASES],
+  ['era', ERA, ERA_PHRASES],
+  ['expression', EXPRESSION, EXPRESSION_PHRASES],
+  ['palette', PALETTE, PALETTE_PHRASES],
+];
+
+for (const [label, values, phrases] of COVERAGE) {
+  Deno.test(`phrases - every ${label} value has one`, () => {
+    const missing = values.filter((v) => !phrases[v]);
+    assertEquals(missing, [], `${label} values with no phrase: ${missing.join(', ')}`);
+  });
+
+  Deno.test(`phrases - no ${label} phrase is keyed on a value that cannot occur`, () => {
+    const orphans = Object.keys(phrases).filter((k) => !values.includes(k));
+    assertEquals(orphans, [], `${label} phrases for unknown values: ${orphans.join(', ')}`);
+  });
+}
+
+Deno.test('phrases - no trait reaches the prompt as a raw snake_case token', () => {
+  const prompt = resolvePortraitPrompt({
+    traits: {
+      vibe: 'mischievous',
+      silhouette: 'lean_duelist',
+      palette: 'ash',
+      era: 'far_future',
+      expression: 'thousand_yard',
+    },
+    archetype: 'trickster',
+    signature_color: '#8B5CF6',
+    seed: 42,
+  });
+  for (const token of ['lean_duelist', 'far_future', 'thousand_yard']) {
+    assertEquals(prompt.includes(token), false, `prompt leaked "${token}"`);
+  }
+  assertEquals(prompt.includes('lean duelist build'), true);
+  assertEquals(prompt.includes('far-future sci-fi setting'), true);
+  assertEquals(prompt.includes('thousand-yard stare'), true);
+  assertEquals(prompt.includes('ashen grays'), true);
 });

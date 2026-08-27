@@ -5,7 +5,7 @@ import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { PALETTES, TRAIT_LABELS } from '@/constants/CharacterTraits';
 import { ARCHETYPE_LIST, type ArchetypeId } from '@/constants/Archetypes';
 import type { EditPricing } from '@/utils/editCooldowns';
-import type { IdentityKey } from '@/hooks/useCharacterEditDraft';
+import type { DraftKey } from '@/hooks/useCharacterEditDraft';
 import TraitPicker, { type TraitOption } from '../TraitPicker';
 import ColorSwatchGrid, {
   withCustomOption,
@@ -25,11 +25,11 @@ export interface IdentityPanelProps {
     battle_cry: string;
     signature_color: string;
   };
-  staged: Partial<Record<IdentityKey, string>>;
-  changed: IdentityKey[];
+  staged: Partial<Record<string, string | null>>;
+  changedKeys: Set<string>;
   pricing: EditPricing;
   disabled?: boolean;
-  onStage: (key: IdentityKey, value: string) => void;
+  onStage: (key: DraftKey, value: string) => void;
 }
 
 /** The eight preset colours, shared by Signature colour and Outfit palette. */
@@ -52,7 +52,7 @@ export const PALETTE_SWATCHES: ColorSwatchOption[] = PALETTES.map((p) => ({
 export default function IdentityPanel({
   character,
   staged,
-  changed,
+  changedKeys,
   pricing,
   disabled = false,
   onStage,
@@ -60,10 +60,10 @@ export default function IdentityPanel({
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
 
-  const name = staged.name ?? character.name;
+  const name = (staged.name as string) ?? character.name;
   const archetype = (staged.archetype ?? character.archetype) as ArchetypeId;
-  const battleCry = staged.battleCry ?? character.battle_cry;
-  const colorHex = staged.signatureColor ?? character.signature_color;
+  const battleCry = (staged.battleCry as string) ?? character.battle_cry;
+  const colorHex = (staged.signatureColor as string) ?? character.signature_color;
 
   const colorOptions = withCustomOption(
     PALETTE_SWATCHES,
@@ -81,7 +81,7 @@ export default function IdentityPanel({
         subtitle="What opponents see on the versus screen."
         cost={pricing.prices.rename?.credits ?? 0}
         cooldownMs={pricing.cooldownMs.rename}
-        changed={changed.includes('name')}
+        changed={changedKeys.has('name')}
         disabled={disabled}
       >
         <TextInput
@@ -106,7 +106,7 @@ export default function IdentityPanel({
         subtitle="Shapes how the judge weighs your moves, and your portrait."
         cost={pricing.prices.archetype?.credits ?? 0}
         cooldownMs={pricing.cooldownMs.archetype}
-        changed={changed.includes('archetype')}
+        changed={changedKeys.has('archetype')}
         disabled={disabled}
       >
         <TraitPicker
@@ -129,7 +129,7 @@ export default function IdentityPanel({
         subtitle="Shown on reveals and share cards."
         cost={pricing.prices.battle_cry?.credits ?? 0}
         cooldownMs={pricing.cooldownMs.battle_cry}
-        changed={changed.includes('battleCry')}
+        changed={changedKeys.has('battleCry')}
         disabled={disabled}
       >
         <TextInput
@@ -159,7 +159,7 @@ export default function IdentityPanel({
         subtitle="Tints your UI accents and your portrait."
         cost={pricing.prices.signature_color?.credits ?? 0}
         cooldownMs={pricing.cooldownMs.signature_color}
-        changed={changed.includes('signatureColor')}
+        changed={changedKeys.has('signatureColor')}
         disabled={disabled}
       >
         <ColorSwatchGrid

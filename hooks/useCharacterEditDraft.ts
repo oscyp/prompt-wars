@@ -1,263 +1,260 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
-  computeStagedTraits,
-  StageTraitKey,
-  TRAIT_FIELD,
-  TRAIT_SWAP_PRICE,
-  TRAIT_FULL_REROLL_PRICE,
-} from '@/utils/characterEditPricing';
-import {
   describeCooldownLength,
   type EditPriceKey,
   type EditPricing,
 } from '@/utils/editCooldowns';
+import {
+  TRAIT_LABELS,
+  ART_STYLE_LABELS,
+  type StageTraitKey,
+  type PaletteKey,
+  type ArtStyle,
+} from '@/constants/CharacterTraits';
+import { ARCHETYPES, type ArchetypeId } from '@/constants/Archetypes';
+import type { IdentityChanges, LookChanges } from '@/utils/characters';
 
-/** The four fields the batched `identity` edit kind covers. */
-export type IdentityKey = 'name' | 'archetype' | 'battleCry' | 'signatureColor';
+export type DraftSection = 'identity' | 'look' | 'gear';
 
-interface IdentityFieldDef {
-  key: IdentityKey;
+/** Every field the player can stage, across all three tabs. */
+export type DraftKey =
+  // identity
+  | 'name'
+  | 'archetype'
+  | 'battleCry'
+  | 'signatureColor'
+  // look
+  | 'artStyle'
+  | 'portraitPromptRaw'
+  | 'palette'
+  | 'vibe'
+  | 'silhouette'
+  | 'era'
+  | 'expression'
+  // gear
+  | 'signatureItemId';
+
+interface FieldDef {
+  key: DraftKey;
+  section: DraftSection;
   /** Column on the character row. */
   column: string;
   label: string;
-  priceKey: EditPriceKey;
+  /** Only the identity fields carry cooldowns worth announcing. */
+  priceKey?: EditPriceKey;
 }
 
-export const IDENTITY_FIELDS: readonly IdentityFieldDef[] = [
-  { key: 'name', column: 'name', label: 'Name', priceKey: 'rename' },
-  {
-    key: 'archetype',
-    column: 'archetype',
-    label: 'Archetype',
-    priceKey: 'archetype',
-  },
-  {
-    key: 'battleCry',
-    column: 'battle_cry',
-    label: 'Battle cry',
-    priceKey: 'battle_cry',
-  },
-  {
-    key: 'signatureColor',
-    column: 'signature_color',
-    label: 'Signature colour',
-    priceKey: 'signature_color',
-  },
+export const DRAFT_FIELDS: readonly FieldDef[] = [
+  { key: 'name', section: 'identity', column: 'name', label: 'Name', priceKey: 'rename' },
+  { key: 'archetype', section: 'identity', column: 'archetype', label: 'Archetype', priceKey: 'archetype' },
+  { key: 'battleCry', section: 'identity', column: 'battle_cry', label: 'Battle cry', priceKey: 'battle_cry' },
+  { key: 'signatureColor', section: 'identity', column: 'signature_color', label: 'Signature colour', priceKey: 'signature_color' },
+
+  { key: 'artStyle', section: 'look', column: 'art_style', label: 'Art style' },
+  { key: 'portraitPromptRaw', section: 'look', column: 'portrait_prompt_raw', label: 'Description' },
+  { key: 'palette', section: 'look', column: 'palette_key', label: 'Outfit palette' },
+  { key: 'vibe', section: 'look', column: 'vibe', label: 'Vibe' },
+  { key: 'silhouette', section: 'look', column: 'silhouette', label: 'Silhouette' },
+  { key: 'era', section: 'look', column: 'era', label: 'Era' },
+  { key: 'expression', section: 'look', column: 'expression', label: 'Expression' },
+
+  { key: 'signatureItemId', section: 'gear', column: 'signature_item_id', label: 'Signature item' },
 ];
 
 export interface DraftChange {
-  /** Which tab the change belongs to, for the per-tab staged dots. */
-  section: 'identity' | 'look';
+  key: DraftKey;
+  section: DraftSection;
   label: string;
   /** Player-facing new value, already formatted. */
   to: string;
-  /** Present when the field locks after saving, e.g. "7 days". */
+  /** Present when saving this field locks it, e.g. "7 days". */
   locksFor?: string;
 }
 
 export interface DraftSummary {
-  identityChanged: IdentityKey[];
-  traitsChanged: StageTraitKey[];
   changes: DraftChange[];
   changeCount: number;
   dirty: boolean;
-  identityDirty: boolean;
-  lookDirty: boolean;
-  /** Identity is free today; this stays summed from live prices regardless. */
-  identityCost: number;
-  traitCost: number;
-  totalCost: number;
-  /** True when the trait apply should go through one `traits_full_reroll`. */
-  traitsUseBatch: boolean;
+  /** Which tabs carry unsaved edits, for the staged dots. */
+  dirtySections: Record<DraftSection, boolean>;
+}
+
+/** Staged values. `null` is meaningful for portraitPromptRaw and only there. */
+export type DraftValues = Partial<Record<DraftKey, string | null>>;
+
+/**
+ * Formats a staged value for the save confirmation.
+ *
+ * Item ids resolve through `itemName` because a uuid in a confirmation dialog
+ * tells the player nothing about what they are about to equip.
+ */
+function displayValue(
+  key: DraftKey,
+  value: string | null,
+  itemName: (id: string) => string,
+): string {
+  if (value === null || value === '') return 'None';
+  switch (key) {
+    case 'archetype':
+      return ARCHETYPES[value as ArchetypeId]?.name ?? value;
+    case 'artStyle':
+      return ART_STYLE_LABELS[value as ArtStyle] ?? value;
+    case 'palette':
+      return TRAIT_LABELS.palette[value as PaletteKey] ?? value;
+    case 'vibe':
+      return TRAIT_LABELS.vibe[value as keyof typeof TRAIT_LABELS.vibe] ?? value;
+    case 'silhouette':
+      return TRAIT_LABELS.silhouette[value as keyof typeof TRAIT_LABELS.silhouette] ?? value;
+    case 'era':
+      return TRAIT_LABELS.era[value as keyof typeof TRAIT_LABELS.era] ?? value;
+    case 'expression':
+      return TRAIT_LABELS.expression[value as keyof typeof TRAIT_LABELS.expression] ?? value;
+    case 'signatureItemId':
+      return itemName(value);
+    case 'portraitPromptRaw':
+      return value.length > 40 ? `${value.slice(0, 40)}…` : value;
+    default:
+      return value;
+  }
 }
 
 export interface ComputeDraftInput {
   character: Record<string, unknown> | null;
-  identity: Partial<Record<IdentityKey, string>>;
-  traits: Partial<Record<StageTraitKey, string>>;
+  values: DraftValues;
   pricing: EditPricing;
-  /** Formats a staged trait value for display, e.g. `neon` -> `Neon`. */
-  traitLabel: (key: StageTraitKey, value: string) => string;
-  /** Formats a staged identity value for display. */
-  identityLabel: (key: IdentityKey, value: string) => string;
+  itemName?: (id: string) => string;
 }
 
 const EMPTY: DraftSummary = {
-  identityChanged: [],
-  traitsChanged: [],
   changes: [],
   changeCount: 0,
   dirty: false,
-  identityDirty: false,
-  lookDirty: false,
-  identityCost: 0,
-  traitCost: 0,
-  totalCost: 0,
-  traitsUseBatch: false,
+  dirtySections: { identity: false, look: false, gear: false },
 };
 
 /**
- * Pure core of the draft: what actually differs from the saved character, what
- * it costs at live prices, and what it will lock.
+ * Pure core of the draft: what actually differs from the saved character, and
+ * what saving it will lock.
  *
- * Kept separate from the hook so the money and cooldown arithmetic -- the part
- * that has to be right before the player is asked to confirm -- is directly
- * testable without rendering anything.
+ * There is no cost arithmetic here any more. Describing a character is free —
+ * the money moved to the render — so the only thing a save can cost the player
+ * is time: name locks for 7 days, archetype for 14.
  */
 export function computeDraft(input: ComputeDraftInput): DraftSummary {
-  const { character, identity, traits, pricing, traitLabel, identityLabel } =
-    input;
+  const { character, values, pricing, itemName = (id) => id } = input;
   if (!character) return EMPTY;
 
-  const identityChanged: IdentityKey[] = [];
   const changes: DraftChange[] = [];
-  let identityCost = 0;
+  const dirtySections: Record<DraftSection, boolean> = {
+    identity: false, look: false, gear: false,
+  };
 
-  for (const field of IDENTITY_FIELDS) {
-    const staged = identity[field.key];
-    // A field staged back to its saved value is not a change. Counting it would
-    // put a phantom entry in the save bar and burn a real cooldown on save.
-    if (staged == null || staged === character[field.column]) continue;
-    identityChanged.push(field.key);
-    const price = pricing.prices[field.priceKey];
-    identityCost += price?.credits ?? 0;
+  for (const field of DRAFT_FIELDS) {
+    // Presence, not truthiness: null is a real staged value for the prompt.
+    if (!(field.key in values)) continue;
+    const staged = values[field.key] ?? null;
+    const current = (character[field.column] as string | null) ?? null;
+    // A field staged back to its saved value is not a change. Writing it would
+    // bump appearance_version and tell the player their portrait is out of date
+    // over an edit they did not make.
+    if (staged === current) continue;
+
+    dirtySections[field.section] = true;
     changes.push({
-      section: 'identity',
+      key: field.key,
+      section: field.section,
       label: field.label,
-      to: identityLabel(field.key, staged),
-      locksFor:
-        describeCooldownLength(price?.cooldownSeconds ?? 0) ?? undefined,
+      to: displayValue(field.key, staged, itemName),
+      locksFor: field.priceKey
+        ? (describeCooldownLength(pricing.prices[field.priceKey]?.cooldownSeconds ?? 0) ??
+           undefined)
+        : undefined,
     });
   }
-
-  const {
-    changed: traitsChanged,
-    cost: traitCost,
-    useBatch: traitsUseBatch,
-  } = computeStagedTraits(character, traits, {
-    swap: pricing.prices.traits_single_swap?.credits ?? TRAIT_SWAP_PRICE,
-    fullReroll:
-      pricing.prices.traits_full_reroll?.credits ?? TRAIT_FULL_REROLL_PRICE,
-  });
-
-  for (const key of traitsChanged) {
-    const value = traits[key];
-    if (value == null) continue;
-    const priceKey: EditPriceKey =
-      key === 'palette' ? 'palette' : 'traits_single_swap';
-    changes.push({
-      section: 'look',
-      label: TRAIT_LABELS_BY_KEY[key],
-      to: traitLabel(key, value),
-      locksFor:
-        describeCooldownLength(
-          pricing.prices[priceKey]?.cooldownSeconds ?? 0,
-        ) ?? undefined,
-    });
-  }
-
-  const changeCount = identityChanged.length + traitsChanged.length;
 
   return {
-    identityChanged,
-    traitsChanged,
     changes,
-    changeCount,
-    dirty: changeCount > 0,
-    identityDirty: identityChanged.length > 0,
-    lookDirty: traitsChanged.length > 0,
-    identityCost,
-    traitCost,
-    totalCost: identityCost + traitCost,
-    traitsUseBatch,
+    changeCount: changes.length,
+    dirty: changes.length > 0,
+    dirtySections,
   };
 }
 
-const TRAIT_LABELS_BY_KEY: Record<StageTraitKey, string> = {
-  palette: 'Outfit palette',
-  vibe: 'Vibe',
-  silhouette: 'Silhouette',
-  era: 'Era',
-  expression: 'Expression',
-};
-
 export interface UseCharacterEditDraft extends DraftSummary {
-  identity: Partial<Record<IdentityKey, string>>;
-  traits: Partial<Record<StageTraitKey, string>>;
-  stageIdentity: (key: IdentityKey, value: string) => void;
-  stageTrait: (key: StageTraitKey, value: string) => void;
+  values: DraftValues;
+  stage: (key: DraftKey, value: string | null) => void;
   clear: () => void;
-  /** Payload for the batched `identity` edit, or null when nothing changed. */
-  identityPayload: Partial<Record<IdentityKey, string>> | null;
+  /** Batched payload for the free `identity` edit, or null when unchanged. */
+  identityPayload: IdentityChanges | null;
+  /** Batched payload for the free `look` edit (look + gear), or null. */
+  lookPayload: LookChanges | null;
 }
 
 /**
  * Holds every unsaved edit on the character screen behind one Save action.
  *
- * The screen previously ran three commit models at once: traits staged and
- * batch-applied, while signature colour and signature item committed on tap --
- * the colour silently starting a 24-hour cooldown with no confirmation. One
- * draft means one place where "what changes, what it costs, what it locks" is
- * answered, and one moment where the player agrees to all three.
+ * Look and Gear join Identity in the draft: equipping an item on tap while the
+ * rest of the screen staged would rebuild exactly the mixed-commit
+ * inconsistency this model exists to remove.
  */
 export function useCharacterEditDraft(
   character: Record<string, unknown> | null,
   pricing: EditPricing,
-  labels: {
-    traitLabel: (key: StageTraitKey, value: string) => string;
-    identityLabel: (key: IdentityKey, value: string) => string;
-  },
+  itemName?: (id: string) => string,
 ): UseCharacterEditDraft {
-  const [identity, setIdentity] = useState<
-    Partial<Record<IdentityKey, string>>
-  >({});
-  const [traits, setTraits] = useState<Partial<Record<StageTraitKey, string>>>(
-    {},
-  );
+  const [values, setValues] = useState<DraftValues>({});
 
-  const stageIdentity = useCallback((key: IdentityKey, value: string) => {
-    setIdentity((prev) => ({ ...prev, [key]: value }));
+  const stage = useCallback((key: DraftKey, value: string | null) => {
+    setValues((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  const stageTrait = useCallback((key: StageTraitKey, value: string) => {
-    setTraits((prev) => ({ ...prev, [key]: value }));
-  }, []);
+  const clear = useCallback(() => setValues({}), []);
 
-  const clear = useCallback(() => {
-    setIdentity({});
-    setTraits({});
-  }, []);
-
-  const { traitLabel, identityLabel } = labels;
   const summary = useMemo(
-    () =>
-      computeDraft({
-        character,
-        identity,
-        traits,
-        pricing,
-        traitLabel,
-        identityLabel,
-      }),
-    [character, identity, traits, pricing, traitLabel, identityLabel],
+    () => computeDraft({ character, values, pricing, itemName }),
+    [character, values, pricing, itemName],
   );
 
   const identityPayload = useMemo(() => {
-    if (summary.identityChanged.length === 0) return null;
-    const payload: Partial<Record<IdentityKey, string>> = {};
-    for (const key of summary.identityChanged) payload[key] = identity[key];
+    const staged = summary.changes.filter((c) => c.section === 'identity');
+    if (staged.length === 0) return null;
+    const payload: IdentityChanges = {};
+    for (const c of staged) {
+      const v = values[c.key];
+      if (typeof v !== 'string') continue;
+      if (c.key === 'name') payload.name = v;
+      if (c.key === 'archetype') payload.archetype = v;
+      if (c.key === 'battleCry') payload.battleCry = v;
+      if (c.key === 'signatureColor') payload.signatureColor = v;
+    }
     return payload;
-  }, [summary.identityChanged, identity]);
+  }, [summary.changes, values]);
 
-  return {
-    ...summary,
-    identity,
-    traits,
-    stageIdentity,
-    stageTrait,
-    clear,
-    identityPayload,
-  };
+  const lookPayload = useMemo(() => {
+    const staged = summary.changes.filter(
+      (c) => c.section === 'look' || c.section === 'gear',
+    );
+    if (staged.length === 0) return null;
+    const payload: LookChanges = {};
+    for (const c of staged) {
+      const v = values[c.key];
+      switch (c.key) {
+        case 'artStyle': if (typeof v === 'string') payload.artStyle = v as ArtStyle; break;
+        case 'palette': if (typeof v === 'string') payload.palette = v as PaletteKey; break;
+        case 'vibe': if (typeof v === 'string') payload.vibe = v; break;
+        case 'silhouette': if (typeof v === 'string') payload.silhouette = v; break;
+        case 'era': if (typeof v === 'string') payload.era = v; break;
+        case 'expression': if (typeof v === 'string') payload.expression = v; break;
+        case 'signatureItemId': if (typeof v === 'string') payload.signatureItemId = v; break;
+        // The one field whose null must survive: it is how a player returns
+        // from "your own words" to the guided traits.
+        case 'portraitPromptRaw': payload.portraitPromptRaw = v ?? null; break;
+      }
+    }
+    return payload;
+  }, [summary.changes, values]);
+
+  return { ...summary, values, stage, clear, identityPayload, lookPayload };
 }
 
-export { TRAIT_FIELD };
+export type { StageTraitKey };

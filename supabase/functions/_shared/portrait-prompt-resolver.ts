@@ -67,7 +67,7 @@ const MAX_RAW_SUBJECT_CHARS = 200;
 // Trait dictionaries
 // ---------------------------------------------------------------------------
 
-const VIBE_PHRASES: Record<string, string> = {
+export const VIBE_PHRASES: Record<string, string> = {
   heroic: 'heroic and steadfast',
   sinister: 'sinister grin',
   mischievous: 'mischievous gleam',
@@ -76,41 +76,46 @@ const VIBE_PHRASES: Record<string, string> = {
   regal: 'regal poise',
 };
 
-const SILHOUETTE_PHRASES: Record<string, string> = {
-  duelist: 'lean duelist build',
-  bruiser: 'heavy bruiser silhouette',
-  trickster: 'slim trickster frame',
-  knight: 'armored knight stance',
-  mystic: 'robed mystic figure',
-  tactician: 'sharp tactician posture',
+// Keys MUST be the exact values stored on characters.silhouette. They were not:
+// every key here was an abbreviation ('duelist' for 'lean_duelist'), so
+// lookupPhrase missed all six and fell through to its raw-key passthrough,
+// sending the literal token `lean_duelist` to the image model instead of a
+// description. Same class of bug hit far_future, thousand_yard and ash below.
+export const SILHOUETTE_PHRASES: Record<string, string> = {
+  lean_duelist: 'lean duelist build',
+  heavy_bruiser: 'heavy bruiser silhouette',
+  slim_trickster: 'slim trickster frame',
+  armored_knight: 'armored knight stance',
+  robed_mystic: 'robed mystic figure',
+  sharp_tactician: 'sharp tactician posture',
 };
 
-const PALETTE_PHRASES: Record<string, string> = {
+export const PALETTE_PHRASES: Record<string, string> = {
   ember: 'ember reds and oranges',
   ocean: 'deep ocean blues',
   neon: 'neon magenta and cyan',
   bone: 'bleached bone whites',
   forest: 'deep forest greens',
   royal: 'royal purples and gold',
-  ashen: 'ashen grays',
+  ash: 'ashen grays',
   gold: 'warm golds',
 };
 
-const ERA_PHRASES: Record<string, string> = {
+export const ERA_PHRASES: Record<string, string> = {
   ancient: 'ancient mythic setting',
   industrial: 'industrial steam-era setting',
   modern: 'modern stylized setting',
   cyberpunk: 'cyberpunk neon setting',
-  scifi: 'far-future sci-fi setting',
+  far_future: 'far-future sci-fi setting',
 };
 
-const EXPRESSION_PHRASES: Record<string, string> = {
+export const EXPRESSION_PHRASES: Record<string, string> = {
   smirk: 'subtle smirk',
   glare: 'fierce glare',
   calm: 'calm gaze',
   roar: 'open roar',
   smile: 'warm smile',
-  stare: 'thousand-yard stare',
+  thousand_yard: 'thousand-yard stare',
 };
 
 const ARCHETYPE_HINTS: Record<Archetype, string> = {

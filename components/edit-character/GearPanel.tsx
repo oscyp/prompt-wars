@@ -23,7 +23,8 @@ const CATALOG_PREVIEW = 15;
 
 export interface GearPanelProps {
   items: CatalogSignatureItem[];
-  equippedId: string | null;
+  /** Never null: a character always has an item. */
+  equippedId: string;
   loading: boolean;
   error: string | null;
   customCost: number;
@@ -32,7 +33,7 @@ export interface GearPanelProps {
   busy?: boolean;
   disabled?: boolean;
   onRetry: () => void;
-  onEquip: (id: string | null) => void;
+  onEquip: (id: string) => void;
   onCreateCustom: () => void;
 }
 
@@ -113,6 +114,9 @@ export default function GearPanel({
         <Text style={[s.cardTitle, accessibleText, { color: colors.text }]}>
           Equipped item
         </Text>
+        {/* No unequip. signature_item_id is NOT NULL and the item feeds the
+            portrait prompt, so "none" only ever meant a blander render nobody
+            chose. Gear is which one, not whether. */}
         {equipped ? (
           <>
             <Text style={[s.cardSub, accessibleText, { color: colors.text }]}>
@@ -127,27 +131,12 @@ export default function GearPanel({
             >
               {equipped.description}
             </Text>
-            <TouchableOpacity
-              onPress={() => onEquip(null)}
-              disabled={busy || disabled}
-              accessibilityRole="button"
-              accessibilityLabel="Unequip signature item"
-              style={[
-                s.secondaryBtn,
-                { borderColor: colors.border },
-                (busy || disabled) && s.btnDisabled,
-              ]}
-            >
-              <Text style={[s.secondaryBtnText, { color: colors.text }]}>
-                Unequip
-              </Text>
-            </TouchableOpacity>
           </>
         ) : (
           <Text
             style={[s.cardSub, accessibleText, { color: colors.textSecondary }]}
           >
-            Nothing equipped. Your fighter renders without a signature prop.
+            Loading…
           </Text>
         )}
       </View>
@@ -183,7 +172,7 @@ export default function GearPanel({
             }}
             disabled={busy || disabled}
             accessibilityRole="button"
-            accessibilityLabel={`Equip ${preview.name}, free`}
+            accessibilityLabel={`Choose ${preview.name}`}
             style={[
               s.primaryBtn,
               { backgroundColor: colors.primary },
@@ -193,7 +182,7 @@ export default function GearPanel({
             {busy ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={s.primaryBtnText}>Equip · Free</Text>
+              <Text style={s.primaryBtnText}>Choose this item</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -209,7 +198,7 @@ export default function GearPanel({
       ) : null}
       <ItemGrid
         items={custom}
-        selectedId={equippedId ?? undefined}
+        selectedId={equippedId}
         onSelect={(id) => !busy && setPreviewId(id)}
         onCreateCustom={
           disabled || !pricingVerified ? undefined : onCreateCustom
@@ -217,7 +206,7 @@ export default function GearPanel({
       />
 
       <Text style={[s.sectionLabel, { color: colors.textTertiary }]}>
-        Catalog · free to equip
+        Catalogue
       </Text>
       <TextInput
         value={query}
@@ -236,7 +225,7 @@ export default function GearPanel({
       ) : (
         <ItemGrid
           items={visibleCatalog}
-          selectedId={equippedId ?? undefined}
+          selectedId={equippedId}
           onSelect={(id) => !busy && setPreviewId(id)}
         />
       )}

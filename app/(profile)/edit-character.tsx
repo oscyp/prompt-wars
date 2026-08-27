@@ -16,7 +16,7 @@ import { useCredits } from '@/hooks/useCredits';
 import { useCharacterEditLock } from '@/hooks/useCharacterEditLock';
 import {
   useCharacterEditDraft,
-  type IdentityKey,
+  type DraftKey,
 } from '@/hooks/useCharacterEditDraft';
 import { describeEditError } from '@/utils/editErrors';
 import { fetchEditPricing, type EditPricing } from '@/utils/editCooldowns';
@@ -26,7 +26,7 @@ import { supabase } from '@/utils/supabase';
 import {
   editCharacter,
   generatePortrait,
-  regeneratePortrait,
+  renderLook,
   listSignatureItemsCatalog,
   createCustomSignatureItem,
   listPortraitHistory,
@@ -37,22 +37,20 @@ import {
   type CatalogSignatureItem,
 } from '@/utils/characters';
 import {
-  TRAIT_LABELS,
-  PALETTE_HEX,
+  ART_STYLE_LABELS,
   type PaletteKey,
+  type ArtStyle,
+  type ItemClass,
   type Vibe,
   type Silhouette,
   type Era,
   type Expression,
-  type ArtStyle,
-  type ItemClass,
-  ART_STYLE_LABELS,
 } from '@/constants/CharacterTraits';
 import { ARCHETYPES, type ArchetypeId } from '@/constants/Archetypes';
-import type { StageTraitKey } from '@/utils/characterEditPricing';
 import {
   SegmentedCategoryBar,
   PortraitViewer,
+  PortraitHistoryStrip,
   Toast,
   CreditChip,
   InlineBanner,
@@ -60,29 +58,20 @@ import {
   IdentityPanel,
   LookPanel,
   GearPanel,
-  PortraitsPanel,
   SaveBar,
   CustomItemSheet,
 } from '@/components';
 
-type Category = 'identity' | 'look' | 'gear' | 'portraits';
+type Category = 'identity' | 'look' | 'gear';
 
 const CATEGORIES: {
   key: Category;
   label: string;
-  icon:
-    | 'person-outline'
-    | 'color-palette-outline'
-    | 'cube-outline'
-    | 'image-outline';
+  icon: 'person-outline' | 'color-palette-outline' | 'cube-outline';
 }[] = [
   { key: 'identity', label: 'Identity', icon: 'person-outline' },
-  // "Look" over "Traits": this tab changes how the fighter is drawn, and
-  // "trait" reads like a stat. "Gear" over "Item" for the same reason -- the
-  // section holds a catalog, not a single field.
   { key: 'look', label: 'Look', icon: 'color-palette-outline' },
   { key: 'gear', label: 'Gear', icon: 'cube-outline' },
-  { key: 'portraits', label: 'Portraits', icon: 'image-outline' },
 ];
 
 const EMPTY_PRICING: EditPricing = { prices: {}, cooldownMs: {} };
@@ -93,7 +82,7 @@ interface CharacterRow {
   archetype: ArchetypeId;
   battle_cry: string;
   signature_color: string;
-  signature_item_id: string | null;
+  signature_item_id: string;
   portrait_id: string | null;
   avatar_portrait_id: string | null;
   portrait_seed: number | null;
@@ -103,40 +92,13 @@ interface CharacterRow {
   era: Era | null;
   expression: Expression | null;
   art_style: ArtStyle | null;
+  portrait_prompt_raw: string | null;
   appearance_version: number | null;
   last_edited_at: string | null;
 }
 
 const CHARACTER_COLUMNS =
-  'id,name,archetype,battle_cry,signature_color,signature_item_id,portrait_id,avatar_portrait_id,portrait_seed,vibe,silhouette,palette_key,era,expression,art_style,appearance_version,last_edited_at';
-
-function traitLabel(key: StageTraitKey, value: string): string {
-  switch (key) {
-    case 'palette':
-      return TRAIT_LABELS.palette[value as PaletteKey] ?? value;
-    case 'vibe':
-      return TRAIT_LABELS.vibe[value as Vibe] ?? value;
-    case 'silhouette':
-      return TRAIT_LABELS.silhouette[value as Silhouette] ?? value;
-    case 'era':
-      return TRAIT_LABELS.era[value as Era] ?? value;
-    case 'expression':
-      return TRAIT_LABELS.expression[value as Expression] ?? value;
-  }
-}
-
-function identityLabel(key: IdentityKey, value: string): string {
-  if (key === 'archetype') {
-    return ARCHETYPES[value as ArchetypeId]?.name ?? value;
-  }
-  if (key === 'signatureColor') {
-    const preset = Object.entries(PALETTE_HEX).find(
-      ([, hex]) => hex.toLowerCase() === value.toLowerCase(),
-    );
-    return preset ? TRAIT_LABELS.palette[preset[0] as PaletteKey] : 'Custom';
-  }
-  return value;
-}
+  'id,name,archetype,battle_cry,signature_color,signature_item_id,portrait_id,avatar_portrait_id,portrait_seed,vibe,silhouette,palette_key,era,expression,art_style,portrait_prompt_raw,appearance_version,last_edited_at';
 
 export default function EditCharacterScreen() {
   const router = useRouter();
@@ -149,16 +111,13 @@ export default function EditCharacterScreen() {
   const [character, setCharacter] = useState<CharacterRow | null>(null);
   const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
   const [portraitVersion, setPortraitVersion] = useState<number | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<Category>('identity');
   const [pricing, setPricing] = useState<EditPricing>(EMPTY_PRICING);
-  // Prices come from the database. Until they arrive, or if they cannot be
-  // read, paid actions stay disabled rather than quoting a stale constant --
-  // this screen used to promise a total from compile-time values while the
-  // server charged something else.
+  // Until live prices arrive, or if they cannot be read, the paid actions stay
+  // disabled rather than quoting a constant the server may not agree with.
   const [pricingVerified, setPricingVerified] = useState(false);
   const [history, setHistory] = useState<PortraitHistoryEntry[]>([]);
   const [restoringId, setRestoringId] = useState<string | null>(null);
@@ -173,10 +132,15 @@ export default function EditCharacterScreen() {
     character?.id,
   );
 
+  const itemName = useCallback(
+    (id: string) => items.find((i) => i.id === id)?.name ?? 'that item',
+    [items],
+  );
+
   const draft = useCharacterEditDraft(
     character as unknown as Record<string, unknown> | null,
     pricing,
-    useMemo(() => ({ traitLabel, identityLabel }), []),
+    itemName,
   );
 
   const alertEditError = useCallback((err: unknown, fallbackTitle: string) => {
@@ -197,10 +161,9 @@ export default function EditCharacterScreen() {
       .select('image_path, appearance_version')
       .eq('id', portraitId)
       .maybeSingle();
-    const row = data as {
-      image_path: string;
-      appearance_version: number | null;
-    } | null;
+    const row = data as
+      | { image_path: string; appearance_version: number | null }
+      | null;
     if (!row?.image_path) return { url: null, version: null };
     const { data: signed, error } = await supabase.storage
       .from('character-portraits')
@@ -233,13 +196,6 @@ export default function EditCharacterScreen() {
       } else {
         setPortraitUrl(null);
         setPortraitVersion(null);
-      }
-
-      if (row?.avatar_portrait_id) {
-        const { url } = await signPortrait(row.avatar_portrait_id);
-        setAvatarUrl(url);
-      } else {
-        setAvatarUrl(null);
       }
     } catch (err) {
       console.error('Failed to load character:', err);
@@ -315,20 +271,49 @@ export default function EditCharacterScreen() {
   /**
    * True when the live render predates the character's current look.
    *
-   * Compares appearance versions rather than timestamps. The old check used
-   * `last_edited_at`, which the database touches on ANY column change, so
-   * renaming a fighter or fixing a typo in a battle cry produced a nudge to
-   * spend a credit on a render that would have come back identical.
-   *
-   * A render with no stamped version predates the column; treat it as current
-   * rather than inventing a reason to charge for a new one.
+   * Compares appearance versions rather than timestamps: `last_edited_at` is
+   * touched by any column change, so it once reported a stale portrait after a
+   * battle-cry typo fix. A render with no stamped version predates the column
+   * and is treated as current rather than as a reason to charge for a new one.
    */
   const portraitStale = useMemo(() => {
     if (!character || portraitVersion == null) return false;
     return (character.appearance_version ?? 0) > portraitVersion;
   }, [character, portraitVersion]);
 
+  const renderCost = pricing.prices.render_look?.credits ?? 0;
+  const randomCost = pricing.prices.random_character?.credits ?? 0;
   const editingDisabled = battleLocked;
+
+  /** Saved values with anything staged laid over the top. */
+  const stagedLook = useMemo(() => {
+    if (!character) return null;
+    const v = draft.values;
+    const pick = <T,>(key: DraftKey, saved: T) =>
+      (key in v ? (v[key] as unknown as T) : saved);
+    return {
+      artStyle: pick<ArtStyle>('artStyle', character.art_style ?? 'painterly'),
+      palette: pick<PaletteKey | null>('palette', character.palette_key),
+      vibe: pick<string | null>('vibe', character.vibe),
+      silhouette: pick<string | null>('silhouette', character.silhouette),
+      era: pick<string | null>('era', character.era),
+      expression: pick<string | null>('expression', character.expression),
+      portraitPromptRaw: pick<string | null>(
+        'portraitPromptRaw',
+        character.portrait_prompt_raw,
+      ),
+    };
+  }, [character, draft.values]);
+
+  const changedKeys = useMemo(
+    () => new Set(draft.changes.map((c) => c.key as string)),
+    [draft.changes],
+  );
+
+  const stagedItemId =
+    (draft.values.signatureItemId as string | undefined) ??
+    character?.signature_item_id ??
+    '';
 
   // --- Mutations -----------------------------------------------------------
 
@@ -338,9 +323,9 @@ export default function EditCharacterScreen() {
     await refreshLock();
   }, [loadCharacter, refreshCredits, refreshLock]);
 
-  const doSave = useCallback(async () => {
-    if (!character) return;
-    setBusyKey('save');
+  /** Commits the draft. Free, so the only risk is a cooldown rejection. */
+  const saveDraft = useCallback(async (): Promise<boolean> => {
+    if (!character || !draft.dirty) return true;
     const landed: string[] = [];
     try {
       if (draft.identityPayload) {
@@ -350,77 +335,15 @@ export default function EditCharacterScreen() {
         });
         landed.push('identity');
       }
-
-      // Palette is free and lives on its own edit kind, so it is always applied
-      // separately regardless of which route the paid traits take. It goes
-      // LAST: palette carries a 24h cooldown, and running it first meant a
-      // cooldown rejection aborted the whole apply before the paid traits were
-      // ever sent. Paid work first, then the free extra.
-      const paidTraits = draft.traitsChanged.filter((k) => k !== 'palette');
-      const current = character as unknown as Record<string, string | null>;
-
-      if (draft.traitsUseBatch) {
-        // One charged call instead of N. Looping single swaps cost 1 credit
-        // each, so four staged traits cost 4 where the batch costs 2 -- and a
-        // mid-loop failure left the player charged for the swaps that landed.
+      if (draft.lookPayload) {
         await editCharacter({
           characterId: character.id,
-          changes: {
-            setAllTraits: {
-              vibe: draft.traits.vibe ?? current.vibe ?? '',
-              silhouette: draft.traits.silhouette ?? current.silhouette ?? '',
-              era: draft.traits.era ?? current.era ?? '',
-              expression: draft.traits.expression ?? current.expression ?? '',
-            },
-          },
+          changes: { look: draft.lookPayload },
         });
-        landed.push('traits');
-      } else {
-        for (const key of paidTraits) {
-          const value = draft.traits[key];
-          if (value == null) continue;
-          await editCharacter({
-            characterId: character.id,
-            changes: { swapTrait: { key, value } },
-          });
-          landed.push(key);
-        }
+        landed.push('look');
       }
-
-      let paletteFailed = false;
-      if (draft.traitsChanged.includes('palette') && draft.traits.palette) {
-        try {
-          await editCharacter({
-            characterId: character.id,
-            changes: {
-              swapTrait: { key: 'palette', value: draft.traits.palette },
-            },
-          });
-          landed.push('palette');
-        } catch (paletteErr) {
-          // The rest already landed, so this is not a failed save.
-          paletteFailed = true;
-          console.warn(
-            'Palette change rejected after other edits applied',
-            paletteErr,
-          );
-          const { message } = describeEditError(
-            paletteErr,
-            'Palette unchanged',
-          );
-          Alert.alert('Palette unchanged', message);
-        }
-      }
-
       draft.clear();
-      await afterEdit();
-      if (!paletteFailed) {
-        showToast(
-          draft.totalCost > 0
-            ? `Changes saved · ${formatCredits(draft.totalCost, 'sentence')} spent`
-            : 'Changes saved · free',
-        );
-      }
+      return true;
     } catch (err) {
       console.error('Failed to save character edits', { landed, err });
       await afterEdit();
@@ -435,10 +358,9 @@ export default function EditCharacterScreen() {
       } else {
         alertEditError(err, 'Save failed');
       }
-    } finally {
-      setBusyKey(null);
+      return false;
     }
-  }, [character, draft, afterEdit, showToast, alertEditError]);
+  }, [character, draft, afterEdit, alertEditError]);
 
   const confirmSave = useCallback(() => {
     if (!draft.dirty) return;
@@ -446,254 +368,100 @@ export default function EditCharacterScreen() {
     const locks = draft.changes
       .filter((c) => c.locksFor)
       .map((c) => `${c.label} locks for ${c.locksFor}`);
-    const cost =
-      draft.totalCost > 0 ? formatCredits(draft.totalCost, 'sentence') : 'Free';
     Alert.alert(
       'Save changes',
-      [lines.join('\n'), `Cost: ${cost}`, locks.join('. ')]
-        .filter(Boolean)
-        .join('\n\n'),
+      [lines.join('\n'), locks.join('. ')].filter(Boolean).join('\n\n'),
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Save', onPress: () => void doSave() },
+        {
+          text: 'Save',
+          onPress: async () => {
+            setBusyKey('save');
+            const ok = await saveDraft();
+            if (ok) {
+              await afterEdit();
+              showToast('Changes saved · free');
+            }
+            setBusyKey(null);
+          },
+        },
       ],
     );
-  }, [draft, doSave]);
+  }, [draft, saveDraft, afterEdit, showToast]);
 
-  const runPortraitRender = useCallback(async () => {
-    if (!character) return;
-    setBusyKey('renderPortrait');
-    try {
-      if (character.portrait_seed === null) {
-        await generatePortrait({
-          characterId: character.id,
-          archetype: character.archetype,
-          mode: 'guided',
-          traits: {
-            vibe: character.vibe ?? undefined,
-            silhouette: character.silhouette ?? undefined,
-            palette: character.palette_key ?? undefined,
-            era: character.era ?? undefined,
-            expression: character.expression ?? undefined,
-          },
-        });
-        showToast('Portrait generated · free');
-      } else {
-        await regeneratePortrait({ characterId: character.id, paid: true });
-        const spent = pricing.prices.regenerate_portrait?.credits ?? 0;
-        showToast(
-          `Portrait rendered · ${formatCredits(spent, 'sentence')} spent`,
-        );
+  const runRender = useCallback(
+    async (mode: 'render' | 'random') => {
+      if (!character) return;
+      setBusyKey('render');
+      try {
+        // Save first. Rendering a staged-but-unsaved look would draw the
+        // character as it was BEFORE the edits, which reads as the render
+        // having silently failed.
+        if (mode === 'render' && draft.dirty) {
+          const saved = await saveDraft();
+          if (!saved) return;
+        }
+        if (character.portrait_seed === null) {
+          await generatePortrait({
+            characterId: character.id,
+            archetype: character.archetype,
+            mode: 'guided',
+            traits: {
+              vibe: character.vibe ?? undefined,
+              silhouette: character.silhouette ?? undefined,
+              palette: character.palette_key ?? undefined,
+              era: character.era ?? undefined,
+              expression: character.expression ?? undefined,
+            },
+          });
+          showToast('Portrait generated · free');
+        } else {
+          if (mode === 'random') draft.clear();
+          await renderLook({ characterId: character.id, mode });
+          const spent = mode === 'random' ? randomCost : renderCost;
+          showToast(
+            `${mode === 'random' ? 'New character drawn' : 'New look drawn'} · ${formatCredits(spent, 'sentence')} spent`,
+          );
+        }
+        await afterEdit();
+      } catch (err) {
+        console.error('Failed to render look', { characterId: character.id, mode, err });
+        alertEditError(err, 'Could not render');
+      } finally {
+        setBusyKey(null);
       }
-      await afterEdit();
-    } catch (err) {
-      console.error('Failed to render portrait', {
-        characterId: character.id,
-        err,
-      });
-      alertEditError(err, 'Could not render portrait');
-    } finally {
-      setBusyKey(null);
-    }
-  }, [character, pricing, afterEdit, showToast, alertEditError]);
+    },
+    [character, draft, saveDraft, afterEdit, showToast, alertEditError, renderCost, randomCost],
+  );
 
-  const promptPortraitRender = useCallback(() => {
+  const confirmRender = useCallback(() => {
     if (!character) return;
     if (character.portrait_seed === null) {
-      void runPortraitRender();
+      void runRender('render');
       return;
     }
-    const cost = pricing.prices.regenerate_portrait?.credits ?? 0;
     Alert.alert(
-      'Render your look',
-      `Spend ${formatCredits(cost, 'sentence')}?`,
+      draft.dirty ? 'Save and render' : 'Render new look',
+      `Draws your portrait and avatar for ${formatCredits(renderCost, 'sentence')}.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Spend',
-          style: 'destructive',
-          onPress: () => void runPortraitRender(),
-        },
+        { text: 'Render', style: 'destructive', onPress: () => void runRender('render') },
       ],
     );
-  }, [character, pricing, runPortraitRender]);
+  }, [character, draft.dirty, renderCost, runRender]);
 
-  const runAvatarRender = useCallback(async () => {
-    if (!character) return;
-    setBusyKey('renderAvatar');
-    try {
-      await regeneratePortrait({ characterId: character.id, kind: 'avatar' });
-      const spent = avatarUrl
-        ? (pricing.prices.regenerate_avatar?.credits ?? 0)
-        : 0;
-      showToast(
-        avatarUrl
-          ? `Avatar rendered · ${formatCredits(spent, 'sentence')} spent`
-          : 'Avatar created · free',
-      );
-      await afterEdit();
-    } catch (err) {
-      console.error('Failed to render avatar', {
-        characterId: character.id,
-        err,
-      });
-      alertEditError(err, 'Could not render avatar');
-    } finally {
-      setBusyKey(null);
-    }
-  }, [character, avatarUrl, pricing, afterEdit, showToast, alertEditError]);
-
-  const promptAvatarRender = useCallback(() => {
-    if (!avatarUrl) {
-      void runAvatarRender();
-      return;
-    }
-    const cost = pricing.prices.regenerate_avatar?.credits ?? 0;
+  const confirmRandom = useCallback(() => {
     Alert.alert(
-      'Regenerate avatar',
-      `Spend ${formatCredits(cost, 'sentence')}?`,
+      'Generate a random character',
+      `Shuffles every trait and draws the result for ${formatCredits(randomCost, 'sentence')}.${
+        draft.dirty ? ' Your staged changes will be discarded.' : ''
+      }`,
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Spend',
-          style: 'destructive',
-          onPress: () => void runAvatarRender(),
-        },
+        { text: 'Generate', style: 'destructive', onPress: () => void runRender('random') },
       ],
     );
-  }, [avatarUrl, pricing, runAvatarRender]);
-
-  const runRegenerate = useCallback(
-    async (
-      key: string,
-      payload: { artStyle?: ArtStyle; portraitPromptRaw?: string },
-      successMsg: string,
-    ) => {
-      if (!character) return;
-      setBusyKey(key);
-      try {
-        await regeneratePortrait({
-          characterId: character.id,
-          paid: true,
-          ...payload,
-        });
-        const spent = pricing.prices.new_portrait?.credits ?? 0;
-        showToast(`${successMsg} · ${formatCredits(spent, 'sentence')} spent`);
-        await afterEdit();
-      } catch (err) {
-        console.error('Failed to re-render portrait', { key, payload, err });
-        alertEditError(err, 'Could not render that');
-      } finally {
-        setBusyKey(null);
-      }
-    },
-    [character, pricing, afterEdit, showToast, alertEditError],
-  );
-
-  const confirmArtStyle = useCallback(
-    (style: ArtStyle) => {
-      const cost = pricing.prices.new_portrait?.credits ?? 0;
-      Alert.alert(
-        'Change art style',
-        `Re-render in ${ART_STYLE_LABELS[style]} for ${formatCredits(cost, 'sentence')}?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Spend',
-            style: 'destructive',
-            onPress: () =>
-              void runRegenerate(
-                'changeArtStyle',
-                { artStyle: style },
-                'Style changed',
-              ),
-          },
-        ],
-      );
-    },
-    [pricing, runRegenerate],
-  );
-
-  const confirmDescribeNew = useCallback(
-    (prompt: string) => {
-      if (!prompt) return;
-      const cost = pricing.prices.new_portrait?.credits ?? 0;
-      Alert.alert(
-        'Render this description',
-        `Spend ${formatCredits(cost, 'sentence')}?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Spend',
-            style: 'destructive',
-            onPress: () =>
-              void runRegenerate(
-                'describeNew',
-                { portraitPromptRaw: prompt },
-                'Portrait rendered',
-              ),
-          },
-        ],
-      );
-    },
-    [pricing, runRegenerate],
-  );
-
-  const confirmRandomize = useCallback(() => {
-    if (!character) return;
-    const cost = pricing.prices.traits_full_reroll?.credits ?? 0;
-    Alert.alert(
-      'Randomize traits',
-      `Spend ${formatCredits(cost, 'sentence')} for a fresh random set? This does not include a new portrait render.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Randomize',
-          style: 'destructive',
-          onPress: async () => {
-            draft.clear();
-            setBusyKey('randomize');
-            try {
-              await editCharacter({
-                characterId: character.id,
-                changes: { rerollAllTraits: true },
-              });
-              showToast(
-                `Traits rerolled · ${formatCredits(cost, 'sentence')} spent`,
-              );
-              await afterEdit();
-            } catch (err) {
-              console.error('Failed to reroll traits', err);
-              alertEditError(err, 'Could not randomize traits');
-            } finally {
-              setBusyKey(null);
-            }
-          },
-        },
-      ],
-    );
-  }, [character, pricing, draft, afterEdit, showToast, alertEditError]);
-
-  const runEquip = useCallback(
-    async (itemId: string | null) => {
-      if (!character) return;
-      setBusyKey('equip');
-      try {
-        await editCharacter({
-          characterId: character.id,
-          changes: { signatureItemId: itemId },
-        });
-        showToast(itemId ? 'Item equipped · free' : 'Item unequipped · free');
-        await afterEdit();
-      } catch (err) {
-        console.error('Failed to equip signature item', { itemId, err });
-        alertEditError(err, 'Could not equip that item');
-      } finally {
-        setBusyKey(null);
-      }
-    },
-    [character, afterEdit, showToast, alertEditError],
-  );
+  }, [randomCost, draft.dirty, runRender]);
 
   const submitCustomItem = useCallback(
     (input: { name: string; description: string; itemClass: ItemClass }) => {
@@ -715,16 +483,13 @@ export default function EditCharacterScreen() {
                 });
                 setCustomOpen(false);
                 await loadItems();
-                await runEquip(item.id);
+                // Staged like any other choice; the save bar commits it.
+                draft.stage('signatureItemId', item.id);
+                await refreshCredits();
+                showToast(`Item created · ${formatCredits(cost, 'sentence')} spent`);
               } catch (err) {
-                console.error('Failed to create custom signature item', {
-                  input,
-                  err,
-                });
-                const { title, message } = describeEditError(
-                  err,
-                  'Could not create item',
-                );
+                console.error('Failed to create custom signature item', { input, err });
+                const { title, message } = describeEditError(err, 'Could not create item');
                 Alert.alert(title, message);
               } finally {
                 setBusyKey(null);
@@ -734,7 +499,7 @@ export default function EditCharacterScreen() {
         ],
       );
     },
-    [pricing, loadItems, runEquip],
+    [pricing, loadItems, draft, refreshCredits, showToast],
   );
 
   const runRestore = useCallback(
@@ -759,8 +524,6 @@ export default function EditCharacterScreen() {
 
   // --- Leave guard ---------------------------------------------------------
 
-  // Staged edits live only in memory, so leaving used to discard them with no
-  // warning -- including the ones the player had spent a while composing.
   usePreventRemove(draft.dirty && busyKey === null, ({ data }) => {
     Alert.alert(
       'Discard changes?',
@@ -783,38 +546,21 @@ export default function EditCharacterScreen() {
 
   if (loading) {
     return (
-      <View
-        style={[
-          styles.container,
-          styles.centered,
-          { backgroundColor: colors.background },
-        ]}
-      >
+      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
-  if (!character) {
+  if (!character || !stagedLook) {
     return (
-      <View
-        style={[
-          styles.container,
-          styles.centered,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <Text style={[styles.h1, { color: colors.text }]}>
-          No character yet.
-        </Text>
+      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+        <Text style={[styles.h1, { color: colors.text }]}>No character yet.</Text>
         <TouchableOpacity
           onPress={() => router.push('/(onboarding)/create-character')}
           accessibilityRole="button"
           accessibilityLabel="Create your character"
-          style={[
-            styles.primaryBtn,
-            { backgroundColor: colors.primary, marginTop: Spacing.lg },
-          ]}
+          style={[styles.primaryBtn, { backgroundColor: colors.primary, marginTop: Spacing.lg }]}
         >
           <Text style={styles.primaryBtnText}>Create your character</Text>
         </TouchableOpacity>
@@ -824,9 +570,7 @@ export default function EditCharacterScreen() {
 
   const categoryItems = CATEGORIES.map((c) => ({
     ...c,
-    badge:
-      (c.key === 'identity' && draft.identityDirty) ||
-      (c.key === 'look' && draft.lookDirty),
+    badge: draft.dirtySections[c.key],
   }));
 
   const viewerUri = viewerPortraitId
@@ -835,9 +579,7 @@ export default function EditCharacterScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack.Screen
-        options={{ headerRight: () => <CreditChip credits={credits} /> }}
-      />
+      <Stack.Screen options={{ headerRight: () => <CreditChip credits={credits} /> }} />
       <View style={[styles.top, { paddingTop: insets.top + 44 }]}>
         {battleLocked ? (
           <View style={styles.bannerWrap}>
@@ -862,14 +604,31 @@ export default function EditCharacterScreen() {
           subtitle={`${ARCHETYPES[character.archetype]?.name ?? character.archetype} · ${ART_STYLE_LABELS[character.art_style ?? 'painterly']}`}
           portraitUri={portraitUrl ?? fallbackUri}
           accentColor={accentColor}
-          busy={busyKey === 'renderPortrait'}
+          busy={busyKey === 'render'}
           hasPortrait={!!portraitUrl}
           portraitStale={portraitStale}
+          renderCost={character.portrait_seed === null ? 0 : renderCost}
+          hasUnsaved={draft.dirty}
+          rendering={busyKey === 'render'}
+          renderDisabled={editingDisabled || !pricingVerified}
+          onRender={confirmRender}
           onOpenViewer={() => {
             setViewerPortraitId(null);
             setViewerOpen(true);
           }}
         />
+        {history.length > 0 ? (
+          <View style={styles.bannerWrap}>
+            <PortraitHistoryStrip
+              entries={history}
+              restoringId={restoringId}
+              onSelect={(id) => {
+                setViewerPortraitId(id);
+                setViewerOpen(true);
+              }}
+            />
+          </View>
+        ) : null}
         <View style={styles.tabs}>
           <SegmentedCategoryBar
             items={categoryItems}
@@ -883,75 +642,41 @@ export default function EditCharacterScreen() {
         {activeCategory === 'identity' && (
           <IdentityPanel
             character={character}
-            staged={draft.identity}
-            changed={draft.identityChanged}
+            staged={draft.values}
+            changedKeys={changedKeys}
             pricing={pricing}
             disabled={editingDisabled}
-            onStage={draft.stageIdentity}
+            onStage={draft.stage}
           />
         )}
 
         {activeCategory === 'look' && (
           <LookPanel
-            character={character as unknown as Record<string, unknown>}
-            staged={draft.traits}
-            changed={draft.traitsChanged}
-            pricing={pricing}
-            pricingVerified={pricingVerified}
-            disabled={editingDisabled}
-            busy={busyKey !== null}
-            onStage={draft.stageTrait}
-            onRandomize={confirmRandomize}
+            look={stagedLook}
+            changedKeys={changedKeys}
+            randomCost={randomCost}
+            disabled={editingDisabled || !pricingVerified}
+            onStage={(key, value) => draft.stage(key as DraftKey, value)}
+            onRandomCharacter={confirmRandom}
           />
         )}
 
         {activeCategory === 'gear' && (
           <GearPanel
             items={items}
-            equippedId={character.signature_item_id}
+            equippedId={stagedItemId}
             loading={itemsLoading}
             error={itemsError}
             customCost={pricing.prices.custom_item_image?.credits ?? 0}
             pricingVerified={pricingVerified}
-            busy={busyKey === 'equip' || busyKey === 'createItem'}
+            busy={busyKey === 'createItem'}
             disabled={editingDisabled}
             onRetry={() => {
               setItemsError(null);
               void loadItems();
             }}
-            onEquip={runEquip}
+            onEquip={(id) => draft.stage('signatureItemId', id)}
             onCreateCustom={() => setCustomOpen(true)}
-          />
-        )}
-
-        {activeCategory === 'portraits' && (
-          <PortraitsPanel
-            portraitUri={portraitUrl ?? fallbackUri}
-            avatarUri={avatarUrl ?? fallbackUri}
-            accentColor={accentColor}
-            hasPortrait={!!portraitUrl}
-            hasAvatar={!!avatarUrl}
-            hasPortraitSeed={character.portrait_seed !== null}
-            portraitStale={portraitStale}
-            artStyle={character.art_style ?? 'painterly'}
-            pricing={pricing}
-            pricingVerified={pricingVerified}
-            history={history}
-            restoringId={restoringId}
-            busyKey={busyKey}
-            disabled={editingDisabled}
-            onRenderPortrait={promptPortraitRender}
-            onRenderAvatar={promptAvatarRender}
-            onChangeArtStyle={confirmArtStyle}
-            onDescribeNew={confirmDescribeNew}
-            onPreviewHistory={(id) => {
-              setViewerPortraitId(id);
-              setViewerOpen(true);
-            }}
-            onOpenViewer={() => {
-              setViewerPortraitId(null);
-              setViewerOpen(true);
-            }}
           />
         )}
       </View>
@@ -959,12 +684,9 @@ export default function EditCharacterScreen() {
       {draft.dirty && !editingDisabled ? (
         <SaveBar
           changeCount={draft.changeCount}
-          cost={draft.totalCost}
-          credits={credits}
           busy={busyKey === 'save'}
           onSave={confirmSave}
           onClear={draft.clear}
-          onGetCredits={() => router.push('/(profile)/wallet')}
         />
       ) : null}
 
@@ -1003,11 +725,7 @@ export default function EditCharacterScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  centered: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing.lg,
-  },
+  centered: { alignItems: 'center', justifyContent: 'center', padding: Spacing.lg },
   top: { paddingBottom: Spacing.md, gap: Spacing.md },
   bannerWrap: { paddingHorizontal: Spacing.lg },
   tabs: { paddingHorizontal: Spacing.lg },

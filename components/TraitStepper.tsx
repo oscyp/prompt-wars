@@ -14,30 +14,35 @@ export interface StepperOption {
 }
 
 interface TraitStepperProps {
-  title: string;
-  /** Display-only cost label, e.g. 'Free' or '1 cr'. */
-  costLabel: string;
+  /**
+   * Names the trait for screen readers only — never rendered.
+   *
+   * The card above draws the visible title, but that is a separate element, so
+   * without this the arrows announce as a bare "Previous" and the value as an
+   * unlabelled adjustable. Four identical steppers in a row then sound the same.
+   */
+  label: string;
   options: readonly StepperOption[];
   value: string | undefined;
   onChange: (value: string) => void;
-  /** Marks the row as staged/changed from the saved value. */
-  changed?: boolean;
   disabled?: boolean;
 }
 
 /**
  * Single-value stepper (‹ Label ›) with a live description line. Used for
  * abstract traits (vibe/silhouette/era/expression) where each option has no
- * distinct thumbnail — the words are the preview, so we lead with words and
- * let the user commit to a choice they can't see until they pay to re-render.
+ * distinct thumbnail — the words are the preview.
+ *
+ * Deliberately headerless. It used to draw its own title, staged dot and cost
+ * badge, which became a visible duplicate the moment it was nested inside
+ * `EditCardShell` — every trait card rendered "Era ● 1 cr" twice. The card owns
+ * the label and the state; this owns the control.
  */
 export default function TraitStepper({
-  title,
-  costLabel,
+  label,
   options,
   value,
   onChange,
-  changed = false,
   disabled = false,
 }: TraitStepperProps) {
   const colors = useThemedColors();
@@ -48,7 +53,6 @@ export default function TraitStepper({
   }, [options, value]);
 
   const current = options[index];
-  const isFree = /free/i.test(costLabel);
 
   const step = (dir: -1 | 1) => {
     if (disabled || options.length === 0) return;
@@ -58,31 +62,12 @@ export default function TraitStepper({
 
   return (
     <View style={styles.wrapper}>
-      <View style={styles.headerRow}>
-        <View style={styles.titleWrap}>
-          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-          {changed ? (
-            <View style={[styles.changedDot, { backgroundColor: colors.primary }]} />
-          ) : null}
-        </View>
-        <View style={styles.costBadge}>
-          <Text
-            style={[
-              styles.costText,
-              { color: isFree ? colors.success : colors.primary },
-            ]}
-          >
-            {costLabel}
-          </Text>
-        </View>
-      </View>
-
       <View
         style={[
           styles.control,
           {
             backgroundColor: colors.card,
-            borderColor: changed ? colors.primary : colors.border,
+            borderColor: colors.border,
           },
         ]}
       >
@@ -90,7 +75,7 @@ export default function TraitStepper({
           onPress={() => step(-1)}
           disabled={disabled}
           accessibilityRole="button"
-          accessibilityLabel={`Previous ${title}`}
+          accessibilityLabel={`Previous ${label}`}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.arrow}
         >
@@ -100,7 +85,7 @@ export default function TraitStepper({
         <View
           style={styles.center}
           accessibilityRole="adjustable"
-          accessibilityLabel={`${title}: ${current?.label ?? ''}`}
+          accessibilityLabel={`${label}: ${current?.label ?? ''}`}
           accessibilityHint={current?.description}
         >
           <View style={styles.centerLabelRow}>
@@ -130,7 +115,7 @@ export default function TraitStepper({
           onPress={() => step(1)}
           disabled={disabled}
           accessibilityRole="button"
-          accessibilityLabel={`Next ${title}`}
+          accessibilityLabel={`Next ${label}`}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.arrow}
         >
@@ -160,34 +145,6 @@ export default function TraitStepper({
 const styles = StyleSheet.create({
   wrapper: {
     marginBottom: Spacing.lg,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.sm,
-  },
-  titleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
-  },
-  changedDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    marginLeft: Spacing.sm,
-  },
-  costBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-  },
-  costText: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold,
   },
   control: {
     flexDirection: 'row',

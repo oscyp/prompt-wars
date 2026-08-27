@@ -1,6 +1,15 @@
-// Regenerate Portrait Edge Function
-// Charges credits, reuses the existing portrait_seed, calls provider, refunds
-// on failure or moderation block. Idempotent via Idempotency-Key header.
+// Render Look Edge Function
+//
+// One paid action, two images. The fighter portrait and the avatar are two
+// framings of one character, so this renders both and charges once
+// (`render_look`); `mode: 'random'` shuffles every trait first and charges
+// `random_character` instead.
+//
+// It renders what is already SAVED. Art style and the custom prompt used to
+// arrive here as arguments, priced differently depending on which of them had
+// changed -- but describing a character is free now and saves through
+// edit-character's `look` batch, so this function no longer decides anything
+// about the description. It draws it.
 
 import {
   corsHeaders,
@@ -12,27 +21,20 @@ import { TextModerationProvider } from '../_shared/moderation.ts';
 import { err, getEditPrice, ok } from '../_shared/character-creation.ts';
 import { isTestUser } from '../_shared/test-user.ts';
 import {
-  generateCharacterPortrait,
-  ImageProviderError,
-  SafetyRefusedError,
-} from '../_shared/image-provider.ts';
-import type {
-  Archetype,
-  ArtStyle,
-  PortraitTraits,
-} from '../_shared/portrait-prompt-resolver.ts';
-import { ART_STYLE_KEYS } from '../_shared/portrait-prompt-resolver.ts';
-import type { PortraitKind } from '../_shared/portrait-prompt-resolver.ts';
+  itemFragmentFor,
+  renderOnePortrait,
+  traitsFromCharacter,
+} from '../_shared/render-portrait.ts';
+import { randomLookTraits } from '../_shared/look-edit.ts';
+import type { ArtStyle } from '../_shared/portrait-prompt-resolver.ts';
 
-interface RegenerateRequest {
+interface RenderLookRequest {
   character_id: string;
-  portrait_prompt_raw?: string; // if provided and differs, uses 'new_portrait' price
-  art_style?: ArtStyle; // if provided and differs, uses 'new_portrait' price
   /**
-   * Which render to (re)generate. Defaults to 'fighter', so every existing
-   * caller keeps regenerating the full-body image exactly as before.
+   * 'render' redraws the saved look. 'random' shuffles all five traits first
+   * and costs more, because it is a whole new character rather than a redraw.
    */
-  kind?: PortraitKind;
+  mode?: 'render' | 'random';
 }
 
 const PORTRAIT_HISTORY_LIMIT = 3;
@@ -56,6 +58,12 @@ function buildPortraitHistory(
   return next.slice(0, PORTRAIT_HISTORY_LIMIT);
 }
 
+const CHARACTER_COLUMNS =
+  'id, profile_id, archetype, signature_color, vibe, silhouette, era, expression, ' +
+  'palette_key, signature_item_id, portrait_seed, portrait_prompt_raw, ' +
+  'portrait_prompt_resolved, portrait_id, avatar_portrait_id, art_style, ' +
+  'portrait_history, appearance_version, traits_version';
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -68,68 +76,46 @@ Deno.serve(async (req) => {
     return err('unauthorized', 'authentication required', 401);
   }
 
-  let body: RegenerateRequest;
+  let body: RenderLookRequest;
   try {
     body = await req.json();
   } catch {
     return err('bad_request', 'invalid JSON body', 400);
   }
   if (!body.character_id) return err('bad_request', 'character_id required', 400);
-  if (body.portrait_prompt_raw && body.portrait_prompt_raw.length > 200) {
-    return err('bad_request', 'portrait_prompt_raw must be <= 200 chars', 400);
-  }
-  if (body.art_style && !ART_STYLE_KEYS.includes(body.art_style)) {
-    return err('bad_request', 'invalid art_style', 400);
-  }
 
-  const headerKey = req.headers.get('Idempotency-Key')?.trim();
+  const mode = body.mode === 'random' ? 'random' : 'render';
   const supabase = createServiceClient();
 
-  // Load character; verify ownership and that a seed exists.
-  const { data: character, error: charErr } = await supabase
+  // Cast rather than infer: CHARACTER_COLUMNS is assembled from concatenated
+  // literals for readability, and supabase-js can only derive a row type from a
+  // single literal select.
+  // deno-lint-ignore no-explicit-any
+  type CharacterRow = Record<string, any>;
+
+  const { data: loaded, error: charErr } = await supabase
     .from('characters')
-    .select(
-      'id, profile_id, archetype, signature_color, vibe, silhouette, era, expression, palette_key, signature_item_id, portrait_seed, portrait_prompt_raw, portrait_prompt_resolved, portrait_id, avatar_portrait_id, art_style, portrait_history, appearance_version',
-    )
+    .select(CHARACTER_COLUMNS)
     .eq('id', body.character_id)
     .maybeSingle();
 
   if (charErr) return err('server_error', charErr.message, 500);
-  if (!character) return err('not_found', 'character not found', 404);
+  if (!loaded) return err('not_found', 'character not found', 404);
+  let character = loaded as CharacterRow;
   if (character.profile_id !== userId) {
     return err('forbidden', 'not the owner of this character', 403);
   }
   if (character.portrait_seed === null) {
-    return err('conflict', 'character has no portrait yet; use generate-portrait', 409);
+    return err('conflict', 'character has no portrait seed; use generate-portrait', 409);
   }
 
-  const newPrompt = body.portrait_prompt_raw;
-  const promptChanged =
-    newPrompt !== undefined && newPrompt !== character.portrait_prompt_raw;
-  const currentArtStyle =
-    ((character as { art_style?: ArtStyle }).art_style ?? 'painterly') as ArtStyle;
-  const newArtStyle = (body.art_style as ArtStyle | undefined) ?? currentArtStyle;
-  const styleChanged = newArtStyle !== currentArtStyle;
-  const portraitKind: PortraitKind = body.kind === 'avatar' ? 'avatar' : 'fighter';
-  const isAvatar = portraitKind === 'avatar';
-  const hasAvatarAlready = Boolean(
-    (character as { avatar_portrait_id?: string | null }).avatar_portrait_id,
-  );
-
-  // Avatar pricing is its own ladder: the first one is free (the fighter render
-  // was already paid for at creation, and charging for the first avatar would
-  // leave battle strips looking broken until someone happened to spend a
-  // credit), regenerations cost the same as a fighter regeneration.
-  const priceKey = isAvatar
-    ? (hasAvatarAlready ? 'regenerate_avatar' : 'initial_avatar')
-    : ((promptChanged || styleChanged) ? 'new_portrait' : 'regenerate_portrait');
+  const priceKey = mode === 'random' ? 'random_character' : 'render_look';
   const price = await getEditPrice(supabase, priceKey);
   if (!price) return err('server_error', 'price config missing', 500);
 
-  // Idempotency: if we've already recorded a character_edits row for this key,
-  // return the current portrait.
+  const headerKey = req.headers.get('Idempotency-Key')?.trim();
   const idempotencyKey = headerKey
-    ? generateIdempotencyKey(['regenerate', userId, character.id, headerKey])
+    ? generateIdempotencyKey(['render', userId, character.id, headerKey])
     : null;
 
   if (idempotencyKey) {
@@ -144,7 +130,8 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Reject if there is an active battle for this character (skipped for test users).
+  // A character's look is frozen once it is committed to a battle, so opponents
+  // cannot be shown a moving target.
   const testUser = await isTestUser(supabase, userId);
   if (!testUser) {
     const { data: activeBattles } = await supabase
@@ -164,18 +151,44 @@ Deno.serve(async (req) => {
     }
   }
 
-  const promptRaw = newPrompt ?? character.portrait_prompt_raw ?? '';
+  // Shuffle BEFORE charging and rendering: the traits write bumps
+  // appearance_version, and both renders must be stamped with the value that
+  // results, or a brand-new random character reads as out of date immediately.
+  if (mode === 'random') {
+    const { data: shuffled, error: shuffleErr } = await supabase
+      .from('characters')
+      .update({
+        ...randomLookTraits(),
+        traits_version: (character.traits_version ?? 0) + 1,
+        // A random character is a fresh start, so any custom description the
+        // player had written is cleared -- otherwise the prompt resolver keeps
+        // using their words and the shuffled traits never reach the image.
+        portrait_prompt_raw: null,
+      })
+      .eq('id', character.id)
+      .select(CHARACTER_COLUMNS)
+      .single();
+    if (shuffleErr || !shuffled) {
+      return err('server_error', shuffleErr?.message ?? 'trait shuffle failed', 500);
+    }
+    character = shuffled as CharacterRow;
+  }
 
-  // Pre-gen text moderation.
+  const promptRaw = (character.portrait_prompt_raw as string | null) ?? '';
+  const artStyle = (character.art_style as ArtStyle | null) ?? 'painterly';
+  const seed = character.portrait_seed as number;
+  const appearanceVersion = (character.appearance_version as number | null) ?? 0;
+
   if (promptRaw.trim().length > 0) {
-    const moderator = new TextModerationProvider();
-    const modResult = await moderator.moderate(promptRaw);
+    const modResult = await new TextModerationProvider().moderate(promptRaw);
     if (modResult.status === 'rejected') {
       return err('moderation_rejected', modResult.reason ?? 'prompt rejected', 422);
     }
   }
 
-  // Charge credits up front; refund on failure.
+  const traits = traitsFromCharacter(character);
+  const itemFragment = await itemFragmentFor(supabase, character.signature_item_id);
+
   let walletTxId: string | null = null;
   if (price.credits > 0) {
     const spendKey = idempotencyKey
@@ -188,231 +201,87 @@ Deno.serve(async (req) => {
       p_idempotency_key: spendKey,
       p_battle_id: null,
       p_video_job_id: null,
-      p_metadata: { character_id: character.id },
+      p_metadata: { character_id: character.id, mode },
     });
     if (spendErr) {
-      const msg = spendErr.message ?? '';
-      if (/Insufficient credits/i.test(msg)) {
-        return err('insufficient_credits', msg, 402);
+      if (/Insufficient credits/i.test(spendErr.message ?? '')) {
+        return err('insufficient_credits', spendErr.message, 402);
       }
-      return err('server_error', msg, 500);
+      return err('server_error', spendErr.message, 500);
     }
     walletTxId = (txId as unknown as string) ?? null;
   }
 
-  // Look up signature item fragment.
-  let itemFragment: string | undefined;
-  if (character.signature_item_id) {
-    const { data: item } = await supabase
-      .from('signature_items')
-      .select('prompt_fragment')
-      .eq('id', character.signature_item_id)
-      .maybeSingle();
-    itemFragment = item?.prompt_fragment ?? undefined;
-  }
-
-  const traits: PortraitTraits = {
-    vibe: character.vibe ?? undefined,
-    silhouette: character.silhouette ?? undefined,
-    palette: character.palette_key ?? undefined,
-    era: character.era ?? undefined,
-    expression: character.expression ?? undefined,
-  };
-
-  const { data: job } = await supabase
-    .from('portrait_jobs')
-    .insert({
-      character_id: character.id,
-      profile_id: userId,
-      kind: 'regenerate',
-      portrait_kind: portraitKind,
-      status: 'running',
-      seed: character.portrait_seed as number,
-      prompt_payload: {
-        raw: promptRaw,
-        traits,
-        archetype: character.archetype,
-        signature_color: character.signature_color,
-        signature_item_fragment: itemFragment ?? null,
-        art_style: newArtStyle,
-      },
-      idempotency_key: idempotencyKey,
-      attempt: 1,
-    })
-    .select('id')
-    .single();
-
-  const refundIfPaid = async (reason: string): Promise<void> => {
+  const refund = async (reason: string): Promise<void> => {
     if (!walletTxId || price.credits <= 0) return;
-    const refundKey = `refund_${walletTxId}`;
     await supabase.rpc('grant_credits', {
       p_profile_id: userId,
       p_amount: price.credits,
       p_reason: `${priceKey}_refund:${reason}`,
-      p_idempotency_key: refundKey,
+      p_idempotency_key: `refund_${walletTxId}`,
       p_battle_id: null,
       p_purchase_id: null,
       p_metadata: { character_id: character.id, original_tx: walletTxId },
     });
   };
 
-  let result;
-  try {
-    result = await generateCharacterPortrait({
-      prompt_raw: promptRaw || undefined,
-      traits,
-      archetype: character.archetype as Archetype,
-      signature_color: character.signature_color,
-      signature_item_fragment: itemFragment,
-      seed: character.portrait_seed as number,
-      art_style: newArtStyle,
-      // Both kinds share the character's immutable portrait_seed so the avatar
-      // and the fighter read as the same character rather than two people.
-      kind: portraitKind,
-    });
-  } catch (e) {
-    const code = e instanceof SafetyRefusedError
-      ? 'moderation_rejected'
-      : e instanceof ImageProviderError
-        ? e.code
-        : 'provider_error';
-    await refundIfPaid(code);
-    if (job?.id) {
-      await supabase
-        .from('portrait_jobs')
-        .update({
-          status: code === 'moderation_rejected' ? 'moderation_rejected' : 'failed',
-          error_code: code,
-          error_message: e instanceof Error ? e.message : String(e),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', job.id);
-    }
-    return err(code, e instanceof Error ? e.message : 'provider failure', 502);
+  const renderArgs = {
+    supabase,
+    userId,
+    character,
+    promptRaw,
+    artStyle,
+    traits,
+    itemFragment,
+    seed,
+    jobKind: 'regenerate' as const,
+    idempotencyKey,
+  };
+
+  // The fighter is the deliverable. If it fails, nothing was bought.
+  const fighter = await renderOnePortrait({ ...renderArgs, kind: 'fighter' });
+  if (!fighter.ok) {
+    await refund(fighter.code);
+    return err(fighter.code, fighter.message, fighter.status);
   }
 
-  const portraitId = crypto.randomUUID();
-  const ext = result.content_type === 'image/png'
-    ? 'png'
-    : result.content_type === 'image/jpeg'
-      ? 'jpg'
-      : 'webp';
-  const storagePath = `${userId}/${character.id}/${portraitId}.${ext}`;
-
-  const uploadRes = await supabase.storage
-    .from('character-portraits')
-    .upload(storagePath, result.image_bytes, {
-      contentType: result.content_type,
-      upsert: false,
-    });
-  if (uploadRes.error) {
-    await refundIfPaid('storage_upload_failed');
-    if (job?.id) {
-      await supabase
-        .from('portrait_jobs')
-        .update({
-          status: 'failed',
-          error_code: 'storage_upload_failed',
-          error_message: uploadRes.error.message,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', job.id);
-    }
-    return err('storage_error', uploadRes.error.message, 500);
-  }
-
-  // Demote the prior current portrait OF THIS KIND only. Without the kind
-  // filter, regenerating a fighter would silently retire the avatar (and vice
-  // versa), leaving the character with one live image again.
   await supabase
-    .from('character_portraits')
-    .update({ is_current: false })
-    .eq('character_id', character.id)
-    .eq('kind', portraitKind)
-    .eq('is_current', true);
-
-  const { data: portrait, error: insertErr } = await supabase
-    .from('character_portraits')
-    .insert({
-      id: portraitId,
-      character_id: character.id,
-      profile_id: userId,
-      image_path: storagePath,
-      seed: character.portrait_seed as number,
-      provider: result.provider,
-      provider_model: result.provider_model,
-      prompt_snapshot: {
-        raw: promptRaw,
-        resolved: result.resolved_prompt,
-        traits,
-        archetype: character.archetype,
-        signature_color: character.signature_color,
-        signature_item_id: character.signature_item_id,
-      },
-      generation_job_id: job?.id ?? null,
-      is_current: true,
-      kind: portraitKind,
-      moderation_status: 'approved',
-    })
-    .select('id')
-    .single();
-
-  if (insertErr || !portrait) {
-    await refundIfPaid('portrait_insert_failed');
-    return err('server_error', insertErr?.message ?? 'portrait insert failed', 500);
-  }
-
-  // An avatar updates ONLY its own pointer. portrait_prompt_raw/_resolved,
-  // art_style and portrait_history all describe the fighter render -- writing
-  // an avatar's resolved prompt into portrait_prompt_resolved would make the
-  // edit screen show bust framing as the character's prompt, and pushing the
-  // avatar into portrait_history would offer it as a fighter to revert to.
-  const characterPatch: Record<string, unknown> = isAvatar
-    ? { avatar_portrait_id: portrait.id }
-    : {
-      portrait_id: portrait.id,
-      portrait_prompt_raw: promptRaw || null,
-      portrait_prompt_resolved: result.resolved_prompt,
-      art_style: newArtStyle,
-      portrait_history: buildPortraitHistory(
-        (character as { portrait_history?: unknown }).portrait_history,
-        (character as { portrait_id?: string | null }).portrait_id ?? null,
-      ),
-    };
-
-  // The patch can carry art_style and portrait_prompt_raw, both of which the
-  // portrait prompt reads, so applying it bumps characters.appearance_version.
-  // Stamp the render from the value AFTER that write: taking it from the row
-  // loaded at the top of the request would mark a portrait stale the instant it
-  // was produced -- the exact false-stale bug appearance_version exists to fix.
-  const { data: patched } = await supabase
     .from('characters')
-    .update(characterPatch)
-    .eq('id', character.id)
-    .select('appearance_version')
-    .maybeSingle();
+    .update({
+      portrait_id: fighter.portraitId,
+      portrait_prompt_resolved: fighter.resolvedPrompt,
+      portrait_history: buildPortraitHistory(
+        character.portrait_history,
+        (character.portrait_id as string | null) ?? null,
+      ),
+    })
+    .eq('id', character.id);
 
   await supabase
     .from('character_portraits')
-    .update({
-      appearance_version:
-        (patched as { appearance_version?: number } | null)?.appearance_version ??
-        (character as { appearance_version?: number }).appearance_version ??
-        0,
-    })
-    .eq('id', portrait.id);
+    .update({ appearance_version: appearanceVersion })
+    .eq('id', fighter.portraitId);
 
-  if (job?.id) {
+  // The avatar is derived from the same look and the same seed. If it fails we
+  // keep the portrait the player just paid for, charge nothing extra, and say
+  // so -- failing the whole purchase over the secondary image would take a good
+  // render away for no reason, and refunding it would give away the render.
+  const avatar = await renderOnePortrait({ ...renderArgs, kind: 'avatar' });
+  if (avatar.ok) {
     await supabase
-      .from('portrait_jobs')
-      .update({
-        status: 'succeeded',
-        provider: result.provider,
-        provider_model: result.provider_model,
-        result_portrait_id: portrait.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', job.id);
+      .from('characters')
+      .update({ avatar_portrait_id: avatar.portraitId })
+      .eq('id', character.id);
+    await supabase
+      .from('character_portraits')
+      .update({ appearance_version: appearanceVersion })
+      .eq('id', avatar.portraitId);
+  } else {
+    console.error('avatar leg failed; portrait kept and charge stands', {
+      character_id: character.id,
+      code: avatar.code,
+      message: avatar.message,
+    });
   }
 
   const { data: edit } = await supabase
@@ -420,9 +289,13 @@ Deno.serve(async (req) => {
     .insert({
       character_id: character.id,
       profile_id: userId,
-      edit_kind: priceKey, // 'regenerate_portrait' or 'new_portrait'
-      before: { portrait_prompt_raw: character.portrait_prompt_raw },
-      after: { portrait_id: portrait.id, portrait_prompt_raw: promptRaw },
+      edit_kind: mode === 'random' ? 'traits' : 'regenerate_portrait',
+      before: { portrait_id: character.portrait_id },
+      after: {
+        portrait_id: fighter.portraitId,
+        avatar_portrait_id: avatar.ok ? avatar.portraitId : null,
+        mode,
+      },
       credits_spent: price.credits,
       wallet_transaction_id: walletTxId,
       idempotency_key: idempotencyKey,
@@ -431,10 +304,13 @@ Deno.serve(async (req) => {
     .single();
 
   return ok({
-    portrait_id: portrait.id,
-    job_id: job?.id ?? null,
+    portrait_id: fighter.portraitId,
+    avatar_portrait_id: avatar.ok ? avatar.portraitId : null,
+    /** True when the portrait landed but the avatar did not. Retry it free. */
+    avatar_pending: !avatar.ok,
+    job_id: fighter.jobId,
     edit_id: edit?.id ?? null,
     credits_spent: price.credits,
-    image_path: storagePath,
+    image_path: fighter.imagePath,
   });
 });

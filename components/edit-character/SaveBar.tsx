@@ -9,41 +9,32 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
-import { formatCredits } from '@/utils/credits';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 
 export interface SaveBarProps {
   changeCount: number;
-  cost: number;
-  credits: number;
   busy?: boolean;
   onSave: () => void;
   onClear: () => void;
-  /** Routed to when the player cannot afford the staged edits. */
-  onGetCredits: () => void;
 }
 
 /**
- * One commit point for everything staged across Identity and Look.
+ * One commit point for everything staged across Identity, Look and Gear.
  *
- * The old apply bar lived inside the Traits panel, so the two thirds of the
- * screen that committed on tap had no bar at all and the one that staged had a
- * bar you could only see from its own tab. This one is screen-level: whatever
- * is staged, wherever it was staged, is summarised and saved here.
+ * Carries no price, because describing a character costs nothing: the money is
+ * on the render button in the hero. What this bar is for is the other kind of
+ * cost — name locks for 7 days, archetype for 14 — which the confirmation
+ * spells out before anything is written.
  */
 export default function SaveBar({
   changeCount,
-  cost,
-  credits,
   busy = false,
   onSave,
   onClear,
-  onGetCredits,
 }: SaveBarProps) {
   const colors = useThemedColors();
   const insets = useSafeAreaInsets();
   const accessibleText = useAccessibleTextStyle();
-  const short = cost > credits;
 
   return (
     <View
@@ -60,16 +51,8 @@ export default function SaveBar({
         <Text style={[styles.title, accessibleText, { color: colors.text }]}>
           {changeCount} change{changeCount === 1 ? '' : 's'}
         </Text>
-        <Text
-          style={[
-            styles.sub,
-            accessibleText,
-            { color: short ? colors.error : colors.textSecondary },
-          ]}
-        >
-          {short
-            ? `Need ${formatCredits(cost - credits, 'sentence')} more`
-            : formatCredits(cost)}
+        <Text style={[styles.sub, accessibleText, { color: colors.textSecondary }]}>
+          Free
         </Text>
       </View>
       <TouchableOpacity
@@ -84,27 +67,21 @@ export default function SaveBar({
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
-        onPress={short ? onGetCredits : onSave}
+        onPress={onSave}
         disabled={busy}
         accessibilityRole="button"
-        accessibilityLabel={
-          short
-            ? 'Get credits'
-            : `Save ${changeCount} change${changeCount === 1 ? '' : 's'}, ${formatCredits(cost, 'sentence')}`
-        }
+        accessibilityLabel={`Save ${changeCount} change${changeCount === 1 ? '' : 's'}`}
         accessibilityState={{ disabled: busy }}
         style={[
           styles.save,
-          { backgroundColor: short ? colors.warning : colors.primary },
+          { backgroundColor: colors.primary },
           busy && styles.disabled,
         ]}
       >
         {busy ? (
           <ActivityIndicator color="#FFFFFF" />
         ) : (
-          <Text style={styles.saveText}>
-            {short ? 'Get credits' : 'Save changes'}
-          </Text>
+          <Text style={styles.saveText}>Save changes</Text>
         )}
       </TouchableOpacity>
     </View>
