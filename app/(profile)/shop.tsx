@@ -9,6 +9,8 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
+import { Stack } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { useAuth } from '@/providers/AuthProvider';
@@ -18,6 +20,7 @@ import {
   listCosmetics,
   purchaseCosmetic,
   equipCosmetic,
+  syncCosmetics,
   resolveEquippedCosmetics,
   CosmeticItem,
   CosmeticType,
@@ -27,7 +30,7 @@ import {
   presentationFor,
   RENDERABLE_COSMETIC_TYPES,
 } from '@/constants/Cosmetics';
-import { CosmeticPreview } from '@/components';
+import { CosmeticPreview, CreditChip } from '@/components';
 
 const TYPE_ORDER: { type: CosmeticType; label: string }[] = [
   { type: 'frame', label: 'Frames' },
@@ -71,6 +74,7 @@ function unlockHint(rule: Record<string, number> | null): string {
 
 export default function CosmeticShopScreen() {
   const colors = useThemedColors();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
   const [items, setItems] = useState<CosmeticItem[]>([]);
@@ -92,6 +96,12 @@ export default function CosmeticShopScreen() {
 
   const load = useCallback(async () => {
     try {
+      // Grant anything newly qualified before listing. sync_unlocked_cosmetics
+      // is the only thing that hands out free and earned items, and it ran only
+      // from daily-meta -- so a player who just hit 25 wins saw Champion as
+      // locked until their next check-in.
+      await syncCosmetics();
+
       const [catalog, balance, characterRes] = await Promise.all([
         listCosmetics(),
         getWalletBalance(),
@@ -171,9 +181,15 @@ export default function CosmeticShopScreen() {
 
   const handleBuy = (item: CosmeticItem) => {
     if (!item.price_credits) return;
+    // Name the free route in the confirmation too. Somebody two wins away from
+    // earning an item should find that out before they spend, not after.
+    const earnable =
+      item.acquisition === 'play_unlock' ? unlockHint(item.unlock_rule) : null;
     Alert.alert(
       'Confirm purchase',
-      `Buy "${item.name}" for ${item.price_credits} credits?`,
+      earnable
+        ? `Buy "${item.name}" for ${item.price_credits} credits?\n\nYou can also unlock it free: ${earnable}`
+        : `Buy "${item.name}" for ${item.price_credits} credits?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -274,7 +290,11 @@ export default function CosmeticShopScreen() {
       );
     }
 
-    if (item.acquisition === 'credits' && item.price_credits) {
+    // A price is what makes an item buyable, whatever its acquisition type --
+    // the same rule the purchase function now applies. An earned item with a
+    // price can be bought as a shortcut; its unlock rule still stands and is
+    // shown beneath the card, so buying never looks like the only way in.
+    if (item.price_credits) {
       const affordable = credits >= item.price_credits;
       return (
         <TouchableOpacity
@@ -284,7 +304,11 @@ export default function CosmeticShopScreen() {
           ]}
           onPress={() => handleBuy(item)}
           accessibilityRole="button"
-          accessibilityLabel={`Buy ${item.name} for ${item.price_credits} credits`}
+          accessibilityLabel={
+            item.acquisition === 'play_unlock'
+              ? `Buy ${item.name} for ${item.price_credits} credits, or earn it: ${unlockHint(item.unlock_rule)}`
+              : `Buy ${item.name} for ${item.price_credits} credits`
+          }
         >
           <Text style={[styles.ctaText, { color: '#FFFFFF' }]}>
             {affordable ? `Buy · ${item.price_credits}` : `Need ${item.price_credits}`}
@@ -318,33 +342,40 @@ export default function CosmeticShopScreen() {
   }
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-      }
-    >
-      <Text style={[styles.title, { color: colors.text }]}>Cosmetic Shop</Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        Pure cosmetics — they never affect scoring or matchmaking.
-      </Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Balance goes where every other screen puts it. CreditChip routes to the
+          wallet on tap, which is the right destination from a shop. */}
+      <Stack.Screen
+        options={{ headerRight: () => <CreditChip credits={credits} /> }}
+      />
 
-      <View style={[styles.balanceCard, { backgroundColor: colors.card }]}>
-        <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>Your credits</Text>
-        <Text style={[styles.balanceValue, { color: colors.primary }]}>{credits}</Text>
+      {/* Fixed above the scroller, not inside it. The preview was the point of
+          the redesign and it scrolled away the moment the player reached the
+          items it exists to preview. */}
+      <View style={[styles.top, { paddingTop: insets.top + 44 }]}>
+        <Text style={[styles.title, { color: colors.text }]}>Cosmetic Shop</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          Pure cosmetics — they never affect scoring or matchmaking.
+        </Text>
+
+        {character ? (
+          <CosmeticPreview
+            portraitUri={character.portraitUri}
+            characterName={character.name}
+            signatureColor={character.signatureColor}
+            equipped={resolveEquippedCosmetics(equipped)}
+            preview={presentationFor(focusedSlug)}
+          />
+        ) : null}
       </View>
 
-      {character ? (
-        <CosmeticPreview
-          portraitUri={character.portraitUri}
-          characterName={character.name}
-          signatureColor={character.signatureColor}
-          equipped={resolveEquippedCosmetics(equipped)}
-          preview={presentationFor(focusedSlug)}
-        />
-      ) : null}
-
+      <ScrollView
+        style={styles.list}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
+      >
       {TYPE_ORDER.map(({ type, label }) => {
         const typeItems = items.filter((i) => i.cosmetic_type === type);
         if (typeItems.length === 0) return null;
@@ -377,6 +408,20 @@ export default function CosmeticShopScreen() {
                   <Text style={[styles.itemDesc, { color: colors.textSecondary }]} numberOfLines={2}>
                     {item.description}
                   </Text>
+                  {/* Only for an item you can both earn and buy: without this
+                      the price would quietly replace the achievement. */}
+                  {!item.owned &&
+                  item.acquisition === 'play_unlock' &&
+                  item.price_credits ? (
+                    <Text style={[styles.earnHint, { color: colors.success }]}>
+                      {`Free at: ${unlockHint(item.unlock_rule)} — or buy it now`}
+                    </Text>
+                  ) : null}
+                  {!item.owned && item.acquisition === 'free' ? (
+                    <Text style={[styles.earnHint, { color: colors.success }]}>
+                      Included free
+                    </Text>
+                  ) : null}
                 </View>
                 <View style={styles.itemCta}>{renderCta(item)}</View>
               </TouchableOpacity>
@@ -384,14 +429,21 @@ export default function CosmeticShopScreen() {
           </View>
         );
       })}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { justifyContent: 'center', alignItems: 'center' },
-  content: { padding: Spacing.lg, paddingTop: Spacing.xxl },
+  top: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  list: { flex: 1 },
+  content: { padding: Spacing.lg, paddingTop: Spacing.sm },
   title: {
     fontSize: Typography.sizes.xxxl,
     fontWeight: Typography.weights.bold,
@@ -401,16 +453,11 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     marginBottom: Spacing.lg,
   },
-  balanceCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.lg,
+  earnHint: {
+    marginTop: 2,
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.medium,
   },
-  balanceLabel: { fontSize: Typography.sizes.base, fontWeight: Typography.weights.medium },
-  balanceValue: { fontSize: Typography.sizes.xxl, fontWeight: Typography.weights.bold },
   section: { marginBottom: Spacing.lg },
   sectionTitle: {
     fontSize: Typography.sizes.lg,
