@@ -27,6 +27,7 @@ const ROOT = path.resolve(__dirname, '..');
 const IMAGES_DIR = path.join(ROOT, 'assets', 'images');
 const STYLES_DIR = path.join(IMAGES_DIR, 'styles');
 const UI_DIR = path.join(IMAGES_DIR, 'ui');
+const ARCHETYPES_DIR = path.join(IMAGES_DIR, 'archetypes');
 
 // Candidate model ids, tried in order (GA name first, preview fallback).
 const MODELS = ['gemini-2.5-flash-image', 'gemini-2.5-flash-image-preview'];
@@ -156,6 +157,54 @@ function stylePrompt(key) {
 }
 
 // ---------------------------------------------------------------------------
+// Archetype cards
+// ---------------------------------------------------------------------------
+
+// One card per archetype for the "Choose your archetype" step. Wide (16:9) so
+// the art can sit behind the existing name/description/trait text without
+// fighting it for vertical space, and rendered in a single shared style so the
+// five read as one set rather than five unrelated illustrations -- the same
+// reason the style tiles all share STYLE_SUBJECT.
+const ARCHETYPE_SCAFFOLD =
+  'Painterly digital game-art key card, dramatic cinematic rim lighting, ' +
+  'deep near-black background so the figure reads against a dark UI, ' +
+  'figure composed toward the left third with open negative space on the right, ' +
+  'half-body framing, no ground plane, subtle atmospheric haze. ' +
+  // The card already draws its own rounded border; art that paints its own
+  // frame ends up as a box inside a box.
+  'Full-bleed art with no frame, no border, no corner brackets, no decorative ' +
+  'panel edges, no vignette outline -- the art must run to all four edges.';
+
+// Signature colour per archetype, matching constants/Archetypes.ts so the card
+// art agrees with the coloured dot and selection border already on screen.
+const ARCHETYPE_PROMPTS = {
+  strategist:
+    'A calm, precise tactician in tailored dark armour, one hand raised mid-calculation, ' +
+    'faint geometric strategy diagrams glowing in the air around them. ' +
+    'Dominant accent colour: cool azure blue (#3B82F6). Mood: controlled, analytical, patient.',
+  trickster:
+    'A grinning, loose-limbed rogue mid-motion, cloak and shards of light scattering unpredictably, ' +
+    'asymmetric silhouette, one eye hidden. ' +
+    'Dominant accent colour: warm amber orange (#F59E0B). Mood: playful, chaotic, unreadable.',
+  titan:
+    'A colossal armoured bruiser planted in a forward stance, fists clenched, ' +
+    'cracked heavy plate and embers rising from the impact. ' +
+    'Dominant accent colour: hot crimson red (#EF4444). Mood: direct, overwhelming, unstoppable.',
+  mystic:
+    'A serene robed seer with eyes closed, hands open, ' +
+    'abstract constellations and drifting sigils curling around them. ' +
+    'Dominant accent colour: deep violet purple (#8B5CF6). Mood: poetic, abstract, otherworldly.',
+  engineer:
+    'A focused builder in a practical rig of plated panels and fine tools, ' +
+    'precise schematic lines and small floating components assembling around one hand. ' +
+    'Dominant accent colour: emerald green (#10B981). Mood: structured, technical, exacting.',
+};
+
+function archetypePrompt(key) {
+  return `${ARCHETYPE_SCAFFOLD} ${ARCHETYPE_PROMPTS[key]} ${NO_TEXT}`;
+}
+
+// ---------------------------------------------------------------------------
 // Tasks
 // ---------------------------------------------------------------------------
 
@@ -226,6 +275,22 @@ const TASKS = [
       await sharp(buf)
         .resize(512, 512, { fit: 'cover' })
         .jpeg({ quality: 85, progressive: false })
+        .toFile(out);
+      return [out];
+    },
+  })),
+  ...Object.keys(ARCHETYPE_PROMPTS).map((key) => ({
+    id: `archetype:${key}`,
+    group: 'archetypes',
+    aspect: '16:9',
+    prompt: archetypePrompt(key),
+    async save(buf) {
+      // Baseline JPEG for the same reason as the style tiles: RN's iOS <Image>
+      // renders only the first scan of a progressive JPEG.
+      const out = path.join(ARCHETYPES_DIR, `${key}.jpg`);
+      await sharp(buf)
+        .resize(768, 432, { fit: 'cover' })
+        .jpeg({ quality: 86, progressive: false })
         .toFile(out);
       return [out];
     },
@@ -367,6 +432,7 @@ async function main() {
   const apiKey = await loadApiKey();
   await fs.mkdir(STYLES_DIR, { recursive: true });
   await fs.mkdir(UI_DIR, { recursive: true });
+  await fs.mkdir(ARCHETYPES_DIR, { recursive: true });
 
   console.log(`Generating ${tasks.length} asset(s) with Nano Banana...\n`);
   let ok = 0;

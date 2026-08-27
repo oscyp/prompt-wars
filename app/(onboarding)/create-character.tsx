@@ -7,13 +7,14 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Image,
   ActivityIndicator,
   Alert,
   Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ARCHETYPES, ArchetypeId } from '@/constants/Archetypes';
+import { ARCHETYPES, ARCHETYPE_ART, ArchetypeId } from '@/constants/Archetypes';
 import {
   VIBES,
   SILHOUETTES,
@@ -487,33 +488,51 @@ function StepArchetype({
             accessibilityRole="button"
             accessibilityState={{ selected }}
           >
-            <View style={styles.archetypeHeader}>
-              <View
+            <Image
+              source={ARCHETYPE_ART[arch.id]}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+            {/* Scrim. The art is dark and left-weighted, but the text sits on
+                top of it, so it still needs a floor on contrast. Unselected
+                cards are pushed further back so the chosen one reads as
+                foreground. No LinearGradient dependency in this project --
+                a flat rgba wash, same approach as ArtStylePicker. */}
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: selected ? 'rgba(8,8,10,0.42)' : 'rgba(8,8,10,0.62)' },
+              ]}
+            />
+            <View style={styles.archetypeTextBlock}>
+              <View style={styles.archetypeHeader}>
+                <View
+                  style={[
+                    styles.archetypeColor,
+                    { backgroundColor: arch.color },
+                  ]}
+                />
+                <Text style={[styles.archetypeName, { color: '#FFFFFF' }]}>
+                  {arch.name}
+                </Text>
+              </View>
+              <Text
                 style={[
-                  styles.archetypeColor,
-                  { backgroundColor: arch.color },
+                  styles.archetypeDescription,
+                  { color: 'rgba(255,255,255,0.82)' },
                 ]}
-              />
-              <Text style={[styles.archetypeName, { color: colors.text }]}>
-                {arch.name}
+              >
+                {arch.description}
+              </Text>
+              <Text
+                style={[
+                  styles.archetypeTrait,
+                  { color: 'rgba(255,255,255,0.62)' },
+                ]}
+              >
+                Trait: {arch.trait}
               </Text>
             </View>
-            <Text
-              style={[
-                styles.archetypeDescription,
-                { color: colors.textSecondary },
-              ]}
-            >
-              {arch.description}
-            </Text>
-            <Text
-              style={[
-                styles.archetypeTrait,
-                { color: colors.textTertiary },
-              ]}
-            >
-              Trait: {arch.trait}
-            </Text>
           </TouchableOpacity>
         );
       })}
@@ -1340,11 +1359,21 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   archetypeCard: {
-    padding: Spacing.md,
+    // Matches the 16:9 key art so the whole illustration is visible -- a fixed
+    // pixel height would centre-crop and clip the figure's head.
+    aspectRatio: 16 / 9,
+    justifyContent: 'flex-end',
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
     borderWidth: 2,
     borderColor: 'transparent',
+    overflow: 'hidden',
+  },
+  archetypeTextBlock: {
+    // The art puts the figure in the left third; the copy sits in the space
+    // deliberately left open on the right.
+    marginLeft: '36%',
+    padding: Spacing.md,
   },
   archetypeHeader: {
     flexDirection: 'row',
