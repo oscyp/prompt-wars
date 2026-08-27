@@ -47,6 +47,8 @@ import {
   type Expression,
 } from '@/constants/CharacterTraits';
 import { ARCHETYPES, type ArchetypeId } from '@/constants/Archetypes';
+import { listCosmetics, unlockedColorSwatches } from '@/utils/cosmetics';
+import type { ColorSwatchOption } from '@/components/ColorSwatchGrid';
 import {
   SegmentedCategoryBar,
   PortraitViewer,
@@ -127,6 +129,9 @@ export default function EditCharacterScreen() {
   const [itemsLoading, setItemsLoading] = useState(true);
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
+  // Signature colours the player has bought. Owning one unlocks the swatch; it
+  // never applies itself (see IdentityPanel).
+  const [unlockedColors, setUnlockedColors] = useState<ColorSwatchOption[]>([]);
 
   const { locked: battleLocked, refresh: refreshLock } = useCharacterEditLock(
     character?.id,
@@ -252,6 +257,18 @@ export default function EditCharacterScreen() {
   useEffect(() => {
     void loadItems();
   }, [loadItems]);
+
+  useEffect(() => {
+    let active = true;
+    void listCosmetics().then((catalog) => {
+      if (active && catalog?.items) {
+        setUnlockedColors(unlockedColorSwatches(catalog.items));
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // --- Derived -------------------------------------------------------------
 
@@ -646,6 +663,7 @@ export default function EditCharacterScreen() {
             changedKeys={changedKeys}
             pricing={pricing}
             disabled={editingDisabled}
+            unlockedColors={unlockedColors}
             onStage={draft.stage}
           />
         )}

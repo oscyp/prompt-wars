@@ -8,6 +8,12 @@ import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { PUBLIC_PROFILE_COLUMNS } from '@/utils/profiles';
 import { getRivals, type RivalSummary } from '@/utils/battles';
+import { CosmeticTitle, CosmeticBadge } from '@/components';
+import {
+  resolveEquippedCosmetics,
+  NO_COSMETICS,
+  type EquippedCosmetics,
+} from '@/utils/cosmetics';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -15,6 +21,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [profile, setProfile] = useState<any>(null);
+  const [cosmetics, setCosmetics] = useState<EquippedCosmetics>(NO_COSMETICS);
   const [isLoading, setIsLoading] = useState(true);
   const [rivals, setRivals] = useState<RivalSummary[]>([]);
 
@@ -43,6 +50,22 @@ export default function ProfileScreen() {
       } else {
         setProfile(data);
       }
+
+      // Cosmetics hang off the active CHARACTER, not the profile: equip_cosmetic
+      // takes a character id. Titles and badges are player-facing though, so
+      // they belong on the profile header.
+      const { data: character } = await supabase
+        .from('characters')
+        .select('cosmetic_config')
+        .eq('profile_id', user.id)
+        .eq('is_active', true)
+        .maybeSingle();
+      setCosmetics(
+        resolveEquippedCosmetics(
+          (character as { cosmetic_config?: Record<string, string> } | null)
+            ?.cosmetic_config,
+        ),
+      );
     } catch (err) {
       console.error('Profile load error:', err);
     } finally {
@@ -73,9 +96,13 @@ export default function ProfileScreen() {
 
       {profile && (
         <View style={[styles.profileCard, { backgroundColor: colors.card }]}>
-          <Text style={[styles.displayName, { color: colors.text }]}>
-            {profile.display_name || profile.username}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text style={[styles.displayName, { color: colors.text }]}>
+              {profile.display_name || profile.username}
+            </Text>
+            <CosmeticBadge badge={cosmetics.badge} size={18} />
+          </View>
+          <CosmeticTitle title={cosmetics.title} />
           <Text style={[styles.username, { color: colors.textSecondary }]}>
             @{profile.username}
           </Text>
@@ -225,6 +252,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: Spacing.lg,
     alignItems: 'center',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   displayName: {
     fontSize: Typography.sizes.xxl,

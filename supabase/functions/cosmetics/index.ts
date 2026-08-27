@@ -10,6 +10,7 @@ import {
   successResponse,
   getAuthUserId,
 } from '../_shared/utils.ts';
+import { RENDERABLE_TYPES } from './renderable-types.ts';
 
 interface CosmeticsRequest {
   action?: 'list' | 'purchase' | 'equip' | 'sync';
@@ -46,6 +47,7 @@ async function listCatalog(
   return { items, owned_count: ownedIds.size };
 }
 
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -61,6 +63,26 @@ Deno.serve(async (req) => {
       if (!body.cosmetic_slug) {
         return errorResponse('cosmetic_slug required');
       }
+
+      // Refuse to sell anything the game cannot yet display.
+      //
+      // reveal_style is equippable but nothing renders it, so selling one takes
+      // credits for an effect that never appears -- the exact harm that had
+      // already cost players 25 credits on cosmetics with no display surface at
+      // all. The shop marks these "Coming soon", but the client is not the
+      // authority on what is for sale.
+      const { data: target } = await supabase
+        .from('cosmetics_catalog')
+        .select('cosmetic_type')
+        .eq('slug', body.cosmetic_slug)
+        .maybeSingle();
+      if (target && !RENDERABLE_TYPES.includes(target.cosmetic_type as string)) {
+        return errorResponse(
+          'That cosmetic is not available yet.',
+          409,
+        );
+      }
+
       const { data, error } = await supabase.rpc('purchase_cosmetic', {
         p_profile_id: userId,
         p_cosmetic_slug: body.cosmetic_slug,

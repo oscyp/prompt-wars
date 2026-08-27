@@ -43,6 +43,18 @@ export interface BattleSidePortrait {
   name: string | null;
   /** Signature colour, for theming the opponent's card. */
   signature_color: string | null;
+  /**
+   * Equipped cosmetics (cosmetic_type -> slug), for rendering the opponent's
+   * frame, title and badge.
+   *
+   * Travels here for the same reason `name` does: RLS on `characters` is
+   * `profile_id = auth.uid()`, so the client has no path to the opponent's row.
+   * Cosmetics that nobody but their owner can see are not cosmetics.
+   *
+   * Null for bots. Purely decorative -- never read by the judge, which redacts
+   * `cosmetic` outright (round-resolve/index.ts).
+   */
+  cosmetics: Record<string, string> | null;
 }
 
 export interface SignBattlePortraitsResponse {
@@ -60,6 +72,7 @@ interface CharacterLite {
   archetype?: string | null;
   name?: string | null;
   signature_color?: string | null;
+  cosmetic_config?: Record<string, string> | null;
 }
 
 /**
@@ -78,7 +91,13 @@ async function resolveSide(
   const characterId = opts.character?.id ?? null;
   const name = opts.character?.name ?? null;
   const signatureColor = opts.character?.signature_color ?? null;
-  const identity = { archetype, name, signature_color: signatureColor };
+  const cosmetics = opts.character?.cosmetic_config ?? null;
+  const identity = {
+    archetype,
+    name,
+    signature_color: signatureColor,
+    cosmetics,
+  };
 
   if (opts.isBot || !characterId) {
     return { portrait_url: null, ...identity };
@@ -132,8 +151,8 @@ export async function resolveBattlePortraits(
       `
       id, player_one_id, player_two_id, is_player_two_bot,
       player_one_character_id, player_two_character_id,
-      player_one_character:characters!battles_player_one_character_id_fkey(id, archetype, name, signature_color),
-      player_two_character:characters!battles_player_two_character_id_fkey(id, archetype, name, signature_color)
+      player_one_character:characters!battles_player_one_character_id_fkey(id, archetype, name, signature_color, cosmetic_config),
+      player_two_character:characters!battles_player_two_character_id_fkey(id, archetype, name, signature_color, cosmetic_config)
     `,
     )
     .eq('id', args.battleId)

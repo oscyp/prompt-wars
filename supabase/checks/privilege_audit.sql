@@ -64,6 +64,19 @@ UNION ALL
 -- 4. Views without security_invoker run as their OWNER and bypass RLS on every
 --    base table. This is how the entitlement views leaked every player's
 --    credit balance and subscription tier.
+--
+--    One deliberate exception, listed here rather than tolerated as a standing
+--    row: this check is only useful while an empty result means "clean", and a
+--    permanent known-defect row teaches people to skim past it.
+--
+--    `public_player_cosmetics` is owner-rights ON PURPOSE. Cosmetics are worn to
+--    be seen, they live on `characters` (select-own), and the leaderboard has no
+--    service-role composer to route them through. The alternative -- a
+--    permissive policy on `characters` -- is strictly worse: RLS applies to the
+--    whole row, so it would expose names, battle cries, traits, prompts and
+--    seeds to read a decoration. The view's safety rests entirely on its
+--    projection being two harmless columns, so the guard below asserts exactly
+--    that: if anybody widens it, this check fires again.
 SELECT 'view_missing_security_invoker',
        c.relname,
        'owner-rights'
@@ -72,6 +85,21 @@ JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public'
   AND c.relkind = 'v'
   AND COALESCE(array_to_string(c.reloptions, ','), '') NOT LIKE '%security_invoker=true%'
+  AND c.relname <> 'public_player_cosmetics'
+
+UNION ALL
+
+-- 4b. ...and the exception above is only safe while its projection stays
+--     minimal. Any column beyond (profile_id, cosmetic_config) is a defect.
+SELECT 'public_cosmetics_view_widened',
+       string_agg(a.attname, ',' ORDER BY a.attnum),
+       'owner-rights view must expose only profile_id, cosmetic_config'
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+WHERE n.nspname = 'public'
+  AND c.relname = 'public_player_cosmetics'
+HAVING string_agg(a.attname, ',' ORDER BY a.attnum) <> 'profile_id,cosmetic_config'
 
 UNION ALL
 

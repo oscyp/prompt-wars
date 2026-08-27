@@ -13,6 +13,9 @@ import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
 import { hapticImpact } from '@/utils/haptics';
 import PortraitPreview from './PortraitPreview';
+import CosmeticTitle from './CosmeticTitle';
+import CosmeticBadge from './CosmeticBadge';
+import type { EquippedCosmetics } from '@/utils/cosmetics';
 import StatBar from './StatBar';
 import HPBar from './HPBar';
 import { StatBlock } from '@/types/battle';
@@ -24,6 +27,8 @@ export interface FaceOffPlayer {
   battleCry?: string | null;
   signatureColor: string;
   portraitUrl?: string | null;
+  /** Equipped cosmetics, from the battle payload. Absent for bots. */
+  cosmetics?: EquippedCosmetics;
   stats: StatBlock;
   hp: number;
   hpMax: number;
@@ -259,6 +264,9 @@ function PlayerSide({
           <PortraitPreview
             uri={player.portraitUrl}
             size={120}
+            accentColor={player.signatureColor}
+            frame={player.cosmetics?.frame}
+            avatarEffect={player.cosmetics?.avatarEffect}
             accessibilityLabel={`${player.displayName} portrait`}
           />
         ) : (
@@ -277,14 +285,18 @@ function PlayerSide({
           </View>
         )}
       </View>
-      <Text
-        style={[styles.name, { color: colors.text }]}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.7}
-      >
-        {player.displayName}
-      </Text>
+      <View style={styles.nameRow}>
+        <Text
+          style={[styles.name, { color: colors.text }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+        >
+          {player.displayName}
+        </Text>
+        <CosmeticBadge badge={player.cosmetics?.badge} size={14} />
+      </View>
+      <CosmeticTitle title={player.cosmetics?.title} />
       <View
         style={[
           styles.archetypeBadge,
@@ -380,6 +392,12 @@ const styles = StyleSheet.create({
     width: 112,
     height: 112,
     borderRadius: 56,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   name: {
     fontSize: Typography.sizes.lg,

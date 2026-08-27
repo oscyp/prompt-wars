@@ -10,6 +10,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useThemedColors } from '@/hooks/useThemedColors';
+import type { EquippedCosmetics } from '@/utils/cosmetics';
+import CosmeticTitle from './CosmeticTitle';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { hapticWarning } from '@/utils/haptics';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
@@ -28,6 +30,8 @@ export interface VersusStripPlayer {
   portraitUrl?: string | null;
   /** Small caption above the name, e.g. "YOU" / "OPPONENT". */
   label?: string;
+  /** Equipped cosmetics, from the battle payload. */
+  cosmetics?: EquippedCosmetics;
 }
 
 export interface VersusStripProps {
@@ -159,7 +163,18 @@ function Side({ player, align }: { player: VersusStripPlayer; align: 'left' | 'r
   const isRight = align === 'right';
   return (
     <View style={[styles.side, isRight && styles.sideRight]}>
-      <View style={[styles.avatarRing, { borderColor: player.signatureColor }]}>
+      {/* A bought frame outranks the signature colour on the ring: the colour
+          is a default, the frame is a purchase. */}
+      <View
+        style={[
+          styles.avatarRing,
+          {
+            borderColor:
+              player.cosmetics?.frame?.colors[0] ?? player.signatureColor,
+            borderWidth: player.cosmetics?.frame?.width ?? styles.avatarRing.borderWidth,
+          },
+        ]}
+      >
         <Image
           source={
             player.portraitUrl
@@ -187,6 +202,10 @@ function Side({ player, align }: { player: VersusStripPlayer; align: 'left' | 'r
         >
           {player.name}
         </Text>
+        <CosmeticTitle
+          title={player.cosmetics?.title}
+          style={isRight ? styles.textRight : undefined}
+        />
         <Text
           style={[styles.archetype, { color: player.signatureColor }, isRight && styles.textRight]}
           numberOfLines={1}

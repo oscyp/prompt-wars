@@ -14,6 +14,7 @@ import FaceOffPortraits, { FaceOffPlayer } from '@/components/FaceOffPortraits';
 import { supabase, invokeFunctionResult } from '@/utils/supabase';
 import { StatBlock } from '@/types/battle';
 import { leaveBattle } from '@/utils/battles';
+import { resolveEquippedCosmetics } from '@/utils/cosmetics';
 
 interface CharacterRow {
   id: string;
@@ -21,6 +22,7 @@ interface CharacterRow {
   archetype: string;
   signature_color: string | null;
   battle_cry: string | null;
+  cosmetic_config: Record<string, string> | null;
 }
 
 /**
@@ -67,7 +69,7 @@ export default function FaceOffScreen() {
       }
       const { data, error } = await supabase
         .from('characters')
-        .select('id, name, archetype, signature_color, battle_cry')
+        .select('id, name, archetype, signature_color, battle_cry, cosmetic_config')
         .in('id', ids);
       if (cancelled) return;
       if (error || !data) {
@@ -258,6 +260,7 @@ function buildPlayer(
     battleCry: c?.battle_cry ?? null,
     signatureColor: c?.signature_color ?? '#8B5CF6',
     portraitUrl: portraitUrl ?? null,
+    cosmetics: resolveEquippedCosmetics(c?.cosmetic_config),
     stats,
     hp,
     hpMax,

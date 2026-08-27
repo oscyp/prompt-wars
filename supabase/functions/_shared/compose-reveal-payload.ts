@@ -56,6 +56,17 @@ export interface RevealPlayer {
   character_name: string;
   archetype: string;
   signature_color: string;
+  /**
+   * Equipped cosmetics (cosmetic_type -> slug), for the frame, title and badge
+   * on the reveal card.
+   *
+   * Decorative only. `round-resolve` redacts `cosmetic` from everything the
+   * judge sees, and this payload is composed after scoring -- cosmetics must
+   * never be able to influence an outcome.
+   *
+   * Null for bots, which own none.
+   */
+  cosmetics: Record<string, string> | null;
   battle_cry: string;
   portrait: RevealPortrait;
   move_type: string;
@@ -177,10 +188,12 @@ export async function composeRevealPayload(
       winner_id, is_draw, score_payload,
       judge_prompt_version, judge_model_id,
       player_one_character:characters!battles_player_one_character_id_fkey(
-        id, profile_id, name, archetype, signature_color, battle_cry, art_style
+        id, profile_id, name, archetype, signature_color, battle_cry, art_style,
+        cosmetic_config
       ),
       player_two_character:characters!battles_player_two_character_id_fkey(
-        id, profile_id, name, archetype, signature_color, battle_cry, art_style
+        id, profile_id, name, archetype, signature_color, battle_cry, art_style,
+        cosmetic_config
       ),
       bot_persona:bot_personas(id, name, archetype, signature_color, battle_cry)
     `,
@@ -278,6 +291,8 @@ export async function composeRevealPayload(
     character_name: (p1Char?.name as string | undefined) ?? 'Player One',
     archetype: (p1Char?.archetype as string | undefined) ?? 'strategist',
     signature_color: p1Color,
+    cosmetics:
+      (p1Char?.cosmetic_config as Record<string, string> | undefined) ?? null,
     battle_cry: (p1Char?.battle_cry as string | undefined) ?? '',
     portrait: p1Portrait,
     move_type: p1MoveType,
@@ -293,6 +308,10 @@ export async function composeRevealPayload(
     character_name: (p2Char?.name as string | undefined) ?? (isBot ? 'Rival Bot' : 'Player Two'),
     archetype: (p2Char?.archetype as string | undefined) ?? 'titan',
     signature_color: p2Color,
+    // Bots own no cosmetics; a bot row has no cosmetic_config at all.
+    cosmetics: isBot
+      ? null
+      : ((p2Char?.cosmetic_config as Record<string, string> | undefined) ?? null),
     battle_cry: (p2Char?.battle_cry as string | undefined) ?? '',
     portrait: p2Portrait,
     move_type: p2MoveType,

@@ -236,6 +236,7 @@ export default function MoveSelectScreen() {
             archetype: myChar?.archetype ?? '',
             signatureColor: myChar?.signatureColor ?? colors.primary,
             portraitUrl: myChar?.portraitUrl,
+            cosmetics: myChar?.cosmetics,
             label: 'YOU',
           }}
           right={{
@@ -243,6 +244,7 @@ export default function MoveSelectScreen() {
             archetype: oppChar?.archetype ?? '',
             signatureColor: oppChar?.signatureColor ?? colors.textSecondary,
             portraitUrl: oppChar?.portraitUrl,
+            cosmetics: oppChar?.cosmetics,
             label: 'OPPONENT',
           }}
           subtitle={isBo3 ? `Round ${roundNumber}` : null}

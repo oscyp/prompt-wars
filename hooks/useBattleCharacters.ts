@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react';
 import { supabase, invokeFunctionResult} from '@/utils/supabase';
+import {
+  resolveEquippedCosmetics,
+  NO_COSMETICS,
+  type EquippedCosmetics,
+} from '@/utils/cosmetics';
 
 export interface BattleCharacterInfo {
   name: string;
   archetype: string;
   signatureColor: string;
   portraitUrl: string | null;
+  /** Equipped cosmetics, already resolved to their presentations. */
+  cosmetics: EquippedCosmetics;
 }
 
 interface BattleLike {
@@ -29,6 +36,7 @@ interface SignedSide {
   archetype: string | null;
   name: string | null;
   signature_color: string | null;
+  cosmetics: Record<string, string> | null;
 }
 
 interface SignedSides {
@@ -54,7 +62,7 @@ export function useBattleCharacters(
       if (ids.length === 0) return;
       const { data, error } = await supabase
         .from('characters')
-        .select('id, name, archetype, signature_color')
+        .select('id, name, archetype, signature_color, cosmetic_config')
         .in('id', ids);
       if (cancelled || error || !data) return;
       const byId = new Map(data.map((c) => [c.id as string, c]));
@@ -67,6 +75,9 @@ export function useBattleCharacters(
           archetype: (row.archetype as string | null) ?? 'fighter',
           signatureColor: (row.signature_color as string | null) ?? DEFAULT_COLOR,
           portraitUrl: null,
+          cosmetics: resolveEquippedCosmetics(
+            row.cosmetic_config as Record<string, string> | null,
+          ),
         };
       };
       setP1((prev) => {
@@ -79,6 +90,8 @@ export function useBattleCharacters(
           archetype: 'fighter',
           signatureColor: DEFAULT_COLOR,
           portraitUrl: prev?.portraitUrl ?? null,
+          // Bots own no cosmetics.
+          cosmetics: NO_COSMETICS,
         }));
       } else {
         setP2((prev) => {
@@ -130,6 +143,7 @@ export function useBattleCharacters(
             archetype: side.archetype ?? 'fighter',
             signatureColor: side.signature_color ?? DEFAULT_COLOR,
             portraitUrl: side.portrait_url ?? null,
+            cosmetics: resolveEquippedCosmetics(side.cosmetics),
           };
         };
 

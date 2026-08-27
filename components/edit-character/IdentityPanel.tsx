@@ -29,6 +29,17 @@ export interface IdentityPanelProps {
   changedKeys: Set<string>;
   pricing: EditPricing;
   disabled?: boolean;
+  /**
+   * Signature colours unlocked by owning `color` cosmetics.
+   *
+   * A colour cosmetic deliberately does not apply itself: signature_color feeds
+   * the portrait prompt, so equipping one automatically would bump
+   * appearance_version and tell the player their portrait is out of date --
+   * turning a paid cosmetic into a prompt to pay again for a re-render they
+   * never asked for. Owning it unlocks the swatch; wearing it stays free and
+   * deliberate.
+   */
+  unlockedColors?: ColorSwatchOption[];
   onStage: (key: DraftKey, value: string) => void;
 }
 
@@ -55,6 +66,7 @@ export default function IdentityPanel({
   changedKeys,
   pricing,
   disabled = false,
+  unlockedColors = [],
   onStage,
 }: IdentityPanelProps) {
   const colors = useThemedColors();

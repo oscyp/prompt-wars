@@ -18,11 +18,19 @@ import {
 } from '@/constants/DesignTokens';
 import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
 import { supabase } from '@/utils/supabase';
+import { CosmeticBadge } from '@/components';
+import {
+  resolveEquippedCosmetics,
+  type EquippedCosmetics,
+} from '@/utils/cosmetics';
 
 export default function RankingsScreen() {
   const colors = useThemedColors();
   const insets = useSafeAreaInsets();
   const [rankings, setRankings] = useState<any[]>([]);
+  const [cosmeticsByProfile, setCosmeticsByProfile] = useState<
+    Map<string, EquippedCosmetics>
+  >(new Map());
   const [season, setSeason] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,6 +64,20 @@ export default function RankingsScreen() {
       }
 
       const { data: rankingsData, error } = await query;
+
+      // Cosmetics live on `characters`, which is `select_own` under RLS, so the
+      // leaderboard reads them through `public_player_cosmetics` -- a narrow
+      // definer view exposing only profile_id and the equipped set.
+      const { data: cosmeticRows } = await supabase
+        .from('public_player_cosmetics')
+        .select('profile_id, cosmetic_config');
+      const byProfile = new Map<string, EquippedCosmetics>(
+        (cosmeticRows ?? []).map((row: any) => [
+          row.profile_id as string,
+          resolveEquippedCosmetics(row.cosmetic_config),
+        ]),
+      );
+      setCosmeticsByProfile(byProfile);
 
       if (error) {
         console.error('Failed to load rankings:', error);
@@ -125,9 +147,18 @@ export default function RankingsScreen() {
           importantForAccessibility="no"
         />
         <View style={styles.playerInfo}>
-          <Text style={[styles.playerName, { color: colors.text }]}>
-            {item.profile?.display_name || item.profile?.username || 'Unknown'}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text
+              style={[styles.playerName, { color: colors.text }]}
+              numberOfLines={1}
+            >
+              {item.profile?.display_name || item.profile?.username || 'Unknown'}
+            </Text>
+            <CosmeticBadge
+              badge={cosmeticsByProfile.get(item.profile_id)?.badge}
+              size={14}
+            />
+          </View>
           <Text
             style={[styles.stats, NumericFontVariant, { color: colors.textSecondary }]}
           >
@@ -228,6 +259,11 @@ const styles = StyleSheet.create({
   },
   playerInfo: {
     flex: 1,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   playerName: {
     fontSize: Typography.sizes.base,

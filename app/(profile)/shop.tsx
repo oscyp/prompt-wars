@@ -18,9 +18,16 @@ import {
   listCosmetics,
   purchaseCosmetic,
   equipCosmetic,
+  resolveEquippedCosmetics,
   CosmeticItem,
   CosmeticType,
 } from '@/utils/cosmetics';
+import { getPortraitFallbackUri } from '@/utils/characters';
+import {
+  presentationFor,
+  RENDERABLE_COSMETIC_TYPES,
+} from '@/constants/Cosmetics';
+import { CosmeticPreview } from '@/components';
 
 const TYPE_ORDER: { type: CosmeticType; label: string }[] = [
   { type: 'frame', label: 'Frames' },
@@ -30,6 +37,11 @@ const TYPE_ORDER: { type: CosmeticType; label: string }[] = [
   { type: 'avatar_effect', label: 'Avatar Effects' },
   { type: 'badge', label: 'Badges' },
 ];
+
+/** Types with a display surface. Mirrors the guard in the cosmetics function. */
+function isRenderable(type: string): boolean {
+  return (RENDERABLE_COSMETIC_TYPES as readonly string[]).includes(type);
+}
 
 function rarityColor(
   rarity: CosmeticItem['rarity'],
@@ -69,6 +81,14 @@ export default function CosmeticShopScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busySlug, setBusySlug] = useState<string | null>(null);
+  // The item the player is looking at. The preview shows their own fighter
+  // wearing it, which is the only preview that answers "what will I get".
+  const [focusedSlug, setFocusedSlug] = useState<string | null>(null);
+  const [character, setCharacter] = useState<{
+    name: string;
+    signatureColor: string;
+    portraitUri: string;
+  } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -78,7 +98,7 @@ export default function CosmeticShopScreen() {
         user
           ? supabase
               .from('characters')
-              .select('id, cosmetic_config')
+              .select('id, cosmetic_config, name, archetype, signature_color, portrait_id')
               .eq('profile_id', user.id)
               .eq('is_active', true)
               .maybeSingle()
@@ -89,9 +109,49 @@ export default function CosmeticShopScreen() {
       setCredits(balance?.credits_balance ?? 0);
       setIsSubscriber(balance?.is_subscriber ?? false);
 
-      const character = (characterRes as { data: { id: string; cosmetic_config: Record<string, string> } | null }).data;
-      setCharacterId(character?.id ?? null);
-      setEquipped(character?.cosmetic_config ?? {});
+      const row = (
+        characterRes as {
+          data: {
+            id: string;
+            cosmetic_config: Record<string, string>;
+            name: string;
+            archetype: string;
+            signature_color: string;
+            portrait_id: string | null;
+          } | null;
+        }
+      ).data;
+      setCharacterId(row?.id ?? null);
+      setEquipped(row?.cosmetic_config ?? {});
+
+      if (row) {
+        // Falls back to the generated placeholder rather than an empty frame:
+        // a player who has not rendered yet still needs to see the cosmetic on
+        // something shaped like their fighter.
+        let portraitUri = getPortraitFallbackUri({
+          archetype: row.archetype as never,
+          signatureColor: row.signature_color,
+        });
+        if (row.portrait_id) {
+          const { data: portrait } = await supabase
+            .from('character_portraits')
+            .select('image_path')
+            .eq('id', row.portrait_id)
+            .maybeSingle();
+          const path = (portrait as { image_path?: string } | null)?.image_path;
+          if (path) {
+            const { data: signed } = await supabase.storage
+              .from('character-portraits')
+              .createSignedUrl(path, 600);
+            if (signed?.signedUrl) portraitUri = signed.signedUrl;
+          }
+        }
+        setCharacter({
+          name: row.name,
+          signatureColor: row.signature_color,
+          portraitUri,
+        });
+      }
     } catch (err) {
       console.error('Failed to load shop:', err);
     } finally {
@@ -201,6 +261,19 @@ export default function CosmeticShopScreen() {
       );
     }
 
+    // Equippable, but nothing renders it. Selling it would take credits for an
+    // effect that never appears — which is how 25 credits were already spent on
+    // cosmetics with no display surface at all.
+    if (!isRenderable(item.cosmetic_type)) {
+      return (
+        <View style={[styles.lockedPill, { borderColor: colors.warning }]}>
+          <Text style={[styles.lockedText, { color: colors.warning }]}>
+            Coming soon
+          </Text>
+        </View>
+      );
+    }
+
     if (item.acquisition === 'credits' && item.price_credits) {
       const affordable = credits >= item.price_credits;
       return (
@@ -262,6 +335,16 @@ export default function CosmeticShopScreen() {
         <Text style={[styles.balanceValue, { color: colors.primary }]}>{credits}</Text>
       </View>
 
+      {character ? (
+        <CosmeticPreview
+          portraitUri={character.portraitUri}
+          characterName={character.name}
+          signatureColor={character.signatureColor}
+          equipped={resolveEquippedCosmetics(equipped)}
+          preview={presentationFor(focusedSlug)}
+        />
+      ) : null}
+
       {TYPE_ORDER.map(({ type, label }) => {
         const typeItems = items.filter((i) => i.cosmetic_type === type);
         if (typeItems.length === 0) return null;
@@ -269,7 +352,18 @@ export default function CosmeticShopScreen() {
           <View key={type} style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>{label}</Text>
             {typeItems.map((item) => (
-              <View key={item.slug} style={[styles.itemCard, { backgroundColor: colors.card }]}>
+              <TouchableOpacity
+                key={item.slug}
+                onPress={() => setFocusedSlug(item.slug)}
+                accessibilityRole="button"
+                accessibilityLabel={`Preview ${item.name}`}
+                accessibilityState={{ selected: focusedSlug === item.slug }}
+                style={[
+                  styles.itemCard,
+                  { backgroundColor: colors.card },
+                  focusedSlug === item.slug && { borderColor: colors.primary, borderWidth: 1 },
+                ]}
+              >
                 <View style={styles.itemInfo}>
                   <View style={styles.itemHeader}>
                     <Text style={[styles.itemName, { color: colors.text }]}>{item.name}</Text>
@@ -285,7 +379,7 @@ export default function CosmeticShopScreen() {
                   </Text>
                 </View>
                 <View style={styles.itemCta}>{renderCta(item)}</View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         );

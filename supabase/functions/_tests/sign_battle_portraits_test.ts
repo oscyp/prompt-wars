@@ -147,12 +147,14 @@ Deno.test('resolveBattlePortraits — opponent (player_two) gets BOTH signed por
     archetype: 'strategist',
     name: 'Mirrorwright',
     signature_color: '#8B5CF6',
+    cosmetics: null,
   });
   assertEquals(result.payload.player_two, {
     portrait_url: 'https://signed.test/u2/c2/p.png?token=abc',
     archetype: 'titan',
     name: 'Ironhold',
     signature_color: '#22C55E',
+    cosmetics: null,
   });
 });
 
@@ -182,6 +184,7 @@ Deno.test('resolveBattlePortraits — bot side resolves to null portrait + null 
     archetype: null,
     name: null,
     signature_color: null,
+    cosmetics: null,
   });
 });
 
@@ -202,6 +205,7 @@ Deno.test('resolveBattlePortraits — human with no current portrait -> null url
     archetype: 'titan',
     name: 'Ironhold',
     signature_color: '#22C55E',
+    cosmetics: null,
   });
 });
 
@@ -352,4 +356,48 @@ Deno.test('resolveBattlePortraits — falls back to the fighter render when no a
     'https://signed.test/p1-fighter.png?token=abc',
     'a character with no avatar must NOT go blank',
   );
+});
+
+Deno.test('resolveBattlePortraits — carries equipped cosmetics to the opponent', async () => {
+  // The whole point of a frame or a title is that somebody else sees it, and
+  // RLS on `characters` is select-own, so this payload is the only path.
+  const battle = humanBattle();
+  const withCosmetics = {
+    ...battle,
+    player_one_character: {
+      ...(battle as { player_one_character: Record<string, unknown> })
+        .player_one_character,
+      cosmetic_config: { frame: 'neon_frame', title: 'royal_title' },
+    },
+  };
+  const fx: Fixtures = {
+    battle: withCosmetics as typeof battle,
+    portraits: { c1: approvedPortrait('u1/c1/p.png') },
+  };
+
+  // Caller is player TWO, so player one is the opponent here.
+  const result = await resolveBattlePortraits(createMockSupabase(fx), {
+    battleId: 'battle-1',
+    callerUserId: 'u2',
+  });
+  assertEquals(result.kind, 'ok');
+  if (result.kind !== 'ok') return;
+  assertEquals(result.payload.player_one.cosmetics, {
+    frame: 'neon_frame',
+    title: 'royal_title',
+  });
+});
+
+Deno.test('resolveBattlePortraits — a character with no cosmetics reports null', async () => {
+  const fx: Fixtures = {
+    battle: humanBattle(),
+    portraits: { c1: approvedPortrait('u1/c1/p.png') },
+  };
+  const result = await resolveBattlePortraits(createMockSupabase(fx), {
+    battleId: 'battle-1',
+    callerUserId: 'u1',
+  });
+  assertEquals(result.kind, 'ok');
+  if (result.kind !== 'ok') return;
+  assertEquals(result.payload.player_one.cosmetics, null);
 });

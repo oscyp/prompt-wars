@@ -9,6 +9,10 @@ import {
 } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import type {
+  AvatarEffectPresentation,
+  FramePresentation,
+} from '@/constants/Cosmetics';
 
 interface PortraitPreviewProps {
   uri: string;
@@ -36,6 +40,13 @@ interface PortraitPreviewProps {
    * in the game's purple.
    */
   accentColor?: string;
+  /**
+   * Equipped frame cosmetic. Overrides `accentColor` for the border, because a
+   * frame is a deliberate purchase and the signature colour is a default.
+   */
+  frame?: FramePresentation | null;
+  /** Equipped avatar effect. Only drawn on the `circle` variant. */
+  avatarEffect?: AvatarEffectPresentation | null;
 }
 
 const FRAME_BORDER = 3;
@@ -51,6 +62,8 @@ export default function PortraitPreview({
   accessibilityLabel = 'Character portrait',
   variant = 'circle',
   accentColor,
+  frame,
+  avatarEffect,
 }: PortraitPreviewProps) {
   const colors = useThemedColors();
   const pulse = useRef(new Animated.Value(0.6)).current;
@@ -78,6 +91,17 @@ export default function PortraitPreview({
     return () => anim.stop();
   }, [loading, pulse]);
 
+  // A frame is bought; the signature colour is the default. So the frame wins.
+  // Gradients degrade to their first stop rather than being dropped — a
+  // two-tone frame still reads as that frame's colour, and the alternative is
+  // silently showing no purchase at all.
+  const borderColor = frame?.colors[0] ?? accentColor ?? colors.primary;
+  const borderWidth = frame?.width ?? FRAME_BORDER;
+  const glow = variant === 'circle' ? (avatarEffect?.glow ?? 0) : (frame?.glow ?? 0);
+  const glowColor = variant === 'circle'
+    ? (avatarEffect?.color ?? borderColor)
+    : borderColor;
+
   const isFullBody = variant === 'fullBody';
   const frameWidth = size;
   const frameHeight = isFullBody ? Math.round(size * FULL_BODY_ASPECT) : size;
@@ -90,6 +114,24 @@ export default function PortraitPreview({
 
   return (
     <View style={styles.wrapper}>
+      {/* The glow lives on a wrapper, not on the frame itself: the frame sets
+          `overflow: hidden` to clip the image to its radius, and on iOS that
+          also masks the layer's shadow, so a glow applied there renders as
+          nothing. */}
+      <View
+        style={
+          glow > 0
+            ? {
+                borderRadius: frameRadius,
+                shadowColor: glowColor,
+                shadowOpacity: 0.9,
+                shadowRadius: glow,
+                shadowOffset: { width: 0, height: 0 },
+                elevation: Math.round(glow / 2),
+              }
+            : undefined
+        }
+      >
       <Animated.View
         style={[
           styles.frame,
@@ -97,7 +139,8 @@ export default function PortraitPreview({
             width: frameWidth,
             height: frameHeight,
             borderRadius: frameRadius,
-            borderColor: accentColor ?? colors.primary,
+            borderColor,
+            borderWidth,
             opacity: pulse,
           },
         ]}
@@ -151,6 +194,7 @@ export default function PortraitPreview({
           </View>
         ) : null}
       </Animated.View>
+      </View>
       {caption ? (
         <Text
           style={[styles.caption, { color: colors.textSecondary }]}

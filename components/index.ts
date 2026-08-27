@@ -79,5 +79,13 @@ export type {
   ColorSwatchOption,
 } from './ColorSwatchGrid';
 
+// --- Cosmetics -------------------------------------------------------------
+export { default as CosmeticTitle } from './CosmeticTitle';
+export type { CosmeticTitleProps } from './CosmeticTitle';
+export { default as CosmeticBadge } from './CosmeticBadge';
+export type { CosmeticBadgeProps } from './CosmeticBadge';
+export { default as CosmeticPreview } from './CosmeticPreview';
+export type { CosmeticPreviewProps } from './CosmeticPreview';
+
 // --- Edit-character panels -------------------------------------------------
 export * from './edit-character';
