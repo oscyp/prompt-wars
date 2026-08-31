@@ -11,6 +11,12 @@ export interface BattleCharacterInfo {
   archetype: string;
   signatureColor: string;
   portraitUrl: string | null;
+  /**
+   * Full-body render, for the tap-to-enlarge viewer. A different image from
+   * `portraitUrl` (2:3 full body vs a 1:1 bust), not a larger crop of it, and
+   * null for bots and for characters that only ever got one render.
+   */
+  fighterUrl: string | null;
   /** Equipped cosmetics, already resolved to their presentations. */
   cosmetics: EquippedCosmetics;
 }
@@ -33,6 +39,7 @@ const DEFAULT_COLOR = '#8B5CF6';
  */
 interface SignedSide {
   portrait_url: string | null;
+  fighter_url: string | null;
   archetype: string | null;
   name: string | null;
   signature_color: string | null;
@@ -47,9 +54,17 @@ interface SignedSides {
 export function useBattleCharacters(
   battleId: string | null,
   battle: BattleLike | null,
-): { p1: BattleCharacterInfo | null; p2: BattleCharacterInfo | null } {
+): {
+  p1: BattleCharacterInfo | null;
+  p2: BattleCharacterInfo | null;
+  refreshPortraits: () => void;
+} {
   const [p1, setP1] = useState<BattleCharacterInfo | null>(null);
   const [p2, setP2] = useState<BattleCharacterInfo | null>(null);
+  // Signed URLs last ~1h but a Bo3 round can run to 2h, and nothing cached
+  // them or refreshed them -- so a portrait opened late in a long round showed
+  // a broken frame. Bumping this re-signs.
+  const [signNonce, setSignNonce] = useState(0);
 
   const p1CharId = battle?.player_one_character_id ?? null;
   const p2CharId = battle?.player_two_character_id ?? null;
@@ -75,6 +90,7 @@ export function useBattleCharacters(
           archetype: (row.archetype as string | null) ?? 'fighter',
           signatureColor: (row.signature_color as string | null) ?? DEFAULT_COLOR,
           portraitUrl: null,
+          fighterUrl: null,
           cosmetics: resolveEquippedCosmetics(
             row.cosmetic_config as Record<string, string> | null,
           ),
@@ -82,7 +98,13 @@ export function useBattleCharacters(
       };
       setP1((prev) => {
         const next = toInfo(p1CharId, 'Player 1');
-        return next ? { ...next, portraitUrl: prev?.portraitUrl ?? null } : prev;
+        return next
+          ? {
+              ...next,
+              portraitUrl: prev?.portraitUrl ?? null,
+              fighterUrl: prev?.fighterUrl ?? null,
+            }
+          : prev;
       });
       if (isBot) {
         setP2((prev) => ({
@@ -90,13 +112,20 @@ export function useBattleCharacters(
           archetype: 'fighter',
           signatureColor: DEFAULT_COLOR,
           portraitUrl: prev?.portraitUrl ?? null,
+          fighterUrl: prev?.fighterUrl ?? null,
           // Bots own no cosmetics.
           cosmetics: NO_COSMETICS,
         }));
       } else {
         setP2((prev) => {
           const next = toInfo(p2CharId, 'Player 2');
-          return next ? { ...next, portraitUrl: prev?.portraitUrl ?? null } : prev;
+          return next
+            ? {
+                ...next,
+                portraitUrl: prev?.portraitUrl ?? null,
+                fighterUrl: prev?.fighterUrl ?? null,
+              }
+            : prev;
         });
       }
     }
@@ -135,7 +164,11 @@ export function useBattleCharacters(
           if (!side) return prev;
           if (prev) {
             // Own side: keep the authoritative local row, add the portrait.
-            return { ...prev, portraitUrl: side.portrait_url ?? prev.portraitUrl };
+            return {
+              ...prev,
+              portraitUrl: side.portrait_url ?? prev.portraitUrl,
+              fighterUrl: side.fighter_url ?? prev.fighterUrl,
+            };
           }
           // Opponent: the server payload is the only source we have.
           return {
@@ -143,6 +176,7 @@ export function useBattleCharacters(
             archetype: side.archetype ?? 'fighter',
             signatureColor: side.signature_color ?? DEFAULT_COLOR,
             portraitUrl: side.portrait_url ?? null,
+            fighterUrl: side.fighter_url ?? null,
             cosmetics: resolveEquippedCosmetics(side.cosmetics),
           };
         };
@@ -157,7 +191,7 @@ export function useBattleCharacters(
     return () => {
       cancelled = true;
     };
-  }, [battleId, isBot]);
+  }, [battleId, isBot, signNonce]);
 
-  return { p1, p2 };
+  return { p1, p2, refreshPortraits: () => setSignNonce((n) => n + 1) };
 }

@@ -9,6 +9,8 @@
  * code (and any structured fields) so `describeEditError` can write real copy.
  */
 
+import { insufficientCreditsMessage } from '@/utils/credits';
+
 /** Error carrying the Edge Function's code and structured fields. */
 export class EditError extends Error {
   code: string;
@@ -123,9 +125,7 @@ export function describeEditError(
     case 'insufficient_credits':
       return {
         title: 'Not enough credits',
-        message: err.shortfall
-          ? `You need ${err.shortfall} more credit${err.shortfall === 1 ? '' : 's'} for this. Top up in the shop.`
-          : 'You don’t have enough credits for this. Top up in the shop.',
+        message: insufficientCreditsMessage(err.shortfall),
       };
     case 'moderation_rejected':
       return {

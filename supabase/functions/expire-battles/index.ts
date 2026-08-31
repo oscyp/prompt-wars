@@ -20,6 +20,7 @@ import {
 import { computeRatingDeltas } from "../_shared/glicko2.ts";
 import { composeRevealPayload } from "../_shared/compose-reveal-payload.ts";
 import { notifyBattleResult } from "../_shared/push.ts";
+import { resolveForfeitBattle } from "../_shared/resolve-forfeit.ts";
 
 interface ForfeitClaimRow {
   battle_id: string;
@@ -142,6 +143,12 @@ Deno.serve(async (req) => {
       `,
       )
       .eq("status", "waiting_for_prompts")
+      // ...and the PARENT battle must still be live. The join already selected
+      // battles.status without ever filtering on it, so a battle that ended by
+      // some other route -- a forfeit, a leave, a manual resolve -- kept its
+      // open round in this sweep and got handed back to round-resolve long
+      // after it was over.
+      .eq("battles.status", "waiting_for_prompts")
       .lt("lock_in_deadline", new Date().toISOString())
       // Bounded: this ran unbounded with no ordering, so a backlog would have
       // grown the per-minute sweep without limit. Oldest deadline first so
@@ -351,86 +358,29 @@ async function resolveForfeit(
   supabase: ReturnType<typeof createServiceClient>,
   row: ForfeitClaimRow,
 ): Promise<void> {
-  let ratingDeltaPayload: Record<string, unknown> | null = null;
-
-  if (row.mode === "ranked") {
-    const deltas = computeRatingDeltas(
-      Number(row.winner_rating),
-      Number(row.winner_rating_deviation),
-      Number(row.winner_rating_volatility),
-      Number(row.loser_rating),
-      Number(row.loser_rating_deviation),
-      Number(row.loser_rating_volatility),
-      true, // winner won
-      false, // not a draw
-    );
-    ratingDeltaPayload = {
-      [row.winner_id]: deltas.playerOne,
-      [row.loser_id]: deltas.playerTwo,
-    };
-  }
-
-  const scorePayload = {
-    resolution: "forfeit",
-    reason: "opponent_timeout",
-    forfeited_profile_id: row.loser_id,
-    explanation:
-      "Win by forfeit — the opponent did not lock in a prompt before the deadline.",
-  };
-
-  const { error: resolveErr } = await supabase.rpc("resolve_battle", {
-    p_battle_id: row.battle_id,
-    p_winner_id: row.winner_id,
-    p_is_draw: false,
-    p_score_payload: scorePayload,
-    p_rating_delta_payload: ratingDeltaPayload,
-    p_judge_prompt_version: "forfeit-v1",
-    p_judge_model_id: "forfeit",
-    p_judge_seed: 0,
+  // Deliberately does NOT promote result_ready -> completed. That gap is real
+  // (it leaves the character edit-locked) but it is pre-existing on this path
+  // and fixing it here would change the status timeline for every timeout
+  // forfeit at once; leave-battle opts in instead. See resolve-forfeit.ts.
+  await resolveForfeitBattle(supabase, {
+    battleId: row.battle_id,
+    winnerId: row.winner_id,
+    loserId: row.loser_id,
+    mode: row.mode,
+    winnerRating: Number(row.winner_rating),
+    winnerRatingDeviation: Number(row.winner_rating_deviation),
+    winnerRatingVolatility: Number(row.winner_rating_volatility),
+    loserRating: Number(row.loser_rating),
+    loserRatingDeviation: Number(row.loser_rating_deviation),
+    loserRatingVolatility: Number(row.loser_rating_volatility),
+    scorePayload: {
+      resolution: "forfeit",
+      reason: "opponent_timeout",
+      forfeited_profile_id: row.loser_id,
+      explanation:
+        "Win by forfeit — the opponent did not lock in a prompt before the deadline.",
+    },
   });
-  if (resolveErr) {
-    throw new Error(`resolve_battle failed: ${resolveErr.message}`);
-  }
-
-  // Daily-meta rewards, must-send result push, and Tier 0 reveal follow the
-  // same non-blocking contract as resolve-battle / battle-advance.
-  try {
-    const { error: rewardsError } = await supabase.rpc(
-      "apply_post_battle_rewards",
-      { p_battle_id: row.battle_id },
-    );
-    if (rewardsError) {
-      console.error(
-        "apply_post_battle_rewards error (non-blocking):",
-        rewardsError,
-      );
-    }
-  } catch (rewardsErr) {
-    console.error("Post-battle rewards failed (non-blocking):", rewardsErr);
-  }
-
-  notifyBattleResult(supabase, row.battle_id);
-
-  try {
-    const revealPayload = await composeRevealPayload(supabase, {
-      battleId: row.battle_id,
-    });
-    const { error: revealError } = await supabase
-      .from("battles")
-      .update({ tier0_reveal_payload: revealPayload })
-      .eq("id", row.battle_id);
-    if (revealError) {
-      console.error(
-        "Failed to store Tier 0 reveal (non-blocking):",
-        revealError,
-      );
-    }
-  } catch (tier0Error) {
-    console.error(
-      "Tier 0 reveal composition failed (non-blocking):",
-      tier0Error,
-    );
-  }
 }
 
 async function invokeFn(

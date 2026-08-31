@@ -6,7 +6,7 @@
  * returned and new Bo3 fields default to safe values when missing.
  */
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '@/utils/supabase';
@@ -90,12 +90,29 @@ function normalizeStats(raw: Partial<StatBlock> | null | undefined): StatBlock {
   };
 }
 
+/**
+ * Realtime channel topics must be unique per hook instance.
+ *
+ * `supabase.channel(topic)` returns the *existing* channel when one with that
+ * topic is already registered on the client. Two screens of the same battle are
+ * mounted at once (move-select pushes prompt-entry, and `router.replace`
+ * mounts the next screen before the old one's async `removeChannel` finishes),
+ * so a shared `battle:<id>` topic hands the second consumer an already-joined
+ * channel -- and `.on('postgres_changes', ...)` throws on a joined channel.
+ */
+let channelSeq = 0;
+
 export function useRealtimeBattle(battleId: string | null) {
   const [battle, setBattle] = useState<BattleUpdate | null>(null);
   const [prompts, setPrompts] = useState<PromptUpdate[]>([]);
   const [videoJobs, setVideoJobs] = useState<VideoJobUpdate[]>([]);
   const [rounds, setRounds] = useState<BattleRound[]>([]);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  // Stable for the life of this hook instance; see channelSeq above.
+  const channelIdRef = useRef<number | null>(null);
+  if (channelIdRef.current === null) {
+    channelIdRef.current = ++channelSeq;
+  }
 
   const fetchBattleData = useCallback(async () => {
     if (!battleId) return;
@@ -141,126 +158,117 @@ export function useRealtimeBattle(battleId: string | null) {
 
     fetchBattleData();
 
-    let channel: RealtimeChannel;
-    // subscribe() is async, so the effect can tear down before `channel` is
-    // assigned. Without this the channel would leak, never unsubscribed.
-    let cancelled = false;
-
-    const subscribe = async () => {
-      channel = supabase
-        .channel(`battle:${battleId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'battles',
-            filter: `id=eq.${battleId}`,
-          },
-          (payload) => {
-            if (payload.new) {
-              setBattle(payload.new as BattleUpdate);
-            }
-          },
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'battle_prompts',
-            filter: `battle_id=eq.${battleId}`,
-          },
-          (payload) => {
-            if (payload.eventType === 'INSERT') {
-              setPrompts((prev) => [...prev, payload.new as PromptUpdate]);
-            } else if (payload.eventType === 'UPDATE') {
-              setPrompts((prev) =>
-                prev.map((p) =>
-                  p.id === (payload.new as PromptUpdate).id
-                    ? (payload.new as PromptUpdate)
-                    : p,
-                ),
-              );
-            }
-          },
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'battle_rounds',
-            filter: `battle_id=eq.${battleId}`,
-          },
-          (payload) => {
-            if (payload.eventType === 'INSERT') {
-              setRounds((prev) =>
-                [...prev, payload.new as BattleRound].sort(
-                  (a, b) => a.round_number - b.round_number,
-                ),
-              );
-            } else if (payload.eventType === 'UPDATE') {
-              setRounds((prev) =>
-                prev
-                  .map((r) =>
-                    r.id === (payload.new as BattleRound).id
-                      ? (payload.new as BattleRound)
-                      : r,
-                  )
-                  .sort((a, b) => a.round_number - b.round_number),
-              );
-            } else if (payload.eventType === 'DELETE') {
-              setRounds((prev) =>
-                prev.filter((r) => r.id !== (payload.old as BattleRound).id),
-              );
-            }
-          },
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'video_jobs',
-            filter: `battle_id=eq.${battleId}`,
-          },
-          (payload) => {
-            if (payload.eventType === 'INSERT') {
-              const next = payload.new as VideoJobUpdate;
-              setVideoJobs((prev) => {
-                if (prev.some((j) => j.id === next.id)) return prev;
-                return [next, ...prev].sort((a, b) =>
-                  (b.created_at ?? '').localeCompare(a.created_at ?? ''),
-                );
-              });
-            } else if (payload.eventType === 'UPDATE') {
-              const next = payload.new as VideoJobUpdate;
-              setVideoJobs((prev) => {
-                const exists = prev.some((j) => j.id === next.id);
-                const merged = exists
-                  ? prev.map((j) => (j.id === next.id ? next : j))
-                  : [next, ...prev];
-                return merged.sort((a, b) =>
-                  (b.created_at ?? '').localeCompare(a.created_at ?? ''),
-                );
-              });
-            } else if (payload.eventType === 'DELETE') {
-              const old = payload.old as VideoJobUpdate;
-              setVideoJobs((prev) => prev.filter((j) => j.id !== old.id));
-            }
-          },
-        )
-        .subscribe((status) => {
-          const subscribed = status === 'SUBSCRIBED';
-          setIsSubscribed(subscribed);
-          if (subscribed) {
-            fetchBattleData();
+    const channel: RealtimeChannel = supabase
+      .channel(`battle:${battleId}:${channelIdRef.current}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'battles',
+          filter: `id=eq.${battleId}`,
+        },
+        (payload) => {
+          if (payload.new) {
+            setBattle(payload.new as BattleUpdate);
           }
-        });
-    };
-
-    subscribe();
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'battle_prompts',
+          filter: `battle_id=eq.${battleId}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setPrompts((prev) => [...prev, payload.new as PromptUpdate]);
+          } else if (payload.eventType === 'UPDATE') {
+            setPrompts((prev) =>
+              prev.map((p) =>
+                p.id === (payload.new as PromptUpdate).id
+                  ? (payload.new as PromptUpdate)
+                  : p,
+              ),
+            );
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'battle_rounds',
+          filter: `battle_id=eq.${battleId}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setRounds((prev) =>
+              [...prev, payload.new as BattleRound].sort(
+                (a, b) => a.round_number - b.round_number,
+              ),
+            );
+          } else if (payload.eventType === 'UPDATE') {
+            setRounds((prev) =>
+              prev
+                .map((r) =>
+                  r.id === (payload.new as BattleRound).id
+                    ? (payload.new as BattleRound)
+                    : r,
+                )
+                .sort((a, b) => a.round_number - b.round_number),
+            );
+          } else if (payload.eventType === 'DELETE') {
+            setRounds((prev) =>
+              prev.filter((r) => r.id !== (payload.old as BattleRound).id),
+            );
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'video_jobs',
+          filter: `battle_id=eq.${battleId}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const next = payload.new as VideoJobUpdate;
+            setVideoJobs((prev) => {
+              if (prev.some((j) => j.id === next.id)) return prev;
+              return [next, ...prev].sort((a, b) =>
+                (b.created_at ?? '').localeCompare(a.created_at ?? ''),
+              );
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const next = payload.new as VideoJobUpdate;
+            setVideoJobs((prev) => {
+              const exists = prev.some((j) => j.id === next.id);
+              const merged = exists
+                ? prev.map((j) => (j.id === next.id ? next : j))
+                : [next, ...prev];
+              return merged.sort((a, b) =>
+                (b.created_at ?? '').localeCompare(a.created_at ?? ''),
+              );
+            });
+          } else if (payload.eventType === 'DELETE') {
+            const old = payload.old as VideoJobUpdate;
+            setVideoJobs((prev) => prev.filter((j) => j.id !== old.id));
+          }
+        },
+      )
+      .subscribe((status) => {
+        const subscribed = status === 'SUBSCRIBED';
+        setIsSubscribed(subscribed);
+        if (subscribed) {
+          fetchBattleData();
+        }
+      });
 
     // Foreground refetch. supabase-js may rejoin the socket after a background
     // period, but it may also not -- and `fetchBattleData` applies results only
@@ -268,21 +276,21 @@ export function useRealtimeBattle(battleId: string | null) {
     // Without this, coming back to a battle after a round transition could show
     // the previous round indefinitely. The only other AppState listener in the
     // app is the auth-refresh one in utils/supabase.ts.
-    const appStateSub = AppState.addEventListener('change', (next: AppStateStatus) => {
-      if (next === 'active') {
-        fetchBattleData();
-      }
-    });
+    const appStateSub = AppState.addEventListener(
+      'change',
+      (next: AppStateStatus) => {
+        if (next === 'active') {
+          fetchBattleData();
+        }
+      },
+    );
 
     return () => {
-      cancelled = true;
       appStateSub.remove();
-      if (channel) {
-        // removeChannel, not just unsubscribe: unsubscribe leaves the channel
-        // registered on the client, so remounting the same battle accumulates
-        // dead channels for the life of the session.
-        supabase.removeChannel(channel);
-      }
+      // removeChannel, not just unsubscribe: unsubscribe leaves the channel
+      // registered on the client, so remounting the same battle accumulates
+      // dead channels for the life of the session.
+      supabase.removeChannel(channel);
       setIsSubscribed(false);
     };
   }, [battleId, fetchBattleData]);

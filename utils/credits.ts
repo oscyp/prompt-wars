@@ -35,3 +35,18 @@ export function formatCredits(
 export function creditsNoun(amount: number): string {
   return `${amount} credit${amount === 1 ? '' : 's'}`;
 }
+
+/**
+ * The "you are short N" sentence, shared by every paid surface.
+ *
+ * Lives here rather than in editErrors because it is credit vocabulary, and
+ * because leaving a battle is not an edit — two callers were about to hold two
+ * copies of a string whose whole purpose is that players see the same words
+ * every time they cannot afford something.
+ */
+export function insufficientCreditsMessage(shortfall?: number): string {
+  if (!shortfall || shortfall <= 0) {
+    return 'You don\u2019t have enough credits for this. Top up in the shop.';
+  }
+  return `You need ${shortfall} more credit${shortfall === 1 ? '' : 's'} for this. Top up in the shop.`;
+}

@@ -22,20 +22,37 @@ Deno.test('cosmetics - every other type is sellable', () => {
 });
 
 Deno.test('judge isolation - cosmetic fields are redacted', async () => {
-  // Guards the redaction list in round-resolve. If "cosmetic" ever drops out of
-  // it, purchases start influencing scores, and that is a fairness bug rather
-  // than a cosmetic one.
+  // Guards the redaction list, which lives in _shared/anti-p2w.ts since
+  // leave-battle became a second consumer. If "cosmetic" ever drops out of it,
+  // purchases start influencing scores, and that is a fairness bug rather than
+  // a cosmetic one.
   const source = await Deno.readTextFile(
-    new URL('../round-resolve/index.ts', import.meta.url),
+    new URL('../_shared/anti-p2w.ts', import.meta.url),
   );
   const bannedBlock = source.slice(
     source.indexOf('const banned = ['),
     source.indexOf(']', source.indexOf('const banned = [')),
   );
-  assert(bannedBlock.includes('"cosmetic"'), 'round-resolve must redact "cosmetic"');
+  assert(bannedBlock.includes('"cosmetic"'), 'the guard must redact "cosmetic"');
   assert(
     bannedBlock.includes('"cosmetic_unlocks"'),
-    'round-resolve must redact "cosmetic_unlocks"',
+    'the guard must redact "cosmetic_unlocks"',
+  );
+});
+
+Deno.test('judge isolation - round-resolve still runs the guard', async () => {
+  // Moving the list out of round-resolve made it possible to keep a perfectly
+  // good ban list that nothing calls. This asserts the wiring, not the list.
+  const source = await Deno.readTextFile(
+    new URL('../round-resolve/index.ts', import.meta.url),
+  );
+  assert(
+    source.includes("from \"../_shared/anti-p2w.ts\""),
+    'round-resolve must import the anti-pay-to-win guard',
+  );
+  assert(
+    source.includes('assertNoMonetizationDataInScoring({'),
+    'round-resolve must call the guard on its scoring inputs',
   );
 });
 

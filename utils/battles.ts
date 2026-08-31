@@ -4,10 +4,13 @@
  */
 
 import {
+  FunctionInvokeError,
   invokeAuthenticatedFunction,
   invokeFunctionResult,
   supabase,
 } from './supabase';
+import { formatCredits } from './credits';
+import type { BattleFormat } from '@/types/battle';
 
 export type BattleStatus =
   | 'created'
@@ -86,7 +89,76 @@ export interface LeaveBattleResult {
   success: boolean;
   action?: 'canceled' | 'forfeited' | 'already_terminal';
   winner_id?: string;
+  /** 0 when the exit was free, i.e. before this player locked a prompt. */
+  credits_charged?: number;
+  /** Machine-readable failure, so the UI never matches on prose. */
+  code?: 'insufficient_credits' | 'battle_in_progress' | 'not_participant';
+  price?: number;
+  balance?: number;
+  shortfall?: number;
   error?: string;
+}
+
+export interface LeaveDialogCopy {
+  title: string;
+  message: string;
+  confirmLabel: string;
+}
+
+export interface LeaveDialogArgs {
+  format: BattleFormat;
+  mode: BattleMode;
+  isBot: boolean;
+  /** Whether THIS player has locked a prompt — the thing being paid for. */
+  isLocked: boolean;
+  price: number;
+}
+
+/**
+ * What the confirm dialog says before someone leaves.
+ *
+ * Pure so it can be tested without mounting a screen, and so the free-path
+ * strings can be pinned byte-for-byte: those two dialogs shipped long before
+ * the toll existed and players have learned them, so adding a paid case must
+ * not quietly reword the free ones.
+ *
+ * The price goes in the message, never the title, and always in the `sentence`
+ * form ("2 credits", not "2 cr") — these are dialogs, and utils/credits.ts owns
+ * that distinction.
+ */
+export function leaveDialogCopy(args: LeaveDialogArgs): LeaveDialogCopy {
+  const isRankedHuman = args.mode === 'ranked' && !args.isBot;
+
+  if (!args.isLocked) {
+    if (isRankedHuman) {
+      return {
+        title: 'Forfeit Ranked Battle?',
+        message:
+          'This will count as a ranked loss and award the win to your opponent.',
+        confirmLabel: 'Forfeit',
+      };
+    }
+    return {
+      title: 'Leave Battle?',
+      message: 'This will cancel the battle before prompt lock.',
+      confirmLabel: 'Leave',
+    };
+  }
+
+  const cost = formatCredits(args.price, 'sentence');
+  const stake =
+    args.format === 'bo3'
+      ? 'Your opponent takes the whole series and your streak resets.'
+      : 'Your opponent takes the win and your streak resets.';
+  // Appended as a clause rather than a third sentence: a two-line dialog gets
+  // read, a four-line one gets dismissed.
+  const rating = isRankedHuman ? ' Your rating will drop.' : '';
+
+  return {
+    title: args.format === 'bo3' ? 'Forfeit the series?' : 'Forfeit and leave?',
+    message: `You've locked a prompt, so leaving costs ${cost}. ${stake}${rating}`,
+    confirmLabel: 'Leave',
+  };
 }
 
 /**
@@ -120,8 +192,15 @@ export async function startMatchmaking(
 }
 
 /**
- * Leave a battle before prompt lock. Ranked human matches become forfeits;
- * unranked/bot pre-prompt exits are canceled server-side.
+ * Leave a battle. Free before this player locks a prompt, charged after.
+ *
+ * Ranked human matches become forfeits that award the opponent the win;
+ * unranked, bot and unmatched battles are canceled. The server decides which,
+ * and decides the price — this only reports back what happened.
+ *
+ * A failure is returned rather than thrown, and it carries the structured
+ * `code`/`shortfall` off the 402 so the caller can offer the shop instead of
+ * matching on the error prose.
  */
 export async function leaveBattle(
   battleId: string,
@@ -132,6 +211,18 @@ export async function leaveBattle(
       { battle_id: battleId },
     );
   } catch (err) {
+    if (err instanceof FunctionInvokeError) {
+      const body = (err.body ?? {}) as Record<string, unknown>;
+      return {
+        success: false,
+        error: err.message,
+        code: body.code as LeaveBattleResult['code'],
+        price: typeof body.price === 'number' ? body.price : undefined,
+        balance: typeof body.balance === 'number' ? body.balance : undefined,
+        shortfall:
+          typeof body.shortfall === 'number' ? body.shortfall : undefined,
+      };
+    }
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Failed to leave battle',
@@ -142,12 +233,17 @@ export async function leaveBattle(
 /**
  * Submit a prompt for a battle. `roundNumber` is optional and defaults on the
  * server to `battles.current_round`; single-format clients can omit it.
+ *
+ * Always custom text. The static `prompt_templates` library is retired -- the
+ * arena offers per-fighter generated suggestions instead, and a suggestion has
+ * no template row to reference. `submit-prompt` still accepts
+ * `prompt_template_id` for the battles that were fought with one, but nothing
+ * in the app sends it any more.
  */
 export async function submitPrompt(
   battleId: string,
   moveType: MoveType,
-  promptTemplateId?: string,
-  customPromptText?: string,
+  customPromptText: string,
   roundNumber?: number,
 ): Promise<SubmitPromptResult> {
   try {
@@ -156,7 +252,6 @@ export async function submitPrompt(
       {
         battle_id: battleId,
         move_type: moveType,
-        prompt_template_id: promptTemplateId,
         custom_prompt_text: customPromptText,
         round_number: roundNumber,
       },
@@ -269,53 +364,6 @@ export async function getMyBattles(limit = 20) {
   return data;
 }
 
-export interface BattleTemplate {
-  id: string;
-  title: string;
-  body: string;
-  category: string | null;
-  /** One template per move type; null-safe for legacy payloads. */
-  suggested_move_type: MoveType | null;
-}
-
-const MOVE_TYPES: readonly MoveType[] = ['attack', 'defense', 'finisher'];
-
-function asMoveType(value: unknown): MoveType | null {
-  return MOVE_TYPES.includes(value as MoveType) ? (value as MoveType) : null;
-}
-
-/**
- * Battle-scoped template serving: up to 3 ranked-safe templates (one per move
- * type) for this battle. Server-validated (participants only). Returns null on
- * any failure so callers can fall back to `getPromptTemplates()` — e.g. when
- * the `get_battle_templates` migration hasn't been deployed yet.
- */
-export async function getBattleTemplates(
-  battleId: string,
-): Promise<BattleTemplate[] | null> {
-  try {
-    const { data, error } = await supabase.rpc('get_battle_templates', {
-      p_battle_id: battleId,
-    });
-
-    if (error || !Array.isArray(data) || data.length === 0) {
-      if (error) console.error('Battle templates error:', error);
-      return null;
-    }
-
-    return (data as Record<string, unknown>[]).slice(0, 3).map((row) => ({
-      id: String(row.id),
-      title: String(row.title ?? ''),
-      body: String(row.body ?? ''),
-      category: row.category == null ? null : String(row.category),
-      suggested_move_type: asMoveType(row.suggested_move_type),
-    }));
-  } catch (err) {
-    console.error('Battle templates exception:', err);
-    return null;
-  }
-}
-
 export interface MoveSuggestion {
   title: string;
   body: string;
@@ -426,12 +474,12 @@ export async function generateMoveSuggestions(
     // code we send so the paywall case stays distinguishable from an outage.
     const message = error?.message ?? 'Suggestions unavailable';
     const failure: MoveSuggestionFailure = message.includes(
-        'insufficient_credits',
-      )
+      'insufficient_credits',
+    )
       ? 'insufficient_credits'
       : message.includes('rate_limited')
-      ? 'rate_limited'
-      : 'unavailable';
+        ? 'rate_limited'
+        : 'unavailable';
     console.error('Move suggestions error:', message);
     return { set: null, failure, message };
   }
@@ -455,25 +503,6 @@ export async function generateMoveSuggestions(
     failure: null,
     message: null,
   };
-}
-
-/**
- * Get prompt templates
- */
-export async function getPromptTemplates(category?: string) {
-  let query = supabase.from('prompt_templates').select('*').order('category');
-
-  if (category) {
-    query = query.eq('category', category);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw new Error(error.message || 'Failed to fetch templates');
-  }
-
-  return data;
 }
 
 /**
@@ -558,7 +587,6 @@ export async function getOpponentMoveProfile(
   }
 }
 
-
 export interface RivalSummary {
   rivalProfileId: string;
   displayName: string;
@@ -581,7 +609,9 @@ export interface RivalSummary {
  * counter itself needs a server-side sweep.
  */
 export async function getRivals(limit = 5): Promise<RivalSummary[]> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return [];
 
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -599,7 +629,10 @@ export async function getRivals(limit = 5): Promise<RivalSummary[]> {
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id, username, display_name')
-    .in('id', data.map((r) => r.rival_profile_id));
+    .in(
+      'id',
+      data.map((r) => r.rival_profile_id),
+    );
 
   const byId = new Map(
     (profiles ?? []).map((p) => [p.id as string, p as Record<string, string>]),

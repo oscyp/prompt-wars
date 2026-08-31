@@ -18,6 +18,18 @@ export interface PortraitViewerProps {
   caption?: string;
   onClose: () => void;
   /**
+   * Width-to-height ratio of the source image. 1.5 (2:3) is the fighter render;
+   * pass 1 for an avatar, which is square and would letterbox badly inside a
+   * frame hardcoded to the fighter's shape.
+   */
+  aspect?: number;
+  /**
+   * The image failed to load — in practice, an expired signed URL. The caller
+   * re-signs; without this the player just sees a broken frame and has nothing
+   * to act on.
+   */
+  onImageError?: () => void;
+  /**
    * Optional action rendered under the image, e.g. restoring an earlier render.
    *
    * The history strip used to restore on tap of a 46pt thumbnail, so judging a
@@ -48,13 +60,15 @@ export default function PortraitViewer({
   caption,
   onClose,
   footerAction,
+  aspect = 1.5,
+  onImageError,
 }: PortraitViewerProps) {
   const { width, height } = useWindowDimensions();
-  // 2:3, matching the render's own aspect, fitted to whichever axis binds.
+  // Matches the source's own aspect, fitted to whichever axis binds.
   const maxW = width - Spacing.lg * 2;
   const maxH = height * 0.72;
-  const frameW = Math.min(maxW, maxH / 1.5);
-  const frameH = frameW * 1.5;
+  const frameW = Math.min(maxW, maxH / aspect);
+  const frameH = frameW * aspect;
 
   return (
     <Modal
@@ -76,6 +90,7 @@ export default function PortraitViewer({
               source={{ uri }}
               style={[styles.image, { width: frameW, height: frameH }]}
               resizeMode="contain"
+              onError={onImageError}
               accessibilityLabel={caption ?? 'Character portrait'}
             />
           ) : null}

@@ -144,6 +144,9 @@ Deno.test('resolveBattlePortraits — opponent (player_two) gets BOTH signed por
   if (result.kind !== 'ok') return;
   assertEquals(result.payload.player_one, {
     portrait_url: 'https://signed.test/u1/c1/p.png?token=abc',
+    // No avatar fixture, so the fighter render IS what portrait_url points at
+    // and there is nothing extra for the viewer to open.
+    fighter_url: null,
     archetype: 'strategist',
     name: 'Mirrorwright',
     signature_color: '#8B5CF6',
@@ -151,6 +154,7 @@ Deno.test('resolveBattlePortraits — opponent (player_two) gets BOTH signed por
   });
   assertEquals(result.payload.player_two, {
     portrait_url: 'https://signed.test/u2/c2/p.png?token=abc',
+    fighter_url: null,
     archetype: 'titan',
     name: 'Ironhold',
     signature_color: '#22C55E',
@@ -181,6 +185,7 @@ Deno.test('resolveBattlePortraits — bot side resolves to null portrait + null 
   // Bot side: no character row, so no identity either.
   assertEquals(result.payload.player_two, {
     portrait_url: null,
+    fighter_url: null,
     archetype: null,
     name: null,
     signature_color: null,
@@ -202,6 +207,7 @@ Deno.test('resolveBattlePortraits — human with no current portrait -> null url
   if (result.kind !== 'ok') return;
   assertEquals(result.payload.player_two, {
     portrait_url: null,
+    fighter_url: null,
     archetype: 'titan',
     name: 'Ironhold',
     signature_color: '#22C55E',
@@ -400,4 +406,42 @@ Deno.test('resolveBattlePortraits — a character with no cosmetics reports null
   assertEquals(result.kind, 'ok');
   if (result.kind !== 'ok') return;
   assertEquals(result.payload.player_one.cosmetics, null);
+});
+
+Deno.test('resolveBattlePortraits — a distinct fighter render is signed separately', () => {
+  // The viewer opens the full-body render; the strips keep the circle-cropped
+  // avatar. Two different images, so two signed URLs.
+  const fx: Fixtures = {
+    battle: humanBattle(),
+    portraits: {
+      c1: approvedPortrait('u1/c1/fighter.png'),
+      c2: approvedPortrait('u2/c2/fighter.png'),
+    },
+    avatars: {
+      c1: approvedPortrait('u1/c1/avatar.png'),
+      c2: approvedPortrait('u2/c2/avatar.png'),
+    },
+  };
+  return resolveBattlePortraits(createMockSupabase(fx), {
+    battleId: 'battle-1',
+    callerUserId: 'u2',
+  }).then((result) => {
+    assertEquals(result.kind, 'ok');
+    if (result.kind !== 'ok') return;
+
+    assertEquals(
+      result.payload.player_one.portrait_url,
+      'https://signed.test/u1/c1/avatar.png?token=abc',
+    );
+    assertEquals(
+      result.payload.player_one.fighter_url,
+      'https://signed.test/u1/c1/fighter.png?token=abc',
+    );
+    // Served for the OPPONENT too — the deliberate product decision that a
+    // character you are fighting is one you can look at.
+    assertEquals(
+      result.payload.player_two.fighter_url,
+      'https://signed.test/u2/c2/fighter.png?token=abc',
+    );
+  });
 });

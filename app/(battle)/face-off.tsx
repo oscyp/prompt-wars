@@ -10,10 +10,13 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
+import { useLeaveBattle } from '@/hooks/useLeaveBattle';
+import { useAuth } from '@/providers/AuthProvider';
 import FaceOffPortraits, { FaceOffPlayer } from '@/components/FaceOffPortraits';
+import PortraitViewer from '@/components/PortraitViewer';
 import { supabase, invokeFunctionResult } from '@/utils/supabase';
 import { StatBlock } from '@/types/battle';
-import { leaveBattle } from '@/utils/battles';
+import { BattleMode } from '@/utils/battles';
 import { resolveEquippedCosmetics } from '@/utils/cosmetics';
 
 interface CharacterRow {
@@ -30,9 +33,16 @@ interface CharacterRow {
  * (~1h TTL) into the private character-portraits bucket, or null for bots and
  * characters without a generated portrait.
  */
+interface SignedPortraitSide {
+  portrait_url: string | null;
+  /** Full-body render for the tap-to-enlarge viewer; null when there is none. */
+  fighter_url: string | null;
+  archetype: string | null;
+}
+
 interface SignBattlePortraitsResponse {
-  player_one: { portrait_url: string | null; archetype: string | null } | null;
-  player_two: { portrait_url: string | null; archetype: string | null } | null;
+  player_one: SignedPortraitSide | null;
+  player_two: SignedPortraitSide | null;
 }
 
 export default function FaceOffScreen() {
@@ -40,7 +50,8 @@ export default function FaceOffScreen() {
   const router = useRouter();
   const { battleId } = useLocalSearchParams<{ battleId: string }>();
 
-  const { battle, hp, hp_max, stats_snapshot, isSubscribed } =
+  const { user } = useAuth();
+  const { battle, prompts, format, hp, hp_max, stats_snapshot, isSubscribed } =
     useRealtimeBattle(battleId || null);
 
   const [chars, setChars] = useState<{
@@ -51,8 +62,18 @@ export default function FaceOffScreen() {
     p1: string | null;
     p2: string | null;
   }>({ p1: null, p2: null });
+  // The full-body renders, opened by tapping a portrait. Separate images from
+  // the circle-cropped ones above, not larger crops of them.
+  const [fighters, setFighters] = useState<{
+    p1: string | null;
+    p2: string | null;
+  }>({ p1: null, p2: null });
+  const [viewer, setViewer] = useState<{
+    uri: string;
+    caption: string;
+  } | null>(null);
+  const [signNonce, setSignNonce] = useState(0);
   const [loadingChars, setLoadingChars] = useState(true);
-  const [isLeaving, setIsLeaving] = useState(false);
   const handledTerminalRef = useRef(false);
 
   useEffect(() => {
@@ -113,6 +134,10 @@ export default function FaceOffScreen() {
           p1: payload.player_one?.portrait_url ?? null,
           p2: payload.player_two?.portrait_url ?? null,
         });
+        setFighters({
+          p1: payload.player_one?.fighter_url ?? null,
+          p2: payload.player_two?.fighter_url ?? null,
+        });
       } catch {
         // Degrade silently to bundled archetype illustrations.
       }
@@ -121,7 +146,9 @@ export default function FaceOffScreen() {
     return () => {
       cancelled = true;
     };
-  }, [battleId]);
+    // signNonce re-signs after a URL expires mid-screen; they last ~1h and the
+    // face-off can sit open longer than that.
+  }, [battleId, signNonce]);
 
   const advance = useCallback(() => {
     if (!battleId) return;
@@ -135,42 +162,19 @@ export default function FaceOffScreen() {
 
   const leaveLabel = isRankedHumanMatch ? 'Forfeit' : 'Leave Battle';
 
-  const handleLeave = useCallback(() => {
-    if (!battleId || !battle || isLeaving) return;
+  // Nobody can have locked a prompt yet on this screen, so leaving here is
+  // always free and the dialog is byte-for-byte the one that shipped before the
+  // toll existed. Routed through the shared hook anyway so the six exit
+  // surfaces cannot drift into six different answers.
+  const leave = useLeaveBattle(battleId || null, {
+    format,
+    mode: (battle?.mode ?? 'ranked') as BattleMode,
+    isBot: Boolean(battle?.is_player_two_bot),
+    prompts,
+    myProfileId: user?.id,
+  });
 
-    const title = isRankedHumanMatch
-      ? 'Forfeit Ranked Battle?'
-      : 'Leave Battle?';
-    const message = isRankedHumanMatch
-      ? 'This will count as a ranked loss and award the win to your opponent.'
-      : 'This will cancel the battle before prompt lock.';
-    const actionLabel = isRankedHumanMatch ? 'Forfeit' : 'Leave';
-
-    Alert.alert(title, message, [
-      { text: 'Stay', style: 'cancel' },
-      {
-        text: actionLabel,
-        style: 'destructive',
-        onPress: async () => {
-          setIsLeaving(true);
-          try {
-            const result = await leaveBattle(battleId);
-            if (!result.success) {
-              throw new Error(result.error || 'Unable to leave battle.');
-            }
-            router.replace('/(tabs)/home');
-          } catch (err) {
-            Alert.alert(
-              'Could Not Leave',
-              err instanceof Error ? err.message : 'Please try again.',
-            );
-          } finally {
-            setIsLeaving(false);
-          }
-        },
-      },
-    ]);
-  }, [battle, battleId, isLeaving, isRankedHumanMatch, router]);
+  const handleLeave = leave.confirmLeave;
 
   useEffect(() => {
     if (!battle || handledTerminalRef.current) return;
@@ -213,6 +217,11 @@ export default function FaceOffScreen() {
     );
   }
 
+  // Undefined when there is nothing to show, so the portrait stays a plain
+  // image rather than a button that does nothing.
+  const openViewer = (caption: string, uri: string | null) =>
+    uri ? () => setViewer({ uri, caption }) : undefined;
+
   const playerOne = buildPlayer(
     chars.p1,
     stats_snapshot.p1,
@@ -220,6 +229,7 @@ export default function FaceOffScreen() {
     hp_max.p1,
     'Player 1',
     portraits.p1,
+    openViewer(chars.p1?.name ?? 'Player 1', fighters.p1 ?? portraits.p1),
   );
   const playerTwo = buildPlayer(
     chars.p2,
@@ -228,6 +238,10 @@ export default function FaceOffScreen() {
     hp_max.p2,
     battle.is_player_two_bot ? 'Bot Opponent' : 'Player 2',
     portraits.p2,
+    openViewer(
+      chars.p2?.name ?? (battle.is_player_two_bot ? 'Bot Opponent' : 'Player 2'),
+      fighters.p2 ?? portraits.p2,
+    ),
   );
 
   return (
@@ -239,7 +253,25 @@ export default function FaceOffScreen() {
         onAdvance={advance}
         onLeave={handleLeave}
         leaveLabel={leaveLabel}
-        actionsDisabled={isLeaving}
+        actionsDisabled={leave.isLeaving}
+      />
+      <PortraitViewer
+        visible={viewer !== null}
+        uri={viewer?.uri ?? null}
+        caption={viewer?.caption}
+        // A fighter render is 2:3; the avatar fallback is square, and forcing
+        // it into a 2:3 frame would letterbox it.
+        aspect={
+          viewer &&
+          (viewer.uri === fighters.p1 || viewer.uri === fighters.p2)
+            ? 1.5
+            : 1
+        }
+        onImageError={() => {
+          setViewer(null);
+          setSignNonce((n) => n + 1);
+        }}
+        onClose={() => setViewer(null)}
       />
     </SafeAreaView>
   );
@@ -252,8 +284,10 @@ function buildPlayer(
   hpMax: number,
   fallbackName: string,
   portraitUrl: string | null,
+  onPortraitPress?: () => void,
 ): FaceOffPlayer {
   return {
+    onPortraitPress,
     characterId: c?.id ?? 'unknown',
     displayName: c?.name ?? fallbackName,
     archetype: c?.archetype ?? 'fighter',

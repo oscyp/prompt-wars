@@ -28,6 +28,22 @@ export const FACE_OFF_SIGNED_URL_TTL_SECONDS = 3600;
 export interface BattleSidePortrait {
   /** Signed URL to this side's CURRENT portrait; null for bots / missing. */
   portrait_url: string | null;
+  /**
+   * Signed URL to the full-body FIGHTER render, for the tap-to-enlarge viewer.
+   *
+   * Separate from `portrait_url` because they are different images, not two
+   * sizes of one: the avatar is a 1:1 bust drawn for circle crops, the fighter
+   * is a 2:3 full-body render. `portrait_url` keeps preferring the avatar
+   * because the strips and the face-off are circles; this is what the viewer
+   * opens.
+   *
+   * Served for BOTH sides. The RLS policy on `character_portraits` exposes only
+   * the opponent's avatar row to a client, but this function is service-role
+   * and participant-gated, so it is the only path either way — and showing the
+   * fighter render to the person you are fighting is a deliberate product
+   * decision, not an oversight. Null when the character has no fighter render.
+   */
+  fighter_url: string | null;
   /** Archetype from this side's `characters` row; null when absent. */
   archetype: string | null;
   /**
@@ -100,7 +116,7 @@ async function resolveSide(
   };
 
   if (opts.isBot || !characterId) {
-    return { portrait_url: null, ...identity };
+    return { portrait_url: null, fighter_url: null, ...identity };
   }
 
   try {
@@ -114,23 +130,41 @@ async function resolveSide(
     // These are circle-cropped contexts, which is exactly why the avatar is
     // preferred — the fighter render is full-body, so a circle crop of it shows
     // mostly torso.
-    const portrait =
-      (await resolveCurrentPortrait(supabase, characterId, 'avatar')) ??
-      (await resolveCurrentPortrait(supabase, characterId, 'fighter'));
-    if (!portrait) return { portrait_url: null, ...identity };
+    const [avatar, fighter] = await Promise.all([
+      resolveCurrentPortrait(supabase, characterId, 'avatar'),
+      resolveCurrentPortrait(supabase, characterId, 'fighter'),
+    ]);
 
-    const portraitUrl = await signPortraitPath(
-      supabase,
-      portrait.image_path,
-      FACE_OFF_SIGNED_URL_TTL_SECONDS,
-    );
-    return { portrait_url: portraitUrl, ...identity };
+    const portrait = avatar ?? fighter;
+    if (!portrait) {
+      return { portrait_url: null, fighter_url: null, ...identity };
+    }
+
+    const [portraitUrl, fighterUrl] = await Promise.all([
+      signPortraitPath(
+        supabase,
+        portrait.image_path,
+        FACE_OFF_SIGNED_URL_TTL_SECONDS,
+      ),
+      // Only when there is a distinct fighter render to sign. When the avatar
+      // IS the fighter (pre-avatar characters), a second identical URL would
+      // just make the viewer look like it had something more to show.
+      fighter && fighter.image_path !== portrait.image_path
+        ? signPortraitPath(
+            supabase,
+            fighter.image_path,
+            FACE_OFF_SIGNED_URL_TTL_SECONDS,
+          )
+        : Promise.resolve(null),
+    ]);
+
+    return { portrait_url: portraitUrl, fighter_url: fighterUrl, ...identity };
   } catch (error) {
     console.error(
       'sign-battle-portraits: side portrait resolution failed (non-blocking):',
       error,
     );
-    return { portrait_url: null, ...identity };
+    return { portrait_url: null, fighter_url: null, ...identity };
   }
 }
 

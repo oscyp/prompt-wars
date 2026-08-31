@@ -52,6 +52,32 @@ const createSupabaseClient = (): SupabaseClient => {
 // Create and export the client
 export const supabase = createSupabaseClient();
 
+/**
+ * A non-2xx from an Edge Function, carrying the parsed body.
+ *
+ * `invokeAuthenticatedFunction` used to throw a bare `Error` with only the
+ * message, so a caller could not tell a 402 from a 500 without matching on
+ * prose. leave-battle needs the machine-readable `code` and the credit
+ * `shortfall` to decide between "you are short 1 credit, here is the shop" and
+ * a generic failure. Extending Error rather than changing the throw shape
+ * keeps every existing `catch (err) { err.message }` working untouched.
+ */
+export class FunctionInvokeError extends Error {
+  readonly status: number;
+  readonly body: Record<string, unknown> | null;
+
+  constructor(
+    message: string,
+    status: number,
+    body: Record<string, unknown> | null,
+  ) {
+    super(message);
+    this.name = 'FunctionInvokeError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
 function getFunctionErrorMessage(
   functionName: string,
   data: unknown,
@@ -185,7 +211,13 @@ export async function invokeAuthenticatedFunction<T>(
       supabaseUrl,
       accessToken: describeAccessToken(accessToken),
     });
-    throw new Error(getFunctionErrorMessage(functionName, data, responseText));
+    throw new FunctionInvokeError(
+      getFunctionErrorMessage(functionName, data, responseText),
+      response.status,
+      data && typeof data === 'object'
+        ? (data as Record<string, unknown>)
+        : null,
+    );
   }
 
   return data as T;

@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
@@ -17,6 +17,7 @@ import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import {
   getBattle,
   getOpponentMoveProfile,
+  BattleMode,
   MoveType,
   OpponentMoveProfile,
 } from '@/utils/battles';
@@ -24,12 +25,16 @@ import { MOVE_META, counterOf } from '@/constants/MoveTypes';
 import { hapticSelection } from '@/utils/haptics';
 import { useAuth } from '@/providers/AuthProvider';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
+import { useBattleExitGuard } from '@/hooks/useBattleExitGuard';
 import { useBattleCharacters } from '@/hooks/useBattleCharacters';
+import { usePortraitViewer } from '@/hooks/usePortraitViewer';
 import SeriesScoreIndicator from '@/components/SeriesScoreIndicator';
 import HPBar from '@/components/HPBar';
 import MoveTypeChipRow from '@/components/MoveTypeChipRow';
 import MoveTypeSelector from '@/components/MoveTypeSelector';
 import VersusStrip from '@/components/VersusStrip';
+import PortraitViewer from '@/components/PortraitViewer';
+import HeaderLeaveButton from '@/components/HeaderLeaveButton';
 
 /**
  * Screen A of the arena: pick a move type.
@@ -55,7 +60,9 @@ export default function MoveSelectScreen() {
   }>();
 
   const [battle, setBattle] = useState<{ theme?: string | null } | null>(null);
-  const [oppProfile, setOppProfile] = useState<OpponentMoveProfile | null>(null);
+  const [oppProfile, setOppProfile] = useState<OpponentMoveProfile | null>(
+    null,
+  );
   const [moveType, setMoveType] = useState<MoveType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -87,6 +94,19 @@ export default function MoveSelectScreen() {
   );
   const isBo3 = format === 'bo3';
 
+  // Back from here is not "the previous step" -- there is nothing behind this
+  // screen but the tab shell, so leaving the screen means leaving the battle.
+  const leave = useBattleExitGuard(battleId || null, {
+    format,
+    mode: (rtBattle?.mode ?? 'ranked') as BattleMode,
+    isBot: Boolean(rtBattle?.is_player_two_bot),
+    prompts,
+    myProfileId: user?.id,
+    // Until the battle has loaded we cannot say what leaving costs or what it
+    // forfeits, and a dialog that guesses is worse than no dialog.
+    enabled: Boolean(rtBattle),
+  });
+
   const isPlayerOne = rtBattle?.player_one_id === user?.id;
   const myHp = isPlayerOne ? hp.p1 : hp.p2;
   const myHpMax = isPlayerOne ? hp_max.p1 : hp_max.p2;
@@ -103,10 +123,12 @@ export default function MoveSelectScreen() {
     return opp.slice(-5);
   }, [prompts, rtBattle, user]);
 
-  const { p1: p1Char, p2: p2Char } = useBattleCharacters(
-    battleId || null,
-    rtBattle,
-  );
+  const {
+    p1: p1Char,
+    p2: p2Char,
+    refreshPortraits,
+  } = useBattleCharacters(battleId || null, rtBattle);
+  const portraitViewer = usePortraitViewer(refreshPortraits);
   const myChar = isPlayerOne ? p1Char : p2Char;
   const oppChar = isPlayerOne ? p2Char : p1Char;
 
@@ -218,6 +240,16 @@ export default function MoveSelectScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Stack.Screen
+        options={{
+          headerLeft: () => (
+            <HeaderLeaveButton
+              onPress={() => leave.confirmLeave()}
+              disabled={leave.isLeaving}
+            />
+          ),
+        }}
+      />
       {/* Pinned battle bar, identical to prompt-entry's so the two screens read
           as one flow rather than two destinations. */}
       <View
@@ -238,6 +270,9 @@ export default function MoveSelectScreen() {
             portraitUrl: myChar?.portraitUrl,
             cosmetics: myChar?.cosmetics,
             label: 'YOU',
+            onAvatarPress: portraitViewer.canOpen(myChar)
+              ? () => portraitViewer.open(myChar)
+              : undefined,
           }}
           right={{
             name: oppChar?.name ?? 'Opponent',
@@ -246,6 +281,9 @@ export default function MoveSelectScreen() {
             portraitUrl: oppChar?.portraitUrl,
             cosmetics: oppChar?.cosmetics,
             label: 'OPPONENT',
+            onAvatarPress: portraitViewer.canOpen(oppChar)
+              ? () => portraitViewer.open(oppChar)
+              : undefined,
           }}
           subtitle={isBo3 ? `Round ${roundNumber}` : null}
           deadline={myDeadline}
@@ -254,7 +292,9 @@ export default function MoveSelectScreen() {
         {battle?.theme ? (
           <View style={[styles.themeBar, { backgroundColor: colors.card }]}>
             <Ionicons name="sparkles" size={14} color={colors.primary} />
-            <Text style={[styles.themeBarLabel, { color: colors.textTertiary }]}>
+            <Text
+              style={[styles.themeBarLabel, { color: colors.textTertiary }]}
+            >
               THEME
             </Text>
             <Text
@@ -438,13 +478,23 @@ export default function MoveSelectScreen() {
               { color: moveType ? '#FFFFFF' : colors.textTertiary },
             ]}
           >
-            {moveType ? `Continue with ${moveType.toUpperCase()}` : 'Choose a move'}
+            {moveType
+              ? `Continue with ${moveType.toUpperCase()}`
+              : 'Choose a move'}
           </Text>
           {moveType ? (
             <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
           ) : null}
         </TouchableOpacity>
       </View>
+      <PortraitViewer
+        visible={portraitViewer.visible}
+        uri={portraitViewer.viewer?.uri ?? null}
+        caption={portraitViewer.viewer?.caption}
+        aspect={portraitViewer.viewer?.aspect}
+        onImageError={portraitViewer.handleError}
+        onClose={portraitViewer.close}
+      />
     </View>
   );
 }

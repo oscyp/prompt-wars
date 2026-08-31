@@ -17,6 +17,8 @@ export type { ItemGridItem } from './ItemGrid';
 export { default as ArtStylePicker } from './ArtStylePicker';
 export { default as SectionCard } from './SectionCard';
 export { default as BackButton } from './BackButton';
+export { default as HeaderLeaveButton } from './HeaderLeaveButton';
+export type { HeaderLeaveButtonProps } from './HeaderLeaveButton';
 export { default as HPBar } from './HPBar';
 export type { HPBarProps } from './HPBar';
 export { default as StatBar } from './StatBar';

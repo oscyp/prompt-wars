@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   SafeAreaView,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
@@ -20,15 +20,17 @@ import {
 } from '@/constants/DesignTokens';
 import { hapticHpLoss } from '@/utils/haptics';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
+import { useBattleExitGuard } from '@/hooks/useBattleExitGuard';
 import { useAuth } from '@/providers/AuthProvider';
 import HPBar from '@/components/HPBar';
+import HeaderLeaveButton from '@/components/HeaderLeaveButton';
 import AnimatedCounter from '@/components/AnimatedCounter';
 import RoundResultCinematic, {
   Tier0Payload,
 } from '@/components/RoundResultCinematic';
 import RubricBars from '@/components/RubricBars';
 import { BattleRound, RubricScoreSet } from '@/types/battle';
-import { MoveType } from '@/utils/battles';
+import { BattleMode, MoveType } from '@/utils/battles';
 
 export default function RoundResultScreen() {
   const colors = useThemedColors();
@@ -40,7 +42,7 @@ export default function RoundResultScreen() {
     round?: string;
   }>();
 
-  const { battle, rounds, videoJobsByRound, hp_max, current_round } =
+  const { battle, prompts, rounds, videoJobsByRound, hp_max, current_round } =
     useRealtimeBattle(battleId || null);
 
   const roundNumber = round ? Number(round) : current_round;
@@ -150,17 +152,36 @@ export default function RoundResultScreen() {
     }
   }, [isResultReady, myDamage]);
 
+  // Continuing to the next round is a router.replace, and a replace removes
+  // this screen -- which the leave guard would intercept, asking a player
+  // whether they want to forfeit every time they advanced the series. So the
+  // destination is staged in state and the navigation happens in an effect,
+  // one render AFTER the guard has seen `advancingTo` and disarmed itself.
+  const [advancingTo, setAdvancingTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (advancingTo) router.replace(advancingTo as Parameters<typeof router.replace>[0]);
+  }, [advancingTo, router]);
+
   const handleContinue = useCallback(() => {
     if (!battleId) return;
-    if (isSeriesComplete) {
-      router.replace(`/(battle)/result?battleId=${battleId}`);
-    } else {
-      const next = (roundNumber ?? 1) + 1;
-      router.replace(
-        `/(battle)/move-select?battleId=${battleId}&round=${next}`,
-      );
-    }
-  }, [battleId, isSeriesComplete, roundNumber, router]);
+    setAdvancingTo(
+      isSeriesComplete
+        ? `/(battle)/result?battleId=${battleId}`
+        : `/(battle)/move-select?battleId=${battleId}&round=${(roundNumber ?? 1) + 1}`,
+    );
+  }, [battleId, isSeriesComplete, roundNumber]);
+
+  // Between rounds, back means abandoning the series -- there is no earlier
+  // screen to return to. Disarmed while advancing, per above.
+  const leave = useBattleExitGuard(battleId || null, {
+    format: 'bo3',
+    mode: (battle?.mode ?? 'ranked') as BattleMode,
+    isBot: Boolean(battle?.is_player_two_bot),
+    prompts,
+    myProfileId: user?.id,
+    enabled: Boolean(battle) && advancingTo === null,
+  });
 
   if (!battle || !roundData) {
     return (
@@ -177,6 +198,16 @@ export default function RoundResultScreen() {
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
+      <Stack.Screen
+        options={{
+          headerLeft: () => (
+            <HeaderLeaveButton
+              onPress={() => leave.confirmLeave()}
+              disabled={leave.isLeaving}
+            />
+          ),
+        }}
+      />
       <ScrollView contentContainerStyle={styles.content}>
         <Animated.Text
           style={[styles.heading, { color: colors.text }]}

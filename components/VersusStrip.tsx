@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, Image, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   cancelAnimation,
@@ -28,6 +28,8 @@ export interface VersusStripPlayer {
   archetype: string;
   signatureColor: string;
   portraitUrl?: string | null;
+  /** Opens the full portrait. Omit to leave the avatar non-interactive. */
+  onAvatarPress?: () => void;
   /** Small caption above the name, e.g. "YOU" / "OPPONENT". */
   label?: string;
   /** Equipped cosmetics, from the battle payload. */
@@ -125,19 +127,27 @@ export default function VersusStrip({ left, right, subtitle, deadline }: VersusS
   }, [isCritical]);
 
   return (
+    // No `accessible` on the wrapper any more. Flattening the strip into one
+    // header node hid the avatars from screen readers by design -- fine when
+    // they were decoration, wrong now that they are buttons, because the
+    // flattening swallows child touchables on iOS. The header text moves onto
+    // the centre column instead, so the summary survives and the avatars
+    // become reachable.
     <View
       style={[
         styles.wrap,
         { backgroundColor: colors.card, borderColor: colors.border },
       ]}
-      accessible
-      accessibilityRole="header"
-      accessibilityLabel={`${left.name} versus ${right.name}${subtitle ? `, ${subtitle}` : ''}${
-        hasDeadline ? `, ${formatRemaining(remainingMs)} to lock in` : ''
-      }`}
     >
       <Side player={left} align="left" />
-      <View style={styles.center}>
+      <View
+        style={styles.center}
+        accessible
+        accessibilityRole="header"
+        accessibilityLabel={`${left.name} versus ${right.name}${subtitle ? `, ${subtitle}` : ''}${
+          hasDeadline ? `, ${formatRemaining(remainingMs)} to lock in` : ''
+        }`}
+      >
         <Text style={[styles.vs, { color: colors.text }]}>VS</Text>
         {subtitle ? (
           <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>
@@ -165,13 +175,23 @@ function Side({ player, align }: { player: VersusStripPlayer; align: 'left' | 'r
     <View style={[styles.side, isRight && styles.sideRight]}>
       {/* A bought frame outranks the signature colour on the ring: the colour
           is a default, the frame is a purchase. */}
-      <View
-        style={[
+      <Pressable
+        onPress={player.onAvatarPress}
+        disabled={!player.onAvatarPress}
+        accessibilityRole={player.onAvatarPress ? 'button' : 'image'}
+        accessibilityLabel={
+          player.onAvatarPress
+            ? `View ${player.name}'s portrait`
+            : `${player.name}, ${player.archetype}`
+        }
+        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        style={({ pressed }) => [
           styles.avatarRing,
           {
             borderColor:
               player.cosmetics?.frame?.colors[0] ?? player.signatureColor,
             borderWidth: player.cosmetics?.frame?.width ?? styles.avatarRing.borderWidth,
+            opacity: pressed && player.onAvatarPress ? 0.7 : 1,
           },
         ]}
       >
@@ -186,7 +206,7 @@ function Side({ player, align }: { player: VersusStripPlayer; align: 'left' | 'r
           accessibilityElementsHidden
           importantForAccessibility="no"
         />
-      </View>
+      </Pressable>
       <View style={[styles.nameCol, isRight && styles.nameColRight]}>
         {player.label ? (
           <Text

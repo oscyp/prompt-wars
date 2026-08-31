@@ -14,9 +14,10 @@
 -- the truth, so check the live catalog.
 
 -- 1. SECURITY DEFINER functions reachable by client roles.
---    Only these four may be: three client RPCs plus one evaluated inside an
---    RLS policy (user_can_see_signature_item), where the querying role needs
+--    Only these may be: two client RPCs plus one evaluated inside an RLS
+--    policy (user_can_see_signature_item), where the querying role needs
 --    EXECUTE. get_my_entitlements is authenticated-only by design.
+--    (get_battle_templates was dropped with the static template library.)
 SELECT 'secdef_function_exposed' AS defect,
        p.oid::regprocedure::text  AS object,
        CASE WHEN has_function_privilege('anon', p.oid, 'EXECUTE')
@@ -28,7 +29,6 @@ WHERE n.nspname = 'public'
   AND (has_function_privilege('anon', p.oid, 'EXECUTE')
        OR has_function_privilege('authenticated', p.oid, 'EXECUTE'))
   AND p.proname NOT IN (
-    'get_battle_templates',
     'get_opponent_move_profile',
     'is_blocked',
     'user_can_see_signature_item',

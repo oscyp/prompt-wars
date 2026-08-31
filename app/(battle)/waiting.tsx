@@ -19,6 +19,7 @@ import {
 } from '@/constants/DesignTokens';
 import { UiArt } from '@/constants/UiArt';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
+import { useLeaveBattle } from '@/hooks/useLeaveBattle';
 import { useAuth } from '@/providers/AuthProvider';
 import {
   retryBattleResolution,
@@ -62,6 +63,19 @@ export default function WaitingScreen() {
   } = useRealtimeBattle(battleId || null);
   const roundNumber = round ? Number(round) : current_round;
   const isBo3 = format === 'bo3';
+
+  // This is the highest-value paid exit -- locked in, waiting, want out -- and
+  // also the easiest to get wrong. "Return to Home" below is the SANCTIONED
+  // park: the battle keeps running and the player comes back to it, which is
+  // the whole point of an async arena. It stays free, stays unguarded, and
+  // never grows a price. Leaving is a separate, visually quieter action.
+  const leave = useLeaveBattle(battleId || null, {
+    format,
+    mode: (battle?.mode ?? 'ranked') as BattleMode,
+    isBot: Boolean(battle?.is_player_two_bot),
+    prompts,
+    myProfileId: user?.id,
+  });
 
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resolveRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -412,6 +426,18 @@ export default function WaitingScreen() {
         <Text style={styles.hint}>
           You'll be notified when the result is ready
         </Text>
+
+        <TouchableOpacity
+          style={styles.leaveLink}
+          onPress={() => leave.confirmLeave()}
+          disabled={leave.isLeaving}
+          accessibilityLabel="Leave battle"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: leave.isLeaving }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.leaveLinkText}>Leave battle</Text>
+        </TouchableOpacity>
       </ScrollView>
     </ImageBackground>
   );
@@ -512,6 +538,20 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
     color: '#FFFFFF',
+  },
+  // Deliberately quieter than the home button: leaving costs money and ends
+  // the battle, so it must be findable without competing with the free action
+  // that is right for almost everyone here.
+  leaveLink: {
+    marginTop: Spacing.lg,
+    alignSelf: 'center',
+    paddingVertical: Spacing.xs,
+  },
+  leaveLinkText: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
+    color: 'rgba(255,255,255,0.55)',
+    textDecorationLine: 'underline',
   },
   hint: {
     fontSize: Typography.sizes.sm,

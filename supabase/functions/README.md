@@ -8,6 +8,7 @@ Server-owned logic for Prompt Wars gameplay, economy, and AI integrations.
 - **`submit-prompt`** ✅ - Lock player prompt (template or custom), basic moderation, transition to resolving
 - **`resolve-battle`** ✅ - Run judge pipeline (double-run, tiebreaker, JSON schema validation), compute Glicko-2 deltas, update battle state
 - **`appeal-battle`** ✅ - Submit appeal for ranked loss (1/day cap), enqueues independent judge run
+- **`leave-battle`** ✅ - Leave a battle at any point: free before the caller locks a prompt, costs credits after. Ranked human matches forfeit to the opponent through `resolve_battle`; bot/unranked/unmatched cancel
 - **`grant-credits`** ✅ - Daily login streak, quest completion, server-side credit ledger with idempotency
 - **`revenuecat-webhook`** ✅ - Mirror RevenueCat purchases/subscriptions, grant credits, update entitlements
 - **`expire-battles`** ✅ - Cron job to mark timed-out battles as expired (2h ranked / 8h friend timeout)
@@ -100,6 +101,7 @@ Require `Authorization: Bearer <jwt>` header, validate user identity via JWT:
 - `matchmaking` - POST `{ mode: 'ranked' | 'unranked', character_id: string }`
 - `submit-prompt` - POST `{ battle_id, prompt_template_id?, custom_prompt_text?, move_type }`
 - `appeal-battle` - POST `{ battle_id }` (capped 1/day on ranked losses)
+- `leave-battle` - POST `{ battle_id }` → `{ action: 'canceled' | 'forfeited' | 'already_terminal', credits_charged }`. 402 with `{ code: 'insufficient_credits', price, balance, shortfall }` when the caller has locked a prompt and cannot pay the toll
 - `grant-credits` - POST `{ reason, amount }` (service-owned, called by backend logic)
 
 ### Service-role functions

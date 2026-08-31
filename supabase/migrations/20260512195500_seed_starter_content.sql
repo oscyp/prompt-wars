@@ -14,34 +14,10 @@ WHERE NOT EXISTS (
   SELECT 1 FROM seasons WHERE season_number = 1
 );
 
-INSERT INTO prompt_templates (title, body, category, difficulty, tags, suggested_move_type, is_ranked_safe)
-SELECT
-  v.title,
-  v.body,
-  v.category,
-  v.difficulty,
-  v.tags::TEXT[],
-  v.suggested_move_type::move_type,
-  TRUE
-FROM (VALUES
-  ('Swift Strike', 'A lightning-fast opening move that catches opponents off guard with pure speed and precision.', 'opening_attack', 'beginner', ARRAY['quick', 'direct'], 'attack'),
-  ('Shadow Approach', 'Begin from the darkness, unseen and unheard, waiting for the perfect moment to reveal your presence.', 'opening_attack', 'intermediate', ARRAY['stealth', 'tactical'], 'attack'),
-  ('Titan''s Challenge', 'Step forward with unshakable confidence, daring your opponent to match your power head-on.', 'opening_attack', 'beginner', ARRAY['bold', 'direct'], 'attack'),
-  ('Adaptive Counter', 'Read your opponent''s intent and shift your stance to turn their strength into weakness.', 'defense_reversal', 'intermediate', ARRAY['reactive', 'tactical'], 'defense'),
-  ('Iron Will', 'Stand firm against the storm, absorbing the impact and waiting for the right moment to respond.', 'defense_reversal', 'beginner', ARRAY['resilient', 'patient'], 'defense'),
-  ('Redirect Flow', 'Gracefully guide the incoming force away, using your opponent''s momentum against them.', 'defense_reversal', 'advanced', ARRAY['elegant', 'tactical'], 'defense'),
-  ('Crescendo', 'Build momentum through the battle until the final moment explodes with overwhelming force.', 'final_move', 'intermediate', ARRAY['dramatic', 'powerful'], 'finisher'),
-  ('Checkmate Declaration', 'Calmly announce victory three moves before it happens, then execute flawlessly.', 'final_move', 'advanced', ARRAY['calculated', 'confident'], 'finisher'),
-  ('Phoenix Rise', 'Emerge from apparent defeat with a move so unexpected it reverses the entire battle.', 'final_move', 'advanced', ARRAY['dramatic', 'unexpected'], 'finisher'),
-  ('Underestimated Edge', 'Let them think you''re harmless, then show them exactly how wrong they were.', 'strategy', 'intermediate', ARRAY['clever', 'psychological'], 'attack'),
-  ('Mirror Match', 'Copy your opponent''s style so perfectly they can''t tell whose move is whose.', 'strategy', 'advanced', ARRAY['mimicry', 'clever'], 'defense'),
-  ('Chaotic Gambit', 'Throw logic out the window and do something so absurd it actually works.', 'chaos', 'beginner', ARRAY['unpredictable', 'fun'], 'attack'),
-  ('Slow Motion Moment', 'Time seems to freeze as you execute a move so clean, so perfect, the world stops to watch.', 'cinematic_finisher', 'intermediate', ARRAY['dramatic', 'stylish'], 'finisher'),
-  ('Against All Odds', 'The battlefield is chaos, the odds impossible, but somehow you find a way through.', 'cinematic_finisher', 'advanced', ARRAY['heroic', 'dramatic'], 'finisher')
-) AS v(title, body, category, difficulty, tags, suggested_move_type)
-WHERE NOT EXISTS (
-  SELECT 1 FROM prompt_templates pt WHERE pt.title = v.title
-);
+-- Prompt templates are no longer seeded: the static library is retired in
+-- favour of per-fighter generated suggestions
+-- (20260828110000_retire_static_prompt_templates.sql). The `prompt_templates`
+-- table stays for the battles that were fought with one.
 
 INSERT INTO bot_personas (name, archetype, battle_cry, signature_color, is_active, target_win_rate_week1)
 SELECT

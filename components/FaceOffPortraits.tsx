@@ -27,6 +27,8 @@ export interface FaceOffPlayer {
   battleCry?: string | null;
   signatureColor: string;
   portraitUrl?: string | null;
+  /** Opens this fighter's full portrait. Omit to leave it non-interactive. */
+  onPortraitPress?: () => void;
   /** Equipped cosmetics, from the battle payload. Absent for bots. */
   cosmetics?: EquippedCosmetics;
   stats: StatBlock;
@@ -261,14 +263,30 @@ function PlayerSide({
     >
       <View style={styles.portraitWrap}>
         {player.portraitUrl ? (
-          <PortraitPreview
-            uri={player.portraitUrl}
-            size={120}
-            accentColor={player.signatureColor}
-            frame={player.cosmetics?.frame}
-            avatarEffect={player.cosmetics?.avatarEffect}
-            accessibilityLabel={`${player.displayName} portrait`}
-          />
+          <Pressable
+            onPress={player.onPortraitPress}
+            disabled={!player.onPortraitPress}
+            accessibilityRole={player.onPortraitPress ? 'button' : 'image'}
+            accessibilityLabel={
+              player.onPortraitPress
+                ? `View ${player.displayName}'s portrait`
+                : `${player.displayName} portrait`
+            }
+            style={({ pressed }) => ({
+              opacity: pressed && player.onPortraitPress ? 0.7 : 1,
+            })}
+          >
+            <PortraitPreview
+              uri={player.portraitUrl}
+              size={120}
+              accentColor={player.signatureColor}
+              frame={player.cosmetics?.frame}
+              avatarEffect={player.cosmetics?.avatarEffect}
+              // The Pressable above owns the label now; a nested labelled node
+              // would be announced twice.
+              accessibilityLabel={undefined}
+            />
+          </Pressable>
         ) : (
           <View
             style={[

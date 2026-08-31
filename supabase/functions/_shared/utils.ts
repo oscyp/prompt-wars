@@ -246,8 +246,20 @@ export async function getAuthUserId(req: Request): Promise<string> {
 /**
  * Standard error response
  */
-export function errorResponse(message: string, status = 400): Response {
-  return new Response(JSON.stringify({ error: message }), {
+/**
+ * `extra` carries a machine-readable code alongside the human message.
+ *
+ * Added for the 402 on leave-battle: the client has to tell "you cannot afford
+ * this, here is the shortfall and a route to the shop" apart from every other
+ * 4xx, and a bare `{error: string}` forced it to match on prose. Optional and
+ * spread last, so every existing caller keeps the exact body it had.
+ */
+export function errorResponse(
+  message: string,
+  status = 400,
+  extra?: Record<string, unknown>,
+): Response {
+  return new Response(JSON.stringify({ error: message, ...extra }), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });

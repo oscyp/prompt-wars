@@ -1,4 +1,4 @@
-import { formatCredits, creditsNoun } from '@/utils/credits';
+import { insufficientCreditsMessage, formatCredits, creditsNoun } from '@/utils/credits';
 import {
   EditError,
   describeEditError,
@@ -92,5 +92,35 @@ describe('describeEditError', () => {
   it('handles non-EditError throwables', () => {
     expect(describeEditError(new Error('boom')).message).toBe('boom');
     expect(describeEditError(undefined).message).toContain('went wrong');
+  });
+});
+
+describe('insufficientCreditsMessage', () => {
+  // One sentence, two callers (edit-character and leave-battle), so a player
+  // sees the same words whichever paid action they could not afford.
+  it('pluralizes a shortfall of one', () => {
+    expect(insufficientCreditsMessage(1)).toBe(
+      'You need 1 more credit for this. Top up in the shop.',
+    );
+  });
+
+  it('pluralizes a larger shortfall', () => {
+    expect(insufficientCreditsMessage(3)).toBe(
+      'You need 3 more credits for this. Top up in the shop.',
+    );
+  });
+
+  it('falls back when the shortfall is unknown', () => {
+    for (const value of [undefined, 0]) {
+      expect(insufficientCreditsMessage(value)).toBe(
+        'You don\u2019t have enough credits for this. Top up in the shop.',
+      );
+    }
+  });
+
+  it('always points at the shop', () => {
+    for (const value of [undefined, 1, 5]) {
+      expect(insufficientCreditsMessage(value)).toContain('Top up in the shop.');
+    }
   });
 });
