@@ -90,16 +90,20 @@ WHERE n.nspname = 'public'
 UNION ALL
 
 -- 4b. ...and the exception above is only safe while its projection stays
---     minimal. Any column beyond (profile_id, cosmetic_config) is a defect.
+--     minimal. Any column beyond the four listed below is a defect.
+-- 2026-09-03: the view deliberately also exposes the active fighter's
+-- archetype and signature_color (migration 20260903120000) -- both are
+-- already shown to every opponent in a battle. Anything beyond these four
+-- columns is a defect.
 SELECT 'public_cosmetics_view_widened',
        string_agg(a.attname, ',' ORDER BY a.attnum),
-       'owner-rights view must expose only profile_id, cosmetic_config'
+       'owner-rights view must expose only profile_id, cosmetic_config, archetype, signature_color'
 FROM pg_class c
 JOIN pg_namespace n ON n.oid = c.relnamespace
 JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
 WHERE n.nspname = 'public'
   AND c.relname = 'public_player_cosmetics'
-HAVING string_agg(a.attname, ',' ORDER BY a.attnum) <> 'profile_id,cosmetic_config'
+HAVING string_agg(a.attname, ',' ORDER BY a.attnum) <> 'profile_id,cosmetic_config,archetype,signature_color'
 
 UNION ALL
 

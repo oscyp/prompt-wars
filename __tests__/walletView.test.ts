@@ -14,6 +14,8 @@ import {
   cosmeticErrorMessage,
   earnOrBuyHint,
   lockedHint,
+  lockedProgressHint,
+  rarityLabel,
   restoreOutcomeFor,
   shortDate,
   subscriptionManageUrl,
@@ -202,5 +204,62 @@ describe('wallet and stats labels', () => {
   it('dates a block', () => {
     expect(blockedAtLabel('2026-08-12T09:00:00Z')).toMatch(/^Blocked .*2026$/);
     expect(blockedAtLabel(null)).toBeNull();
+  });
+});
+
+describe('rarityLabel', () => {
+  it('labels every rarity the catalogue uses', () => {
+    expect(rarityLabel('common')).toBe('Common');
+    expect(rarityLabel('rare')).toBe('Rare');
+    expect(rarityLabel('epic')).toBe('Epic');
+    expect(rarityLabel('legendary')).toBe('Legendary');
+  });
+
+  it('capitalises a rarity it has not seen and is empty for nothing', () => {
+    expect(rarityLabel('mythic')).toBe('Mythic');
+    expect(rarityLabel('ultra_rare')).toBe('Ultra rare');
+    expect(rarityLabel(' Epic ')).toBe('Epic');
+    expect(rarityLabel(null)).toBe('');
+    expect(rarityLabel(undefined)).toBe('');
+  });
+});
+
+describe('lockedProgressHint', () => {
+  const progress = { wins: 18, totalBattles: 12, bestStreak: 3 };
+
+  it('puts the player’s own progress in the pill', () => {
+    expect(lockedProgressHint({ wins: 25 }, progress)).toBe('18 of 25 wins');
+    expect(lockedProgressHint({ total_battles: 50 }, progress)).toBe(
+      '12 of 50 battles',
+    );
+    expect(lockedProgressHint({ best_streak: 7 }, progress)).toBe(
+      '3 of 7 in a row',
+    );
+    expect(lockedProgressHint({ wins: 1 }, { ...progress, wins: 0 })).toBe(
+      '0 of 1 win',
+    );
+  });
+
+  it('never exceeds the target or goes below zero', () => {
+    expect(lockedProgressHint({ wins: 25 }, { ...progress, wins: 30 })).toBe(
+      '25 of 25 wins',
+    );
+    expect(lockedProgressHint({ wins: 25 }, { ...progress, wins: -2 })).toBe(
+      '0 of 25 wins',
+    );
+  });
+
+  it('falls back to the bare rule for login streaks, levels, play and a missing profile', () => {
+    expect(lockedProgressHint({ daily_login_streak: 3 }, progress)).toBe(
+      lockedHint({ daily_login_streak: 3 }),
+    );
+    expect(lockedProgressHint({ level: 5 }, progress)).toBe(
+      lockedHint({ level: 5 }),
+    );
+    expect(lockedProgressHint(null, progress)).toBe('Earned through play');
+    expect(lockedProgressHint({ wins: 25 }, null)).toBe('Unlocks at 25 wins');
+    expect(lockedProgressHint({ wins: 25 }, undefined)).toBe(
+      'Unlocks at 25 wins',
+    );
   });
 });

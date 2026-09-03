@@ -24,6 +24,7 @@ import {
 import { useAuth } from '@/providers/AuthProvider';
 import { supabase } from '@/utils/supabase';
 import { getWalletBalanceResult } from '@/utils/monetization';
+import { fetchProfileRow, type ProfileRow } from '@/utils/profileData';
 import {
   listCosmetics,
   purchaseCosmetic,
@@ -49,7 +50,9 @@ import {
   buyAccessibilityLabel,
   cosmeticErrorMessage,
   earnOrBuyHint,
-  lockedHint,
+  lockedProgressHint,
+  rarityLabel,
+  type UnlockProgressCounts,
 } from '@/utils/walletView';
 
 const TYPE_ORDER: { type: CosmeticType; label: string }[] = [
@@ -104,6 +107,10 @@ export default function CosmeticShopScreen() {
 
   const [items, setItems] = useState<CosmeticItem[]>([]);
   const [equipped, setEquipped] = useState<Record<string, string>>({});
+  // The player's own counters, so a locked earned item can say "18 of 25
+  // wins" instead of just the target. `null` (not loaded, or failed) falls
+  // back to the bare rule -- never "0 of 25" over a read error.
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [characterId, setCharacterId] = useState<string | null>(null);
   // `null` until the balance has been read, so a failed read is never shown
   // (or compared against a price) as zero.
@@ -159,7 +166,7 @@ export default function CosmeticShopScreen() {
       // is still worth showing.
       await syncCosmetics();
 
-      const [catalogOk, characterRes] = await Promise.all([
+      const [catalogOk, characterRes, profileRow] = await Promise.all([
         refreshCatalogAndBalance(),
         user
           ? supabase
@@ -171,6 +178,7 @@ export default function CosmeticShopScreen() {
               .eq('is_active', true)
               .maybeSingle()
           : Promise.resolve({ data: null }),
+        user ? fetchProfileRow(user.id) : Promise.resolve(null),
       ]);
 
       if (!catalogOk) {
@@ -180,6 +188,7 @@ export default function CosmeticShopScreen() {
       }
 
       const row = (characterRes as { data: CharacterRow | null }).data;
+      setProfile(profileRow);
       setCharacterId(row?.id ?? null);
       setEquipped(row?.cosmetic_config ?? {});
 
@@ -235,6 +244,14 @@ export default function CosmeticShopScreen() {
   };
 
   const goTopUp = () => router.push('/(profile)/wallet');
+
+  const progress: UnlockProgressCounts | null = profile
+    ? {
+        wins: profile.wins ?? 0,
+        totalBattles: profile.total_battles ?? 0,
+        bestStreak: profile.best_streak ?? 0,
+      }
+    : null;
 
   const performPurchase = async (item: CosmeticItem) => {
     setBusySlug(item.slug);
@@ -472,7 +489,7 @@ export default function CosmeticShopScreen() {
 
     let lockedLabel = 'Locked';
     if (item.acquisition === 'play_unlock') {
-      lockedLabel = lockedHint(item.unlock_rule);
+      lockedLabel = lockedProgressHint(item.unlock_rule, progress);
     } else if (item.acquisition === 'exclusive') {
       lockedLabel = 'Launch offer only';
     }
@@ -656,7 +673,7 @@ export default function CosmeticShopScreen() {
                             { color: rarityColor(item.rarity, colors) },
                           ]}
                         >
-                          {item.rarity}
+                          {rarityLabel(item.rarity)}
                         </Text>
                       </View>
                       <Text
@@ -813,7 +830,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     marginRight: Spacing.xs,
   },
-  rarityText: { fontSize: Typography.sizes.xs, textTransform: 'capitalize' },
+  rarityText: { fontSize: Typography.sizes.xs },
   itemDesc: { fontSize: Typography.sizes.sm },
   itemCta: { minWidth: 96, alignItems: 'flex-end' },
   cta: {

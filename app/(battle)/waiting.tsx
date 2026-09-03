@@ -20,6 +20,9 @@ import * as Notifications from 'expo-notifications';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { useBattleCharacters } from '@/hooks/useBattleCharacters';
+import { usePortraitViewer } from '@/hooks/usePortraitViewer';
 import {
   Spacing,
   Typography,
@@ -40,6 +43,10 @@ import {
 import { supabase } from '@/utils/supabase';
 import { hapticSuccess } from '@/utils/haptics';
 import SeriesScoreIndicator from '@/components/SeriesScoreIndicator';
+import VersusStrip from '@/components/VersusStrip';
+import PortraitViewer from '@/components/PortraitViewer';
+import ArenaTips from '@/components/ArenaTips';
+import { ARENA_TIPS } from '@/utils/arenaTips';
 import {
   waitingHero,
   sanitizeServerMessage,
@@ -77,6 +84,21 @@ export default function WaitingScreen() {
   const isBot = Boolean(battle?.is_player_two_bot);
   const isPlayerOne =
     Boolean(battle) && Boolean(user) && battle!.player_one_id === user!.id;
+
+  // Both fighters, wired exactly as move-select does it: identity under RLS,
+  // portraits from sign-battle-portraits, tap to enlarge. The room used to
+  // show neither fighter, so a player could not tell whose lock they waited on.
+  const {
+    p1: p1Char,
+    p2: p2Char,
+    refreshPortraits,
+  } = useBattleCharacters(battleId || null, battle);
+  const portraitViewer = usePortraitViewer(refreshPortraits);
+  const myChar = isPlayerOne ? p1Char : p2Char;
+  const oppChar = isPlayerOne ? p2Char : p1Char;
+  const reduceMotion = useReducedMotion();
+  // One offset per visit so the tips do not always open on the same line.
+  const tipSeed = useRef(Math.floor(Math.random() * ARENA_TIPS.length)).current;
 
   // This is the highest-value paid exit -- locked in, waiting, want out -- and
   // also the easiest to get wrong. "Return to Home" below is the SANCTIONED
@@ -409,6 +431,14 @@ export default function WaitingScreen() {
     return () => clearInterval(t);
   }, [showCountdown]);
 
+  // The same branch waitingHero() takes for "The judge deliberates": both
+  // locked, or the server already resolving. Tips fill that wait and no other;
+  // while the opponent still writes, the deadline line is the thing to read.
+  const isJudging =
+    Boolean(battle) &&
+    opponentReady &&
+    (Boolean(isResolving) || (myPromptLocked && opponentPromptLocked));
+
   const hero: WaitingHeroCopy = battle
     ? waitingHero({
         hasOpponent: opponentReady,
@@ -455,6 +485,34 @@ export default function WaitingScreen() {
             </Text>
           </View>
         ) : null}
+
+        <View style={styles.versus}>
+          <VersusStrip
+            left={{
+              name: myChar?.name ?? 'You',
+              archetype: myChar?.archetype ?? '',
+              signatureColor: myChar?.signatureColor ?? colors.primary,
+              portraitUrl: myChar?.portraitUrl,
+              cosmetics: myChar?.cosmetics,
+              label: 'YOU',
+              onAvatarPress: portraitViewer.canOpen(myChar)
+                ? () => portraitViewer.open(myChar)
+                : undefined,
+            }}
+            right={{
+              name: oppChar?.name ?? 'Opponent',
+              archetype: oppChar?.archetype ?? '',
+              signatureColor: oppChar?.signatureColor ?? colors.textSecondary,
+              portraitUrl: oppChar?.portraitUrl,
+              cosmetics: oppChar?.cosmetics,
+              label: 'OPPONENT',
+              onAvatarPress: portraitViewer.canOpen(oppChar)
+                ? () => portraitViewer.open(oppChar)
+                : undefined,
+            }}
+            subtitle={isBo3 ? `Round ${roundNumber}` : null}
+          />
+        </View>
 
         {/* Hero anticipation block — fixed light text sits on the scrim. */}
         <ActivityIndicator
@@ -559,6 +617,12 @@ export default function WaitingScreen() {
           )}
         </View>
 
+        {isJudging ? (
+          <View style={styles.tips}>
+            <ArenaTips seed={tipSeed} reduceMotion={reduceMotion} />
+          </View>
+        ) : null}
+
         {!isSubscribed && (
           <Text style={styles.onScrimNote}>{RECONNECTING}</Text>
         )}
@@ -599,6 +663,15 @@ export default function WaitingScreen() {
           <Text style={styles.leaveLinkText}>Leave battle</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <PortraitViewer
+        visible={portraitViewer.visible}
+        uri={portraitViewer.viewer?.uri ?? null}
+        caption={portraitViewer.viewer?.caption}
+        aspect={portraitViewer.viewer?.aspect}
+        onImageError={portraitViewer.handleError}
+        onClose={portraitViewer.close}
+      />
     </ImageBackground>
   );
 }
@@ -630,6 +703,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: 'rgba(255,255,255,0.85)',
     marginBottom: Spacing.md,
+  },
+  versus: {
+    width: '100%',
+    marginBottom: Spacing.lg,
+  },
+  tips: {
+    width: '100%',
+    marginBottom: Spacing.lg,
   },
   spinner: {
     marginBottom: Spacing.lg,

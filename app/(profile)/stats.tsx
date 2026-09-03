@@ -21,55 +21,51 @@ import {
   Layout,
 } from '@/constants/DesignTokens';
 import { HEADER_BUTTON_SIZE } from '@/components/HeaderBackButton';
-import { supabase } from '@/utils/supabase';
+import Sparkline from '@/components/Sparkline';
+import MoveUsageChips from '@/components/MoveUsageChips';
 import { useAuth } from '@/providers/AuthProvider';
-import { getMyBattles } from '@/utils/battles';
-import { PUBLIC_PROFILE_COLUMNS } from '@/utils/profiles';
+import { getBattleHistory, statusToneColor } from '@/utils/battleLists';
 import {
-  battleOutcomeFor,
-  battleStatusView,
-  opponentNameFor,
-  type BattleOutcome,
-} from '@/utils/battleCopy';
+  fetchHasRatedBattle,
+  fetchProfileRow,
+  type ProfileRow,
+} from '@/utils/profileData';
+import { ratingView } from '@/utils/profileView';
+import {
+  fetchMyPrompts,
+  fetchRoundsForBattles,
+  type MyPromptRow,
+  type RoundScoreRow,
+} from '@/utils/statsData';
+import {
+  BEST_PROMPTS_EMPTY,
+  MOVES_EMPTY,
+  TREND_EMPTY,
+  bestPromptAccessibilityLabel,
+  bestPromptMeta,
+  bestPrompts,
+  moveUsage,
+  ratingTrend,
+  recentBattleAccessibilityLabel,
+  recentBattlesView,
+  trendAccessibilityLabel,
+  type StatsBattleRow,
+} from '@/utils/statsInsights';
 import { winRateLabel } from '@/utils/walletView';
-
-interface ProfileStats {
-  rating: number | null;
-  total_battles: number | null;
-  wins: number | null;
-  losses: number | null;
-  draws: number | null;
-  current_streak: number | null;
-  best_streak: number | null;
-}
-
-interface BattleRow {
-  id: string;
-  status: string;
-  player_one_id: string;
-  player_two_id: string | null;
-  is_player_two_bot: boolean | null;
-  winner_id: string | null;
-  is_draw: boolean | null;
-  player_one_locked_at?: string | null;
-  player_two_locked_at?: string | null;
-  player_one?: {
-    display_name?: string | null;
-    username?: string | null;
-  } | null;
-  player_two?: {
-    display_name?: string | null;
-    username?: string | null;
-  } | null;
-}
 
 type LoadState = 'loading' | 'ready' | 'error';
 
-const OUTCOME_LABEL: Record<Exclude<BattleOutcome, 'pending'>, string> = {
-  win: 'Win',
-  loss: 'Loss',
-  draw: 'Draw',
-};
+const BATTLE_HISTORY_LIMIT = 50;
+
+/** One line per card when its reads failed; never a blank card. */
+const INSIGHT_ERROR = {
+  rating: 'Couldn’t load your rating.',
+  trend: 'Couldn’t load your rating trend.',
+  moves: 'Couldn’t load your moves.',
+  bestPrompts: 'Couldn’t load your best prompts.',
+  recent: 'Couldn’t load your recent battles.',
+  retry: 'Retry',
+} as const;
 
 export default function StatsScreen() {
   const colors = useThemedColors();
@@ -77,8 +73,13 @@ export default function StatsScreen() {
   const insets = useSafeAreaInsets();
   const accessibleText = useAccessibleTextStyle();
   const { user } = useAuth();
-  const [profile, setProfile] = useState<ProfileStats | null>(null);
-  const [recentBattles, setRecentBattles] = useState<BattleRow[]>([]);
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  // `null` on each of these means "that read failed": the card says so and
+  // offers a retry rather than rendering an empty state that would be a lie.
+  const [hasRated, setHasRated] = useState<boolean | null>(null);
+  const [battles, setBattles] = useState<StatsBattleRow[] | null>(null);
+  const [prompts, setPrompts] = useState<MyPromptRow[] | null>(null);
+  const [rounds, setRounds] = useState<RoundScoreRow[] | null>(null);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [refreshing, setRefreshing] = useState(false);
   const hasLoaded = useRef(false);
@@ -92,18 +93,36 @@ export default function StatsScreen() {
     }
 
     try {
-      const { data: profileData, error } = await supabase
-        .from('profiles')
-        .select(PUBLIC_PROFILE_COLUMNS)
-        .eq('id', user.id)
-        .single();
-      if (error || !profileData) {
-        throw new Error(error?.message ?? 'Profile not found');
-      }
+      const [profileRes, battlesRes, ratedRes, promptsRes] =
+        await Promise.allSettled([
+          fetchProfileRow(user.id),
+          getBattleHistory(BATTLE_HISTORY_LIMIT),
+          fetchHasRatedBattle(user.id),
+          fetchMyPrompts(user.id),
+        ]);
 
-      const battles = await getMyBattles(10);
-      setProfile(profileData as unknown as ProfileStats);
-      setRecentBattles((battles ?? []) as unknown as BattleRow[]);
+      const profileRow =
+        profileRes.status === 'fulfilled' ? profileRes.value : null;
+      if (!profileRow) throw new Error('Profile not found');
+
+      const battleRows =
+        battlesRes.status === 'fulfilled'
+          ? (battlesRes.value as StatsBattleRow[])
+          : null;
+      const rated = ratedRes.status === 'fulfilled' ? ratedRes.value : null;
+      const promptRows =
+        promptsRes.status === 'fulfilled' ? promptsRes.value : null;
+      // Only the battles the player wrote a prompt in have rounds worth
+      // scoring; a failed prompt read makes the round read moot.
+      const roundRows = promptRows
+        ? await fetchRoundsForBattles(promptRows.map((p) => p.battle_id))
+        : null;
+
+      setProfile(profileRow);
+      setBattles(battleRows);
+      setHasRated(rated);
+      setPrompts(promptRows);
+      setRounds(roundRows);
       setLoadState('ready');
       hasLoaded.current = true;
     } catch (err) {
@@ -133,6 +152,12 @@ export default function StatsScreen() {
 
   const retry = () => {
     setLoadState('loading');
+    loadStats();
+  };
+
+  /** Re-read without blanking the screen: the record is still worth reading. */
+  const retryInsights = () => {
+    setRefreshing(true);
     loadStats();
   };
 
@@ -196,24 +221,28 @@ export default function StatsScreen() {
   const losses = profile.losses ?? 0;
   const draws = profile.draws ?? 0;
   const winRate = winRateLabel(wins, totalBattles);
-  const rating = profile.rating;
 
-  const toneColor = (
-    tone: ReturnType<typeof battleStatusView>['tone'],
-  ): string => {
-    switch (tone) {
-      case 'success':
-        return colors.success;
-      case 'error':
-        return colors.error;
-      case 'warning':
-        return colors.warning;
-      case 'primary':
-        return colors.primary;
-      default:
-        return colors.textSecondary;
-    }
-  };
+  const rating =
+    hasRated === null
+      ? null
+      : ratingView({ rating: profile.rating, hasRatedBattle: hasRated });
+  const ratingA11y = rating
+    ? rating.rated
+      ? `Rating ${rating.value}`
+      : `${rating.value}. ${rating.caption}`
+    : '';
+  const trend =
+    battles === null ? null : ratingTrend(battles, user.id, profile.rating);
+
+  const usage =
+    prompts === null || rounds === null
+      ? null
+      : moveUsage(prompts, rounds, user.id);
+  const best =
+    prompts === null || rounds === null || battles === null
+      ? null
+      : bestPrompts(prompts, battles, rounds, user.id);
+  const recent = battles === null ? null : recentBattlesView(battles, user.id);
 
   return (
     <ScrollView
@@ -320,33 +349,154 @@ export default function StatsScreen() {
         </View>
       </View>
 
-      {/* Rating */}
-      <View
-        style={[styles.card, { backgroundColor: colors.card }]}
-        accessible
-        accessibilityLabel={
-          rating === null || rating === undefined
-            ? 'Rating not available yet'
-            : `Rating ${Math.round(rating)}`
-        }
-      >
+      {/* Rating: the number, then how it got there. "Unrated" until a ranked
+          battle against a human has been played -- the 1500 default is not a
+          rating anyone earned. */}
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
         <Text
+          accessibilityRole="header"
           style={[styles.cardTitle, accessibleText, { color: colors.text }]}
         >
           Rating
         </Text>
-        <Text
-          style={[
-            styles.ratingValue,
-            NumericFontVariant,
-            { color: colors.primary },
-          ]}
-        >
-          {rating === null || rating === undefined ? '—' : Math.round(rating)}
-        </Text>
+        {rating ? (
+          <View accessible accessibilityLabel={ratingA11y}>
+            <Text
+              style={[
+                styles.ratingValue,
+                NumericFontVariant,
+                { color: rating.rated ? colors.primary : colors.text },
+              ]}
+            >
+              {rating.value}
+            </Text>
+            {rating.rated ? null : (
+              <Text
+                style={[
+                  styles.ratingCaption,
+                  accessibleText,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                {rating.caption}
+              </Text>
+            )}
+          </View>
+        ) : (
+          <InsightError text={INSIGHT_ERROR.rating} onRetry={retryInsights} />
+        )}
+        {trend ? (
+          <Sparkline
+            points={trend.points}
+            accessibilityLabel={trendAccessibilityLabel(trend.points)}
+            emptyText={TREND_EMPTY}
+            testID="rating-trend"
+          />
+        ) : (
+          <InsightError text={INSIGHT_ERROR.trend} onRetry={retryInsights} />
+        )}
       </View>
 
-      {/* Recent Battles */}
+      {/* Your moves */}
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <Text
+          accessibilityRole="header"
+          style={[styles.cardTitle, accessibleText, { color: colors.text }]}
+        >
+          Your moves
+        </Text>
+        {usage ? (
+          <MoveUsageChips usage={usage} emptyText={MOVES_EMPTY} />
+        ) : (
+          <InsightError text={INSIGHT_ERROR.moves} onRetry={retryInsights} />
+        )}
+      </View>
+
+      {/* Best prompts: the prompt journal, derived from the player's own
+          prompts and round scores. Each row opens the battle it came from. */}
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <Text
+          accessibilityRole="header"
+          style={[styles.cardTitle, accessibleText, { color: colors.text }]}
+        >
+          Best prompts
+        </Text>
+        {best === null ? (
+          <InsightError
+            text={INSIGHT_ERROR.bestPrompts}
+            onRetry={retryInsights}
+          />
+        ) : best.length === 0 ? (
+          <Text
+            style={[
+              styles.emptyHint,
+              accessibleText,
+              { color: colors.textSecondary },
+            ]}
+          >
+            {BEST_PROMPTS_EMPTY}
+          </Text>
+        ) : (
+          best.map((row, index) => (
+            <TouchableOpacity
+              key={`${row.battleId}-${row.roundNumber}`}
+              onPress={() => router.push(row.route)}
+              accessibilityRole="button"
+              accessibilityLabel={bestPromptAccessibilityLabel(row)}
+              style={[
+                styles.promptRow,
+                { borderTopColor: colors.border },
+                index === 0 && styles.rowFirst,
+              ]}
+            >
+              <View style={styles.promptBody}>
+                <Text
+                  style={[
+                    styles.promptExcerpt,
+                    accessibleText,
+                    { color: colors.text },
+                  ]}
+                  numberOfLines={2}
+                >
+                  “{row.excerpt}”
+                </Text>
+                <View style={styles.promptMetaRow}>
+                  {row.won ? (
+                    <Ionicons name="trophy" size={14} color={colors.success} />
+                  ) : null}
+                  <Text
+                    style={[
+                      styles.promptMeta,
+                      NumericFontVariant,
+                      { color: colors.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {bestPromptMeta(row)}
+                  </Text>
+                  {row.ko ? (
+                    <View
+                      style={[styles.koTag, { borderColor: colors.warning }]}
+                    >
+                      <Text style={[styles.koText, { color: colors.warning }]}>
+                        KO
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={colors.textTertiary}
+              />
+            </TouchableOpacity>
+          ))
+        )}
+      </View>
+
+      {/* Recent Battles: the last few with mode and date; the full list lives
+          on the Battles tab. */}
       <View style={[styles.card, { backgroundColor: colors.card }]}>
         <Text
           accessibilityRole="header"
@@ -354,7 +504,9 @@ export default function StatsScreen() {
         >
           Recent Battles
         </Text>
-        {recentBattles.length === 0 ? (
+        {recent === null ? (
+          <InsightError text={INSIGHT_ERROR.recent} onRetry={retryInsights} />
+        ) : recent.length === 0 ? (
           <View style={styles.emptyState}>
             <Text
               style={[
@@ -368,6 +520,7 @@ export default function StatsScreen() {
             <Text
               style={[
                 styles.emptyHint,
+                styles.emptyHintCentered,
                 accessibleText,
                 { color: colors.textSecondary },
               ]}
@@ -377,79 +530,80 @@ export default function StatsScreen() {
             </Text>
           </View>
         ) : (
-          recentBattles.map((battle, index) => {
-            const isPlayerOne = battle.player_one_id === user.id;
-            const opponentProfile = isPlayerOne
-              ? battle.player_two
-              : battle.player_one;
-            const opponent = opponentNameFor({
-              isBot: isPlayerOne && Boolean(battle.is_player_two_bot),
-              opponentName:
-                opponentProfile?.display_name ?? opponentProfile?.username,
-              hasOpponent: isPlayerOne
-                ? Boolean(battle.player_two_id) ||
-                  Boolean(battle.is_player_two_bot)
-                : Boolean(battle.player_one_id),
-            });
-            const outcome = battleOutcomeFor(battle, user.id);
-            const iHaveLocked = isPlayerOne
-              ? Boolean(battle.player_one_locked_at)
-              : Boolean(battle.player_two_locked_at);
-            const view = battleStatusView({
-              status: battle.status,
-              iHaveLocked,
-              outcome,
-            });
-            const resolved = outcome !== 'pending';
-            const label = resolved ? OUTCOME_LABEL[outcome] : view.label;
-            const color = resolved
-              ? outcome === 'win'
-                ? colors.success
-                : outcome === 'loss'
-                  ? colors.error
-                  : colors.warning
-              : toneColor(view.tone);
-            const last = index === recentBattles.length - 1;
-            return (
-              <TouchableOpacity
-                key={battle.id}
-                disabled={!resolved}
-                onPress={() =>
-                  router.push(`/(battle)/result?battleId=${battle.id}`)
-                }
-                accessibilityRole={resolved ? 'button' : 'text'}
-                accessibilityLabel={`${label} against ${opponent}${
-                  resolved ? '. Opens the result' : ''
-                }`}
-                style={[
-                  styles.battleRow,
-                  { borderBottomColor: colors.border },
-                  last && styles.battleRowLast,
-                ]}
-              >
-                <Text
+          <>
+            {recent.map((row, index) => {
+              const color = statusToneColor(row.tone, colors);
+              const route = row.route;
+              return (
+                <TouchableOpacity
+                  key={row.id}
+                  disabled={!route}
+                  onPress={() => {
+                    if (route) router.push(route);
+                  }}
+                  accessibilityRole={route ? 'button' : 'text'}
+                  accessibilityLabel={recentBattleAccessibilityLabel(row)}
                   style={[
-                    styles.battleOpponent,
-                    accessibleText,
-                    { color: colors.text },
+                    styles.battleRow,
+                    { borderTopColor: colors.border },
+                    index === 0 && styles.rowFirst,
                   ]}
-                  numberOfLines={1}
                 >
-                  vs {opponent}
-                </Text>
-                <View style={styles.battleTrailing}>
-                  <Text style={[styles.battleResult, { color }]}>{label}</Text>
-                  {resolved ? (
-                    <Ionicons
-                      name="chevron-forward"
-                      size={16}
-                      color={colors.textTertiary}
-                    />
-                  ) : null}
-                </View>
-              </TouchableOpacity>
-            );
-          })
+                  <View style={styles.battleBody}>
+                    <Text
+                      style={[
+                        styles.battleOpponent,
+                        accessibleText,
+                        { color: colors.text },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      vs {row.opponentLabel}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.battleMeta,
+                        accessibleText,
+                        { color: colors.textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {row.date
+                        ? `${row.modeLabel} · ${row.date}`
+                        : row.modeLabel}
+                    </Text>
+                  </View>
+                  <View style={styles.battleTrailing}>
+                    <Text style={[styles.battleResult, { color }]}>
+                      {row.label}
+                    </Text>
+                    {route ? (
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color={colors.textTertiary}
+                      />
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity
+              onPress={() => router.push('/(tabs)/battles')}
+              accessibilityRole="link"
+              accessibilityLabel="See all in Battles. Opens the Battles tab"
+              style={[styles.seeAll, { borderTopColor: colors.border }]}
+            >
+              <Text style={[styles.seeAllText, { color: colors.primary }]}>
+                See all in Battles
+              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          </>
         )}
       </View>
     </ScrollView>
@@ -479,6 +633,41 @@ function StatBox({
       <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
         {label}
       </Text>
+    </View>
+  );
+}
+
+/** One line and a Retry, in place of a card body whose reads failed. */
+function InsightError({
+  text,
+  onRetry,
+}: {
+  text: string;
+  onRetry: () => void;
+}) {
+  const colors = useThemedColors();
+  const accessibleText = useAccessibleTextStyle();
+  return (
+    <View style={styles.insightError}>
+      <Text
+        style={[
+          styles.insightErrorText,
+          accessibleText,
+          { color: colors.textSecondary },
+        ]}
+      >
+        {text}
+      </Text>
+      <TouchableOpacity
+        onPress={onRetry}
+        accessibilityRole="button"
+        accessibilityLabel={INSIGHT_ERROR.retry}
+        style={styles.insightRetry}
+      >
+        <Text style={[styles.insightRetryText, { color: colors.primary }]}>
+          {INSIGHT_ERROR.retry}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -571,6 +760,32 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
     textAlign: 'center',
   },
+  ratingCaption: {
+    fontSize: Typography.sizes.sm,
+    textAlign: 'center',
+    marginTop: Spacing.xs,
+  },
+  insightError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    minHeight: Layout.inputHeight,
+  },
+  insightErrorText: {
+    flex: 1,
+    fontSize: Typography.sizes.sm,
+  },
+  insightRetry: {
+    minHeight: Layout.inputHeight,
+    minWidth: Layout.inputHeight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
+  insightRetryText: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+  },
   emptyState: {
     alignItems: 'center',
     paddingVertical: Spacing.md,
@@ -582,8 +797,50 @@ const styles = StyleSheet.create({
   },
   emptyHint: {
     fontSize: Typography.sizes.sm,
-    textAlign: 'center',
     lineHeight: 20,
+  },
+  emptyHintCentered: {
+    textAlign: 'center',
+  },
+  rowFirst: {
+    borderTopWidth: 0,
+  },
+  promptRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    minHeight: Layout.inputHeight,
+    paddingVertical: Spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  promptBody: {
+    flex: 1,
+    gap: Spacing.xs,
+  },
+  promptExcerpt: {
+    fontSize: Typography.sizes.base,
+    lineHeight: 22,
+    fontStyle: 'italic',
+  },
+  promptMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  promptMeta: {
+    flexShrink: 1,
+    fontSize: Typography.sizes.sm,
+  },
+  koTag: {
+    paddingHorizontal: Spacing.xs + 2,
+    paddingVertical: 1,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+  },
+  koText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    letterSpacing: 0.5,
   },
   battleRow: {
     flexDirection: 'row',
@@ -591,15 +848,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: Layout.inputHeight,
     paddingVertical: Spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: StyleSheet.hairlineWidth,
     gap: Spacing.md,
   },
-  battleRowLast: {
-    borderBottomWidth: 0,
+  battleBody: {
+    flex: 1,
+    gap: 2,
   },
   battleOpponent: {
-    flex: 1,
     fontSize: Typography.sizes.base,
+  },
+  battleMeta: {
+    fontSize: Typography.sizes.sm,
   },
   battleTrailing: {
     flexDirection: 'row',
@@ -607,6 +867,19 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   battleResult: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+  },
+  seeAll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    minHeight: Layout.inputHeight,
+    marginTop: Spacing.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  seeAllText: {
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
   },

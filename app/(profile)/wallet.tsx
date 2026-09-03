@@ -10,7 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
@@ -39,6 +39,14 @@ import {
   PRODUCT_IDS,
 } from '@/utils/revenuecat';
 import { formatCredits } from '@/utils/credits';
+import {
+  CREDIT_USES_TITLE,
+  PRICES_UNAVAILABLE,
+  VIDEO_PRICE_NOTE,
+  creditUses,
+  fetchCreditPrices,
+  type CreditUse,
+} from '@/utils/creditUses';
 import { transactionAmountLabel, transactionLabel } from '@/utils/walletCopy';
 import {
   BALANCE_POLL_DELAYS_MS,
@@ -54,6 +62,8 @@ interface WalletTransaction {
   reason: string | null;
   amount: number;
   created_at: string;
+  /** Set when the entry came from a battle (a video, a toll, a refund). */
+  battle_id?: string | null;
 }
 
 type LoadState = 'loading' | 'ready' | 'error';
@@ -100,6 +110,9 @@ export default function WalletScreen() {
 
   const [balance, setBalance] = useState<WalletBalance | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  // `null` when the price table could not be read: the card says so rather
+  // than listing nothing, and never invents a number.
+  const [uses, setUses] = useState<CreditUse[] | null>(null);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -137,11 +150,13 @@ export default function WalletScreen() {
 
   const loadWalletData =
     useCallback(async (): Promise<WalletBalance | null> => {
-      const [balanceResult, transactionsData] = await Promise.all([
+      const [balanceResult, transactionsData, prices] = await Promise.all([
         getWalletBalanceResult(),
         getWalletTransactions(20),
+        fetchCreditPrices(),
       ]);
       if (!mounted.current) return null;
+      setUses(prices ? creditUses(prices) : null);
       if (!balanceResult.ok) {
         // A failed read must not render as "0 credits". Keep whatever we last
         // knew and show the error state only when we know nothing.
@@ -414,6 +429,79 @@ export default function WalletScreen() {
           ) : null}
         </View>
 
+        {/* What credits buy: the live price of each paid action, so the packs
+            below are priced against something. Videos are priced per battle
+            at the moment of purchase, so they are named, not numbered. */}
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <Text
+            accessibilityRole="header"
+            style={[styles.cardTitle, accessibleText, { color: colors.text }]}
+          >
+            {CREDIT_USES_TITLE}
+          </Text>
+          {uses && uses.length > 0 ? (
+            <>
+              {uses.map((use, index) => (
+                <View
+                  key={use.key}
+                  accessible
+                  accessibilityLabel={`${use.label}, ${formatCredits(use.credits, 'sentence')}`}
+                  style={[
+                    styles.useRow,
+                    { borderTopColor: colors.border },
+                    index === 0 && styles.useRowFirst,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.useLabel,
+                      accessibleText,
+                      { color: colors.text },
+                    ]}
+                  >
+                    {use.label}
+                  </Text>
+                  <View
+                    style={[
+                      styles.priceChip,
+                      { backgroundColor: colors.backgroundTertiary },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.priceChipText,
+                        NumericFontVariant,
+                        { color: colors.text },
+                      ]}
+                    >
+                      {formatCredits(use.credits, 'chip')}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+              <Text
+                style={[
+                  styles.useNote,
+                  accessibleText,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                {VIDEO_PRICE_NOTE}
+              </Text>
+            </>
+          ) : (
+            <Text
+              style={[
+                styles.useNote,
+                accessibleText,
+                { color: colors.textSecondary },
+              ]}
+            >
+              {PRICES_UNAVAILABLE}
+            </Text>
+          )}
+        </View>
+
         {/* Cosmetic shop entry */}
         <TouchableOpacity
           style={[
@@ -580,51 +668,14 @@ export default function WalletScreen() {
             No transactions yet.
           </Text>
         ) : (
-          transactions.map((tx) => {
-            const label = transactionLabel(tx.reason);
-            const amount = transactionAmountLabel(tx.amount);
-            const date = shortDate(tx.created_at) ?? '';
-            return (
-              <View
-                key={tx.id}
-                accessible
-                accessibilityLabel={`${label}, ${amount}, ${date}`}
-                style={[
-                  styles.transactionRow,
-                  { borderBottomColor: colors.border },
-                ]}
-              >
-                <View style={styles.transactionText}>
-                  <Text
-                    style={[
-                      styles.transactionReason,
-                      accessibleText,
-                      { color: colors.text },
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.transactionDate,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {date}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.transactionAmount,
-                    NumericFontVariant,
-                    { color: tx.amount > 0 ? colors.success : colors.error },
-                  ]}
-                >
-                  {amount}
-                </Text>
-              </View>
-            );
-          })
+          transactions.map((tx) => (
+            <TransactionRow
+              key={tx.id}
+              transaction={tx}
+              onOpenBattle={(route) => router.push(route)}
+              colors={colors}
+            />
+          ))
         )}
 
         {/* Restore Purchases */}
@@ -674,6 +725,84 @@ export default function WalletScreen() {
         </View>
       </ScrollView>
       {toast ? <Toast text={toast} /> : null}
+    </View>
+  );
+}
+
+/**
+ * One ledger line. Entries tied to a battle open its result -- a toll, a
+ * video or a refund is easier to place next to the fight it came from.
+ */
+function TransactionRow({
+  transaction: tx,
+  onOpenBattle,
+  colors,
+}: {
+  transaction: WalletTransaction;
+  onOpenBattle: (route: Href) => void;
+  colors: ReturnType<typeof useThemedColors>;
+}) {
+  const accessibleText = useAccessibleTextStyle();
+  const label = transactionLabel(tx.reason);
+  const amount = transactionAmountLabel(tx.amount);
+  const date = shortDate(tx.created_at) ?? '';
+  const route: Href | null = tx.battle_id
+    ? `/(battle)/result?battleId=${tx.battle_id}`
+    : null;
+  const summary = `${label}, ${amount}, ${date}`;
+
+  const body = (
+    <>
+      <View style={styles.transactionText}>
+        <Text
+          style={[
+            styles.transactionReason,
+            accessibleText,
+            { color: colors.text },
+          ]}
+        >
+          {label}
+        </Text>
+        <Text style={[styles.transactionDate, { color: colors.textSecondary }]}>
+          {date}
+        </Text>
+      </View>
+      <Text
+        style={[
+          styles.transactionAmount,
+          NumericFontVariant,
+          { color: tx.amount > 0 ? colors.success : colors.error },
+        ]}
+      >
+        {amount}
+      </Text>
+    </>
+  );
+
+  if (route) {
+    return (
+      <TouchableOpacity
+        onPress={() => onOpenBattle(route)}
+        accessibilityRole="button"
+        accessibilityLabel={`${summary}. Opens the battle result`}
+        style={[styles.transactionRow, { borderBottomColor: colors.border }]}
+      >
+        {body}
+        <Ionicons
+          name="chevron-forward"
+          size={16}
+          color={colors.textTertiary}
+        />
+      </TouchableOpacity>
+    );
+  }
+  return (
+    <View
+      accessible
+      accessibilityLabel={summary}
+      style={[styles.transactionRow, { borderBottomColor: colors.border }]}
+    >
+      {body}
     </View>
   );
 }
@@ -828,6 +957,37 @@ const styles = StyleSheet.create({
   manageLinkText: {
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
+  },
+  useRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+    minHeight: Layout.inputHeight,
+    paddingVertical: Spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  useRowFirst: {
+    borderTopWidth: 0,
+  },
+  useLabel: {
+    flex: 1,
+    fontSize: Typography.sizes.base,
+  },
+  priceChip: {
+    minHeight: 28,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    justifyContent: 'center',
+  },
+  priceChipText: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
+  },
+  useNote: {
+    fontSize: Typography.sizes.sm,
+    lineHeight: 20,
+    marginTop: Spacing.sm,
   },
   shopLink: {
     flexDirection: 'row',

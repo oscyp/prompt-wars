@@ -108,6 +108,21 @@ Severity: **P1** wrong or blocking · **P2** materially hurts play or trust · *
 | F23 | Bot opponents showed as "Bot Opponent" with no archetype or colour, and their avatar tap did nothing                                                                                           | P2  | Fixed: `sign-battle-portraits` returns the persona's name, archetype and colour; the viewer falls back to the archetype illustration when there is no render                                                                                                                                                                          |
 | F24 | Players could not shape their fighter's stats; every character was 5/5/5/5                                                                                                                     | P2  | Fixed: stats step with a fixed 20-point pool (1–10 each), archetype presets as convenience, validated server-side in `finalize-character-creation`                                                                                                                                                                                    |
 
+### Profile tab (second pass, 2026-09-03)
+
+| #   | Finding                                                                                                                                | Sev | Disposition                                                                                                                                             |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1  | A null rating renders as 1500; the profile fabricates a default the Stats screen already stopped showing                               | P1  | Fixed: "Unrated" until a completed ranked human battle exists (`ratingView`; `last_rated_at` is not client-readable, so the battle history decides)     |
+| P2  | A failed profile read hides both cards silently; the page is nav cards and Sign Out                                                    | P1  | Fixed: error card with Retry in place of the hero; per-section errors for progress and rivals                                                           |
+| P3  | Identity is thin: no archetype, battle cry, signature item, colour or the creation-time stats; the paid full-body render never appears | P2  | Fixed: `FighterHero` poster (render over a signature-colour caption scrim, name, archetype · item, battle cry, four stat bars), tap → Edit character    |
+| P4  | Cosmetics are shown but cannot be changed from here; the shop is reachable only from Arena and Wallet; Blocked users only via Settings | P2  | Fixed: actions row (Edit look · Cosmetics · Share card) and nav cards for Cosmetic shop and Blocked users                                               |
+| P5  | The Record card duplicates the Stats screen; streaks, season rank and progression goals are absent                                     | P2  | Fixed: `ProgressionStrip` (win streak now/best, login streak, season rank or Unranked, next unlock from the cosmetic rules); Record lives on Stats only |
+| P6  | Rivals: names and counts only, no face, no record against them, no action                                                              | P2  | Fixed: archetype illustration in the rival's colour and a W–L(–D) record, both read from the player's own battles' reveal payloads (no server change)   |
+| P7  | Sign Out is a full-width red button on the main tab                                                                                    | P3  | Fixed: moved to Settings → Account with the same confirmation                                                                                           |
+| P8  | Full-screen spinner until three requests and a portrait signing finish                                                                 | P3  | Fixed: skeleton, sections fill in independently                                                                                                         |
+| P9  | Level and XP columns exist but nothing grants XP                                                                                       | P3  | **Accepted**: hidden; `nextUnlock` ignores `level` rules so no unreachable goal is shown                                                                |
+| P10 | Rival avatars are the archetype illustration, not the rival's render                                                                   | P3  | **Deferred**: a real render needs a service-role signing function per rival; the illustration in their colour is the honest client-only version         |
+
 ## What was built (shared)
 
 - `utils/battleCopy.ts` gains `battleStatusView`, `battleOutcomeFor`, `opponentNameFor`,
@@ -137,6 +152,10 @@ Severity: **P1** wrong or blocking · **P2** materially hurts play or trust · *
 - `AuthProvider` owns the route gate (`useRouteGate`), password recovery
   (`recoveryPending`, `completeRecovery`) and no longer registers push on sign-in; push registers
   once a finalized character exists.
+- Profile (second pass): `utils/profileView.ts` — `ratingView`, `isRatedBattle`, `nextUnlock`, rival
+  record/identity, `progressionRows`, `fighterCardCopy`; `utils/profileData.ts` — the six reads
+  plus rival assembly, item names memoised per session; `components/profile/` — `FighterHero`,
+  `ProgressionStrip`, `RivalRow`, `ProfileSkeleton`. Share captures the hero itself.
 - Profile-tab and Settings sign-out through `AuthProvider`.
 - Screen changes as listed in the tables above.
 

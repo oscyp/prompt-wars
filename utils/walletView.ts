@@ -62,6 +62,74 @@ export function lockedHint(rule: UnlockRule): string {
   return hint === 'play' ? 'Earned through play' : `Unlocks at ${hint}`;
 }
 
+// ---------------------------------------------------------------------------
+// Cosmetic shop: rarity and unlock progress
+// ---------------------------------------------------------------------------
+
+/** `cosmetics_catalog.rarity` as the server stores it. */
+export type CosmeticRarity = 'common' | 'rare' | 'epic' | 'legendary';
+
+const RARITY_LABEL: Record<CosmeticRarity, string> = {
+  common: 'Common',
+  rare: 'Rare',
+  epic: 'Epic',
+  legendary: 'Legendary',
+};
+
+/**
+ * "Common", "Legendary" — the rarity as a word, never the raw enum. A value
+ * the client has not seen yet is capitalised rather than dropped, the same
+ * fallback `transactionLabel` uses for unknown ledger keys.
+ */
+export function rarityLabel(rarity: string | null | undefined): string {
+  const key = rarity?.trim().toLowerCase() ?? '';
+  if (key in RARITY_LABEL) return RARITY_LABEL[key as CosmeticRarity];
+  if (!key) return '';
+  const spaced = key.replace(/[_-]+/g, ' ');
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+/** The player's own counters an earned cosmetic's rule is measured against. */
+export interface UnlockProgressCounts {
+  wins: number;
+  totalBattles: number;
+  bestStreak: number;
+}
+
+/**
+ * The lock pill with the player's progress in it: "18 of 25 wins",
+ * "12 of 50 battles", "3 of 7 in a row". Rules the profile row cannot answer
+ * (level, login streak) and a missing profile fall back to `lockedHint`, so
+ * the pill never claims "0 of 25 wins" because a read failed. Progress is
+ * capped at the target: an item still locked at 30 wins is a sync that has
+ * not run yet, not "30 of 25".
+ */
+export function lockedProgressHint(
+  rule: UnlockRule,
+  progress: UnlockProgressCounts | null | undefined,
+): string {
+  if (!rule || !progress) return lockedHint(rule);
+  const of = (have: number, target: number, noun: string): string => {
+    const shown = Math.max(0, Math.min(Math.floor(have), target));
+    return `${shown} of ${target} ${noun}`;
+  };
+  if (rule.wins) {
+    return of(progress.wins, rule.wins, rule.wins === 1 ? 'win' : 'wins');
+  }
+  if (rule.total_battles) {
+    return of(
+      progress.totalBattles,
+      rule.total_battles,
+      rule.total_battles === 1 ? 'battle' : 'battles',
+    );
+  }
+  if (rule.level) return lockedHint(rule);
+  if (rule.best_streak) {
+    return of(progress.bestStreak, rule.best_streak, 'in a row');
+  }
+  return lockedHint(rule);
+}
+
 /** Screen-reader label for a Buy button. */
 export function buyAccessibilityLabel(a: {
   name: string;

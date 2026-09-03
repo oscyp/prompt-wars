@@ -5,6 +5,14 @@ import {
   sortBattlesForList,
   battleRouteFor,
   statusToneColor,
+  groupBattlesForList,
+  battleSectionLabel,
+  seriesScoreFor,
+  seriesLabel,
+  roundProgressFor,
+  roundProgressText,
+  roundProgressSpoken,
+  opponentProfileIds,
   type BattleListRow,
 } from '@/utils/battleLists';
 
@@ -312,5 +320,154 @@ describe('statusToneColor', () => {
     expect(statusToneColor('warning', palette)).toBe('#w');
     expect(statusToneColor('error', palette)).toBe('#e');
     expect(statusToneColor('neutral', palette)).toBe('#t');
+  });
+});
+
+describe('groupBattlesForList', () => {
+  it('splits rows into your turn, in progress and finished, newest first', () => {
+    const rows = [
+      battle({
+        id: 'done-old',
+        status: 'completed',
+        winner_id: ME,
+        created_at: '2026-08-30T09:00:00Z',
+      }),
+      battle({
+        id: 'waiting',
+        status: 'waiting_for_prompts',
+        player_one_locked_at: 'x',
+        created_at: '2026-09-01T09:00:00Z',
+      }),
+      battle({
+        id: 'turn-old',
+        status: 'waiting_for_prompts',
+        created_at: '2026-08-31T09:00:00Z',
+      }),
+      battle({
+        id: 'result',
+        status: 'result_ready',
+        created_at: '2026-09-01T12:00:00Z',
+      }),
+      battle({
+        id: 'judging',
+        status: 'resolving',
+        created_at: '2026-09-01T11:00:00Z',
+      }),
+      battle({
+        id: 'done-new',
+        status: 'expired',
+        created_at: '2026-09-01T13:00:00Z',
+      }),
+    ];
+    const sections = groupBattlesForList(rows, ME);
+    expect(sections.map((s) => [s.key, s.title])).toEqual([
+      ['yourTurn', 'Your turn'],
+      ['inProgress', 'In progress'],
+      ['finished', 'Finished'],
+    ]);
+    expect(sections[0].data.map((b) => b.id)).toEqual(['result', 'turn-old']);
+    expect(sections[1].data.map((b) => b.id)).toEqual(['judging', 'waiting']);
+    expect(sections[2].data.map((b) => b.id)).toEqual(['done-new', 'done-old']);
+  });
+
+  it('omits empty sections and files a failed generation under finished', () => {
+    const sections = groupBattlesForList(
+      [battle({ id: 'g', status: 'generation_failed' })],
+      ME,
+    );
+    expect(sections.map((s) => s.key)).toEqual(['finished']);
+    expect(groupBattlesForList([], ME)).toEqual([]);
+  });
+
+  it('labels a section header with its count', () => {
+    expect(battleSectionLabel({ title: 'Your turn', data: [1, 2] })).toBe(
+      'Your turn, 2 battles',
+    );
+    expect(battleSectionLabel({ title: 'Finished', data: [1] })).toBe(
+      'Finished, 1 battle',
+    );
+  });
+});
+
+describe('seriesScoreFor / roundProgressFor', () => {
+  it('orients the series from my side', () => {
+    const bo3 = battle({
+      format: 'bo3',
+      best_of: 3,
+      player_one_rounds_won: 2,
+      player_two_rounds_won: 1,
+    });
+    expect(seriesScoreFor(bo3, ME)).toEqual({ mine: 2, theirs: 1 });
+    expect(
+      seriesScoreFor({ ...bo3, player_one_id: THEM, player_two_id: ME }, ME),
+    ).toEqual({ mine: 1, theirs: 2 });
+    expect(seriesLabel({ mine: 2, theirs: 0 })).toBe('2–0');
+  });
+
+  it('has no series for a single-format row', () => {
+    expect(seriesScoreFor(battle({ format: 'single' }), ME)).toBeNull();
+    expect(roundProgressFor(battle({ format: 'single' }), ME)).toBeNull();
+  });
+
+  it('defaults missing series columns to zero and best-of to three', () => {
+    const legacy = battle({
+      format: 'bo3',
+      best_of: null,
+      current_round: null,
+      player_one_rounds_won: null,
+      player_two_rounds_won: null,
+    });
+    expect(roundProgressFor(legacy, ME)).toEqual({
+      mine: 0,
+      theirs: 0,
+      round: 1,
+      bestOf: 3,
+    });
+  });
+
+  it('prints and speaks the round line', () => {
+    const progress = roundProgressFor(
+      battle({
+        format: 'bo3',
+        best_of: 3,
+        current_round: 2,
+        player_one_rounds_won: 1,
+        player_two_rounds_won: 0,
+      }),
+      ME,
+    )!;
+    expect(roundProgressText(progress)).toBe('Round 2 of 3 · 1–0');
+    expect(roundProgressSpoken(progress)).toBe('Round 2 of 3, 1–0');
+  });
+
+  it('clamps the round inside the series', () => {
+    expect(
+      roundProgressFor(
+        battle({ format: 'bo3', best_of: 3, current_round: 7 }),
+        ME,
+      )?.round,
+    ).toBe(3);
+  });
+});
+
+describe('opponentProfileIds', () => {
+  it('collects each human opponent once, from whichever side I am on', () => {
+    const rows = [
+      battle({ id: 'a' }),
+      battle({ id: 'b' }),
+      battle({ id: 'c', player_one_id: THEM, player_two_id: ME }),
+      battle({ id: 'd', player_one_id: 'other-3', player_two_id: ME }),
+    ];
+    expect(opponentProfileIds(rows, ME)).toEqual([THEM, 'other-3']);
+  });
+
+  it('skips bots, empty seats and rows I am not in', () => {
+    const rows = [
+      battle({ id: 'bot', player_two_id: null, is_player_two_bot: true }),
+      battle({ id: 'empty', player_two_id: null, status: 'created' }),
+      battle({ id: 'theirs', player_one_id: 'x', player_two_id: 'y' }),
+    ];
+    expect(opponentProfileIds(rows, ME)).toEqual([]);
+    expect(opponentProfileIds([battle()], null)).toEqual([]);
   });
 });

@@ -3,10 +3,9 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  SectionList,
   Pressable,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
   Image,
 } from 'react-native';
@@ -16,28 +15,49 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { useTabClearance } from '@/hooks/useTabClearance';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
-import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
+import {
+  Spacing,
+  Typography,
+  BorderRadius,
+  NumericFontVariant,
+} from '@/constants/DesignTokens';
+import { archetypeIllustrationUri } from '@/constants/ArchetypeAvatars';
 import { UiArt } from '@/constants/UiArt';
 import {
   getBattleHistory,
-  sortBattlesForList,
+  groupBattlesForList,
+  battleSectionLabel,
   describeBattleRow,
   battleRouteFor,
   statusToneColor,
+  seriesScoreFor,
+  seriesLabel,
+  opponentProfileIds,
   type BattleListRow,
+  type BattleListSection,
 } from '@/utils/battleLists';
 import { modeLabel, type BattleOutcome } from '@/utils/battleCopy';
+import { opponentIdentityFor } from '@/utils/opponentIdentity';
+import {
+  fetchPublicPlayers,
+  type PublicPlayerMap,
+} from '@/utils/publicPlayers';
+import { resolveSignatureHex } from '@/utils/characters';
+import { shortDate } from '@/utils/walletView';
 import { inkFor } from '@/utils/contrast';
 import { hapticSelection } from '@/utils/haptics';
 import { useAuth } from '@/providers/AuthProvider';
-import { InlineBanner } from '@/components';
+import { InlineBanner, PortraitPreview } from '@/components';
 import { useBattleSheet } from '@/components/BattleModeSheet';
+import ListSkeleton from '@/components/ListSkeleton';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const FOCUS_REFETCH_DEBOUNCE_MS = 1500;
 const HISTORY_LIMIT = 50;
+const AVATAR_SIZE = 44;
+/** Rows with nowhere to go (timed out, cancelled) read as inert. */
+const DISABLED_ROW_OPACITY = 0.6;
 
 interface OutcomePresentation {
   word: string;
@@ -70,7 +90,9 @@ export default function BattlesScreen() {
   const tabClearance = useTabClearance();
   const battleSheet = useBattleSheet();
   const { user } = useAuth();
+  const userId = user?.id;
   const [battles, setBattles] = useState<BattleListRow[]>([]);
+  const [players, setPlayers] = useState<PublicPlayerMap>(() => new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -80,7 +102,11 @@ export default function BattlesScreen() {
     lastLoadRef.current = Date.now();
     try {
       const data = await getBattleHistory(HISTORY_LIMIT);
+      // Live rows have no reveal payload yet; the public view supplies the
+      // opponent's archetype and colour. Never rejects.
+      const known = await fetchPublicPlayers(opponentProfileIds(data, userId));
       setBattles(data);
+      setPlayers(known);
       setLoadError(false);
     } catch (err) {
       console.error('Failed to load battles:', err);
@@ -89,7 +115,7 @@ export default function BattlesScreen() {
       setIsLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -112,26 +138,43 @@ export default function BattlesScreen() {
     battleSheet.open();
   };
 
-  const sorted = useMemo(
-    () => sortBattlesForList(battles, user?.id),
-    [battles, user?.id],
+  const sections = useMemo(
+    () => groupBattlesForList(battles, userId),
+    [battles, userId],
   );
 
   const renderBattle = ({ item }: { item: BattleListRow }) => {
-    const view = describeBattleRow(item, user?.id);
-    const route = battleRouteFor(item, user?.id);
+    const view = describeBattleRow(item, userId);
+    const route = battleRouteFor(item, userId);
     const toneColor = statusToneColor(view.status.tone, colors);
     const outcome = outcomePresentation(view.outcome, colors);
     // A finished battle's status IS its outcome; the footer says it once.
     const showChip = item.status !== 'completed' || !outcome;
     const chipFilled = view.status.actionable;
     const mode = modeLabel(item.mode);
+    const identity = opponentIdentityFor(item, userId, players);
+    const name = identity.name ?? view.opponentName;
+    // Bots keep the neutral illustration and a plain ring.
+    const art =
+      archetypeIllustrationUri(identity.isBot ? null : identity.archetype) ??
+      '';
+    const ring =
+      !identity.isBot && identity.signatureColor
+        ? resolveSignatureHex(identity.signatureColor)
+        : colors.border;
+    // Series score and knockout only once there is a result to score.
+    const series = outcome ? seriesScoreFor(item, userId) : null;
+    const knockout = Boolean(outcome) && item.is_ko === true;
+    const date = shortDate(item.created_at);
     const label = [
-      `Battle against ${view.opponentName}`,
+      `Battle against ${name}`,
       showChip ? view.status.label : null,
       outcome?.word ?? null,
+      series ? `Series ${seriesLabel(series)}` : null,
+      knockout ? 'Knockout' : null,
       mode,
       item.theme ? `Theme: ${item.theme}` : null,
+      date,
     ]
       .filter(Boolean)
       .join('. ');
@@ -144,7 +187,7 @@ export default function BattlesScreen() {
             backgroundColor: colors.card,
             borderColor: chipFilled ? colors.primary : colors.borderLight,
             borderWidth: chipFilled ? 1 : StyleSheet.hairlineWidth,
-            opacity: pressed && route ? 0.85 : 1,
+            opacity: !route ? DISABLED_ROW_OPACITY : pressed ? 0.85 : 1,
           },
         ]}
         onPress={() => {
@@ -155,14 +198,12 @@ export default function BattlesScreen() {
         accessibilityLabel={label}
         accessibilityState={{ disabled: !route }}
       >
-        {/* Opponents' characters are RLS-protected; show the designed neutral
-            illustration (never a bare initial). */}
-        <Image
-          source={getArchetypeAvatar(null)}
-          style={styles.avatar}
-          resizeMode="cover"
-          accessibilityElementsHidden
-          importantForAccessibility="no"
+        <PortraitPreview
+          uri={art}
+          variant="circle"
+          size={AVATAR_SIZE}
+          accentColor={ring}
+          accessibilityLabel={`${name}'s archetype`}
         />
         <View style={styles.battleBody}>
           <View style={styles.battleHeader}>
@@ -170,7 +211,7 @@ export default function BattlesScreen() {
               style={[styles.opponent, accessibleText, { color: colors.text }]}
               numberOfLines={1}
             >
-              vs {view.opponentName}
+              vs {name}
             </Text>
             {showChip ? (
               <View
@@ -209,32 +250,66 @@ export default function BattlesScreen() {
                 <Text style={[styles.result, { color: outcome.color }]}>
                   {outcome.word}
                 </Text>
+                {series ? (
+                  <Text
+                    style={[
+                      styles.series,
+                      NumericFontVariant,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {seriesLabel(series)}
+                  </Text>
+                ) : null}
+                {knockout ? (
+                  <Text
+                    style={[
+                      styles.koTag,
+                      {
+                        color: colors.text,
+                        backgroundColor: colors.backgroundTertiary,
+                      },
+                    ]}
+                  >
+                    KO
+                  </Text>
+                ) : null}
               </View>
             ) : (
               <View />
             )}
-            <Text style={[styles.date, { color: colors.textTertiary }]}>
-              {new Date(item.created_at).toLocaleDateString()}
-            </Text>
+            {date ? (
+              <Text style={[styles.date, { color: colors.textTertiary }]}>
+                {date}
+              </Text>
+            ) : null}
           </View>
         </View>
       </Pressable>
     );
   };
 
-  if (isLoading) {
-    return (
-      <View
+  const renderSectionHeader = ({ section }: { section: BattleListSection }) => (
+    <View
+      style={[styles.sectionHeader, { backgroundColor: colors.background }]}
+      accessible
+      accessibilityRole="header"
+      accessibilityLabel={battleSectionLabel(section)}
+    >
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+        {section.title}
+      </Text>
+      <Text
         style={[
-          styles.container,
-          { backgroundColor: colors.background },
-          styles.centered,
+          styles.sectionCount,
+          NumericFontVariant,
+          { color: colors.textTertiary },
         ]}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+        {section.data.length}
+      </Text>
+    </View>
+  );
 
   const errorBanner = (
     <View style={styles.bannerWrap}>
@@ -263,69 +338,75 @@ export default function BattlesScreen() {
       >
         Battles
       </Text>
-      <FlatList
-        data={sorted}
-        renderItem={renderBattle}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={[
-          styles.list,
-          { paddingBottom: tabClearance },
-          sorted.length === 0 && styles.listEmpty,
-        ]}
-        // A failed refresh over an existing list keeps the rows and says so.
-        ListHeaderComponent={
-          loadError && sorted.length > 0 ? errorBanner : null
-        }
-        ListEmptyComponent={
-          loadError ? (
-            errorBanner
-          ) : (
-            <View style={styles.emptyState}>
-              <Image
-                source={UiArt.clash}
-                style={styles.emptyArt}
-                resizeMode="cover"
-                accessibilityElementsHidden
-                importantForAccessibility="no"
-              />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                No battles yet
-              </Text>
-              <Text
-                style={[
-                  styles.emptyText,
-                  accessibleText,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                Your battles and results will show up here.
-              </Text>
-              <TouchableOpacity
-                style={[styles.emptyCta, { backgroundColor: colors.primary }]}
-                onPress={openBattleSheet}
-                accessibilityRole="button"
-                accessibilityLabel="Start a battle"
-              >
+      {isLoading ? (
+        <ListSkeleton label="Loading your battles" />
+      ) : (
+        <SectionList
+          sections={sections}
+          renderItem={renderBattle}
+          renderSectionHeader={renderSectionHeader}
+          keyExtractor={(item) => item.id}
+          stickySectionHeadersEnabled={false}
+          contentContainerStyle={[
+            styles.list,
+            { paddingBottom: tabClearance },
+            sections.length === 0 && styles.listEmpty,
+          ]}
+          // A failed refresh over an existing list keeps the rows and says so.
+          ListHeaderComponent={
+            loadError && sections.length > 0 ? errorBanner : null
+          }
+          ListEmptyComponent={
+            loadError ? (
+              errorBanner
+            ) : (
+              <View style={styles.emptyState}>
+                <Image
+                  source={UiArt.clash}
+                  style={styles.emptyArt}
+                  resizeMode="cover"
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                  No battles yet
+                </Text>
                 <Text
                   style={[
-                    styles.emptyCtaText,
-                    { color: inkFor(colors.primary) },
+                    styles.emptyText,
+                    accessibleText,
+                    { color: colors.textSecondary },
                   ]}
                 >
-                  Start a battle
+                  Your battles and results will show up here.
                 </Text>
-              </TouchableOpacity>
-            </View>
-          )
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      />
+                <TouchableOpacity
+                  style={[styles.emptyCta, { backgroundColor: colors.primary }]}
+                  onPress={openBattleSheet}
+                  accessibilityRole="button"
+                  accessibilityLabel="Start a battle"
+                >
+                  <Text
+                    style={[
+                      styles.emptyCtaText,
+                      { color: inkFor(colors.primary) },
+                    ]}
+                  >
+                    Start a battle
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+        />
+      )}
     </View>
   );
 }
@@ -334,10 +415,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: Spacing.lg,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   title: {
     fontSize: Typography.sizes.xxxl,
@@ -354,6 +431,23 @@ const styles = StyleSheet.create({
   bannerWrap: {
     marginBottom: Spacing.md,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  sectionCount: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.semibold,
+  },
   battleCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -361,11 +455,6 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.sm,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: BorderRadius.full,
   },
   battleBody: {
     flex: 1,
@@ -409,6 +498,21 @@ const styles = StyleSheet.create({
   result: {
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
+  },
+  series: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+    marginLeft: Spacing.xs,
+  },
+  koTag: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    letterSpacing: 0.6,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 1,
+    borderRadius: BorderRadius.sm,
+    overflow: 'hidden',
+    marginLeft: Spacing.xs,
   },
   date: {
     fontSize: Typography.sizes.xs,

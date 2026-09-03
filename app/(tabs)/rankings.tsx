@@ -1,13 +1,5 @@
-import React, { useCallback, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  ActivityIndicator,
-  RefreshControl,
-  Image,
-} from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,20 +12,27 @@ import {
   NumericFontVariant,
   BorderRadius,
 } from '@/constants/DesignTokens';
-import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
+import { archetypeIllustrationUri } from '@/constants/ArchetypeAvatars';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
-import { CosmeticBadge, InlineBanner } from '@/components';
+import { CosmeticBadge, InlineBanner, PortraitPreview } from '@/components';
+import ListSkeleton from '@/components/ListSkeleton';
+import PodiumHeader from '@/components/PodiumHeader';
 import {
-  resolveEquippedCosmetics,
-  type EquippedCosmetics,
-} from '@/utils/cosmetics';
+  fetchPublicPlayers,
+  type PublicPlayer,
+  type PublicPlayerMap,
+} from '@/utils/publicPlayers';
+import { resolveSignatureHex } from '@/utils/characters';
+import { seasonEndsLabel } from '@/utils/profileView';
 import {
   medalFor,
   rankDisplay,
   rankingPlayerName,
   rankingRowLabel,
+  recordLabel,
   shouldPinViewerRow,
+  splitPodium,
   type RankingRow,
 } from '@/utils/rankingsView';
 
@@ -41,6 +40,7 @@ const FOCUS_REFETCH_DEBOUNCE_MS = 1500;
 const LEADERBOARD_SIZE = 50;
 const RANKING_SELECT =
   'id, profile_id, rank, rating, wins, losses, draws, profile:profiles(username, display_name)';
+const AVATAR_SIZE = 40;
 
 interface SeasonRow {
   id: string;
@@ -53,14 +53,15 @@ interface RankingCardProps {
   isViewer: boolean;
   /** Rendered under the list because the viewer is outside the top 50. */
   pinned?: boolean;
-  cosmetics: EquippedCosmetics | undefined;
+  /** Archetype, colour and cosmetics from the public view; neutral when absent. */
+  player: PublicPlayer | undefined;
 }
 
 function RankingCard({
   row,
   isViewer,
   pinned = false,
-  cosmetics,
+  player,
 }: RankingCardProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
@@ -78,6 +79,11 @@ function RankingCard({
     ? colors.primary
     : (medalColor ?? colors.borderLight);
   const label = rankingRowLabel(row, isViewer);
+  const name = rankingPlayerName(row);
+  // The ring around a fighter is theirs (design language §4), not the row's.
+  const ring = player?.signatureColor
+    ? resolveSignatureHex(player.signatureColor)
+    : colors.border;
 
   return (
     <View
@@ -112,14 +118,17 @@ function RankingCard({
           {rankDisplay(row.rank)}
         </Text>
       </View>
-      {/* Other players' characters are RLS-protected; the designed neutral
-          illustration stands in (never a bare initial). */}
-      <Image
-        source={getArchetypeAvatar(null)}
-        style={[styles.avatar, { borderColor }]}
-        resizeMode="cover"
-        accessibilityElementsHidden
-        importantForAccessibility="no"
+      {/* Other players' characters are RLS-protected; the public view gives
+          the archetype and colour, and the bundled illustration stands in for
+          the portrait (never a bare initial). */}
+      <PortraitPreview
+        uri={archetypeIllustrationUri(player?.archetype ?? null) ?? ''}
+        variant="circle"
+        size={AVATAR_SIZE}
+        accentColor={ring}
+        frame={player?.cosmetics.frame ?? null}
+        avatarEffect={player?.cosmetics.avatarEffect ?? null}
+        accessibilityLabel={`${name}'s archetype`}
       />
       <View style={styles.playerInfo}>
         <View style={styles.nameRow}>
@@ -127,7 +136,7 @@ function RankingCard({
             style={[styles.playerName, accessibleText, { color: colors.text }]}
             numberOfLines={1}
           >
-            {rankingPlayerName(row)}
+            {name}
           </Text>
           {isViewer ? (
             <Text
@@ -139,7 +148,7 @@ function RankingCard({
               You
             </Text>
           ) : null}
-          <CosmeticBadge badge={cosmetics?.badge} size={14} />
+          <CosmeticBadge badge={player?.cosmetics.badge} size={14} />
         </View>
         <Text
           style={[
@@ -148,7 +157,7 @@ function RankingCard({
             { color: colors.textSecondary },
           ]}
         >
-          {row.wins}W - {row.losses}L - {row.draws}D
+          {recordLabel(row)}
         </Text>
       </View>
       <Text
@@ -169,9 +178,7 @@ export default function RankingsScreen() {
   const userId = user?.id;
   const [rankings, setRankings] = useState<RankingRow[]>([]);
   const [viewerRow, setViewerRow] = useState<RankingRow | null>(null);
-  const [cosmeticsByProfile, setCosmeticsByProfile] = useState<
-    Map<string, EquippedCosmetics>
-  >(new Map());
+  const [players, setPlayers] = useState<PublicPlayerMap>(() => new Map());
   const [season, setSeason] = useState<SeasonRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -215,33 +222,17 @@ export default function RankingsScreen() {
           ((mineRows ?? [])[0] as unknown as RankingRow | undefined) ?? null;
       }
 
-      // Cosmetics live on `characters`, which is `select_own` under RLS, so the
-      // leaderboard reads them through `public_player_cosmetics` -- a narrow
-      // definer view exposing only profile_id and the equipped set -- and only
-      // for the players actually on screen.
-      const ids = Array.from(
-        new Set([
-          ...listed.map((r) => r.profile_id),
-          ...(viewer ? [viewer.profile_id] : []),
-        ]),
-      );
-      const byProfile = new Map<string, EquippedCosmetics>();
-      if (ids.length > 0) {
-        const { data: cosmeticRows } = await supabase
-          .from('public_player_cosmetics')
-          .select('profile_id, cosmetic_config')
-          .in('profile_id', ids);
-        for (const row of cosmeticRows ?? []) {
-          byProfile.set(
-            row.profile_id as string,
-            resolveEquippedCosmetics(row.cosmetic_config),
-          );
-        }
-      }
+      // Archetype, colour and cosmetics live on `characters`, which is
+      // `select_own` under RLS, so the leaderboard reads them through the
+      // `public_player_cosmetics` view -- only for the players on screen.
+      const known = await fetchPublicPlayers([
+        ...listed.map((r) => r.profile_id),
+        ...(viewer ? [viewer.profile_id] : []),
+      ]);
 
       setRankings(listed);
       setViewerRow(viewer);
-      setCosmeticsByProfile(byProfile);
+      setPlayers(known);
       setLoadError(false);
     } catch (err) {
       console.error('Failed to load rankings:', err);
@@ -268,29 +259,21 @@ export default function RankingsScreen() {
     void loadRankings();
   };
 
+  // The top three become the podium; the list starts at rank 4. Pinning
+  // checks the full leaderboard, so a viewer on the podium is not repeated.
+  const { podium, rest } = useMemo(() => splitPodium(rankings), [rankings]);
   const pinViewer = shouldPinViewerRow(rankings, viewerRow);
+  const seasonLine = season
+    ? [season.name, seasonEndsLabel(season.ends_at)].filter(Boolean).join(' · ')
+    : null;
 
   const renderRanking = ({ item }: { item: RankingRow }) => (
     <RankingCard
       row={item}
       isViewer={item.profile_id === userId}
-      cosmetics={cosmeticsByProfile.get(item.profile_id)}
+      player={players.get(item.profile_id)}
     />
   );
-
-  if (isLoading) {
-    return (
-      <View
-        style={[
-          styles.container,
-          { backgroundColor: colors.background },
-          styles.centered,
-        ]}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
 
   const errorBanner = (
     <View style={styles.bannerWrap}>
@@ -319,7 +302,7 @@ export default function RankingsScreen() {
       >
         Rankings
       </Text>
-      {season ? (
+      {seasonLine ? (
         <Text
           style={[
             styles.season,
@@ -327,64 +310,79 @@ export default function RankingsScreen() {
             { color: colors.textSecondary },
           ]}
         >
-          {season.name} • Ends {new Date(season.ends_at).toLocaleDateString()}
+          {seasonLine}
         </Text>
       ) : (
         <View style={styles.seasonSpacer} />
       )}
 
-      <FlatList
-        data={rankings}
-        renderItem={renderRanking}
-        keyExtractor={(item) => item.id || item.profile_id}
-        contentContainerStyle={[
-          styles.list,
-          { paddingBottom: pinViewer ? Spacing.sm : tabClearance },
-          rankings.length === 0 && styles.listEmpty,
-        ]}
-        ListHeaderComponent={
-          loadError && rankings.length > 0 ? errorBanner : null
-        }
-        ListEmptyComponent={
-          loadError ? (
-            errorBanner
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                No rankings yet
-              </Text>
-              <Text
-                style={[
-                  styles.emptyText,
-                  accessibleText,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                The season standings will appear here once ranked battles are
-                played.
-              </Text>
-            </View>
-          )
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
+      {isLoading ? (
+        <ListSkeleton label="Loading the rankings" />
+      ) : (
+        <>
+          <FlatList
+            data={rest}
+            renderItem={renderRanking}
+            keyExtractor={(item) => item.id || item.profile_id}
+            contentContainerStyle={[
+              styles.list,
+              { paddingBottom: pinViewer ? Spacing.sm : tabClearance },
+              rankings.length === 0 && styles.listEmpty,
+            ]}
+            ListHeaderComponent={
+              <>
+                {loadError && rankings.length > 0 ? errorBanner : null}
+                {podium.length === 3 ? (
+                  <PodiumHeader
+                    rows={podium}
+                    players={players}
+                    viewerId={userId}
+                  />
+                ) : null}
+              </>
+            }
+            ListEmptyComponent={
+              loadError ? (
+                errorBanner
+              ) : (
+                <View style={styles.emptyState}>
+                  <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                    No rankings yet
+                  </Text>
+                  <Text
+                    style={[
+                      styles.emptyText,
+                      accessibleText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    The season standings will appear here once ranked battles
+                    are played.
+                  </Text>
+                </View>
+              )
+            }
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.primary}
+              />
+            }
           />
-        }
-      />
 
-      {pinViewer && viewerRow ? (
-        <View style={[styles.pinnedWrap, { paddingBottom: tabClearance }]}>
-          <RankingCard
-            row={viewerRow}
-            isViewer
-            pinned
-            cosmetics={cosmeticsByProfile.get(viewerRow.profile_id)}
-          />
-        </View>
-      ) : null}
+          {pinViewer && viewerRow ? (
+            <View style={[styles.pinnedWrap, { paddingBottom: tabClearance }]}>
+              <RankingCard
+                row={viewerRow}
+                isViewer
+                pinned
+                player={players.get(viewerRow.profile_id)}
+              />
+            </View>
+          ) : null}
+        </>
+      )}
     </View>
   );
 }
@@ -393,10 +391,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: Spacing.lg,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   title: {
     fontSize: Typography.sizes.xxxl,
@@ -443,12 +437,6 @@ const styles = StyleSheet.create({
   rank: {
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1.5,
   },
   playerInfo: {
     flex: 1,

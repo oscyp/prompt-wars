@@ -6,6 +6,11 @@ import {
   recordSentence,
   rankingRowLabel,
   shouldPinViewerRow,
+  recordLabel,
+  podiumLabel,
+  splitPodium,
+  standingRankValue,
+  standingLabel,
   type RankingRow,
 } from '@/utils/rankingsView';
 
@@ -86,5 +91,57 @@ describe('shouldPinViewerRow', () => {
     expect(shouldPinViewerRow(listed, { profile_id: 'p2' })).toBe(false);
     expect(shouldPinViewerRow(listed, null)).toBe(false);
     expect(shouldPinViewerRow([], { profile_id: 'p9' })).toBe(true);
+  });
+});
+
+describe('recordLabel', () => {
+  it('shows draws only when there are any', () => {
+    expect(recordLabel({ wins: 12, losses: 3, draws: 1 })).toBe('12–3–1');
+    expect(recordLabel({ wins: 12, losses: 3, draws: 0 })).toBe('12–3');
+  });
+});
+
+describe('podiumLabel / splitPodium', () => {
+  it('reads place, name and rating, marking the viewer', () => {
+    expect(podiumLabel(row({ rank: 1 }), false)).toBe(
+      '1st place: Ace, rating 1513',
+    );
+    expect(podiumLabel(row({ rank: 3 }), true)).toBe(
+      '3rd place: Ace (you), rating 1513',
+    );
+  });
+
+  it('takes the first three only when they are ranks 1, 2 and 3', () => {
+    const rows = [1, 2, 3, 4, 5].map((rank) =>
+      row({ id: `r${rank}`, profile_id: `p${rank}`, rank }),
+    );
+    const { podium, rest } = splitPodium(rows);
+    expect(podium.map((r) => r.rank)).toEqual([1, 2, 3]);
+    expect(rest.map((r) => r.rank)).toEqual([4, 5]);
+  });
+
+  it('shows no podium for a short or unplaced list', () => {
+    const two = [row({ rank: 1 }), row({ rank: 2 })];
+    expect(splitPodium(two)).toEqual({ podium: [], rest: two });
+    const gap = [row({ rank: 1 }), row({ rank: 2 }), row({ rank: null })];
+    expect(splitPodium(gap).podium).toEqual([]);
+    expect(splitPodium(gap).rest).toHaveLength(3);
+  });
+});
+
+describe('standing card copy', () => {
+  it('says Unranked, never a dash, on the Arena', () => {
+    expect(standingRankValue(12)).toBe('#12');
+    expect(standingRankValue(null)).toBe('Unranked');
+    expect(standingRankValue(0)).toBe('Unranked');
+  });
+
+  it('reads the whole card and where it goes', () => {
+    expect(standingLabel({ rank: 12, rated: true, ratingValue: '1537' })).toBe(
+      'Your standing: rank 12, rating 1537. Opens rankings',
+    );
+    expect(
+      standingLabel({ rank: null, rated: false, ratingValue: 'Unrated' }),
+    ).toBe('Your standing: unranked, unrated. Opens rankings');
   });
 });

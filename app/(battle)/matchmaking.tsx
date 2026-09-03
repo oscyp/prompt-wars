@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useThemedColors } from '@/hooks/useThemedColors';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { UiArt } from '@/constants/UiArt';
 import { modeLabel } from '@/utils/battleCopy';
@@ -26,14 +27,47 @@ import {
 import { startMatchmaking, hasOpponent } from '@/utils/battles';
 import { supabase } from '@/utils/supabase';
 import { hapticSuccess } from '@/utils/haptics';
+import { loadPortraitRef } from '@/utils/characters';
+import {
+  resolveEquippedCosmetics,
+  NO_COSMETICS,
+  type EquippedCosmetics,
+} from '@/utils/cosmetics';
+import { ARENA_TIPS } from '@/utils/arenaTips';
 import { useAuth } from '@/providers/AuthProvider';
+import FighterEntrance from '@/components/FighterEntrance';
+import ArenaTips from '@/components/ArenaTips';
 
 type Status = 'finding' | 'matched' | 'error';
+
+/**
+ * The player's own fighter for the entrance card. Starts neutral ("You", the
+ * archetype's default illustration, the brand colour) and fills in as the
+ * character row and then its signed render arrive; the search never waits on
+ * either, and a failed read simply leaves the neutral card up.
+ */
+interface EntranceFighter {
+  name: string;
+  archetype: string;
+  signatureColor: string | null;
+  portraitUrl: string | null;
+  cosmetics: EquippedCosmetics;
+}
+
+const NEUTRAL_FIGHTER: EntranceFighter = {
+  name: 'You',
+  archetype: '',
+  signatureColor: null,
+  portraitUrl: null,
+  cosmetics: NO_COSMETICS,
+};
 
 export default function MatchmakingScreen() {
   const colors = useThemedColors();
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const { mode: rawMode } = useLocalSearchParams<{ mode?: string }>();
   const mode = resolveMatchmakingMode(rawMode);
 
@@ -42,6 +76,9 @@ export default function MatchmakingScreen() {
   const [errorCopy, setErrorCopy] = useState<MatchmakingErrorCopy | null>(null);
   // Try again bumps this; the effect below re-runs the search.
   const [attempt, setAttempt] = useState(0);
+  const [fighter, setFighter] = useState<EntranceFighter>(NEUTRAL_FIGHTER);
+  // One offset per visit so the tips do not always open on the same line.
+  const tipSeed = useRef(Math.floor(Math.random() * ARENA_TIPS.length)).current;
 
   // The 1 s "Match found" beat before routing. Held in a ref so unmounting
   // (the player backed out) can cancel it -- a replace that fires after the
@@ -55,6 +92,53 @@ export default function MatchmakingScreen() {
       }
     };
   }, []);
+
+  // Stage the player's fighter. Separate from the search on purpose: this is
+  // decoration for the wait, so nothing here may delay or fail the queue.
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('characters')
+          .select(
+            'name, archetype, signature_color, portrait_id, avatar_portrait_id, cosmetic_config',
+          )
+          .eq('profile_id', userId)
+          .eq('is_active', true)
+          .maybeSingle();
+        if (cancelled || error || !data) return;
+        const row = data as {
+          name: string | null;
+          archetype: string | null;
+          signature_color: string | null;
+          portrait_id: string | null;
+          avatar_portrait_id: string | null;
+          cosmetic_config: Record<string, string> | null;
+        };
+        setFighter({
+          name: row.name?.trim() || NEUTRAL_FIGHTER.name,
+          archetype: row.archetype ?? '',
+          signatureColor: row.signature_color ?? null,
+          portraitUrl: null,
+          cosmetics: resolveEquippedCosmetics(row.cosmetic_config),
+        });
+        // The 1:1 avatar is the crop made for circles; the full-body portrait
+        // stands in for characters that predate it.
+        const portraitId = row.avatar_portrait_id ?? row.portrait_id;
+        if (!portraitId) return;
+        const ref = await loadPortraitRef(portraitId);
+        if (cancelled || !ref.url) return;
+        setFighter((f) => ({ ...f, portraitUrl: ref.url }));
+      } catch {
+        // The neutral card stays up; the search is unaffected.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   const announce = useCallback((text: string) => {
     AccessibilityInfo.announceForAccessibility(text);
@@ -157,26 +241,42 @@ export default function MatchmakingScreen() {
       {/* Scrim keeps overlay text AA on top of the arena illustration. */}
       <View style={styles.scrim} />
       <View style={styles.content}>
-        <Image
-          source={UiArt.clash}
-          style={styles.clash}
-          resizeMode="cover"
-          accessibilityElementsHidden
-          importantForAccessibility="no"
-        />
-
-        {status === 'finding' && (
-          <ActivityIndicator
-            size="large"
-            color={colors.primary}
-            style={styles.spinner}
-            accessibilityLabel="Finding an opponent"
+        {status === 'error' ? (
+          <Image
+            source={UiArt.clash}
+            style={styles.clash}
+            resizeMode="cover"
+            accessibilityElementsHidden
+            importantForAccessibility="no"
           />
+        ) : (
+          // The fighter stays on stage through the "Match found" beat; a swap
+          // to the clash emblem for one second would read as a glitch.
+          <View style={styles.entrance}>
+            <FighterEntrance
+              name={fighter.name}
+              archetype={fighter.archetype}
+              signatureColor={fighter.signatureColor ?? colors.primary}
+              portraitUrl={fighter.portraitUrl}
+              cosmetics={fighter.cosmetics}
+              modeLabel={modeLabel(mode)}
+              reduceMotion={reduceMotion}
+            />
+          </View>
         )}
 
         <Text style={styles.title} accessibilityRole="header">
           {title}
         </Text>
+
+        {status === 'finding' && (
+          <ActivityIndicator
+            size="small"
+            color="#FFFFFF"
+            style={styles.spinner}
+            accessibilityLabel="Finding an opponent"
+          />
+        )}
 
         <Text style={styles.message}>{message}</Text>
 
@@ -210,11 +310,11 @@ export default function MatchmakingScreen() {
               <Text style={styles.secondaryButtonText}>Back</Text>
             </Pressable>
           </View>
-        ) : (
-          <View style={styles.modeBadge}>
-            <Text style={styles.modeText}>{modeLabel(mode).toUpperCase()}</Text>
-          </View>
-        )}
+        ) : null}
+
+        {status === 'finding' ? (
+          <ArenaTips seed={tipSeed} reduceMotion={reduceMotion} />
+        ) : null}
       </View>
     </ImageBackground>
   );
@@ -238,8 +338,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.lg,
   },
+  entrance: {
+    marginBottom: Spacing.xl,
+  },
   spinner: {
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   clash: {
     width: 128,
@@ -261,18 +364,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     textAlign: 'center',
     marginBottom: Spacing.xl,
-  },
-  modeBadge: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-  },
-  modeText: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.bold,
-    color: '#FFFFFF',
-    letterSpacing: 1,
   },
   actions: {
     width: '100%',

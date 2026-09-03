@@ -105,3 +105,6 @@ export * from './edit-character';
 export * from './reveal';
 export { default as ResultShareCard } from './ResultShareCard';
 export type { ResultShareCardProps, ShareCardFighter } from './ResultShareCard';
+
+// --- Profile tab ------------------------------------------------------------
+export * from './profile';

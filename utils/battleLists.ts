@@ -9,6 +9,7 @@
  */
 
 import type { Href } from 'expo-router';
+import { orientSeriesScore } from '@/components/SeriesScoreIndicator';
 import { supabase } from './supabase';
 import { FINAL_BATTLE_STATUSES, hasOpponent } from './battles';
 import {
@@ -52,6 +53,13 @@ export interface BattleListRow {
   player_two?: BattleListProfile | null;
   /** Per-round lock timestamps, for Bo3 rounds after the first. */
   rounds?: BattleListRound[] | null;
+  /** Bo3 series columns; absent or null on legacy single-format rows. */
+  best_of?: number | null;
+  player_one_rounds_won?: number | null;
+  player_two_rounds_won?: number | null;
+  is_ko?: boolean | null;
+  /** Frozen at resolve time; the one client-readable copy of both fighters. */
+  tier0_reveal_payload?: unknown;
 }
 
 const BATTLE_LIST_SELECT = [
@@ -248,4 +256,149 @@ export function statusToneColor(
     default:
       return colors.textSecondary;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Sections
+// ---------------------------------------------------------------------------
+
+export type BattleSectionKey = 'yourTurn' | 'inProgress' | 'finished';
+
+export interface BattleListSection<T extends BattleListRow = BattleListRow> {
+  key: BattleSectionKey;
+  title: string;
+  data: T[];
+}
+
+export const BATTLE_SECTION_TITLES: Record<BattleSectionKey, string> = {
+  yourTurn: 'Your turn',
+  inProgress: 'In progress',
+  finished: 'Finished',
+};
+
+const BATTLE_SECTION_ORDER: readonly BattleSectionKey[] = [
+  'yourTurn',
+  'inProgress',
+  'finished',
+];
+
+/**
+ * The Battles tab's three sections, in order, each newest first. "Your turn"
+ * is every live row the player can act on; "Finished" is every row in a status
+ * it never leaves; the rest is "In progress". Empty sections are omitted.
+ */
+export function groupBattlesForList<T extends BattleListRow>(
+  rows: readonly T[],
+  myProfileId: string | null | undefined,
+): BattleListSection<T>[] {
+  const buckets: Record<BattleSectionKey, T[]> = {
+    yourTurn: [],
+    inProgress: [],
+    finished: [],
+  };
+  for (const row of sortBattlesForList(rows, myProfileId)) {
+    if (!isActiveBattleStatus(row.status)) buckets.finished.push(row);
+    else if (describeBattleRow(row, myProfileId).status.actionable)
+      buckets.yourTurn.push(row);
+    else buckets.inProgress.push(row);
+  }
+  return BATTLE_SECTION_ORDER.filter((key) => buckets[key].length > 0).map(
+    (key) => ({ key, title: BATTLE_SECTION_TITLES[key], data: buckets[key] }),
+  );
+}
+
+/** "Your turn, 2 battles" — the section header as one spoken phrase. */
+export function battleSectionLabel(section: {
+  title: string;
+  data: readonly unknown[];
+}): string {
+  const n = section.data.length;
+  return `${section.title}, ${n} ${n === 1 ? 'battle' : 'battles'}`;
+}
+
+// ---------------------------------------------------------------------------
+// Series (Bo3)
+// ---------------------------------------------------------------------------
+
+export interface SeriesScore {
+  mine: number;
+  theirs: number;
+}
+
+/**
+ * Rounds won from the viewer's side, or null for a single-format row, which
+ * has no series to score.
+ */
+export function seriesScoreFor(
+  battle: BattleListRow,
+  myProfileId: string | null | undefined,
+): SeriesScore | null {
+  if (battle.format !== 'bo3') return null;
+  const side = sideOf(battle, myProfileId);
+  return orientSeriesScore(
+    {
+      p1: battle.player_one_rounds_won ?? 0,
+      p2: battle.player_two_rounds_won ?? 0,
+    },
+    side === 'two' ? 'p2' : 'p1',
+  );
+}
+
+/** "2–0" (en dash), the series score as a row prints it. */
+export function seriesLabel(score: SeriesScore): string {
+  return `${score.mine}–${score.theirs}`;
+}
+
+export interface RoundProgress extends SeriesScore {
+  round: number;
+  bestOf: number;
+}
+
+/**
+ * Where a live Bo3 battle stands: the round being played and the series
+ * score. Null for single-format rows.
+ */
+export function roundProgressFor(
+  battle: BattleListRow,
+  myProfileId: string | null | undefined,
+): RoundProgress | null {
+  const score = seriesScoreFor(battle, myProfileId);
+  if (!score) return null;
+  const bestOf = Math.max(1, battle.best_of ?? 3);
+  const round = Math.max(1, Math.min(battle.current_round ?? 1, bestOf));
+  return { ...score, round, bestOf };
+}
+
+/** "Round 2 of 3 · 1–0" */
+export function roundProgressText(progress: RoundProgress): string {
+  return `Round ${progress.round} of ${progress.bestOf} · ${seriesLabel(progress)}`;
+}
+
+/** "Round 2 of 3, 1–0" — the same fact for a screen reader. */
+export function roundProgressSpoken(progress: RoundProgress): string {
+  return `Round ${progress.round} of ${progress.bestOf}, ${seriesLabel(progress)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Opponents
+// ---------------------------------------------------------------------------
+
+/**
+ * The distinct human opponents across a list, for one public-players read.
+ * Bots have no profile; a viewer not in a row contributes nothing for it.
+ */
+export function opponentProfileIds(
+  rows: readonly BattleListRow[],
+  myProfileId: string | null | undefined,
+): string[] {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    const side = sideOf(row, myProfileId);
+    if (!side) continue;
+    if (side === 'one' && row.is_player_two_bot === true) continue;
+    const opponentId =
+      side === 'two' ? row.player_one_id : (row.player_two_id ?? null);
+    if (opponentId && opponentId !== myProfileId) ids.add(opponentId);
+  }
+  return Array.from(ids);
 }

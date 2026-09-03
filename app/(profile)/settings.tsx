@@ -216,6 +216,16 @@ export default function SettingsScreen() {
 
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Through the provider, not `supabase.auth.signOut()` directly: the provider
+  // is what deactivates this device's push token. Calling the client straight
+  // left signed-out devices receiving the account's battle notifications.
+  const confirmSignOut = () => {
+    Alert.alert('Sign out?', 'You can sign back in any time.', [
+      { text: 'Stay', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: () => void signOut() },
+    ]);
+  };
+
   // App Store 5.1.1(v). Two-step confirm: the destructive alert, then the
   // Edge Function, which requires an explicit "DELETE" confirmation string so
   // a stray invocation cannot erase an account.
@@ -670,6 +680,12 @@ export default function SettingsScreen() {
           >
             Account
           </Text>
+          <LinkRow
+            label="Sign out"
+            onPress={confirmSignOut}
+            accessibilityLabel="Sign out"
+            colors={colors}
+          />
           <LinkRow
             label="Delete Account"
             onPress={confirmDeleteAccount}
