@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import type {
   AvatarEffectPresentation,
@@ -66,10 +67,13 @@ export default function PortraitPreview({
   avatarEffect,
 }: PortraitPreviewProps) {
   const colors = useThemedColors();
+  const reduceMotion = useReducedMotion();
   const pulse = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
-    if (!loading) {
+    // Reduce Motion keeps the frame steady; the spinner overlay below still
+    // says a render is in flight.
+    if (!loading || reduceMotion) {
       pulse.setValue(1);
       return;
     }
@@ -89,7 +93,7 @@ export default function PortraitPreview({
     );
     anim.start();
     return () => anim.stop();
-  }, [loading, pulse]);
+  }, [loading, pulse, reduceMotion]);
 
   // A frame is bought; the signature colour is the default. So the frame wins.
   // Gradients degrade to their first stop rather than being dropped — a
@@ -97,10 +101,10 @@ export default function PortraitPreview({
   // silently showing no purchase at all.
   const borderColor = frame?.colors[0] ?? accentColor ?? colors.primary;
   const borderWidth = frame?.width ?? FRAME_BORDER;
-  const glow = variant === 'circle' ? (avatarEffect?.glow ?? 0) : (frame?.glow ?? 0);
-  const glowColor = variant === 'circle'
-    ? (avatarEffect?.color ?? borderColor)
-    : borderColor;
+  const glow =
+    variant === 'circle' ? (avatarEffect?.glow ?? 0) : (frame?.glow ?? 0);
+  const glowColor =
+    variant === 'circle' ? (avatarEffect?.color ?? borderColor) : borderColor;
 
   const isFullBody = variant === 'fullBody';
   const frameWidth = size;
@@ -132,68 +136,70 @@ export default function PortraitPreview({
             : undefined
         }
       >
-      <Animated.View
-        style={[
-          styles.frame,
-          {
-            width: frameWidth,
-            height: frameHeight,
-            borderRadius: frameRadius,
-            borderColor,
-            borderWidth,
-            opacity: pulse,
-          },
-        ]}
-      >
-        {isFullBody ? (
-          // Full-body: never crop. `contain` letterboxes non-2:3 sources
-          // against a neutral fill instead of cutting off head or feet.
-          <View
-            style={{
-              width: innerWidth,
-              height: innerHeight,
-              borderRadius: innerRadius,
-              overflow: 'hidden',
-              backgroundColor: colors.backgroundSecondary,
-            }}
-          >
-            <Image
-              source={{ uri }}
-              style={{ width: innerWidth, height: innerHeight }}
-              resizeMode="contain"
-              accessibilityLabel={accessibilityLabel}
-            />
-          </View>
-        ) : (
-          // Circle avatar: full-body sources are tall — anchor the crop to
-          // the top of the image so the face stays in frame.
-          <View
-            style={{
-              width: innerWidth,
-              height: innerHeight,
-              borderRadius: innerRadius,
-              overflow: 'hidden',
-            }}
-          >
-            <Image
-              source={{ uri }}
+        <Animated.View
+          style={[
+            styles.frame,
+            {
+              width: frameWidth,
+              height: frameHeight,
+              borderRadius: frameRadius,
+              borderColor,
+              borderWidth,
+              opacity: pulse,
+            },
+          ]}
+        >
+          {isFullBody ? (
+            // Full-body: never crop. `contain` letterboxes non-2:3 sources
+            // against a neutral fill instead of cutting off head or feet.
+            <View
               style={{
-                position: 'absolute',
-                top: 0,
                 width: innerWidth,
-                height: Math.round(innerWidth * FULL_BODY_ASPECT),
+                height: innerHeight,
+                borderRadius: innerRadius,
+                overflow: 'hidden',
+                backgroundColor: colors.backgroundSecondary,
               }}
-              resizeMode="cover"
-              accessibilityLabel={accessibilityLabel}
-            />
-          </View>
-        )}
-        {loading ? (
-          <View style={[styles.spinnerOverlay, { borderRadius: frameRadius }]}>
-            <ActivityIndicator color={colors.primary} size="large" />
-          </View>
-        ) : null}
-      </Animated.View>
+            >
+              <Image
+                source={{ uri }}
+                style={{ width: innerWidth, height: innerHeight }}
+                resizeMode="contain"
+                accessibilityLabel={accessibilityLabel}
+              />
+            </View>
+          ) : (
+            // Circle avatar: full-body sources are tall — anchor the crop to
+            // the top of the image so the face stays in frame.
+            <View
+              style={{
+                width: innerWidth,
+                height: innerHeight,
+                borderRadius: innerRadius,
+                overflow: 'hidden',
+              }}
+            >
+              <Image
+                source={{ uri }}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  width: innerWidth,
+                  height: Math.round(innerWidth * FULL_BODY_ASPECT),
+                }}
+                resizeMode="cover"
+                accessibilityLabel={accessibilityLabel}
+              />
+            </View>
+          )}
+          {loading ? (
+            <View
+              style={[styles.spinnerOverlay, { borderRadius: frameRadius }]}
+            >
+              <ActivityIndicator color={colors.primary} size="large" />
+            </View>
+          ) : null}
+        </Animated.View>
       </View>
       {caption ? (
         <Text

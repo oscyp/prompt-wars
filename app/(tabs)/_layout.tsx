@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, {
@@ -9,30 +9,42 @@ import Svg, {
   Circle,
 } from 'react-native-svg';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Elevation, Gradients } from '@/constants/DesignTokens';
+import { RAISED_BATTLE_BUTTON_SIZE } from '@/hooks/useTabClearance';
+import { Elevation, Gradients, Ink } from '@/constants/DesignTokens';
+import { hapticSelection } from '@/utils/haptics';
 import BattleModeSheet, {
   BattleSheetProvider,
 } from '@/components/BattleModeSheet';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-function tabIcon(focused: IoniconName, unfocused: IoniconName) {
-  const Icon = ({
-    color,
-    size,
-    focused: isFocused,
-  }: {
-    color: string;
-    size: number;
-    focused: boolean;
-  }) => (
-    <Ionicons name={isFocused ? focused : unfocused} size={size} color={color} />
+interface TabIconProps {
+  color: string;
+  size: number;
+  focused: boolean;
+}
+
+/**
+ * Builds a tab icon renderer once, at module scope. Defining these inside
+ * `options` made a fresh component type on every layout render, which
+ * remounted every icon each time the sheet opened or closed.
+ */
+function makeTabIcon(focused: IoniconName, unfocused: IoniconName) {
+  const Icon = ({ color, size, focused: isFocused }: TabIconProps) => (
+    <Ionicons
+      name={isFocused ? focused : unfocused}
+      size={size}
+      color={color}
+    />
   );
-  Icon.displayName = 'TabBarIcon';
+  Icon.displayName = `TabBarIcon(${focused})`;
   return Icon;
 }
 
-const BATTLE_BUTTON_SIZE = 60;
+const ArenaIcon = makeTabIcon('flame', 'flame-outline');
+const BattlesIcon = makeTabIcon('game-controller', 'game-controller-outline');
+const RankingsIcon = makeTabIcon('trophy', 'trophy-outline');
+const ProfileIcon = makeTabIcon('person', 'person-outline');
 
 /**
  * Raised center "Battle" action (the game's verb, not a place). Breaks the
@@ -40,38 +52,47 @@ const BATTLE_BUTTON_SIZE = 60;
  * instead of navigating; the `create` route stays reachable for deep links.
  */
 function RaisedBattleButton({ onPress }: { onPress: () => void }) {
+  const handlePress = () => {
+    hapticSelection();
+    onPress();
+  };
+
   return (
     <View style={styles.battleSlot} pointerEvents="box-none">
       {/* Shadow lives on the wrapper: iOS drops shadows on overflow-hidden views. */}
       <View style={[styles.battleShadow, Elevation.lg]}>
         <Pressable
-          style={styles.battleButton}
-          onPress={onPress}
+          style={({ pressed }) => [
+            styles.battleButton,
+            { transform: [{ scale: pressed ? 0.96 : 1 }] },
+          ]}
+          onPress={handlePress}
           accessibilityRole="button"
-          accessibilityLabel="Start battle"
+          accessibilityLabel="Start a battle"
+          accessibilityHint="Opens the battle mode picker"
         >
-        <Svg
-          width={BATTLE_BUTTON_SIZE}
-          height={BATTLE_BUTTON_SIZE}
-          style={StyleSheet.absoluteFill}
-        >
-          <Defs>
-            <SvgLinearGradient id="battleGrad" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0%" stopColor={Gradients.brand[0]} />
-              <Stop offset="100%" stopColor={Gradients.brand[1]} />
-            </SvgLinearGradient>
-          </Defs>
-          <Circle
-            cx={BATTLE_BUTTON_SIZE / 2}
-            cy={BATTLE_BUTTON_SIZE / 2}
-            r={BATTLE_BUTTON_SIZE / 2}
-            fill="url(#battleGrad)"
-          />
-        </Svg>
+          <Svg
+            width={RAISED_BATTLE_BUTTON_SIZE}
+            height={RAISED_BATTLE_BUTTON_SIZE}
+            style={StyleSheet.absoluteFill}
+          >
+            <Defs>
+              <SvgLinearGradient id="battleGrad" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0%" stopColor={Gradients.brand[0]} />
+                <Stop offset="100%" stopColor={Gradients.brand[1]} />
+              </SvgLinearGradient>
+            </Defs>
+            <Circle
+              cx={RAISED_BATTLE_BUTTON_SIZE / 2}
+              cy={RAISED_BATTLE_BUTTON_SIZE / 2}
+              r={RAISED_BATTLE_BUTTON_SIZE / 2}
+              fill="url(#battleGrad)"
+            />
+          </Svg>
           <MaterialCommunityIcons
             name="sword-cross"
             size={28}
-            color="#FFFFFF"
+            color={Ink.onAccentLight}
           />
         </Pressable>
       </View>
@@ -82,9 +103,10 @@ function RaisedBattleButton({ onPress }: { onPress: () => void }) {
 export default function TabLayout() {
   const colors = useThemedColors();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const sheetApi = useMemo(
-    () => ({ open: () => setSheetOpen(true) }),
-    [],
+  const sheetApi = useMemo(() => ({ open: () => setSheetOpen(true) }), []);
+  const renderBattleButton = useCallback(
+    () => <RaisedBattleButton onPress={sheetApi.open} />,
+    [sheetApi],
   );
 
   return (
@@ -102,48 +124,30 @@ export default function TabLayout() {
       >
         <Tabs.Screen
           name="home"
-          options={{
-            title: 'Arena',
-            tabBarAccessibilityLabel: 'Arena tab',
-            tabBarIcon: tabIcon('flame', 'flame-outline'),
-          }}
+          options={{ title: 'Arena', tabBarIcon: ArenaIcon }}
         />
         <Tabs.Screen
           name="battles"
-          options={{
-            title: 'Battles',
-            tabBarAccessibilityLabel: 'Battles tab',
-            tabBarIcon: tabIcon('game-controller', 'game-controller-outline'),
-          }}
+          options={{ title: 'Battles', tabBarIcon: BattlesIcon }}
         />
+        {/* Icon-only slot: the Pressable inside carries the label and hint. */}
         <Tabs.Screen
           name="create"
-          options={{
-            title: 'Battle',
-            tabBarAccessibilityLabel: 'Start battle',
-            tabBarButton: () => (
-              <RaisedBattleButton onPress={() => setSheetOpen(true)} />
-            ),
-          }}
+          options={{ tabBarButton: renderBattleButton }}
         />
         <Tabs.Screen
           name="rankings"
-          options={{
-            title: 'Rankings',
-            tabBarAccessibilityLabel: 'Rankings tab',
-            tabBarIcon: tabIcon('trophy', 'trophy-outline'),
-          }}
+          options={{ title: 'Rankings', tabBarIcon: RankingsIcon }}
         />
         <Tabs.Screen
           name="profile"
-          options={{
-            title: 'Profile',
-            tabBarAccessibilityLabel: 'Profile tab',
-            tabBarIcon: tabIcon('person', 'person-outline'),
-          }}
+          options={{ title: 'Profile', tabBarIcon: ProfileIcon }}
         />
       </Tabs>
-      <BattleModeSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
+      <BattleModeSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+      />
     </BattleSheetProvider>
   );
 }
@@ -154,13 +158,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   battleShadow: {
-    borderRadius: BATTLE_BUTTON_SIZE / 2,
-    marginTop: -(BATTLE_BUTTON_SIZE / 2) + 6,
+    borderRadius: RAISED_BATTLE_BUTTON_SIZE / 2,
+    marginTop: -(RAISED_BATTLE_BUTTON_SIZE / 2) + 6,
   },
   battleButton: {
-    width: BATTLE_BUTTON_SIZE,
-    height: BATTLE_BUTTON_SIZE,
-    borderRadius: BATTLE_BUTTON_SIZE / 2,
+    width: RAISED_BATTLE_BUTTON_SIZE,
+    height: RAISED_BATTLE_BUTTON_SIZE,
+    borderRadius: RAISED_BATTLE_BUTTON_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

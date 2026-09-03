@@ -169,7 +169,8 @@ export const TRAIT_DESCRIPTIONS: {
   },
   silhouette: {
     lean_duelist: 'Slender and poised, built for speed and precise strikes.',
-    heavy_bruiser: 'Massive frame and broad shoulders that punch through walls.',
+    heavy_bruiser:
+      'Massive frame and broad shoulders that punch through walls.',
     slim_trickster: 'Light, nimble, and hard to pin down.',
     armored_knight: 'Plated head to toe — a walking fortress.',
     robed_mystic: 'Flowing robes and arcane weight; power without bulk.',
@@ -211,21 +212,13 @@ export const BATTLE_CRY_SUGGESTIONS: Record<ArchetypeForTraits, string[]> = {
     'You blinked. Game over.',
     'Chaos is a ladder.',
   ],
-  titan: [
-    'I am the storm.',
-    'Stand down or fall.',
-    'Steel meets bone.',
-  ],
+  titan: ['I am the storm.', 'Stand down or fall.', 'Steel meets bone.'],
   mystic: [
     'The veil parts for me.',
     'Words become worlds.',
     'I dream you defeated.',
   ],
-  engineer: [
-    'Built to win.',
-    'Precision over force.',
-    'Specs check out.',
-  ],
+  engineer: ['Built to win.', 'Precision over force.', 'Specs check out.'],
 };
 
 /** Archetype glyphs used by the fallback portrait SVG. */
@@ -277,16 +270,17 @@ export const ART_STYLE_DESCRIPTIONS: Record<ArtStyle, string> = {
 };
 
 /** Background gradient (two stops) for style chip fallback rendering. */
-export const ART_STYLE_GRADIENTS: Record<ArtStyle, readonly [string, string]> = {
-  painterly: ['#7C3AED', '#EC4899'],
-  anime: ['#F472B6', '#FBBF24'],
-  comic: ['#FBBF24', '#EF4444'],
-  pixel: ['#22D3EE', '#1E40AF'],
-  oil: ['#92400E', '#1F2937'],
-  lowpoly: ['#10B981', '#0EA5E9'],
-  darkfantasy: ['#1F2937', '#6B21A8'],
-  vaporwave: ['#D946EF', '#22D3EE'],
-};
+export const ART_STYLE_GRADIENTS: Record<ArtStyle, readonly [string, string]> =
+  {
+    painterly: ['#7C3AED', '#EC4899'],
+    anime: ['#F472B6', '#FBBF24'],
+    comic: ['#FBBF24', '#EF4444'],
+    pixel: ['#22D3EE', '#1E40AF'],
+    oil: ['#92400E', '#1F2937'],
+    lowpoly: ['#10B981', '#0EA5E9'],
+    darkfantasy: ['#1F2937', '#6B21A8'],
+    vaporwave: ['#D946EF', '#22D3EE'],
+  };
 
 /**
  * Bundled reference thumbnails for each art style (512×512 JPEG).
@@ -308,7 +302,6 @@ export const ART_STYLE_THUMBS: Record<ArtStyle, ImageSourcePropType> = {
   darkfantasy: require('../assets/images/styles/darkfantasy.jpg'),
   vaporwave: require('../assets/images/styles/vaporwave.jpg'),
 };
-
 
 // ---------------------------------------------------------------------------
 // Portrait description preview
@@ -342,6 +335,11 @@ export type StageTraitKey =
  * `lean_duelist` to the image model rather than failing loudly. It cannot catch
  * wording drift, which degrades the preview without misleading anyone about
  * which trait was chosen.
+ *
+ * `vibe` is mirrored for completeness but `describeLook` does not read it: the
+ * preview uses the vibe *label* as an adjective ("A heroic champion …") because
+ * the prompt phrases ("heroic and steadfast", "a sinister grin") do not sit
+ * naturally in a "with" list.
  */
 export const PORTRAIT_PHRASES: {
   vibe: Record<Vibe, string>;
@@ -410,19 +408,30 @@ export interface DescribedLook {
  * the sentence they build closes that gap for free — and it is what surfaced the
  * resolver keys shipping `lean_duelist` verbatim to the image model.
  *
- * Order matches the resolver's: vibe, silhouette, expression, palette, era.
+ * Vibe leads as an adjective on the noun ("A heroic champion", "An unhinged
+ * champion"), with the article chosen by its first letter. The "with" list then
+ * follows the resolver's order: silhouette, expression, palette, era.
+ *
+ * @example describeLook({ vibe: 'heroic', silhouette: 'lean_duelist' })
+ *   // "A heroic champion with a lean duelist build."
+ * @example describeLook({})  // "A champion."
  */
 export function describeLook(look: DescribedLook): string {
   const parts: string[] = [];
-  if (look.vibe) parts.push(PORTRAIT_PHRASES.vibe[look.vibe]);
   if (look.silhouette) parts.push(PORTRAIT_PHRASES.silhouette[look.silhouette]);
   if (look.expression) parts.push(PORTRAIT_PHRASES.expression[look.expression]);
-  if (look.palette) parts.push(`a colour story of ${PORTRAIT_PHRASES.palette[look.palette]}`);
+  if (look.palette)
+    parts.push(`a colour story of ${PORTRAIT_PHRASES.palette[look.palette]}`);
   if (look.era) parts.push(PORTRAIT_PHRASES.era[look.era]);
 
-  const subject = parts.length > 0
-    ? `A champion with ${parts.join(', ')}`
-    : 'A champion';
+  const noun = look.vibe
+    ? `${TRAIT_LABELS.vibe[look.vibe].toLowerCase()} champion`
+    : 'champion';
+  const article = /^[aeiou]/i.test(noun) ? 'An' : 'A';
+  const subject =
+    parts.length > 0
+      ? `${article} ${noun} with ${parts.join(', ')}`
+      : `${article} ${noun}`;
 
   return look.artStyle
     ? `${subject} — drawn as ${ART_STYLE_LABELS[look.artStyle].toLowerCase()}.`

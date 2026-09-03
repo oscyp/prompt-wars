@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setHapticsEnabled } from './haptics';
 
 /**
  * Persisted accessibility preferences (concept doc §22a).
@@ -22,6 +23,12 @@ export interface AccessibilityPreferences {
   highContrast: boolean;
   /** Allow OS font scaling (Dynamic Type). */
   dynamicType: boolean;
+  /**
+   * Haptic feedback. Applied to the global mute in `utils/haptics.ts` here,
+   * at load and on change, so a persisted "off" holds from the first frame
+   * rather than from the first visit to Settings.
+   */
+  haptics: boolean;
 }
 
 export const DEFAULT_ACCESSIBILITY_PREFERENCES: AccessibilityPreferences = {
@@ -29,6 +36,7 @@ export const DEFAULT_ACCESSIBILITY_PREFERENCES: AccessibilityPreferences = {
   dyslexiaFont: false,
   highContrast: false,
   dynamicType: true,
+  haptics: true,
 };
 
 const STORAGE_KEY = 'pw:settings:accessibility';
@@ -39,6 +47,9 @@ type Listener = (prefs: AccessibilityPreferences) => void;
 const listeners = new Set<Listener>();
 
 function emit(): void {
+  // Guarded: several suites mock `./haptics` with only the helpers they assert
+  // on, which leaves this import undefined there.
+  if (typeof setHapticsEnabled === 'function') setHapticsEnabled(prefs.haptics);
   for (const listener of listeners) {
     try {
       listener(prefs);

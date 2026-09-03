@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemedColors } from '@/hooks/useThemedColors';
+import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { Spacing, Typography } from '@/constants/DesignTokens';
 import { BATTLE_MODES, BattleMode } from '@/constants/BattleModes';
 import ModeCard from '@/components/ModeCard';
@@ -16,6 +17,7 @@ export default function CreateScreen() {
   const router = useRouter();
   const colors = useThemedColors();
   const insets = useSafeAreaInsets();
+  const accessibleText = useAccessibleTextStyle();
 
   const startBattle = (mode: BattleMode) => {
     router.push(`/(battle)/matchmaking?mode=${mode}`);
@@ -25,11 +27,25 @@ export default function CreateScreen() {
     <View
       style={[
         styles.container,
-        { backgroundColor: colors.background, paddingTop: insets.top + Spacing.sm },
+        {
+          backgroundColor: colors.background,
+          paddingTop: insets.top + Spacing.sm,
+        },
       ]}
     >
-      <Text style={[styles.title, { color: colors.text }]}>Start a Battle</Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+      <Text
+        style={[styles.title, { color: colors.text }]}
+        accessibilityRole="header"
+      >
+        Start a Battle
+      </Text>
+      <Text
+        style={[
+          styles.subtitle,
+          accessibleText,
+          { color: colors.textSecondary },
+        ]}
+      >
         Choose your battle mode
       </Text>
 

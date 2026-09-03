@@ -17,11 +17,9 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 jest.mock('expo-notifications', () => ({
   getPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
   requestPermissionsAsync: jest.fn(() =>
-    Promise.resolve({ status: 'granted' })
+    Promise.resolve({ status: 'granted' }),
   ),
-  scheduleNotificationAsync: jest.fn(() =>
-    Promise.resolve('notification-id')
-  ),
+  scheduleNotificationAsync: jest.fn(() => Promise.resolve('notification-id')),
   cancelAllScheduledNotificationsAsync: jest.fn(() => Promise.resolve()),
   setNotificationHandler: jest.fn(),
 }));
@@ -51,9 +49,7 @@ jest.mock('expo-linking', () => ({
 // Mock react-native-purchases
 jest.mock('react-native-purchases', () => ({
   configure: jest.fn(),
-  getCustomerInfo: jest.fn(() =>
-    Promise.resolve({ activeSubscriptions: [] })
-  ),
+  getCustomerInfo: jest.fn(() => Promise.resolve({ activeSubscriptions: [] })),
   purchasePackage: jest.fn(() => Promise.resolve()),
   restorePurchases: jest.fn(() => Promise.resolve()),
 }));
@@ -72,6 +68,21 @@ jest.mock('./utils/supabase', () => ({
     },
   },
 }));
+
+// Reanimated: the edit-character Stage animates on the UI thread. The library's
+// own Jest mock turns worklets into no-ops, so component tests assert on
+// accessibility props and state, never on animated style values.
+//
+// Worklets must be mocked first: Reanimated's mock re-exports its real index,
+// which initialises react-native-worklets, and worklets' `.native` platform
+// check hardcodes IS_JEST=false under jest-expo, so it tries to construct the
+// native module and throws. Worklets ships a JS mock without a `./mock` export.
+jest.mock('react-native-worklets', () =>
+  require('react-native-worklets/lib/module/mock'),
+);
+jest.mock('react-native-reanimated', () =>
+  require('react-native-reanimated/mock'),
+);
 
 // NOTE: The old `react-native/Libraries/Animated/NativeAnimatedHelper` mock was
 // removed. That module path no longer exists in this React Native version (it

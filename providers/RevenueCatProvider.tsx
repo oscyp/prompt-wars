@@ -1,32 +1,69 @@
 // RevenueCat Provider / Hook
 // Wraps RevenueCat SDK and coordinates with server-side validation
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from 'react';
 import Purchases, {
   PurchasesOfferings,
   CustomerInfo,
   PurchasesPackage,
   LOG_LEVEL,
+  PURCHASES_ERROR_CODE,
 } from 'react-native-purchases';
 import { Platform } from 'react-native';
 import { supabase } from '@/utils/supabase';
 import { isPlusActive } from '@/utils/revenuecat';
+import { restoreOutcomeFor, type RestoreOutcome } from '@/utils/walletView';
 
 const IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
 const ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
+
+/**
+ * How a purchase attempt ended.
+ *
+ * `cancelled` is the player closing the store sheet; it is not a failure and
+ * must not be reported as one. The old boolean return folded it into `false`,
+ * so the wallet could not tell "they changed their mind" from "the store broke"
+ * and stayed silent on both.
+ */
+export type PurchaseOutcome = 'purchased' | 'cancelled' | 'failed';
+
+export type { RestoreOutcome };
 
 interface RevenueCatContextValue {
   offerings: PurchasesOfferings | null;
   customerInfo: CustomerInfo | null;
   isSubscriber: boolean;
   isLoading: boolean;
+  /** Message from the last failed SDK call; cleared at the start of the next. */
   error: string | null;
+  /** Full outcome. Prefer this on surfaces that give purchase feedback. */
+  purchase: (pkg: PurchasesPackage) => Promise<PurchaseOutcome>;
+  /** Boolean-compatible wrapper: true only for `'purchased'`. */
   purchasePackage: (pkg: PurchasesPackage) => Promise<boolean>;
-  restorePurchases: () => Promise<boolean>;
+  restorePurchases: () => Promise<RestoreOutcome>;
   refreshCustomerInfo: () => Promise<void>;
 }
 
-const RevenueCatContext = createContext<RevenueCatContextValue | undefined>(undefined);
+const RevenueCatContext = createContext<RevenueCatContextValue | undefined>(
+  undefined,
+);
+
+/** The SDK flags cancellation two ways across versions; accept either. */
+function isUserCancelled(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { userCancelled?: boolean | null; code?: string };
+  if (e.userCancelled) return true;
+  return (
+    PURCHASES_ERROR_CODE !== undefined &&
+    e.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR
+  );
+}
 
 export function RevenueCatProvider({ children }: { children: ReactNode }) {
   const [offerings, setOfferings] = useState<PurchasesOfferings | null>(null);
@@ -62,21 +99,26 @@ export function RevenueCatProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // Configure RevenueCat
-        Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+        // Configure RevenueCat. Verbose SDK logging and the user-id echo are
+        // development-only: in production they wrote the Supabase user id and
+        // entitlement keys to the device log.
+        if (__DEV__) Purchases.setLogLevel(LOG_LEVEL.DEBUG);
 
         await Purchases.configure({
           apiKey,
           appUserID: user.id, // Supabase user ID
         });
 
-        console.log('RevenueCat initialized with user:', user.id);
+        if (__DEV__) console.log('RevenueCat initialized with user:', user.id);
 
         // Fetch offerings and customer info
         await Promise.all([fetchOfferings(), fetchCustomerInfo()]);
       } catch (err) {
         console.error('RevenueCat initialization error:', err);
-        if (mounted) setError(err instanceof Error ? err.message : 'Initialization failed');
+        if (mounted)
+          setError(
+            err instanceof Error ? err.message : 'Initialization failed',
+          );
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -93,7 +135,12 @@ export function RevenueCatProvider({ children }: { children: ReactNode }) {
     try {
       const offerings = await Purchases.getOfferings();
       setOfferings(offerings);
-      console.log('Offerings loaded:', offerings.current?.availablePackages.length);
+      if (__DEV__) {
+        console.log(
+          'Offerings loaded:',
+          offerings.current?.availablePackages.length,
+        );
+      }
     } catch (err) {
       console.error('Fetch offerings error:', err);
     }
@@ -103,54 +150,67 @@ export function RevenueCatProvider({ children }: { children: ReactNode }) {
     try {
       const info = await Purchases.getCustomerInfo();
       setCustomerInfo(info);
-      console.log('Customer info loaded. Active entitlements:', Object.keys(info.entitlements.active));
+      if (__DEV__) {
+        console.log(
+          'Customer info loaded. Active entitlements:',
+          Object.keys(info.entitlements.active),
+        );
+      }
     } catch (err) {
       console.error('Fetch customer info error:', err);
     }
   }
 
-  async function purchasePackage(pkg: PurchasesPackage): Promise<boolean> {
+  async function purchase(pkg: PurchasesPackage): Promise<PurchaseOutcome> {
     try {
       setError(null);
-      console.log('Purchasing package:', pkg.identifier);
+      if (__DEV__) console.log('Purchasing package:', pkg.identifier);
 
-      const { customerInfo: newCustomerInfo } = await Purchases.purchasePackage(pkg);
+      const { customerInfo: newCustomerInfo } =
+        await Purchases.purchasePackage(pkg);
 
       setCustomerInfo(newCustomerInfo);
 
       // Server-side validation happens via webhook
       // Client only updates local state; server owns entitlements
-      console.log('Purchase completed. Server validation via webhook.');
+      if (__DEV__)
+        console.log('Purchase completed. Server validation via webhook.');
 
-      return true;
-    } catch (err: any) {
+      return 'purchased';
+    } catch (err) {
+      // User cancelled: not an error, and not worth a console.error either.
+      if (isUserCancelled(err)) {
+        if (__DEV__) console.log('User cancelled purchase');
+        return 'cancelled';
+      }
       console.error('Purchase error:', err);
 
-      // User cancelled
-      if (err.userCancelled) {
-        console.log('User cancelled purchase');
-        return false;
-      }
-
-      setError(err.message || 'Purchase failed');
-      return false;
+      setError(
+        err instanceof Error && err.message ? err.message : 'Purchase failed',
+      );
+      return 'failed';
     }
   }
 
-  async function restorePurchases(): Promise<boolean> {
+  async function purchasePackage(pkg: PurchasesPackage): Promise<boolean> {
+    return (await purchase(pkg)) === 'purchased';
+  }
+
+  async function restorePurchases(): Promise<RestoreOutcome> {
     try {
       setError(null);
-      console.log('Restoring purchases...');
+      if (__DEV__) console.log('Restoring purchases...');
 
       const restoredInfo = await Purchases.restorePurchases();
       setCustomerInfo(restoredInfo);
 
-      console.log('Purchases restored');
-      return true;
+      const outcome = restoreOutcomeFor(restoredInfo);
+      if (__DEV__) console.log('Restore finished:', outcome);
+      return outcome;
     } catch (err) {
       console.error('Restore purchases error:', err);
       setError(err instanceof Error ? err.message : 'Restore failed');
-      return false;
+      return 'failed';
     }
   }
 
@@ -174,6 +234,7 @@ export function RevenueCatProvider({ children }: { children: ReactNode }) {
         isSubscriber: Boolean(isSubscriber),
         isLoading,
         error,
+        purchase,
         purchasePackage,
         restorePurchases,
         refreshCustomerInfo,

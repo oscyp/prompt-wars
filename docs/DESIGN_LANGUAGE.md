@@ -12,9 +12,9 @@ stays the source of truth for scope; this doc governs how things look and move._
    posters, signature-color glows — is designed on near-black. Light theme remains fully
    supported via Settings → Appearance (Dark / Light / System); never hardcode one
    scheme outside designated cinematic surfaces.
-2. **Hero zones vs. content zones.** Illustration belongs in *hero zones*: Welcome,
+2. **Hero zones vs. content zones.** Illustration belongs in _hero zones_: Welcome,
    the Home daily-theme poster, matchmaking/waiting backdrops, battle-mode cards, the
-   reveal poster, shop/FTUO cards, empty states. *Content zones* — lists, forms,
+   reveal poster, shop/FTUO cards, empty states. _Content zones_ — lists, forms,
    settings — stay calm: solid token surfaces, no imagery behind text. Never place a
    full-screen illustration behind scrollable list/form content.
 3. **AA on imagery, always.** Any text over an illustration sits on a scrim:
@@ -60,12 +60,17 @@ stays the source of truth for scope; this doc governs how things look and move._
   meaningful `accessibilityLabel`; numeric counters use `NumericFontVariant`.
 - Move-type indicators encode shape + color, never color alone (§22a).
 
-## AI-content disclosure (store-critical, concept §22)
+## AI-content disclosure (concept §22)
 
-- The reveal poster (`RoundResultCinematic`) always carries the `AI-GENERATED` pill.
-- The shareable scorecard region in `(battle)/result.tsx` bakes in the
-  "AI-generated content — Prompt Wars" footer so exported images carry the label.
-- Tier 1 videos: the server-side watermark must carry the same tag (backend).
+- **Decision (commit 042c59a):** the in-app `AI-GENERATED` pill, the result-card
+  disclosure footer and the AI-tagged share filename were removed as a product
+  decision, and the published copy was corrected to match. Do not reintroduce a
+  disclosure badge on any surface (reveal poster, portrait frames, render reveal)
+  without reopening that decision.
+- If App Store review pushes back, these badges are the first thing to restore:
+  the reveal poster pill in `RoundResultCinematic`, the share-capture footer in
+  `(battle)/result.tsx`, and the frame badge in `PortraitPreview`.
+- `videos.is_ai_generated` stays a truthful internal record for moderation triage.
 
 ## Asset recipe (for future batches)
 

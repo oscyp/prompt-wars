@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { hapticSelection } from '@/utils/haptics';
 
 export type DescribeMode = 'guided' | 'prompt';
 
@@ -14,7 +15,11 @@ export interface ModeToggleProps {
 
 const OPTIONS: { value: DescribeMode; label: string; hint: string }[] = [
   { value: 'guided', label: 'Guided', hint: 'Build a look from traits' },
-  { value: 'prompt', label: 'Your own words', hint: 'Write the description yourself' },
+  {
+    value: 'prompt',
+    label: 'Your own words',
+    hint: 'Write the description yourself',
+  },
 ];
 
 /**
@@ -46,7 +51,10 @@ export default function ModeToggle({
           return (
             <TouchableOpacity
               key={option.value}
-              onPress={() => onChange(option.value)}
+              onPress={() => {
+                if (!selected) hapticSelection();
+                onChange(option.value);
+              }}
               disabled={disabled}
               accessibilityRole="tab"
               accessibilityLabel={`${option.label}. ${option.hint}`}
@@ -70,7 +78,9 @@ export default function ModeToggle({
           );
         })}
       </View>
-      <Text style={[styles.hint, accessibleText, { color: colors.textSecondary }]}>
+      <Text
+        style={[styles.hint, accessibleText, { color: colors.textSecondary }]}
+      >
         {OPTIONS.find((o) => o.value === value)?.hint}
       </Text>
     </View>

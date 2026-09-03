@@ -12,7 +12,7 @@ export interface RubricBarsProps {
   max?: number;
 }
 
-const RUBRIC_LABELS: Record<keyof RubricScoreSet, string> = {
+export const RUBRIC_LABELS: Record<keyof RubricScoreSet, string> = {
   clarity: 'Clarity',
   originality: 'Originality',
   specificity: 'Specificity',
@@ -24,6 +24,12 @@ const RUBRIC_LABELS: Record<keyof RubricScoreSet, string> = {
 /**
  * Renders rubric category bars. Labels are NOT truncated (Dynamic Type
  * support).
+ *
+ * The opponent is a second, thinner bar under the player's rather than a tick
+ * on the same track: the old 2pt marker in `textSecondary` vanished against
+ * the fill whenever the two scores were close, which is exactly when a player
+ * wants to compare them. Two bars differ in position and length, so the
+ * comparison never depends on colour alone.
  */
 export default function RubricBars({
   scores,
@@ -33,9 +39,39 @@ export default function RubricBars({
   const colors = useThemedColors();
   const keys = Object.keys(RUBRIC_LABELS) as (keyof RubricScoreSet)[];
   const safeMax = Math.max(1, max);
+  const hasOpponent = Boolean(opponentScores);
 
   return (
     <View style={styles.wrap}>
+      {hasOpponent ? (
+        <View
+          style={styles.legend}
+          accessible
+          accessibilityLabel="Legend: the thick bar is your score, the thin bar below it is the opponent's"
+        >
+          <View
+            style={[styles.legendSwatch, { backgroundColor: colors.primary }]}
+            importantForAccessibility="no"
+          />
+          <Text style={[styles.legendText, { color: colors.textSecondary }]}>
+            Your score
+          </Text>
+          <Text style={[styles.legendText, { color: colors.textTertiary }]}>
+            ·
+          </Text>
+          <View
+            style={[
+              styles.legendSwatch,
+              styles.legendSwatchThin,
+              { backgroundColor: colors.textTertiary },
+            ]}
+            importantForAccessibility="no"
+          />
+          <Text style={[styles.legendText, { color: colors.textSecondary }]}>
+            Opponent
+          </Text>
+        </View>
+      ) : null}
       {keys.map((k) => {
         const me = clamp(scores[k] ?? 0, safeMax);
         const opp = opponentScores
@@ -52,6 +88,7 @@ export default function RubricBars({
                 ? `${RUBRIC_LABELS[k]}: you ${me.toFixed(1)} out of ${safeMax}, opponent ${opp.toFixed(1)}`
                 : `${RUBRIC_LABELS[k]}: ${me.toFixed(1)} out of ${safeMax}`
             }
+            accessibilityValue={{ min: 0, max: safeMax, now: me }}
           >
             <Text style={[styles.label, { color: colors.text }]}>
               {RUBRIC_LABELS[k]}
@@ -74,21 +111,30 @@ export default function RubricBars({
                   },
                 ]}
               />
-              {opp != null ? (
+            </View>
+            {opp != null ? (
+              <View
+                style={[
+                  styles.track,
+                  styles.oppTrack,
+                  {
+                    backgroundColor: colors.backgroundTertiary,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
                 <View
                   style={[
-                    styles.oppMarker,
+                    styles.fill,
                     {
-                      left: `${(opp / safeMax) * 100}%`,
-                      backgroundColor: colors.textSecondary,
+                      width: `${(opp / safeMax) * 100}%`,
+                      backgroundColor: colors.textTertiary,
                     },
                   ]}
                 />
-              ) : null}
-            </View>
-            <Text
-              style={[styles.value, { color: colors.textSecondary }]}
-            >
+              </View>
+            ) : null}
+            <Text style={[styles.value, { color: colors.textSecondary }]}>
               {me.toFixed(1)}
               {opp != null ? ` vs ${opp.toFixed(1)}` : ''}
             </Text>
@@ -108,6 +154,24 @@ const styles = StyleSheet.create({
   wrap: {
     width: '100%',
   },
+  legend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  legendSwatch: {
+    width: 14,
+    height: 8,
+    borderRadius: BorderRadius.full,
+  },
+  legendSwatchThin: {
+    height: 4,
+  },
+  legendText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.semibold,
+  },
   row: {
     marginBottom: Spacing.sm,
   },
@@ -121,17 +185,14 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
-    position: 'relative',
+  },
+  oppTrack: {
+    height: 4,
+    marginTop: 3,
   },
   fill: {
     height: '100%',
     borderRadius: BorderRadius.full,
-  },
-  oppMarker: {
-    position: 'absolute',
-    top: -2,
-    width: 2,
-    height: 14,
   },
   value: {
     fontSize: Typography.sizes.xs,

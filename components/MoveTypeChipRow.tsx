@@ -5,6 +5,8 @@ import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { MOVE_META } from '@/constants/MoveTypes';
 import { MoveType } from '@/utils/battles';
+import { moveLabel } from '@/utils/battleCopy';
+import { inkFor } from '@/utils/contrast';
 
 export interface MoveTypeChipRowProps {
   history: MoveType[];
@@ -15,6 +17,9 @@ export interface MoveTypeChipRowProps {
 /**
  * Row of move-type chips for the last N moves. Color + icon shape (shared
  * MOVE_META set) so color-blind users get parity with the move buttons.
+ *
+ * Non-interactive, so the chips sit at 28pt rather than the 44pt an actionable
+ * target needs; the whole row is one accessible node that reads the moves.
  */
 export default function MoveTypeChipRow({
   history,
@@ -32,12 +37,13 @@ export default function MoveTypeChipRow({
   const a11y =
     shown.length === 0
       ? `${label}: none yet`
-      : `${label}: ${shown.join(', ')}`;
+      : `${label}: ${shown.map((m) => moveLabel(m)).join(', ')}`;
 
   return (
     <View
       style={styles.wrap}
       accessible
+      accessibilityRole="text"
       accessibilityLabel={a11y}
     >
       <Text style={[styles.label, { color: colors.textSecondary }]}>
@@ -49,21 +55,26 @@ export default function MoveTypeChipRow({
             No history yet
           </Text>
         ) : (
-          shown.map((m, idx) => (
-            <View
-              key={`${m}-${idx}`}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: palette[m],
-                  borderColor: palette[m],
-                },
-              ]}
-            >
-              <Ionicons name={MOVE_META[m].icon} size={12} color="#FFFFFF" />
-              <Text style={styles.chipText}>{m.toUpperCase()}</Text>
-            </View>
-          ))
+          shown.map((m, idx) => {
+            const ink = inkFor(palette[m]);
+            return (
+              <View
+                key={`${m}-${idx}`}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: palette[m],
+                    borderColor: palette[m],
+                  },
+                ]}
+              >
+                <Ionicons name={MOVE_META[m].icon} size={12} color={ink} />
+                <Text style={[styles.chipText, { color: ink }]}>
+                  {m.toUpperCase()}
+                </Text>
+              </View>
+            );
+          })
         )}
       </View>
     </View>
@@ -89,13 +100,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    minHeight: 28,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
   },
   chipText: {
-    color: '#FFFFFF',
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
     letterSpacing: 0.5,

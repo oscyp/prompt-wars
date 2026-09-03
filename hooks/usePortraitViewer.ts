@@ -9,10 +9,16 @@
  * already showing, which matters for characters that predate avatars: they
  * have one render, so there is nothing "fuller" to open, and the tap should
  * still enlarge what exists rather than doing nothing.
+ *
+ * With no render at all -- a bot, or a fighter whose portrait never landed --
+ * the tap opens the archetype illustration the strip is already drawing. A tap
+ * on an opponent's avatar that does nothing reads as broken; showing the same
+ * art larger, with their name, at least answers "who is this?".
  */
 
 import { useCallback, useState } from 'react';
 import type { BattleCharacterInfo } from '@/hooks/useBattleCharacters';
+import { archetypeIllustrationUri } from '@/constants/ArchetypeAvatars';
 
 interface ViewerState {
   uri: string;
@@ -26,7 +32,10 @@ export function usePortraitViewer(onSignedUrlExpired?: () => void) {
 
   const open = useCallback((character: BattleCharacterInfo | null) => {
     if (!character) return;
-    const uri = character.fighterUrl ?? character.portraitUrl;
+    const uri =
+      character.fighterUrl ??
+      character.portraitUrl ??
+      archetypeIllustrationUri(character.archetype);
     if (!uri) return;
     setState({
       uri,
@@ -47,10 +56,19 @@ export function usePortraitViewer(onSignedUrlExpired?: () => void) {
     setState(null);
   }, [onSignedUrlExpired]);
 
-  /** True when this character has anything to show — gates the tap handler. */
+  /**
+   * True when this character has anything to show — gates the tap handler.
+   * Every known character does: a render when there is one, the archetype
+   * illustration otherwise.
+   */
   const canOpen = useCallback(
     (character: BattleCharacterInfo | null) =>
-      Boolean(character?.fighterUrl ?? character?.portraitUrl),
+      Boolean(
+        character &&
+        (character.fighterUrl ??
+          character.portraitUrl ??
+          archetypeIllustrationUri(character.archetype)),
+      ),
     [],
   );
 

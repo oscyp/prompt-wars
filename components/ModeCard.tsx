@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { BattleModeInfo } from '@/constants/BattleModes';
+import { hapticSelection } from '@/utils/haptics';
 
 export interface ModeCardProps {
   info: BattleModeInfo;
@@ -17,20 +18,27 @@ export interface ModeCardProps {
  */
 export default function ModeCard({ info, onPress, disabled }: ModeCardProps) {
   const colors = useThemedColors();
+  const isDisabled = Boolean(disabled);
   return (
     <Pressable
       style={({ pressed }) => [
         styles.card,
         {
-          backgroundColor: colors.card,
+          // A border alone barely registers on a dark card; the fill is what
+          // tells the thumb the tap landed.
+          backgroundColor: pressed ? colors.backgroundTertiary : colors.card,
           borderColor: pressed ? info.accent : colors.border,
-          opacity: disabled ? 0.5 : 1,
+          opacity: isDisabled ? 0.5 : 1,
         },
       ]}
-      onPress={() => onPress(info.mode)}
-      disabled={disabled}
+      onPress={() => {
+        hapticSelection();
+        onPress(info.mode);
+      }}
+      disabled={isDisabled}
       accessibilityRole="button"
       accessibilityLabel={`${info.title}. ${info.description}`}
+      accessibilityState={{ disabled: isDisabled }}
     >
       <Image
         source={info.art}
@@ -40,9 +48,7 @@ export default function ModeCard({ info, onPress, disabled }: ModeCardProps) {
         importantForAccessibility="no"
       />
       <View style={styles.textBlock}>
-        <Text style={[styles.title, { color: colors.text }]}>
-          {info.title}
-        </Text>
+        <Text style={[styles.title, { color: colors.text }]}>{info.title}</Text>
         <Text
           style={[styles.description, { color: colors.textSecondary }]}
           numberOfLines={2}
@@ -50,11 +56,7 @@ export default function ModeCard({ info, onPress, disabled }: ModeCardProps) {
           {info.description}
         </Text>
       </View>
-      <Ionicons
-        name="chevron-forward"
-        size={20}
-        color={colors.textSecondary}
-      />
+      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
     </Pressable>
   );
 }

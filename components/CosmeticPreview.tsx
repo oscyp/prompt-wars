@@ -50,7 +50,9 @@ export default function CosmeticPreview({
   const accent = preview?.kind === 'color' ? preview.hex : signatureColor;
 
   return (
-    <View style={[styles.wrap, { backgroundColor: colors.backgroundSecondary }]}>
+    <View
+      style={[styles.wrap, { backgroundColor: colors.backgroundSecondary }]}
+    >
       <PortraitPreview
         uri={portraitUri}
         variant="fullBody"
@@ -73,7 +75,8 @@ export default function CosmeticPreview({
         <CosmeticTitle title={title} />
         {preview?.kind === 'color' ? (
           <Text style={[styles.note, { color: colors.textSecondary }]}>
-            Unlocks this as a signature colour. You choose when to wear it.
+            Owning a colour unlocks it as a signature colour swatch in Edit
+            character.
           </Text>
         ) : null}
         {preview?.kind === 'reveal_style' ? (

@@ -4,39 +4,56 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ImageBackground,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Spacing, Typography, BorderRadius, Elevation } from '@/constants/DesignTokens';
+import {
+  Spacing,
+  Typography,
+  BorderRadius,
+  Elevation,
+  Gradients,
+  Ink,
+  Layout,
+} from '@/constants/DesignTokens';
 import { UiArt } from '@/constants/UiArt';
+import { useAuth } from '@/providers/AuthProvider';
+import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
+import { hapticSelection } from '@/utils/haptics';
 
 /**
  * First impression of the game: full-bleed arena hero (bundled generated art)
- * with a bottom scrim for AA text, brand title, and the blocking 18+ age gate.
+ * with a bottom scrim for AA text, brand title, the value line and one CTA.
+ *
+ * The 18+ gate that used to sit here was a duplicate: sign-up already requires
+ * the confirmation and persists it server-side (`handle_new_user` rejects
+ * sign-ups without it), so asking again here only added a screen between a new
+ * player and their fighter.
+ *
  * Rendered on fixed dark styling — the hero art defines the palette here.
  */
 export default function WelcomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [ageConfirmed, setAgeConfirmed] = useState(false);
-
-  const handleAgeConfirmation = (isAdult: boolean) => {
-    if (isAdult) {
-      setAgeConfirmed(true);
-    } else {
-      Alert.alert(
-        'Age Requirement',
-        'You must be 18 years or older to use Prompt Wars.',
-        [{ text: 'OK' }]
-      );
-    }
-  };
+  const { signOut } = useAuth();
+  const accessibleText = useAccessibleTextStyle();
+  const [signingOut, setSigningOut] = useState(false);
 
   const handleContinue = () => {
-    if (ageConfirmed) {
-      router.push('/(onboarding)/create-character');
+    hapticSelection();
+    router.push('/(onboarding)/create-character');
+  };
+
+  // Wrong-account escape. Without it a player who signed in with the wrong
+  // email had no way out short of creating a fighter on it.
+  const handleSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setSigningOut(false);
     }
   };
 
@@ -49,50 +66,36 @@ export default function WelcomeScreen() {
       {/* Bottom scrim keeps every word AA-readable over the illustration. */}
       <View style={styles.scrim} />
       <View
-        style={[
-          styles.content,
-          { paddingBottom: insets.bottom + Spacing.xl },
-        ]}
+        style={[styles.content, { paddingBottom: insets.bottom + Spacing.lg }]}
       >
-        <Text style={styles.title}>Prompt Wars</Text>
-        <Text style={styles.description}>
-          Battle through prompts. Create your character and enter the arena.
+        <Text accessibilityRole="header" style={styles.title}>
+          Prompt Wars
+        </Text>
+        <Text style={[styles.description, accessibleText]}>
+          Battle with prompts. Create your fighter and enter the arena.
         </Text>
 
-        {!ageConfirmed ? (
-          <View style={styles.ageGate}>
-            <Text style={styles.ageQuestion}>
-              Are you 18 years or older?
-            </Text>
-            <View style={styles.ageButtons}>
-              <TouchableOpacity
-                style={[styles.ageButton, styles.primaryButton, Elevation.md]}
-                onPress={() => handleAgeConfirmation(true)}
-                accessibilityLabel="Confirm you are 18 or older"
-                accessibilityRole="button"
-              >
-                <Text style={styles.buttonText}>Yes, I&apos;m 18+</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.ageButton, styles.secondaryButton]}
-                onPress={() => handleAgeConfirmation(false)}
-                accessibilityLabel="Indicate you are under 18"
-                accessibilityRole="button"
-              >
-                <Text style={styles.buttonText}>No</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={[styles.ctaButton, styles.primaryButton, Elevation.md]}
-            onPress={handleContinue}
-            accessibilityLabel="Create your character"
-            accessibilityRole="button"
-          >
-            <Text style={styles.buttonText}>Create Your Character</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[styles.ctaButton, Elevation.md]}
+          onPress={handleContinue}
+          accessibilityLabel="Create your character"
+          accessibilityRole="button"
+        >
+          <Text style={styles.buttonText}>Create your character</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleSignOut}
+          disabled={signingOut}
+          accessibilityRole="button"
+          accessibilityLabel="Not you? Sign out"
+          accessibilityState={{ disabled: signingOut }}
+          style={styles.signOut}
+        >
+          <Text style={[styles.signOutText, accessibleText]}>
+            Not you? Sign out
+          </Text>
+        </TouchableOpacity>
       </View>
     </ImageBackground>
   );
@@ -101,6 +104,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    // Cinematic surface: fixed near-black per design language §7.
     backgroundColor: '#0B0B0F',
   },
   scrim: {
@@ -114,7 +118,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
   },
   title: {
-    color: '#FFFFFF',
+    color: Ink.onAccentLight,
     fontSize: Typography.sizes.hero,
     fontWeight: Typography.weights.bold,
     marginBottom: Spacing.md,
@@ -127,47 +131,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 400,
   },
-  ageGate: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  ageQuestion: {
-    color: '#FFFFFF',
-    fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.semibold,
-    marginBottom: Spacing.lg,
-    textAlign: 'center',
-  },
-  ageButtons: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-  },
-  ageButton: {
-    height: 52,
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.xl,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 130,
-  },
-  primaryButton: {
-    backgroundColor: '#7C3AED',
-  },
-  secondaryButton: {
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
-  },
   ctaButton: {
-    height: 52,
+    minHeight: 52,
     borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.xl,
     justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'stretch',
+    // The game's verb on the game's own surface: brand, not a player colour.
+    backgroundColor: Gradients.brand[0],
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: Ink.onAccentLight,
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
+  },
+  signOut: {
+    minHeight: Layout.inputHeight,
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  signOutText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: Typography.sizes.sm,
+    textDecorationLine: 'underline',
   },
 });

@@ -6,12 +6,19 @@ import {
   Animated,
   Pressable,
   Image,
+  AccessibilityInfo,
 } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import {
+  Spacing,
+  Typography,
+  BorderRadius,
+  Motion,
+} from '@/constants/DesignTokens';
 import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
 import { hapticImpact } from '@/utils/haptics';
+import { inkFor } from '@/utils/contrast';
 import PortraitPreview from './PortraitPreview';
 import CosmeticTitle from './CosmeticTitle';
 import CosmeticBadge from './CosmeticBadge';
@@ -31,6 +38,8 @@ export interface FaceOffPlayer {
   onPortraitPress?: () => void;
   /** Equipped cosmetics, from the battle payload. Absent for bots. */
   cosmetics?: EquippedCosmetics;
+  /** Small caps caption above the name: "YOU" / "OPPONENT". */
+  label?: string;
   stats: StatBlock;
   hp: number;
   hpMax: number;
@@ -40,12 +49,37 @@ export interface FaceOffPortraitsProps {
   playerOne: FaceOffPlayer;
   playerTwo: FaceOffPlayer;
   theme?: string | null;
+  /** "Round 2" on a Bo3 face-off; omitted for single-round battles. */
+  roundLabel?: string | null;
+  /** Rendered above the theme banner (the series score on Bo3). */
+  header?: React.ReactNode;
   onAdvance: () => void;
   onLeave?: () => void;
   leaveLabel?: string;
   actionsDisabled?: boolean;
+  /**
+   * How long Continue stays gated while the clash plays. Defaults to the
+   * reveal duration plus a beat, and to zero under Reduce Motion, where there
+   * is no clash to wait for.
+   */
   continueDelayMs?: number;
 }
+
+/** The four stat rows: what the screen shows and what the screen reader says. */
+export const FACE_OFF_STATS: readonly {
+  key: keyof StatBlock;
+  abbreviation: string;
+  name: string;
+}[] = [
+  { key: 'strength', abbreviation: 'STR', name: 'Strength' },
+  { key: 'stamina', abbreviation: 'STA', name: 'Stamina' },
+  { key: 'agility', abbreviation: 'AGI', name: 'Agility' },
+  { key: 'focus', abbreviation: 'FOC', name: 'Focus' },
+];
+
+export const REVEALING_LABEL = 'Revealing matchup…';
+export const CONTINUE_READY_ANNOUNCEMENT =
+  'Matchup revealed. You can continue.';
 
 /**
  * Split-screen pre-battle face-off with stats, HP, theme reveal, and a
@@ -55,15 +89,19 @@ export default function FaceOffPortraits({
   playerOne,
   playerTwo,
   theme,
+  roundLabel,
+  header,
   onAdvance,
   onLeave,
   leaveLabel = 'Leave Battle',
   actionsDisabled = false,
-  continueDelayMs = 2000,
+  continueDelayMs,
 }: FaceOffPortraitsProps) {
   const colors = useThemedColors();
   const reducedMotion = useReducedMotion();
-  const [canContinue, setCanContinue] = useState(continueDelayMs <= 0);
+  const gateMs =
+    continueDelayMs ?? (reducedMotion ? 0 : Motion.durations.reveal + 300);
+  const [canContinue, setCanContinue] = useState(gateMs <= 0);
   const themeOpacity = useRef(new Animated.Value(0)).current;
   const themeScale = useRef(new Animated.Value(0.9)).current;
   const vsScale = useRef(new Animated.Value(0.6)).current;
@@ -74,7 +112,8 @@ export default function FaceOffPortraits({
 
   // Clash choreography: the two cards slide in from opposite edges, the VS
   // pops with a haptic hit when they land, then the theme banner reveals.
-  // Honors Reduce Motion (OS setting OR the in-app toggle): static/instant.
+  // Honors Reduce Motion (OS setting OR the in-app toggle): static/instant,
+  // but the haptic still lands -- it is feedback, not motion.
   useEffect(() => {
     if (clashPlayedRef.current) return;
     clashPlayedRef.current = true;
@@ -85,6 +124,7 @@ export default function FaceOffPortraits({
       vsScale.setValue(1);
       leftSlide.setValue(0);
       rightSlide.setValue(0);
+      hapticImpact();
       return;
     }
 
@@ -112,11 +152,12 @@ export default function FaceOffPortraits({
         }),
         Animated.timing(themeOpacity, {
           toValue: 1,
-          duration: 600,
+          duration: Motion.durations.reveal,
           useNativeDriver: true,
         }),
         Animated.spring(themeScale, {
           toValue: 1,
+          ...Motion.spring,
           useNativeDriver: true,
         }),
       ]).start();
@@ -124,15 +165,24 @@ export default function FaceOffPortraits({
   }, [reducedMotion, themeOpacity, themeScale, vsScale, leftSlide, rightSlide]);
 
   useEffect(() => {
-    if (continueDelayMs <= 0) {
+    if (gateMs <= 0) {
       setCanContinue(true);
       return;
     }
 
     setCanContinue(false);
-    const timer = setTimeout(() => setCanContinue(true), continueDelayMs);
+    const timer = setTimeout(() => setCanContinue(true), gateMs);
     return () => clearTimeout(timer);
-  }, [continueDelayMs]);
+  }, [gateMs]);
+
+  // The gate lifting is the one state change on this screen a screen-reader
+  // user cannot see coming; say it once.
+  const announcedRef = useRef(false);
+  useEffect(() => {
+    if (!canContinue || announcedRef.current) return;
+    announcedRef.current = true;
+    AccessibilityInfo.announceForAccessibility(CONTINUE_READY_ANNOUNCEMENT);
+  }, [canContinue]);
 
   const handleContinue = () => {
     if (!canContinue || actionsDisabled || advancedRef.current) return;
@@ -140,8 +190,18 @@ export default function FaceOffPortraits({
     onAdvance();
   };
 
+  const themeText = theme ?? 'No theme set';
+  const bannerLabel = roundLabel
+    ? `${roundLabel.toUpperCase()} · THEME`
+    : 'THEME';
+  const bannerA11y = roundLabel
+    ? `${roundLabel}. Theme: ${themeText}`
+    : `Theme: ${themeText}`;
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
+      {header}
+
       {/* Full-width theme banner: the theme is the shared constraint both
           players write under, so it gets the full line instead of being
           squeezed (and truncated) inside the narrow VS column. */}
@@ -156,11 +216,16 @@ export default function FaceOffPortraits({
         ]}
         accessible
         accessibilityRole="header"
-        accessibilityLabel={`Theme: ${theme ?? 'open battle'}`}
+        accessibilityLabel={bannerA11y}
       >
-        <Text style={styles.themeLabel}>THEME</Text>
-        <Text style={styles.themeText} numberOfLines={2}>
-          {theme ?? 'Open Battle'}
+        <Text style={[styles.themeLabel, { color: inkFor(colors.primary) }]}>
+          {bannerLabel}
+        </Text>
+        <Text
+          style={[styles.themeText, { color: inkFor(colors.primary) }]}
+          numberOfLines={2}
+        >
+          {themeText}
         </Text>
       </Animated.View>
 
@@ -207,15 +272,20 @@ export default function FaceOffPortraits({
           onPress={handleContinue}
           disabled={!canContinue || actionsDisabled}
           accessibilityRole="button"
-          accessibilityLabel="Continue to prompt entry"
+          accessibilityLabel="Continue to move select"
+          accessibilityState={{ disabled: !canContinue || actionsDisabled }}
         >
           <Text
             style={[
               styles.continueText,
-              { color: canContinue ? '#FFFFFF' : colors.textSecondary },
+              {
+                color: canContinue
+                  ? inkFor(colors.primary)
+                  : colors.textSecondary,
+              },
             ]}
           >
-            {canContinue ? 'Continue' : 'Revealing Matchup'}
+            {canContinue ? 'Continue' : REVEALING_LABEL}
           </Text>
         </Pressable>
 
@@ -232,6 +302,7 @@ export default function FaceOffPortraits({
             disabled={actionsDisabled}
             accessibilityRole="button"
             accessibilityLabel={leaveLabel}
+            accessibilityState={{ disabled: actionsDisabled }}
           >
             <Text style={[styles.leaveText, { color: colors.textSecondary }]}>
               {leaveLabel}
@@ -303,6 +374,14 @@ function PlayerSide({
           </View>
         )}
       </View>
+      {player.label ? (
+        <Text
+          style={[styles.sideLabel, { color: colors.textTertiary }]}
+          numberOfLines={1}
+        >
+          {player.label}
+        </Text>
+      ) : null}
       <View style={styles.nameRow}>
         <Text
           style={[styles.name, { color: colors.text }]}
@@ -322,7 +401,10 @@ function PlayerSide({
         ]}
       >
         <Text
-          style={styles.archetypeText}
+          style={[
+            styles.archetypeText,
+            { color: inkFor(player.signatureColor) },
+          ]}
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.7}
@@ -339,26 +421,28 @@ function PlayerSide({
         {player.battleCry ? `“${player.battleCry}”` : ' '}
       </Text>
       <View style={styles.statsBlock}>
-        <StatBar
-          label="STR"
-          value={player.stats.strength}
-          color={colors.attack}
-        />
-        <StatBar
-          label="STM"
-          value={player.stats.stamina}
-          color={colors.success}
-        />
-        <StatBar
-          label="AGI"
-          value={player.stats.agility}
-          color={colors.defense}
-        />
-        <StatBar
-          label="FOC"
-          value={player.stats.focus}
-          color={colors.finisher}
-        />
+        {FACE_OFF_STATS.map((stat) => {
+          const value = player.stats[stat.key];
+          const clamped = Math.max(0, Math.min(value, 10));
+          return (
+            // StatBar labels itself with whatever it prints, so the
+            // abbreviation would be read aloud as "S T R". This wrapper owns
+            // the accessible node and says the full word instead.
+            <View
+              key={stat.key}
+              accessible
+              accessibilityRole="progressbar"
+              accessibilityLabel={`${stat.name}: ${clamped} out of 10`}
+              accessibilityValue={{ min: 0, max: 10, now: clamped }}
+            >
+              <StatBar
+                label={stat.abbreviation}
+                value={value}
+                color={STAT_COLOR[stat.key](colors)}
+              />
+            </View>
+          );
+        })}
       </View>
       <HPBar
         current={player.hp}
@@ -371,6 +455,14 @@ function PlayerSide({
     </View>
   );
 }
+
+type ThemeColors = ReturnType<typeof useThemedColors>;
+const STAT_COLOR: Record<keyof StatBlock, (c: ThemeColors) => string> = {
+  strength: (c) => c.attack,
+  stamina: (c) => c.success,
+  agility: (c) => c.defense,
+  focus: (c) => c.finisher,
+};
 
 const styles = StyleSheet.create({
   root: {
@@ -411,6 +503,12 @@ const styles = StyleSheet.create({
     height: 112,
     borderRadius: 56,
   },
+  sideLabel: {
+    fontSize: 10,
+    fontWeight: Typography.weights.bold,
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -431,7 +529,6 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   archetypeText: {
-    color: '#FFFFFF',
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
     letterSpacing: 0.5,
@@ -460,13 +557,11 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   themeLabel: {
-    color: '#FFFFFF',
     fontSize: Typography.sizes.xs,
     letterSpacing: 1,
     opacity: 0.85,
   },
   themeText: {
-    color: '#FFFFFF',
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.bold,
     textAlign: 'center',

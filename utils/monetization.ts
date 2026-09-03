@@ -50,13 +50,15 @@ export interface WalletBalance {
  */
 export async function requestVideoUpgrade(
   battleId: string,
-  autoSpend = false
+  autoSpend = false,
 ): Promise<VideoUpgradeResult> {
   try {
-    const { data, error } = await invokeFunctionResult<VideoUpgradeResult & Record<string, unknown>>('request-video-upgrade', {
-        battle_id: battleId,
-        auto_spend: autoSpend,
-      });
+    const { data, error } = await invokeFunctionResult<
+      VideoUpgradeResult & Record<string, unknown>
+    >('request-video-upgrade', {
+      battle_id: battleId,
+      auto_spend: autoSpend,
+    });
 
     if (error) {
       console.error('Video upgrade request error:', error);
@@ -90,16 +92,25 @@ export async function requestVideoUpgrade(
 }
 
 /**
- * Get current wallet balance and entitlements (read-only, server-owned)
+ * A balance read that can say it failed.
+ *
+ * `getWalletBalance` collapses "the RPC errored" and "you have no credits" into
+ * `null`, which the wallet screen then rendered as "0 Credits" — a player
+ * with 40 credits and a flaky connection was told they were broke. Callers that
+ * show a balance should use this and render an error state on `ok: false`.
  */
-export async function getWalletBalance(): Promise<WalletBalance | null> {
+export type WalletBalanceResult =
+  | { ok: true; balance: WalletBalance }
+  | { ok: false; reason: 'unauthenticated' | 'empty' | 'error' };
+
+export async function getWalletBalanceResult(): Promise<WalletBalanceResult> {
   try {
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return null;
+      return { ok: false, reason: 'unauthenticated' };
     }
 
     // The `entitlements` view is not client-readable (migration 20260822153000):
@@ -111,26 +122,42 @@ export async function getWalletBalance(): Promise<WalletBalance | null> {
 
     if (error) {
       console.error('Entitlements query error:', error);
-      return null;
+      return { ok: false, reason: 'error' };
     }
 
     const data = Array.isArray(rows) ? rows[0] : rows;
     if (!data) {
-      return null;
+      return { ok: false, reason: 'empty' };
     }
 
     return {
-      credits_balance: data.credits_balance || 0,
-      is_subscriber: data.is_subscriber || false,
-      subscription_tier: data.subscription_tier,
-      monthly_video_allowance_remaining: data.monthly_video_allowance_remaining || 0,
-      priority_queue: data.priority_queue || false,
-      cosmetic_unlocks: data.cosmetic_unlocks || [],
+      ok: true,
+      balance: {
+        credits_balance: data.credits_balance || 0,
+        is_subscriber: data.is_subscriber || false,
+        subscription_tier: data.subscription_tier,
+        monthly_video_allowance_remaining:
+          data.monthly_video_allowance_remaining || 0,
+        priority_queue: data.priority_queue || false,
+        cosmetic_unlocks: data.cosmetic_unlocks || [],
+      },
     };
   } catch (err) {
     console.error('Get wallet balance exception:', err);
-    return null;
+    return { ok: false, reason: 'error' };
   }
+}
+
+/**
+ * Get current wallet balance and entitlements (read-only, server-owned).
+ *
+ * Returns `null` on any failure. Kept for callers that only need a best-effort
+ * number (header chips); anything that displays the balance as fact should use
+ * `getWalletBalanceResult` so a failed read is not shown as zero.
+ */
+export async function getWalletBalance(): Promise<WalletBalance | null> {
+  const result = await getWalletBalanceResult();
+  return result.ok ? result.balance : null;
 }
 
 /**
@@ -169,12 +196,18 @@ export async function getWalletTransactions(limit = 50) {
  * Grant credits (server-owned; amounts are derived server-side from streak
  * config / quest rewards — the client only names the trigger).
  */
-export async function grantCredits(reason: 'daily_login' | 'quest_complete', questId?: string) {
+export async function grantCredits(
+  reason: 'daily_login' | 'quest_complete',
+  questId?: string,
+) {
   try {
-    const { data, error } = await invokeFunctionResult<Record<string, unknown>>('grant-credits', {
+    const { data, error } = await invokeFunctionResult<Record<string, unknown>>(
+      'grant-credits',
+      {
         reason,
         ...(questId ? { quest_id: questId } : {}),
-      });
+      },
+    );
 
     if (error) {
       console.error('Grant credits error:', error);

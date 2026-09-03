@@ -5,6 +5,7 @@ import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { MOVE_META } from '@/constants/MoveTypes';
 import type { MoveType } from '@/utils/battles';
+import { inkFor } from '@/utils/contrast';
 import { hapticSelection } from '@/utils/haptics';
 
 const MOVE_TYPES: MoveType[] = ['attack', 'defense', 'finisher'];
@@ -27,6 +28,9 @@ interface Props {
  * while prompt-entry keeps only the writing. Presentational on purpose: it
  * holds no state and makes no decisions, so both screens stay the authority on
  * what a selection means.
+ *
+ * Ink on a selected button comes from `inkFor(fill)`, not a hardcoded white:
+ * the dark palette's move colours are light pastels on which white fails AA.
  */
 export default function MoveTypeSelector({
   value,
@@ -34,17 +38,25 @@ export default function MoveTypeSelector({
   suggestedCounter = null,
 }: Props) {
   const colors = useThemedColors();
+  const counterInk = inkFor(colors.success);
 
   return (
     <View style={styles.row}>
       {MOVE_TYPES.map((type) => {
         const selected = value === type;
+        const fill = colors[type];
+        const { icon, beats, losesTo } = MOVE_META[type];
+        const textColor = selected ? inkFor(fill) : colors.text;
+        const iconColor = selected ? inkFor(fill) : fill;
         return (
           <TouchableOpacity
             key={type}
             style={[
               styles.button,
-              { backgroundColor: selected ? colors[type] : colors.card },
+              {
+                backgroundColor: selected ? fill : colors.card,
+                borderColor: selected ? fill : colors.border,
+              },
               selected && styles.buttonSelected,
             ]}
             onPress={() => {
@@ -54,25 +66,24 @@ export default function MoveTypeSelector({
             accessibilityLabel={`Select ${type} move${
               suggestedCounter === type ? ', counters opponent pattern' : ''
             }`}
+            accessibilityHint={`Beats ${beats}, loses to ${losesTo}`}
             accessibilityRole="button"
             accessibilityState={{ selected }}
           >
             {suggestedCounter === type ? (
-              <View style={[styles.counterPill, { backgroundColor: colors.success }]}>
-                <Text style={styles.counterPillText}>COUNTER</Text>
+              <View
+                style={[
+                  styles.counterPill,
+                  { backgroundColor: colors.success },
+                ]}
+              >
+                <Text style={[styles.counterPillText, { color: counterInk }]}>
+                  COUNTER
+                </Text>
               </View>
             ) : null}
-            <Ionicons
-              name={MOVE_META[type].icon}
-              size={20}
-              color={selected ? '#FFFFFF' : colors[type]}
-            />
-            <Text
-              style={[
-                styles.text,
-                { color: selected ? '#FFFFFF' : colors.text },
-              ]}
-            >
+            <Ionicons name={icon} size={20} color={iconColor} />
+            <Text style={[styles.text, { color: textColor }]}>
               {type.toUpperCase()}
             </Text>
           </TouchableOpacity>
@@ -89,9 +100,12 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
+    minHeight: 56,
     padding: Spacing.md,
-    borderRadius: 8,
+    borderRadius: BorderRadius.md,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
   },
   buttonSelected: {
@@ -111,7 +125,6 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   counterPillText: {
-    color: '#FFFFFF',
     fontSize: 9,
     fontWeight: Typography.weights.bold,
     letterSpacing: 0.5,

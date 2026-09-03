@@ -1,8 +1,12 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
+import { TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Typography, BorderRadius } from '@/constants/DesignTokens';
+import { BorderRadius } from '@/constants/DesignTokens';
+
+/** Header chips are 44pt: the design language's minimum target, not a hitSlop rescue. */
+export const HEADER_BUTTON_SIZE = 44;
 
 /**
  * Custom header back button used as `headerLeft` in Stack layouts.
@@ -22,7 +26,7 @@ export default function HeaderBackButton() {
       onPress={() => router.back()}
       accessibilityRole="button"
       accessibilityLabel="Go back"
-      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       style={[
         styles.button,
         {
@@ -32,15 +36,15 @@ export default function HeaderBackButton() {
         },
       ]}
     >
-      <Text style={[styles.chevron, { color: colors.text }]}>‹</Text>
+      <Ionicons name="chevron-back" size={22} color={colors.text} />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    width: 36,
-    height: 36,
+    width: HEADER_BUTTON_SIZE,
+    height: HEADER_BUTTON_SIZE,
     borderRadius: BorderRadius.full,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
@@ -55,11 +59,5 @@ const styles = StyleSheet.create({
         elevation: 2,
       },
     }),
-  },
-  chevron: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.semibold,
-    lineHeight: Typography.sizes.xxl,
-    marginTop: -4,
   },
 });

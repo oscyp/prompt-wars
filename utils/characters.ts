@@ -10,7 +10,7 @@
  */
 
 import { invokeAuthenticatedFunction, supabase } from './supabase';
-import { throwEditError } from './editErrors';
+import { EditError, throwEditError } from './editErrors';
 import {
   Vibe,
   Silhouette,
@@ -18,7 +18,6 @@ import {
   Expression,
   PaletteKey,
   ItemClass,
-  ARCHETYPE_INITIAL,
   ArchetypeForTraits,
   ArtStyle,
   PALETTE_HEX,
@@ -90,19 +89,33 @@ export interface PortraitJobResult {
   freeRendersLeft?: number;
   /** Credits this render cost. 0 while the free allowance lasts. */
   creditsSpent?: number;
+  /** The avatar drawn alongside the fighter, when the server reported one. */
+  avatarPortraitId?: string | null;
+  avatarImageUrl?: string | null;
+  /**
+   * True when the fighter landed but the avatar did not. `undefined` means the
+   * deployed server predates the field; derive the state after reloading the
+   * character instead.
+   */
+  avatarPending?: boolean;
+  /** Set when the avatar leg is still running server-side (async deployments). */
+  avatarJobId?: string | null;
+  /** True when this was a replay of an earlier request; nothing was charged. */
+  idempotent?: boolean;
 }
 
 export interface RenderLookInput {
   characterId: string;
   /**
    * `render` redraws the saved look for `render_look`. `random` shuffles every
-   * trait first and costs `random_character`.
+   * trait first and costs `random_character`. `avatar_only` redraws just the
+   * avatar, free, when the fighter landed but the avatar leg failed.
    *
    * Nothing about the description travels in this request any more. Art style
    * and the custom prompt are free edits saved through `editCharacter`, so by
    * the time this runs the server already knows what to draw.
    */
-  mode?: 'render' | 'random';
+  mode?: 'render' | 'random' | 'avatar_only';
 }
 
 export interface CreateCustomSignatureItemInput {
@@ -286,7 +299,13 @@ type PortraitJobRow = {
 const PORTRAIT_BUCKET = 'character-portraits';
 const SIGNED_URL_TTL_SECONDS = 600;
 
-async function signPortraitUrl(imagePath: string): Promise<string> {
+/**
+ * Sign a storage path from `character_portraits.image_path`.
+ *
+ * Exported because the edit screen and the shop each carried their own copy of
+ * this call; three signers for one bucket is two too many.
+ */
+export async function signPortraitUrl(imagePath: string): Promise<string> {
   const { data, error } = await supabase.storage
     .from(PORTRAIT_BUCKET)
     .createSignedUrl(imagePath, SIGNED_URL_TTL_SECONDS);
@@ -296,7 +315,10 @@ async function signPortraitUrl(imagePath: string): Promise<string> {
   return data.signedUrl;
 }
 
-async function resolvePortraitImageUrl(portraitId: string): Promise<string> {
+/** Portrait id → signed URL. Throws when the row or path is missing. */
+export async function resolvePortraitImageUrl(
+  portraitId: string,
+): Promise<string> {
   const { data, error } = await supabase
     .from('character_portraits')
     .select('image_path')
@@ -306,6 +328,68 @@ async function resolvePortraitImageUrl(portraitId: string): Promise<string> {
     throw new Error(error?.message || 'Portrait record not found.');
   }
   return signPortraitUrl(data.image_path as string);
+}
+
+/**
+ * What the renderers write into `character_portraits.prompt_snapshot`.
+ *
+ * `art_style` arrived later than the rest; on older rows it is absent and the
+ * diff must treat it as unknown rather than changed.
+ */
+export interface PortraitPromptSnapshot {
+  raw?: string | null;
+  resolved?: string | null;
+  traits?: {
+    vibe?: string | null;
+    silhouette?: string | null;
+    palette?: string | null;
+    era?: string | null;
+    expression?: string | null;
+  } | null;
+  archetype?: string | null;
+  signature_color?: string | null;
+  signature_item_id?: string | null;
+  art_style?: string | null;
+}
+
+export interface PortraitRef {
+  url: string | null;
+  appearanceVersion: number | null;
+  snapshot: PortraitPromptSnapshot | null;
+}
+
+const EMPTY_PORTRAIT_REF: PortraitRef = {
+  url: null,
+  appearanceVersion: null,
+  snapshot: null,
+};
+
+/**
+ * Everything the edit screen needs about one render, in one read: a signed
+ * URL, the appearance version it was drawn at (for staleness), and the prompt
+ * snapshot (for "what changed since"). Never throws; a missing row or failed
+ * signature yields nulls so the screen can fall back to the placeholder.
+ */
+export async function loadPortraitRef(
+  portraitId: string,
+): Promise<PortraitRef> {
+  const { data } = await supabase
+    .from('character_portraits')
+    .select('image_path, appearance_version, prompt_snapshot')
+    .eq('id', portraitId)
+    .maybeSingle();
+  const row = data as {
+    image_path: string | null;
+    appearance_version: number | null;
+    prompt_snapshot: PortraitPromptSnapshot | null;
+  } | null;
+  if (!row?.image_path) return EMPTY_PORTRAIT_REF;
+  const url = await signPortraitUrl(row.image_path).catch(() => null);
+  return {
+    url,
+    appearanceVersion: row.appearance_version,
+    snapshot: row.prompt_snapshot ?? null,
+  };
 }
 
 async function waitForPortraitJob(
@@ -393,13 +477,27 @@ async function waitForPortraitJob(
       });
 
     const timeout = setTimeout(() => {
+      // A coded error, so the screen can tell "may still land" from "failed".
       settleReject(
-        new Error(
+        new EditError(
+          'timeout',
           "Your portrait is taking longer than usual. We'll keep working on it.",
         ),
       );
     }, PORTRAIT_JOB_TIMEOUT_MS);
   });
+}
+
+/**
+ * Wait for an avatar job started by a server that runs the avatar leg in the
+ * background. Resolves with the signed image once `portrait_jobs` succeeds.
+ */
+export async function awaitAvatarJob(
+  avatarJobId: string,
+): Promise<{ portraitId: string; imageUrl: string }> {
+  const profileId = await getCurrentProfileId();
+  const result = await waitForPortraitJob(profileId, avatarJobId);
+  return { portraitId: result.portraitId, imageUrl: result.imageUrl };
 }
 
 async function getCurrentProfileId(): Promise<string> {
@@ -417,15 +515,94 @@ async function getCurrentProfileId(): Promise<string> {
 // Edge Function wrappers
 // ---------------------------------------------------------------------------
 
-interface PortraitJobStartResponse {
+export interface PortraitJobStartResponse {
   free_renders_left?: number;
   credits_spent?: number;
-  job_id: string;
+  job_id?: string;
   portrait_id?: string;
   image_path?: string;
   seed?: string | number;
   provider?: string;
   provider_model?: string;
+  avatar_portrait_id?: string | null;
+  avatar_image_path?: string | null;
+  avatar_pending?: boolean;
+  avatar_job_id?: string | null;
+  mode?: string;
+  idempotent?: boolean;
+  /** Older replay shape: `{ idempotent, edit_id, after: { portrait_id, … } }`. */
+  after?: { portrait_id?: string; avatar_portrait_id?: string | null };
+}
+
+export type PortraitJobShape =
+  | {
+      kind: 'sync';
+      jobId: string;
+      portraitId: string;
+      imagePath: string;
+      avatarPortraitId: string | null;
+      avatarImagePath: string | null;
+      avatarPending: boolean | undefined;
+      avatarJobId: string | null;
+      seed: string;
+      creditsSpent?: number;
+      freeRendersLeft?: number;
+      idempotent: boolean;
+    }
+  | {
+      kind: 'replay';
+      portraitId: string;
+      avatarPortraitId: string | null;
+      creditsSpent?: number;
+    }
+  | { kind: 'job'; jobId: string }
+  | { kind: 'invalid' };
+
+/**
+ * Classify a portrait-function response before touching the network again.
+ *
+ * Pure so it can be tested against every shape the deployed functions have
+ * ever returned: the synchronous happy path, the job-id-only fallback, the
+ * OLD idempotent replay (`{ idempotent, edit_id, after }`, no `job_id`) that
+ * used to make this wrapper throw, and the current replay which carries the
+ * full shape.
+ */
+export function normalizePortraitJobResponse(
+  data: PortraitJobStartResponse | null | undefined,
+): PortraitJobShape {
+  if (!data) return { kind: 'invalid' };
+  if (data.portrait_id && data.image_path) {
+    const avatarPortraitId = data.avatar_portrait_id ?? null;
+    return {
+      kind: 'sync',
+      jobId: data.job_id ?? '',
+      portraitId: data.portrait_id,
+      imagePath: data.image_path,
+      avatarPortraitId,
+      avatarImagePath: data.avatar_image_path ?? null,
+      avatarPending:
+        typeof data.avatar_pending === 'boolean'
+          ? data.avatar_pending
+          : data.avatar_portrait_id === undefined
+            ? undefined
+            : data.avatar_portrait_id === null,
+      avatarJobId: data.avatar_job_id ?? null,
+      seed: data.seed != null ? String(data.seed) : '',
+      creditsSpent: data.credits_spent,
+      freeRendersLeft: data.free_renders_left,
+      idempotent: data.idempotent === true,
+    };
+  }
+  if (data.idempotent && data.after?.portrait_id) {
+    return {
+      kind: 'replay',
+      portraitId: data.after.portrait_id,
+      avatarPortraitId: data.after.avatar_portrait_id ?? null,
+      creditsSpent: data.credits_spent,
+    };
+  }
+  if (data.job_id) return { kind: 'job', jobId: data.job_id };
+  return { kind: 'invalid' };
 }
 
 async function startPortraitJob(
@@ -442,28 +619,64 @@ async function startPortraitJob(
     idempotency_key: idempotencyKey,
   });
 
-  if (!response.ok || !response.data?.job_id) {
+  if (!response.ok) {
     throwEditError(response, 'Failed to start portrait generation.');
   }
 
-  const data = response.data;
+  const shape = normalizePortraitJobResponse(response.data);
 
-  // Happy path: the Edge Function returned the completed portrait synchronously.
-  if (data.portrait_id && data.image_path) {
-    const imageUrl = await signPortraitUrl(data.image_path);
-    return {
-      jobId: data.job_id,
-      portraitId: data.portrait_id,
-      imageUrl,
-      seed: data.seed != null ? String(data.seed) : '',
-      status: 'succeeded',
-      freeRendersLeft: data.free_renders_left,
-      creditsSpent: data.credits_spent,
-    };
+  switch (shape.kind) {
+    case 'sync': {
+      // Happy path: the Edge Function returned the completed render(s).
+      const [imageUrl, avatarImageUrl] = await Promise.all([
+        signPortraitUrl(shape.imagePath),
+        shape.avatarImagePath
+          ? signPortraitUrl(shape.avatarImagePath).catch(() => null)
+          : Promise.resolve<string | null>(null),
+      ]);
+      return {
+        jobId: shape.jobId,
+        portraitId: shape.portraitId,
+        imageUrl,
+        seed: shape.seed,
+        status: 'succeeded',
+        freeRendersLeft: shape.freeRendersLeft,
+        creditsSpent: shape.creditsSpent,
+        avatarPortraitId: shape.avatarPortraitId,
+        avatarImageUrl,
+        avatarPending: shape.avatarPending,
+        avatarJobId: shape.avatarJobId,
+        idempotent: shape.idempotent,
+      };
+    }
+    case 'replay': {
+      // An older server acknowledged a replay with ids only. Nothing was
+      // charged; resolve the images ourselves rather than failing the call.
+      const [imageUrl, avatarImageUrl] = await Promise.all([
+        resolvePortraitImageUrl(shape.portraitId),
+        shape.avatarPortraitId
+          ? resolvePortraitImageUrl(shape.avatarPortraitId).catch(() => null)
+          : Promise.resolve<string | null>(null),
+      ]);
+      return {
+        jobId: '',
+        portraitId: shape.portraitId,
+        imageUrl,
+        seed: '',
+        status: 'succeeded',
+        creditsSpent: shape.creditsSpent ?? 0,
+        avatarPortraitId: shape.avatarPortraitId,
+        avatarImageUrl,
+        avatarPending: shape.avatarPortraitId === null ? undefined : false,
+        idempotent: true,
+      };
+    }
+    case 'job':
+      // Fallback: HTTP response only included job_id (async / dropped response).
+      return waitForPortraitJob(profileId, shape.jobId);
+    default:
+      return throwEditError(response, 'Failed to start portrait generation.');
   }
-
-  // Fallback: HTTP response only included job_id (e.g. async / dropped response).
-  return waitForPortraitJob(profileId, data.job_id);
 }
 
 export async function generatePortrait(
@@ -496,6 +709,21 @@ export async function renderLook(
   return startPortraitJob('regenerate-portrait', {
     character_id: input.characterId,
     mode: input.mode ?? 'render',
+  });
+}
+
+/**
+ * Redraw only the avatar, free, after the fighter landed without one.
+ *
+ * Offer this only when `pricing.prices.avatar_retry` exists: an older deployed
+ * function coerces unknown modes to a full paid render.
+ */
+export async function retryAvatar(input: {
+  characterId: string;
+}): Promise<PortraitJobResult> {
+  return startPortraitJob('regenerate-portrait', {
+    character_id: input.characterId,
+    mode: 'avatar_only',
   });
 }
 
@@ -547,13 +775,35 @@ export async function listPortraitHistory(
   return entries.filter((e): e is PortraitHistoryEntry => e !== null);
 }
 
-/** Point the character back at an earlier render. Free. */
+interface RestorePortraitResponse {
+  portrait_id: string;
+  avatar_portrait_id?: string | null;
+  /** Absent on older deployments, which restore one image only. */
+  avatar_restored?: boolean;
+}
+
+export interface RestorePortraitResult {
+  portraitId: string;
+  avatarPortraitId: string | null;
+  /** True when the paired avatar was restored alongside the fighter. */
+  avatarRestored: boolean;
+}
+
+/**
+ * Point the character back at an earlier render. Free.
+ *
+ * The server restores the fighter and its paired avatar together. Against an
+ * older deployment that restores one image, pass `fallbackAvatarId` (the
+ * avatar that was current alongside that fighter) and it is restored with a
+ * second call so the pair does not drift.
+ */
 export async function restorePortrait(input: {
   characterId: string;
   portraitId: string;
-}): Promise<{ portraitId: string }> {
+  fallbackAvatarId?: string | null;
+}): Promise<RestorePortraitResult> {
   const response = await invokeAuthenticatedFunction<
-    FunctionEnvelope<{ portrait_id: string }>
+    FunctionEnvelope<RestorePortraitResponse>
   >('restore-portrait', {
     character_id: input.characterId,
     portrait_id: input.portraitId,
@@ -561,7 +811,37 @@ export async function restorePortrait(input: {
   if (!response.ok || !response.data) {
     throwEditError(response, 'Failed to restore that render.');
   }
-  return { portraitId: response.data.portrait_id };
+  const data = response.data;
+
+  if (typeof data.avatar_restored === 'boolean') {
+    return {
+      portraitId: data.portrait_id,
+      avatarPortraitId: data.avatar_portrait_id ?? null,
+      avatarRestored: data.avatar_restored,
+    };
+  }
+
+  // Older function: one image per call. Restore the known avatar ourselves.
+  if (input.fallbackAvatarId) {
+    const second = await invokeAuthenticatedFunction<
+      FunctionEnvelope<RestorePortraitResponse>
+    >('restore-portrait', {
+      character_id: input.characterId,
+      portrait_id: input.fallbackAvatarId,
+    }).catch(() => null);
+    if (second?.ok && second.data) {
+      return {
+        portraitId: data.portrait_id,
+        avatarPortraitId: second.data.portrait_id,
+        avatarRestored: true,
+      };
+    }
+  }
+  return {
+    portraitId: data.portrait_id,
+    avatarPortraitId: null,
+    avatarRestored: false,
+  };
 }
 
 export async function createCustomSignatureItem(
@@ -642,20 +922,23 @@ export function resolveSignatureHex(
 ): string {
   if (!color) return DEFAULT_SIGNATURE_HEX;
   if (color in PALETTE_HEX) return PALETTE_HEX[color as PaletteKey];
-  if (typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color)) return color;
+  if (typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color))
+    return color;
   return DEFAULT_SIGNATURE_HEX;
 }
 
 /**
  * Returns a deterministic data-URI SVG used as the offline/loading placeholder.
- * Full-body (2:3) silhouette tinted with the signature color, plus the
- * archetype initial. Matches the aspect of server-generated full-body renders
- * so it drops into the same containers without layout shift.
+ * Full-body (2:3) neutral silhouette tinted with the signature color. Matches
+ * the aspect of server-generated full-body renders so it drops into the same
+ * containers without layout shift.
+ *
+ * Deliberately carries no archetype initial: per the design language a
+ * character is never an initial (docs/DESIGN_LANGUAGE.md §8). `archetype` is
+ * still accepted so callers need not change; only the tint varies.
  */
 export function getPortraitFallbackUri(input: FallbackPortraitInput): string {
   const tint = resolveSignatureHex(input.signatureColor);
-
-  const initial = ARCHETYPE_INITIAL[input.archetype] ?? '?';
 
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 384" width="256" height="384">
@@ -677,7 +960,7 @@ export function getPortraitFallbackUri(input: FallbackPortraitInput): string {
       c 7 0 12 -6 11 -14 l -12 -66
       c -4 -28 -24 -48 -54 -48 z"/>
   </g>
-  <text x="128" y="212" font-family="Helvetica,Arial,sans-serif" font-size="64" font-weight="700" fill="#F9FAFB" text-anchor="middle">${initial}</text>
+  <path d="M96 168 c 10 -10 54 -10 64 0" fill="none" stroke="#F9FAFB" stroke-opacity="0.35" stroke-width="3" stroke-linecap="round"/>
 </svg>`;
 
   // base64 to be safe for RN `<Image>` data URIs

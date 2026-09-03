@@ -2,11 +2,6 @@
  * Reusable UI components for Prompt Wars
  */
 
-export { default as Button } from './Button';
-export { default as TraitPicker } from './TraitPicker';
-export type { TraitOption } from './TraitPicker';
-export { default as TraitStepper } from './TraitStepper';
-export type { StepperOption } from './TraitStepper';
 export { default as PortraitPreview } from './PortraitPreview';
 export { default as PortraitViewer } from './PortraitViewer';
 export type { PortraitViewerProps } from './PortraitViewer';
@@ -23,6 +18,8 @@ export { default as HPBar } from './HPBar';
 export type { HPBarProps } from './HPBar';
 export { default as StatBar } from './StatBar';
 export type { StatBarProps } from './StatBar';
+export { default as StatAllocator } from './StatAllocator';
+export type { StatAllocatorProps } from './StatAllocator';
 export { default as SeriesScoreIndicator } from './SeriesScoreIndicator';
 export type { SeriesScoreIndicatorProps } from './SeriesScoreIndicator';
 export { default as FaceOffPortraits } from './FaceOffPortraits';
@@ -63,6 +60,18 @@ export type {
 } from './SegmentedCategoryBar';
 export { default as ReportBlockSheet } from './ReportBlockSheet';
 export type { ReportBlockSheetProps } from './ReportBlockSheet';
+export { default as OptionGrid } from './OptionGrid';
+export type { OptionGridOption, OptionGridProps } from './OptionGrid';
+export { default as PosterGradient } from './PosterGradient';
+export type { PosterGradientProps } from './PosterGradient';
+
+// --- Sheets ----------------------------------------------------------------
+export { default as BottomSheet } from './sheets/BottomSheet';
+export type { BottomSheetProps } from './sheets/BottomSheet';
+export { default as ConfirmSheet } from './sheets/ConfirmSheet';
+export type { ConfirmSheetProps } from './sheets/ConfirmSheet';
+export { default as RenderRevealSheet } from './RenderRevealSheet';
+export type { RenderRevealSheetProps, RevealAvatar } from './RenderRevealSheet';
 
 // --- Shared primitives lifted out of the edit-character screen -------------
 export { default as Toast } from './Toast';
@@ -91,3 +100,8 @@ export type { CosmeticPreviewProps } from './CosmeticPreview';
 
 // --- Edit-character panels -------------------------------------------------
 export * from './edit-character';
+
+// --- Result reveal ---------------------------------------------------------
+export * from './reveal';
+export { default as ResultShareCard } from './ResultShareCard';
+export type { ResultShareCardProps, ShareCardFighter } from './ResultShareCard';

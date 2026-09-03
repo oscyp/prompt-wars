@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase, invokeFunctionResult} from '@/utils/supabase';
+import { supabase, invokeFunctionResult } from '@/utils/supabase';
 import {
   resolveEquippedCosmetics,
   NO_COSMETICS,
@@ -81,14 +81,18 @@ export function useBattleCharacters(
         .in('id', ids);
       if (cancelled || error || !data) return;
       const byId = new Map(data.map((c) => [c.id as string, c]));
-      const toInfo = (id: string | null, fallbackName: string): BattleCharacterInfo | null => {
+      const toInfo = (
+        id: string | null,
+        fallbackName: string,
+      ): BattleCharacterInfo | null => {
         if (!id) return null;
         const row = byId.get(id);
         if (!row) return null;
         return {
           name: (row.name as string | null) ?? fallbackName,
           archetype: (row.archetype as string | null) ?? 'fighter',
-          signatureColor: (row.signature_color as string | null) ?? DEFAULT_COLOR,
+          signatureColor:
+            (row.signature_color as string | null) ?? DEFAULT_COLOR,
           portraitUrl: null,
           fighterUrl: null,
           cosmetics: resolveEquippedCosmetics(
@@ -156,30 +160,42 @@ export function useBattleCharacters(
         // portrait was fetched successfully and then discarded, and their name
         // and archetype had no path at all. The face-off screen showed a blank
         // circle, "Player 1"/"Player 2" and "fighter" for every human opponent.
-        const apply = (
-          side: SignedSide | null | undefined,
-          fallbackName: string,
-        ) =>
-        (prev: BattleCharacterInfo | null): BattleCharacterInfo | null => {
-          if (!side) return prev;
-          if (prev) {
-            // Own side: keep the authoritative local row, add the portrait.
+        const apply =
+          (side: SignedSide | null | undefined, fallbackName: string) =>
+          (prev: BattleCharacterInfo | null): BattleCharacterInfo | null => {
+            if (!side) return prev;
+            if (prev) {
+              // Own side: keep the authoritative local row, add the portrait.
+              // The bot side is the exception: the first effect could only
+              // write a placeholder ("Bot Opponent", default colour) because
+              // bot_personas is unreadable by clients, so the server's
+              // identity wins there.
+              const identity =
+                isBot && side.name
+                  ? {
+                      name: side.name,
+                      archetype: side.archetype ?? prev.archetype,
+                      signatureColor:
+                        side.signature_color ?? prev.signatureColor,
+                    }
+                  : {};
+              return {
+                ...prev,
+                ...identity,
+                portraitUrl: side.portrait_url ?? prev.portraitUrl,
+                fighterUrl: side.fighter_url ?? prev.fighterUrl,
+              };
+            }
+            // Opponent: the server payload is the only source we have.
             return {
-              ...prev,
-              portraitUrl: side.portrait_url ?? prev.portraitUrl,
-              fighterUrl: side.fighter_url ?? prev.fighterUrl,
+              name: side.name ?? fallbackName,
+              archetype: side.archetype ?? 'fighter',
+              signatureColor: side.signature_color ?? DEFAULT_COLOR,
+              portraitUrl: side.portrait_url ?? null,
+              fighterUrl: side.fighter_url ?? null,
+              cosmetics: resolveEquippedCosmetics(side.cosmetics),
             };
-          }
-          // Opponent: the server payload is the only source we have.
-          return {
-            name: side.name ?? fallbackName,
-            archetype: side.archetype ?? 'fighter',
-            signatureColor: side.signature_color ?? DEFAULT_COLOR,
-            portraitUrl: side.portrait_url ?? null,
-            fighterUrl: side.fighter_url ?? null,
-            cosmetics: resolveEquippedCosmetics(side.cosmetics),
           };
-        };
 
         setP1(apply(data.player_one, 'Player 1'));
         setP2(apply(data.player_two, isBot ? 'Bot Opponent' : 'Player 2'));

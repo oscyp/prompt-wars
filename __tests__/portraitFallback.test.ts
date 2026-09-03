@@ -8,7 +8,7 @@ function decodeSvg(uri: string): string {
 }
 
 describe('getPortraitFallbackUri', () => {
-  it('renders a full-body 2:3 placeholder with the archetype initial', () => {
+  it('renders a full-body 2:3 neutral silhouette with no initial letter', () => {
     const svg = decodeSvg(
       getPortraitFallbackUri({ archetype: 'mystic', signatureColor: 'ember' }),
     );
@@ -16,9 +16,18 @@ describe('getPortraitFallbackUri', () => {
     expect(svg).toContain('viewBox="0 0 256 384"');
     // Silhouette (head + body path), not the legacy circle bust.
     expect(svg).toContain('<path');
-    expect(svg).toContain('>M</text>');
+    // Design language §8: a character is never an initial.
+    expect(svg).not.toContain('<text');
+    expect(svg).not.toContain('>M</text>');
     // Palette key resolves to its hex tint.
     expect(svg).toContain(PALETTE_HEX.ember);
+  });
+
+  it('draws the same silhouette for every archetype', () => {
+    // Only the tint may vary; the glyph carries no archetype identity.
+    const a = decodeSvg(getPortraitFallbackUri({ archetype: 'mystic' }));
+    const b = decodeSvg(getPortraitFallbackUri({ archetype: 'titan' }));
+    expect(a).toBe(b);
   });
 
   it('accepts raw hex signature colors and defaults unknown ones', () => {

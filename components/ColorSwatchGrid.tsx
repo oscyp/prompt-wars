@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { hapticSelection } from '@/utils/haptics';
 
 export interface ColorSwatchOption {
   /** Stable identity: a palette key, or the hex itself for a legacy colour. */
@@ -55,7 +56,10 @@ export default function ColorSwatchGrid({
           return (
             <TouchableOpacity
               key={option.value}
-              onPress={() => onChange(option.value)}
+              onPress={() => {
+                hapticSelection();
+                onChange(option.value);
+              }}
               disabled={disabled}
               accessibilityRole="button"
               accessibilityLabel={`${groupLabel}: ${option.label}`}

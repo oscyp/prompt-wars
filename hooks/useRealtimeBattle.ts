@@ -10,7 +10,12 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '@/utils/supabase';
-import { BattleFormat, BattleRound, StatBlock } from '@/types/battle';
+import {
+  BattleFormat,
+  BattleRound,
+  StatBlock,
+  RewardPayload,
+} from '@/types/battle';
 
 export interface BattleUpdate {
   id: string;
@@ -27,6 +32,9 @@ export interface BattleUpdate {
   is_draw: boolean;
   score_payload: unknown;
   tier0_reveal_payload: unknown;
+  /** Per-player reward summary; null until rewards are applied. See RewardPayload. */
+  reward_payload?: RewardPayload | null;
+  rating_delta_payload?: unknown;
   created_at: string;
   completed_at: string | null;
   player_one_prompt_deadline?: string | null;

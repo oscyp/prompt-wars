@@ -11,22 +11,43 @@
 
 import { insufficientCreditsMessage } from '@/utils/credits';
 
+/** One identity field the server refused because it is still on cooldown. */
+export interface CooldownField {
+  field: string;
+  retryAfterSeconds: number;
+}
+
 /** Error carrying the Edge Function's code and structured fields. */
 export class EditError extends Error {
   code: string;
   retryAfterSeconds?: number;
   shortfall?: number;
+  /** Balance at the time of the refused spend, when the server sent it. */
+  balance?: number;
+  /** Price of the refused spend, when the server sent it. */
+  price?: number;
+  /** Every blocked identity field, when the server sent the breakdown. */
+  fields?: CooldownField[];
 
   constructor(
     code: string,
     message: string,
-    extra?: { retryAfterSeconds?: number; shortfall?: number },
+    extra?: {
+      retryAfterSeconds?: number;
+      shortfall?: number;
+      balance?: number;
+      price?: number;
+      fields?: CooldownField[];
+    },
   ) {
     super(message);
     this.name = 'EditError';
     this.code = code;
     this.retryAfterSeconds = extra?.retryAfterSeconds;
     this.shortfall = extra?.shortfall;
+    this.balance = extra?.balance;
+    this.price = extra?.price;
+    this.fields = extra?.fields;
   }
 }
 
@@ -37,6 +58,9 @@ interface ErrorEnvelope {
     message: string;
     retry_after_seconds?: number;
     shortfall?: number;
+    balance?: number;
+    price?: number;
+    fields?: { field: string; retry_after_seconds: number }[];
   };
 }
 
@@ -52,6 +76,16 @@ export function throwEditError(
   throw new EditError(e?.code ?? 'unknown', e?.message ?? fallbackMessage, {
     retryAfterSeconds: e?.retry_after_seconds,
     shortfall: e?.shortfall,
+    balance: e?.balance,
+    price: e?.price,
+    fields: Array.isArray(e?.fields)
+      ? e.fields
+          .filter((f) => f && typeof f.field === 'string')
+          .map((f) => ({
+            field: f.field,
+            retryAfterSeconds: Number(f.retry_after_seconds ?? 0),
+          }))
+      : undefined,
   });
 }
 
@@ -83,6 +117,53 @@ function retrySecondsFrom(err: EditError): number | undefined {
   return Math.max(0, (at - Date.now()) / 1000);
 }
 
+/** Player-facing names for the identity columns the server reports. */
+const IDENTITY_FIELD_LABELS: Record<string, string> = {
+  name: 'Name',
+  archetype: 'Archetype',
+  battle_cry: 'Battle cry',
+  signature_color: 'Signature colour',
+};
+
+function fieldLabel(field: string): string {
+  return IDENTITY_FIELD_LABELS[field] ?? field;
+}
+
+function joinNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? '';
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/**
+ * The cooldown message, naming every blocked field when the server said which.
+ *
+ * The identity batch refuses the whole save if any field is locked and lists
+ * all of them, so the player can fix the save in one pass rather than
+ * discovering the locks one rejection at a time.
+ */
+function cooldownMessage(err: EditError): string {
+  const fields = (err.fields ?? []).filter((f) => f.field);
+  if (fields.length === 0) {
+    const secs = retrySecondsFrom(err);
+    return `You can change this again ${
+      secs === undefined ? 'soon' : formatRetryAfter(secs)
+    }.`;
+  }
+  if (fields.length === 1) {
+    const [f] = fields;
+    return `${fieldLabel(f.field)} is still locked. It unlocks ${formatRetryAfter(
+      f.retryAfterSeconds,
+    )}.`;
+  }
+  const names = fields.map((f) => fieldLabel(f.field));
+  const unlocks = fields
+    .map(
+      (f) => `${fieldLabel(f.field)} ${formatRetryAfter(f.retryAfterSeconds)}`,
+    )
+    .join('; ');
+  return `${joinNames(names)} are still locked. ${unlocks}.`;
+}
+
 export interface EditErrorCopy {
   title: string;
   message: string;
@@ -107,15 +188,8 @@ export function describeEditError(
   }
 
   switch (err.code) {
-    case 'cooldown': {
-      const secs = retrySecondsFrom(err);
-      return {
-        title: 'Not yet',
-        message: `You can change this again ${
-          secs === undefined ? 'soon' : formatRetryAfter(secs)
-        }.`,
-      };
-    }
+    case 'cooldown':
+      return { title: 'Not yet', message: cooldownMessage(err) };
     case 'battle_locked':
       return {
         title: 'Locked during battle',
@@ -147,6 +221,17 @@ export function describeEditError(
         message:
           'The render worked but saving it failed, so you have been refunded. Please try again.',
       };
+    case 'avatar_current':
+      return {
+        title: 'Avatar is up to date',
+        message: 'Your avatar already matches this render.',
+      };
+    case 'fighter_stale':
+      return {
+        title: 'Draw the full look first',
+        message:
+          'Your fighter render is out of date, so a new avatar would not match it. Draw this look to redraw both.',
+      };
     case 'conflict':
       return {
         title: 'Already up to date',
@@ -160,4 +245,22 @@ export function describeEditError(
     default:
       return { title: fallbackTitle, message: err.message };
   }
+}
+
+export interface EditErrorAction {
+  label: string;
+  route: '/(profile)/wallet';
+}
+
+/**
+ * The one thing a player can do about an error, when there is one.
+ *
+ * Only running out of credits has a remedy the app can offer (the wallet). Every
+ * other code is either a wait or a retry, which the copy already says.
+ */
+export function editErrorAction(err: unknown): EditErrorAction | null {
+  if (err instanceof EditError && err.code === 'insufficient_credits') {
+    return { label: 'Top up', route: '/(profile)/wallet' };
+  }
+  return null;
 }

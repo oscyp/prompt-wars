@@ -10,6 +10,8 @@
  * signature-color themed on a dark cinematic background to match the battle flow.
  * These are static app assets and safe to commit.
  */
+import { Image } from 'react-native';
+
 export type ArchetypeAvatarKey =
   | 'strategist'
   | 'trickster'
@@ -38,4 +40,16 @@ export function getArchetypeAvatar(archetype?: string | null): number {
   return (
     ARCHETYPE_AVATARS[key as ArchetypeAvatarKey] ?? ARCHETYPE_AVATARS.default
   );
+}
+
+/**
+ * The bundled illustration as a URI, for surfaces that take a `uri` rather than
+ * an asset (the full-screen portrait viewer). Null only if the asset registry
+ * cannot resolve the bundle, which does not happen in a built app.
+ */
+export function archetypeIllustrationUri(
+  archetype?: string | null,
+): string | null {
+  const source = Image.resolveAssetSource(getArchetypeAvatar(archetype));
+  return source?.uri ?? null;
 }

@@ -75,49 +75,50 @@ export const Layout = {
  * Elevation / shadow tokens. Cross-platform (iOS shadow + Android elevation).
  * Use these instead of hand-rolling shadow props so depth stays consistent.
  */
-export const Elevation: Record<'none' | 'sm' | 'md' | 'lg' | 'xl', ViewStyle> = {
-  none: {},
-  sm: Platform.select<ViewStyle>({
-    ios: {
-      shadowColor: '#000',
-      shadowOpacity: 0.12,
-      shadowRadius: 4,
-      shadowOffset: { width: 0, height: 2 },
-    },
-    android: { elevation: 2 },
-    default: {},
-  })!,
-  md: Platform.select<ViewStyle>({
-    ios: {
-      shadowColor: '#000',
-      shadowOpacity: 0.18,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 6 },
-    },
-    android: { elevation: 6 },
-    default: {},
-  })!,
-  lg: Platform.select<ViewStyle>({
-    ios: {
-      shadowColor: '#000',
-      shadowOpacity: 0.26,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: 12 },
-    },
-    android: { elevation: 12 },
-    default: {},
-  })!,
-  xl: Platform.select<ViewStyle>({
-    ios: {
-      shadowColor: '#000',
-      shadowOpacity: 0.34,
-      shadowRadius: 32,
-      shadowOffset: { width: 0, height: 18 },
-    },
-    android: { elevation: 20 },
-    default: {},
-  })!,
-};
+export const Elevation: Record<'none' | 'sm' | 'md' | 'lg' | 'xl', ViewStyle> =
+  {
+    none: {},
+    sm: Platform.select<ViewStyle>({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.12,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+      android: { elevation: 2 },
+      default: {},
+    })!,
+    md: Platform.select<ViewStyle>({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.18,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: { elevation: 6 },
+      default: {},
+    })!,
+    lg: Platform.select<ViewStyle>({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.26,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 12 },
+      },
+      android: { elevation: 12 },
+      default: {},
+    })!,
+    xl: Platform.select<ViewStyle>({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.34,
+        shadowRadius: 32,
+        shadowOffset: { width: 0, height: 18 },
+      },
+      android: { elevation: 20 },
+      default: {},
+    })!,
+  };
 
 /**
  * Motion tokens. Durations are milliseconds. `easing` values are cubic-bezier
@@ -167,4 +168,30 @@ export const Gradients = {
     { color: base, offset: '42%', opacity: 0.5 },
     { color: '#0B0B0F', offset: '100%', opacity: 0.96 },
   ],
+} as const;
+
+/**
+ * Theme-invariant overlays.
+ *
+ * These live here rather than in `Colors` because they must guarantee AA over
+ * arbitrary artwork in both themes, so they never change with the scheme.
+ * `sheet` is the scrim behind bottom sheets; `pill` is the dark label pill
+ * placed over imagery (design language §3).
+ */
+export const Scrim = {
+  sheet: 'rgba(0,0,0,0.55)',
+  pill: 'rgba(11,11,15,0.55)',
+} as const;
+
+/**
+ * Text and glyph colours for use ON an accent fill (a move-type colour, a
+ * signature colour), where the themed `text` colour is meaningless.
+ *
+ * Pick between them with `inkFor(hex)` in utils/contrast.ts rather than
+ * hardcoding white: the dark palette's move colours are light pastels on
+ * which white fails AA by a wide margin.
+ */
+export const Ink = {
+  onAccentDark: '#0B0B0F',
+  onAccentLight: '#FFFFFF',
 } as const;

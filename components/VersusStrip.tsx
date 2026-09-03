@@ -14,6 +14,7 @@ import type { EquippedCosmetics } from '@/utils/cosmetics';
 import CosmeticTitle from './CosmeticTitle';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { hapticWarning } from '@/utils/haptics';
+import { formatRemaining } from '@/utils/battleCopy';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
 
@@ -45,23 +46,20 @@ export interface VersusStripProps {
   deadline?: string | null;
 }
 
-function formatRemaining(ms: number): string {
-  if (ms <= 0) return 'Time up';
-  const totalSec = Math.floor(ms / 1000);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${s.toString().padStart(2, '0')}s`;
-  return `${s}s`;
-}
+/** Re-exported for existing importers; the clock's words live in battleCopy. */
+export { formatRemaining };
 
 /**
  * Compact you-vs-opponent header strip: signature-colored avatar rings with
  * names and a center VS. Keeps battle context visible on non-face-off screens
  * (prompt entry, waiting) without the full split layout.
  */
-export default function VersusStrip({ left, right, subtitle, deadline }: VersusStripProps) {
+export default function VersusStrip({
+  left,
+  right,
+  subtitle,
+  deadline,
+}: VersusStripProps) {
   const colors = useThemedColors();
   const reduceMotion = useReducedMotion();
 
@@ -76,7 +74,8 @@ export default function VersusStrip({ left, right, subtitle, deadline }: VersusS
   }, [hasDeadline]);
 
   const remainingMs = hasDeadline ? deadlineMs - now : 0;
-  const isCritical = hasDeadline && remainingMs > 0 && remainingMs <= CRITICAL_MS;
+  const isCritical =
+    hasDeadline && remainingMs > 0 && remainingMs <= CRITICAL_MS;
   const isWarning =
     hasDeadline && remainingMs > 0 && remainingMs <= WARNING_MS && !isCritical;
   const countdownColor = !hasDeadline
@@ -150,14 +149,20 @@ export default function VersusStrip({ left, right, subtitle, deadline }: VersusS
       >
         <Text style={[styles.vs, { color: colors.text }]}>VS</Text>
         {subtitle ? (
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+          <Text
+            style={[styles.subtitle, { color: colors.textSecondary }]}
+            numberOfLines={1}
+          >
             {subtitle}
           </Text>
         ) : null}
         {hasDeadline ? (
           <Animated.View style={[styles.countdownRow, pulseStyle]}>
             <Ionicons name="time" size={10} color={countdownColor} />
-            <Text style={[styles.countdown, { color: countdownColor }]} numberOfLines={1}>
+            <Text
+              style={[styles.countdown, { color: countdownColor }]}
+              numberOfLines={1}
+            >
               {formatRemaining(remainingMs)}
             </Text>
           </Animated.View>
@@ -168,7 +173,13 @@ export default function VersusStrip({ left, right, subtitle, deadline }: VersusS
   );
 }
 
-function Side({ player, align }: { player: VersusStripPlayer; align: 'left' | 'right' }) {
+function Side({
+  player,
+  align,
+}: {
+  player: VersusStripPlayer;
+  align: 'left' | 'right';
+}) {
   const colors = useThemedColors();
   const isRight = align === 'right';
   return (
@@ -190,7 +201,8 @@ function Side({ player, align }: { player: VersusStripPlayer; align: 'left' | 'r
           {
             borderColor:
               player.cosmetics?.frame?.colors[0] ?? player.signatureColor,
-            borderWidth: player.cosmetics?.frame?.width ?? styles.avatarRing.borderWidth,
+            borderWidth:
+              player.cosmetics?.frame?.width ?? styles.avatarRing.borderWidth,
             opacity: pressed && player.onAvatarPress ? 0.7 : 1,
           },
         ]}
@@ -217,7 +229,11 @@ function Side({ player, align }: { player: VersusStripPlayer; align: 'left' | 'r
           </Text>
         ) : null}
         <Text
-          style={[styles.name, { color: colors.text }, isRight && styles.textRight]}
+          style={[
+            styles.name,
+            { color: colors.text },
+            isRight && styles.textRight,
+          ]}
           numberOfLines={1}
         >
           {player.name}
@@ -227,7 +243,11 @@ function Side({ player, align }: { player: VersusStripPlayer; align: 'left' | 'r
           style={isRight ? styles.textRight : undefined}
         />
         <Text
-          style={[styles.archetype, { color: player.signatureColor }, isRight && styles.textRight]}
+          style={[
+            styles.archetype,
+            { color: player.signatureColor },
+            isRight && styles.textRight,
+          ]}
           numberOfLines={1}
         >
           {player.archetype.toUpperCase()}
@@ -311,7 +331,9 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   countdown: {
-    fontSize: 10,
+    // The lock-in clock was the smallest text on the screen; it is the one
+    // number the player must be able to read at a glance.
+    fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
     fontVariant: ['tabular-nums'],
   },

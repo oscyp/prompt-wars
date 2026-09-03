@@ -17,6 +17,9 @@ export default function AuthLayout() {
     >
       <Stack.Screen name="sign-in" options={{ headerShown: false }} />
       <Stack.Screen name="sign-up" />
+      {/* Reached from a recovery deep link, so usually with no back stack; the
+          back button hides itself in that case. */}
+      <Stack.Screen name="reset-password" />
     </Stack>
   );
 }

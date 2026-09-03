@@ -1,17 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  LayoutChangeEvent,
-} from 'react-native';
-import Svg, {
-  Defs,
-  LinearGradient as SvgLinearGradient,
-  Stop,
-  Rect,
-} from 'react-native-svg';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -25,10 +13,11 @@ import {
   Spacing,
   Typography,
   BorderRadius,
-  Gradients,
+  Scrim,
 } from '@/constants/DesignTokens';
 import { VideoJobUpdate } from '@/hooks/useRealtimeBattle';
 import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
+import PosterGradient from './PosterGradient';
 
 /**
  * Legacy voice-line metadata carried by older reveal payloads. The silent
@@ -60,6 +49,8 @@ export interface RevealSpec {
 export interface RevealPlayerLite {
   profile_id?: string | null;
   archetype?: string | null;
+  /** Fighter name, so screens can say who fought instead of "You"/"Opponent". */
+  character_name?: string | null;
 }
 
 export interface Tier0Payload {
@@ -107,6 +98,11 @@ export interface RoundResultCinematicProps {
    * outcome.winner_profile_id). Never blocks the reveal.
    */
   archetype?: string | null;
+  /**
+   * Which reveal this poster is. Only the accessibility label changes: the
+   * series result says "Battle reveal", a round says "Round reveal".
+   */
+  context?: 'round' | 'battle';
 }
 
 /**
@@ -146,10 +142,10 @@ export default function RoundResultCinematic({
   isModerationApproved = false,
   portraitUrl,
   archetype,
+  context = 'round',
 }: RoundResultCinematicProps) {
   const colors = useThemedColors();
   const reduceMotion = useReducedMotion();
-  const [size, setSize] = useState({ width: 0, height: 0 });
   const [portraitFailed, setPortraitFailed] = useState(false);
 
   // Ken Burns / parallax drift for the portrait. One-time, subtle, and static
@@ -180,17 +176,19 @@ export default function RoundResultCinematic({
   const tier1Ready =
     !!videoJob && videoJob.status === 'succeeded' && isModerationApproved;
 
+  // The DB enum `video_job_status` is queued / submitted / processing /
+  // succeeded / failed. There is no 'pending'; a job sitting in 'submitted'
+  // used to fall through every branch and show no badge at all.
   const tier1Pending =
     !!videoJob &&
-    (videoJob.status === 'processing' ||
-      videoJob.status === 'queued' ||
-      videoJob.status === 'pending');
+    (videoJob.status === 'queued' ||
+      videoJob.status === 'submitted' ||
+      videoJob.status === 'processing');
 
   const tier1Blurred =
     !!videoJob && videoJob.status === 'succeeded' && !isModerationApproved;
 
   const baseColor = tier0Payload?.winnerColor ?? colors.primary;
-  const stops = Gradients.poster(baseColor);
 
   const portrait =
     portraitUrl ??
@@ -204,18 +202,14 @@ export default function RoundResultCinematic({
   const effectiveArchetype = archetype ?? resolveWinnerArchetype(tier0Payload);
   const archetypeAvatar = getArchetypeAvatar(effectiveArchetype);
 
-  const onLayout = (e: LayoutChangeEvent) => {
-    const { width, height } = e.nativeEvent.layout;
-    setSize({ width, height });
-  };
-
+  const subject = context === 'battle' ? 'Battle reveal' : 'Round reveal';
   const posterA11y = tier1Ready
-    ? 'Round reveal, Tier 1 video ready'
+    ? `${subject}, cinematic ready`
     : tier1Pending
-      ? 'Round reveal, generating cinematic'
+      ? `${subject}, generating cinematic`
       : tier1Blurred
-        ? 'Round reveal, video pending moderation'
-        : 'Round reveal';
+        ? `${subject}, video pending moderation`
+        : subject;
 
   return (
     <View
@@ -229,7 +223,6 @@ export default function RoundResultCinematic({
     >
       <View
         style={styles.poster}
-        onLayout={onLayout}
         accessible
         accessibilityRole="image"
         accessibilityLabel={posterA11y}
@@ -262,34 +255,7 @@ export default function RoundResultCinematic({
         )}
 
         {/* Signature vertical gradient overlay (fades to near-black for AA). */}
-        {size.width > 0 ? (
-          <Svg
-            width={size.width}
-            height={size.height}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          >
-            <Defs>
-              <SvgLinearGradient id="posterGrad" x1="0" y1="0" x2="0" y2="1">
-                {stops.map((s, i) => (
-                  <Stop
-                    key={i}
-                    offset={s.offset}
-                    stopColor={s.color}
-                    stopOpacity={s.opacity}
-                  />
-                ))}
-              </SvgLinearGradient>
-            </Defs>
-            <Rect
-              x="0"
-              y="0"
-              width={size.width}
-              height={size.height}
-              fill="url(#posterGrad)"
-            />
-          </Svg>
-        ) : null}
+        <PosterGradient base={baseColor} />
 
         {/* Status overlays. Each sits on a dark pill to guarantee AA contrast
             regardless of the winner's signature color (e.g. white-on-orange). */}
@@ -297,7 +263,7 @@ export default function RoundResultCinematic({
           {tier1Ready ? (
             <View style={styles.badgePill}>
               <Ionicons name="play" size={16} color="#FFFFFF" />
-              <Text style={styles.posterBadge}>TIER 1 VIDEO READY</Text>
+              <Text style={styles.posterBadge}>Cinematic ready</Text>
             </View>
           ) : tier1Pending ? (
             <View style={styles.badgePill}>
@@ -356,13 +322,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: Scrim.pill,
   },
   posterBadge: {
     color: '#FFFFFF',
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.bold,
-    letterSpacing: 1,
+    letterSpacing: 0.3,
   },
   cry: {
     fontSize: Typography.sizes.lg,

@@ -34,10 +34,11 @@ export const Colors = {
     error: '#EF4444',
     info: '#3B82F6',
 
-    // Battle-specific
+    // Battle-specific. Finisher is deliberately NOT the brand purple: a selected
+    // finisher button used to be indistinguishable from any primary CTA.
     attack: '#EF4444',
     defense: '#3B82F6',
-    finisher: '#8B5CF6',
+    finisher: '#DB2777',
 
     // Interactive
     link: '#3B82F6',
@@ -77,10 +78,10 @@ export const Colors = {
     error: '#F87171',
     info: '#60A5FA',
 
-    // Battle-specific
+    // Battle-specific. See the light palette: finisher must not equal primary.
     attack: '#F87171',
     defense: '#60A5FA',
-    finisher: '#A78BFA',
+    finisher: '#F472B6',
 
     // Interactive
     link: '#60A5FA',

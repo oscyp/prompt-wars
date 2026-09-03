@@ -66,6 +66,10 @@ export interface SubmitPromptResult {
   battle_status?: BattleStatus;
   message?: string;
   error?: string;
+  /** HTTP status of a failed lock-in, so the screen can write its own copy. */
+  status?: number;
+  /** Machine-readable failure code when the function sent one. */
+  code?: string;
 }
 
 export interface AppealBattleResult {
@@ -264,11 +268,46 @@ export async function submitPrompt(
       message: data.message,
     };
   } catch (err) {
+    // Keep the status and any code: the message is developer prose
+    // ("Round not accepting prompts (status=resolving)") that the screen must
+    // never show a player verbatim.
+    if (err instanceof FunctionInvokeError) {
+      const body = err.body as { error?: unknown; code?: unknown } | null;
+      const nestedCode =
+        body?.error && typeof body.error === 'object'
+          ? (body.error as { code?: unknown }).code
+          : body?.code;
+      return {
+        success: false,
+        error: err.message,
+        status: err.status,
+        code: typeof nestedCode === 'string' ? nestedCode : undefined,
+      };
+    }
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Unknown error',
     };
   }
+}
+
+/**
+ * Whether a battle row has someone on the other side yet.
+ *
+ * Bots count the moment `bot_persona_id` is set; a human counts once
+ * `player_two_id` is filled. Shared by matchmaking and waiting, which used to
+ * carry identical copies.
+ */
+export function hasOpponent(battle: {
+  player_two_id?: string | null;
+  bot_persona_id?: string | null;
+  is_player_two_bot?: boolean | null;
+}): boolean {
+  return (
+    Boolean(battle.player_two_id) ||
+    Boolean(battle.bot_persona_id) ||
+    battle.is_player_two_bot === true
+  );
 }
 
 /**
@@ -448,12 +487,32 @@ export async function getMoveSuggestions(
  * (the static templates), so an outage here should degrade the screen, not
  * break it. Only `insufficient_credits` needs a distinct message to the player.
  */
+/**
+ * Classify a failed suggestion call from what the function actually sent.
+ *
+ * The previous classifier matched on the error MESSAGE for the substrings
+ * `insufficient_credits` / `rate_limited`, but the function puts those in
+ * `error.code` and writes prose in `error.message` — so no paywall or
+ * rate-limit hit was ever recognised and every one became "unavailable" with
+ * a retry button that re-ran the same doomed paid call. Status and code are
+ * both authoritative; prose never is.
+ */
+export function classifySuggestionFailure(
+  status: number | undefined,
+  code: string | undefined,
+): MoveSuggestionFailure {
+  if (code === 'insufficient_credits' || status === 402)
+    return 'insufficient_credits';
+  if (code === 'rate_limited' || status === 429) return 'rate_limited';
+  return 'unavailable';
+}
+
 export async function generateMoveSuggestions(
   battleId: string,
   moveType: MoveType,
   roundNumber: number,
 ): Promise<MoveSuggestionResult> {
-  const { data, error } = await invokeFunctionResult<{
+  let data: {
     ok?: boolean;
     data?: {
       id: string;
@@ -462,26 +521,38 @@ export async function generateMoveSuggestions(
       credits_spent: number;
     };
     error?: { code?: string; message?: string };
-  }>('generate-move-suggestions', {
-    battle_id: battleId,
-    move_type: moveType,
-    round_number: roundNumber,
-  });
+  } | null = null;
 
-  if (error || !data) {
-    // invokeAuthenticatedFunction surfaces a non-2xx as a thrown error, so a
-    // 402 arrives here as a message rather than a parsed body. Match on the
-    // code we send so the paywall case stays distinguishable from an outage.
-    const message = error?.message ?? 'Suggestions unavailable';
-    const failure: MoveSuggestionFailure = message.includes(
-      'insufficient_credits',
-    )
-      ? 'insufficient_credits'
-      : message.includes('rate_limited')
-        ? 'rate_limited'
-        : 'unavailable';
-    console.error('Move suggestions error:', message);
+  try {
+    data = await invokeAuthenticatedFunction('generate-move-suggestions', {
+      battle_id: battleId,
+      move_type: moveType,
+      round_number: roundNumber,
+    });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Suggestions unavailable';
+    let status: number | undefined;
+    let code: string | undefined;
+    if (err instanceof FunctionInvokeError) {
+      status = err.status;
+      const body = err.body as { error?: unknown } | null;
+      if (body?.error && typeof body.error === 'object') {
+        const c = (body.error as { code?: unknown }).code;
+        if (typeof c === 'string') code = c;
+      }
+    }
+    const failure = classifySuggestionFailure(status, code);
+    console.error('Move suggestions error:', { status, code, message });
     return { set: null, failure, message };
+  }
+
+  if (!data) {
+    return {
+      set: null,
+      failure: 'unavailable',
+      message: 'Suggestions unavailable',
+    };
   }
 
   const payload = data.data;

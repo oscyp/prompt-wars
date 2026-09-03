@@ -35,7 +35,11 @@ export type EditPriceKey =
   | 'initial_avatar'
   | 'new_portrait'
   | 'custom_item_text'
-  | 'custom_item_image';
+  | 'custom_item_image'
+  // Capability flag, not a price: the row exists only once the deployed
+  // regenerate-portrait supports the free `avatar_only` retry, so the client
+  // offers "Retry free" only when it is present.
+  | 'avatar_retry';
 
 export interface EditPrice {
   credits: number;
@@ -69,6 +73,30 @@ export interface EditPricing {
 
 /** How many recent edits to scan when finding the latest per kind. */
 const EDIT_SCAN_LIMIT = 200;
+
+/**
+ * One live price by kind, for surfaces outside the edit screen (the arena's
+ * paid suggestion reroll, the leave toll). Null when the row is missing or the
+ * read fails, so callers fall back to their own default rather than to zero.
+ */
+export async function fetchEditPrice(
+  editKind: string,
+): Promise<EditPrice | null> {
+  try {
+    const { data, error } = await supabase
+      .from('character_edit_prices')
+      .select('credits, cooldown_seconds')
+      .eq('edit_kind', editKind)
+      .maybeSingle();
+    if (error || !data) return null;
+    return {
+      credits: Number(data.credits ?? 0),
+      cooldownSeconds: Number(data.cooldown_seconds ?? 0),
+    };
+  } catch {
+    return null;
+  }
+}
 
 export async function fetchEditPricing(
   characterId: string,

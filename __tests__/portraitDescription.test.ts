@@ -27,9 +27,14 @@ describe('PORTRAIT_PHRASES coverage', () => {
     expect(values.filter((v) => !phrases[v])).toEqual([]);
   });
 
-  it.each(cases)('no %s phrase is keyed on a value that cannot occur', (_l, values, phrases) => {
-    expect(Object.keys(phrases).filter((k) => !values.includes(k))).toEqual([]);
-  });
+  it.each(cases)(
+    'no %s phrase is keyed on a value that cannot occur',
+    (_l, values, phrases) => {
+      expect(Object.keys(phrases).filter((k) => !values.includes(k))).toEqual(
+        [],
+      );
+    },
+  );
 
   it('never leaks a snake_case identifier into the sentence', () => {
     for (const vibe of VIBES) {
@@ -44,7 +49,24 @@ describe('PORTRAIT_PHRASES coverage', () => {
 });
 
 describe('describeLook', () => {
-  it('reads as one sentence in the resolver’s order', () => {
+  it('leads with the vibe as an adjective, then the resolver’s order', () => {
+    expect(
+      describeLook({
+        vibe: 'heroic',
+        silhouette: 'lean_duelist',
+        expression: 'smirk',
+        palette: 'ember',
+        era: 'ancient',
+        artStyle: 'painterly',
+      }),
+    ).toBe(
+      'A heroic champion with a lean duelist build, a subtle smirk, ' +
+        'a colour story of ember reds and oranges, an ancient mythic setting — ' +
+        'drawn as painterly.',
+    );
+  });
+
+  it('reads as one sentence for every trait plus a style', () => {
     expect(
       describeLook({
         vibe: 'mischievous',
@@ -55,7 +77,7 @@ describe('describeLook', () => {
         artStyle: 'comic',
       }),
     ).toBe(
-      'A champion with a mischievous gleam, a lean duelist build, an open roar, ' +
+      'A mischievous champion with a lean duelist build, an open roar, ' +
         'a colour story of neon magenta and cyan, a far-future sci-fi setting — ' +
         'drawn as comic book.',
     );
@@ -63,7 +85,18 @@ describe('describeLook', () => {
 
   it('omits traits that are not set rather than leaving gaps', () => {
     expect(describeLook({ vibe: 'regal', era: 'ancient' })).toBe(
-      'A champion with regal poise, an ancient mythic setting.',
+      'A regal champion with an ancient mythic setting.',
+    );
+  });
+
+  it('picks the article by the vibe’s first letter', () => {
+    expect(describeLook({ vibe: 'unhinged' })).toBe('An unhinged champion.');
+    expect(describeLook({ vibe: 'stoic' })).toBe('A stoic champion.');
+  });
+
+  it('falls back to a plain champion when no vibe is chosen', () => {
+    expect(describeLook({ silhouette: 'lean_duelist' })).toBe(
+      'A champion with a lean duelist build.',
     );
   });
 

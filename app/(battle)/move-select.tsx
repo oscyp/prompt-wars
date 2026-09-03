@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import {
+  Spacing,
+  Typography,
+  BorderRadius,
+  Ink,
+} from '@/constants/DesignTokens';
 import {
   getBattle,
   getOpponentMoveProfile,
@@ -22,6 +27,7 @@ import {
   OpponentMoveProfile,
 } from '@/utils/battles';
 import { MOVE_META, counterOf } from '@/constants/MoveTypes';
+import { moveLabel } from '@/utils/battleCopy';
 import { hapticSelection } from '@/utils/haptics';
 import { useAuth } from '@/providers/AuthProvider';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
@@ -35,6 +41,24 @@ import MoveTypeSelector from '@/components/MoveTypeSelector';
 import VersusStrip from '@/components/VersusStrip';
 import PortraitViewer from '@/components/PortraitViewer';
 import HeaderLeaveButton from '@/components/HeaderLeaveButton';
+
+// Battle- and round-level states in which picking a move is pointless: the
+// server has moved on, so the screen must too. Waiting knows where to go next.
+// Mirrors prompt-entry.tsx; the two screens are one flow.
+const CLOSED_BATTLE_STATUSES = new Set([
+  'completed',
+  'expired',
+  'canceled',
+  'result_ready',
+  'generation_failed',
+  'moderation_failed',
+]);
+const CLOSED_ROUND_STATUSES = new Set([
+  'resolving',
+  'result_ready',
+  'expired',
+  'canceled',
+]);
 
 /**
  * Screen A of the arena: pick a move type.
@@ -145,7 +169,10 @@ export default function MoveSelectScreen() {
 
   useEffect(() => {
     if (!battleId) {
-      Alert.alert('Error', 'No battle ID');
+      // Clear the spinner before leaving, or a failed back() strands the
+      // player on an infinite loader with no way out.
+      setIsLoading(false);
+      Alert.alert('Battle not found', 'This battle couldn’t be opened.');
       router.back();
       return;
     }
@@ -164,6 +191,28 @@ export default function MoveSelectScreen() {
       cancelled = true;
     };
   }, [battleId, router]);
+
+  // The battle moved on underneath this screen: the round resolved or expired,
+  // the battle ended, or the server opened a later round. Hand off to waiting,
+  // which owns the "where does this battle go next" routing, once.
+  const redirectedRef = useRef(false);
+  const { exitTo } = leave;
+  useEffect(() => {
+    if (!battleId || !rtBattle || redirectedRef.current) return;
+    const battleClosed = CLOSED_BATTLE_STATUSES.has(rtBattle.status);
+    const roundClosed =
+      isBo3 && roundData ? CLOSED_ROUND_STATUSES.has(roundData.status) : false;
+    const roundMovedOn = (rtBattle.current_round ?? 1) > roundNumber;
+    if (battleClosed || roundClosed || roundMovedOn) {
+      redirectedRef.current = true;
+      // A replace removes this screen; the guard must stand down first.
+      exitTo(() =>
+        router.replace(
+          `/(battle)/waiting?battleId=${battleId}&round=${roundNumber}`,
+        ),
+      );
+    }
+  }, [battleId, rtBattle, isBo3, roundData, roundNumber, router, exitTo]);
 
   const displayedHistory = useMemo<MoveType[]>(
     () =>
@@ -223,6 +272,8 @@ export default function MoveSelectScreen() {
       `/(battle)/prompt-entry?battleId=${battleId}&round=${roundNumber}&moveType=${moveType}`,
     );
   };
+
+  const primaryInk = Ink.onAccentLight;
 
   if (isLoading) {
     return (
@@ -340,6 +391,7 @@ export default function MoveSelectScreen() {
               currentRound={roundNumber}
               format={format}
               bestOf={rtBattle?.best_of ?? 3}
+              viewer={isPlayerOne ? 'p1' : 'p2'}
             />
             <View style={styles.hpRow}>
               <View style={styles.hpCol}>
@@ -365,7 +417,10 @@ export default function MoveSelectScreen() {
         ) : null}
 
         <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.text }]}>
+          <Text
+            style={[styles.label, { color: colors.text }]}
+            accessibilityRole="header"
+          >
             Choose your move
           </Text>
           {displayedHistory.length > 0 ? (
@@ -385,7 +440,10 @@ export default function MoveSelectScreen() {
               <View
                 style={[styles.matchupHint, { backgroundColor: colors.card }]}
                 accessible
-                accessibilityLabel={`${moveType} beats ${MOVE_META[moveType].beats}, loses to ${MOVE_META[moveType].losesTo}`}
+                accessibilityRole="text"
+                accessibilityLabel={`${moveLabel(moveType)} beats ${
+                  MOVE_META[moveType].beats
+                }, loses to ${MOVE_META[moveType].losesTo}`}
               >
                 <Ionicons name="trending-up" size={14} color={colors.success} />
                 <Text
@@ -448,7 +506,8 @@ export default function MoveSelectScreen() {
       </ScrollView>
 
       {/* Plain Continue: nothing here is irreversible, so nothing here earns a
-          hold ceremony. That belongs on lock-in. */}
+          hold ceremony. That belongs on lock-in. Disabled is an outline with
+          instructions, not a dimmer shade of the same button. */}
       <View
         style={[
           styles.footer,
@@ -462,28 +521,39 @@ export default function MoveSelectScreen() {
         <TouchableOpacity
           style={[
             styles.continueButton,
-            { backgroundColor: moveType ? colors.primary : colors.card },
+            moveType
+              ? { backgroundColor: colors.primary }
+              : [styles.continueButtonDisabled, { borderColor: colors.border }],
           ]}
           onPress={handleContinue}
           disabled={!moveType}
           accessibilityLabel={
-            moveType ? `Continue with ${moveType}` : 'Choose a move type first'
+            moveType
+              ? `Continue with ${moveLabel(moveType)}`
+              : 'Pick a move to continue'
           }
           accessibilityRole="button"
           accessibilityState={{ disabled: !moveType }}
         >
+          {moveType ? null : (
+            <Ionicons
+              name="hand-left-outline"
+              size={18}
+              color={colors.textSecondary}
+            />
+          )}
           <Text
             style={[
               styles.continueText,
-              { color: moveType ? '#FFFFFF' : colors.textTertiary },
+              { color: moveType ? primaryInk : colors.textSecondary },
             ]}
           >
             {moveType
               ? `Continue with ${moveType.toUpperCase()}`
-              : 'Choose a move'}
+              : 'Pick a move to continue'}
           </Text>
           {moveType ? (
-            <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+            <Ionicons name="arrow-forward" size={18} color={primaryInk} />
           ) : null}
         </TouchableOpacity>
       </View>
@@ -532,6 +602,8 @@ const styles = StyleSheet.create({
   hpCol: {
     flex: 1,
   },
+  // Theme bar typography is shared with prompt-entry: 16pt bold, 0.8 tracking
+  // on the eyebrow. The two pinned bars must not differ by a point.
   themeBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -543,24 +615,25 @@ const styles = StyleSheet.create({
   themeBarLabel: {
     fontSize: 10,
     fontWeight: Typography.weights.bold,
-    letterSpacing: 1,
+    letterSpacing: 0.8,
   },
   themeBarText: {
     flex: 1,
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold,
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold,
   },
   opponentLockedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: Spacing.xs,
-    paddingVertical: Spacing.xs,
+    paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.full,
     borderWidth: StyleSheet.hairlineWidth,
   },
   opponentLockedText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
   section: {
@@ -599,8 +672,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
+    // Same height as prompt-entry's Lock In so the footer does not shrink
+    // between the two screens.
+    height: 56,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.lg,
+  },
+  continueButtonDisabled: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderStyle: 'dashed',
   },
   continueText: {
     fontSize: Typography.sizes.base,

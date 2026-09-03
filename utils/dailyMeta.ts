@@ -57,7 +57,9 @@ export interface FirstTimeOffer {
  * grants newly-earned cosmetics, and returns the daily-meta state.
  */
 export async function syncDailyMeta(): Promise<DailyMetaState | null> {
-  const { data, error } = await invokeFunctionResult('daily-meta', { action: 'sync' });
+  const { data, error } = await invokeFunctionResult('daily-meta', {
+    action: 'sync',
+  });
   if (error) {
     console.error('syncDailyMeta error:', error);
     return null;
@@ -71,7 +73,11 @@ export async function syncDailyMeta(): Promise<DailyMetaState | null> {
 export async function claimQuest(
   questId: string,
 ): Promise<{ success: boolean; credits_granted?: number; error?: string }> {
-  const { data, error } = await invokeFunctionResult<{ success: boolean; credits_granted?: number; error?: string }>('daily-meta', { action: 'claim_quest', quest_id: questId });
+  const { data, error } = await invokeFunctionResult<{
+    success: boolean;
+    credits_granted?: number;
+    error?: string;
+  }>('daily-meta', { action: 'claim_quest', quest_id: questId });
   if (error) {
     return { success: false, error: error.message };
   }
@@ -83,7 +89,9 @@ export async function claimQuest(
  * eligible). Safe to call on every app foreground.
  */
 export async function getFirstTimeOffer(): Promise<FirstTimeOffer | null> {
-  const { data, error } = await invokeFunctionResult('first-time-offer', { action: 'get' });
+  const { data, error } = await invokeFunctionResult('first-time-offer', {
+    action: 'get',
+  });
   if (error) {
     console.error('getFirstTimeOffer error:', error);
     return null;
@@ -93,12 +101,23 @@ export async function getFirstTimeOffer(): Promise<FirstTimeOffer | null> {
 
 /**
  * Dismiss the first-time-user offer (a player only ever gets one).
+ *
+ * Resolves `true` when the server accepted the request — including when it
+ * reports the offer was already dismissed, since either way it will not show
+ * again — and `false` only when the call failed, so the caller can keep the
+ * modal up and let the player retry instead of dropping it locally while the
+ * server still thinks it is live.
  */
 export async function dismissFirstTimeOffer(): Promise<boolean> {
-  const { data, error } = await invokeFunctionResult('first-time-offer', { action: 'dismiss' });
+  const { error } = await invokeFunctionResult<{ dismissed?: boolean }>(
+    'first-time-offer',
+    {
+      action: 'dismiss',
+    },
+  );
   if (error) {
     console.error('dismissFirstTimeOffer error:', error);
     return false;
   }
-  return Boolean((data as { dismissed?: boolean })?.dismissed);
+  return true;
 }

@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   View,
   Text,
@@ -7,7 +13,10 @@ import {
   TouchableOpacity,
   ScrollView,
   ImageBackground,
+  Alert,
+  AccessibilityInfo,
 } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
@@ -16,6 +25,7 @@ import {
   Typography,
   BorderRadius,
   Elevation,
+  NumericFontVariant,
 } from '@/constants/DesignTokens';
 import { UiArt } from '@/constants/UiArt';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
@@ -24,24 +34,25 @@ import { useAuth } from '@/providers/AuthProvider';
 import {
   retryBattleResolution,
   startMatchmaking,
+  hasOpponent,
   BattleMode,
 } from '@/utils/battles';
 import { supabase } from '@/utils/supabase';
+import { hapticSuccess } from '@/utils/haptics';
 import SeriesScoreIndicator from '@/components/SeriesScoreIndicator';
-
-interface BattleRoutingRow {
-  format?: string | null;
-  player_two_id?: string | null;
-  player_two_character_id?: string | null;
-  is_player_two_bot?: boolean | null;
-  bot_persona_id?: string | null;
-}
-
-function hasOpponent(row: BattleRoutingRow | null): boolean {
-  if (!row) return false;
-  if (row.is_player_two_bot) return Boolean(row.bot_persona_id);
-  return Boolean(row.player_two_id && row.player_two_character_id);
-}
+import {
+  waitingHero,
+  sanitizeServerMessage,
+  opponentDeadlineLine,
+  resolveRoundParam,
+  STILL_SCORING,
+  RECONNECTING,
+  ARENA_PREPARING,
+  NOTIFY_ON,
+  NOTIFY_OFF,
+  BOT_READY,
+  type WaitingHeroCopy,
+} from '@/utils/prebattleCopy';
 
 export default function WaitingScreen() {
   const colors = useThemedColors();
@@ -61,8 +72,11 @@ export default function WaitingScreen() {
     series_score,
     rounds,
   } = useRealtimeBattle(battleId || null);
-  const roundNumber = round ? Number(round) : current_round;
+  const roundNumber = resolveRoundParam(round, current_round);
   const isBo3 = format === 'bo3';
+  const isBot = Boolean(battle?.is_player_two_bot);
+  const isPlayerOne =
+    Boolean(battle) && Boolean(user) && battle!.player_one_id === user!.id;
 
   // This is the highest-value paid exit -- locked in, waiting, want out -- and
   // also the easiest to get wrong. "Return to Home" below is the SANCTIONED
@@ -72,7 +86,7 @@ export default function WaitingScreen() {
   const leave = useLeaveBattle(battleId || null, {
     format,
     mode: (battle?.mode ?? 'ranked') as BattleMode,
-    isBot: Boolean(battle?.is_player_two_bot),
+    isBot,
     prompts,
     myProfileId: user?.id,
   });
@@ -82,8 +96,11 @@ export default function WaitingScreen() {
     null,
   );
   const hasRetriedResolutionRef = useRef(false);
-  const [retryMessage, setRetryMessage] = useState<string | null>(null);
+  const handledTerminalRef = useRef(false);
+  const [queueNote, setQueueNote] = useState<string | null>(null);
+  const [slowScoring, setSlowScoring] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
+  const [notifGranted, setNotifGranted] = useState<boolean | null>(null);
 
   const routeMatchedBattle = useCallback(
     async (targetBattleId: string) => {
@@ -95,9 +112,8 @@ export default function WaitingScreen() {
         .eq('id', targetBattleId)
         .single();
 
-      const routeRow = (battleRow ?? null) as BattleRoutingRow | null;
-      if (error || !hasOpponent(routeRow)) {
-        setRetryMessage('Match is preparing opponent details...');
+      if (error || !battleRow || !hasOpponent(battleRow)) {
+        setQueueNote(ARENA_PREPARING);
         return false;
       }
 
@@ -107,6 +123,14 @@ export default function WaitingScreen() {
     [router],
   );
 
+  const roundData = useMemo(
+    () =>
+      isBo3
+        ? (rounds.find((r) => r.round_number === roundNumber) ?? null)
+        : null,
+    [isBo3, rounds, roundNumber],
+  );
+
   // Filter prompts to the current round when bo3.
   const roundPrompts = isBo3
     ? prompts.filter((p) => (p.round_number ?? 1) === roundNumber)
@@ -114,8 +138,32 @@ export default function WaitingScreen() {
   const myPrompt = roundPrompts.find((p) => p.profile_id === user?.id);
   const opponentPrompt = roundPrompts.find((p) => p.profile_id !== user?.id);
 
-  const myPromptLocked = myPrompt?.is_locked || false;
-  const opponentPromptLocked = opponentPrompt?.is_locked || false;
+  // Lock state from the row stamps first, the prompt rows second. The
+  // opponent's prompt row is not readable before reveal, so a screen keyed
+  // only on prompts showed "Opponent's prompt submitted" unchecked until the
+  // result arrived. Bots never insert a prompt row at all.
+  const myLockedAt = isBo3
+    ? isPlayerOne
+      ? roundData?.player_one_locked_at
+      : roundData?.player_two_locked_at
+    : isPlayerOne
+      ? battle?.player_one_locked_at
+      : battle?.player_two_locked_at;
+  const opponentLockedAt = isBo3
+    ? isPlayerOne
+      ? roundData?.player_two_locked_at
+      : roundData?.player_one_locked_at
+    : isPlayerOne
+      ? battle?.player_two_locked_at
+      : battle?.player_one_locked_at;
+
+  const myPromptLocked = Boolean(myPrompt?.is_locked) || Boolean(myLockedAt);
+  const opponentPromptLocked =
+    isBot || Boolean(opponentPrompt?.is_locked) || Boolean(opponentLockedAt);
+
+  const opponentReady = battle ? hasOpponent(battle) : false;
+  const isResolving =
+    battle?.status === 'resolving' || roundData?.status === 'resolving';
 
   // Cleanup retry timer on unmount or battle change
   useEffect(() => {
@@ -133,7 +181,25 @@ export default function WaitingScreen() {
 
   useEffect(() => {
     hasRetriedResolutionRef.current = false;
+    handledTerminalRef.current = false;
+    setSlowScoring(false);
   }, [battleId]);
+
+  // Only promise a notification when one can actually arrive.
+  useEffect(() => {
+    let cancelled = false;
+    Notifications.getPermissionsAsync()
+      .then((p) => {
+        if (cancelled) return;
+        setNotifGranted(Boolean(p.granted) || p.status === 'granted');
+      })
+      .catch(() => {
+        if (!cancelled) setNotifGranted(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Handle queued battle fallback retry
   useEffect(() => {
@@ -166,7 +232,6 @@ export default function WaitingScreen() {
 
       retryTimerRef.current = setTimeout(async () => {
         try {
-          setRetryMessage('Checking for opponent...');
           if (battleId) {
             const routedExisting = await routeMatchedBattle(battleId);
             if (routedExisting) return;
@@ -189,10 +254,7 @@ export default function WaitingScreen() {
               }
             }
           } else {
-            // Update message and keep waiting
-            if (result.message) {
-              setRetryMessage(result.message);
-            }
+            setQueueNote(sanitizeServerMessage(result.message));
             // If backend returned a different battle_id while unmatched, replace waiting screen
             if (result.battle_id !== battleId) {
               router.replace(`/(battle)/waiting?battleId=${result.battle_id}`);
@@ -201,18 +263,30 @@ export default function WaitingScreen() {
             }
           }
         } catch (err) {
+          // Logged, not narrated: the hero already says we are still looking,
+          // and "retry failed" is a sentence for a developer.
           console.error('Matchmaking retry failed:', err);
-          setRetryMessage('Retry failed, waiting for updates...');
           setRetryNonce((n) => n + 1);
         }
       }, delay);
     }
   }, [battle, user, battleId, router, retryNonce, routeMatchedBattle]);
 
+  // Terminal without a result, in either format. The Bo3 branch below had no
+  // handler at all, so a canceled series left the player on a spinner.
+  useEffect(() => {
+    if (!battle || handledTerminalRef.current) return;
+    if (battle.status === 'canceled' || battle.status === 'expired') {
+      handledTerminalRef.current = true;
+      Alert.alert('Battle ended', 'This battle is no longer available.', [
+        { text: 'OK', onPress: () => router.replace('/(tabs)/home') },
+      ]);
+    }
+  }, [battle, router]);
+
   useEffect(() => {
     if (!battle) return;
-
-    const opponentReady = hasOpponent(battle);
+    if (battle.status === 'canceled' || battle.status === 'expired') return;
 
     // Bo3: route to round-result the moment THIS round flips to result_ready;
     // route to final result when the whole battle completes.
@@ -225,17 +299,19 @@ export default function WaitingScreen() {
         if (opponentReady) {
           router.replace(`/(battle)/face-off?battleId=${battleId}`);
         } else {
-          setRetryMessage('Waiting for opponent details...');
+          setQueueNote(null);
         }
         return;
       }
 
       if (battle.status === 'completed') {
+        hapticSuccess();
         router.replace(`/(battle)/result?battleId=${battleId}`);
         return;
       }
       const r = rounds.find((row) => row.round_number === roundNumber);
       if (r && r.status === 'result_ready') {
+        hapticSuccess();
         router.replace(
           `/(battle)/round-result?battleId=${battleId}&round=${roundNumber}`,
         );
@@ -259,6 +335,7 @@ export default function WaitingScreen() {
       battle.status === 'completed' ||
       battle.status === 'generation_failed'
     ) {
+      hapticSuccess();
       router.replace(`/(battle)/result?battleId=${battleId}`);
       return;
     }
@@ -271,46 +348,89 @@ export default function WaitingScreen() {
       if (opponentReady) {
         router.replace(`/(battle)/face-off?battleId=${battleId}`);
       } else {
-        setRetryMessage('Waiting for opponent details...');
+        setQueueNote(null);
       }
     }
-  }, [battle, myPromptLocked, battleId, router, isBo3, rounds, roundNumber]);
+  }, [
+    battle,
+    myPromptLocked,
+    opponentReady,
+    battleId,
+    router,
+    isBo3,
+    rounds,
+    roundNumber,
+  ]);
 
+  // One server-side nudge after 5 s of resolving. The screen no longer
+  // narrates the attempt; it shows a single calm line once scoring is slow.
   useEffect(() => {
-    if (!battleId || !battle || battle.status !== 'resolving') return;
+    if (!battleId || !battle || battle.status !== 'resolving') {
+      setSlowScoring(false);
+      return;
+    }
     if (hasRetriedResolutionRef.current || resolveRetryTimerRef.current) return;
 
     resolveRetryTimerRef.current = setTimeout(async () => {
       hasRetriedResolutionRef.current = true;
       resolveRetryTimerRef.current = null;
+      setSlowScoring(true);
 
       try {
-        setRetryMessage('Still resolving. Asking the judge to retry...');
         const result = await retryBattleResolution(battleId);
-
         if (result.error) {
           console.error('Battle resolution retry failed:', result.error);
-          setRetryMessage('Judge retry failed. Waiting for updates...');
-          return;
         }
-
-        setRetryMessage('Judge finished. Loading result...');
       } catch (err) {
         console.error('Battle resolution retry failed:', err);
-        setRetryMessage('Judge retry failed. Waiting for updates...');
       }
     }, 5000);
   }, [battle, battleId]);
 
-  const isResolving = battle?.status === 'resolving';
-  const heroTitle = isResolving
-    ? 'The Judge Deliberates'
-    : 'Entering the Arena';
-  const heroSubtitle = isResolving
-    ? 'Weighing every word of both prompts…'
-    : opponentPromptLocked
-      ? 'Both fighters are locked in. Standby…'
-      : 'Your challenger is choosing their move…';
+  // Lock-in clock for the other side. Ticks only while there is something to
+  // count down to, and the deadline is the opponent's, not ours.
+  const opponentDeadline = isBo3
+    ? (roundData?.lock_in_deadline ?? null)
+    : isPlayerOne
+      ? (battle?.player_two_prompt_deadline ?? null)
+      : (battle?.player_one_prompt_deadline ?? null);
+  const deadlineMs = opponentDeadline ? Date.parse(opponentDeadline) : NaN;
+  const showCountdown =
+    Number.isFinite(deadlineMs) &&
+    opponentReady &&
+    myPromptLocked &&
+    !opponentPromptLocked &&
+    !isResolving;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!showCountdown) return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [showCountdown]);
+
+  const hero: WaitingHeroCopy = battle
+    ? waitingHero({
+        hasOpponent: opponentReady,
+        myLocked: myPromptLocked,
+        opponentLocked: opponentPromptLocked,
+        isResolving: Boolean(isResolving),
+      })
+    : { title: 'Entering the arena', subtitle: 'Connecting…' };
+
+  // Say the wait changed; a sighted player sees the title swap, a screen
+  // reader user hears nothing otherwise.
+  const lastAnnouncedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!battle) return;
+    if (lastAnnouncedRef.current === hero.title) return;
+    lastAnnouncedRef.current = hero.title;
+    AccessibilityInfo.announceForAccessibility(
+      `${hero.title}. ${hero.subtitle}`,
+    );
+  }, [battle, hero.title, hero.subtitle]);
+
+  const opponentRowLabel = isBot ? BOT_READY : "Opponent's prompt submitted";
 
   return (
     <ImageBackground
@@ -328,6 +448,7 @@ export default function WaitingScreen() {
               currentRound={roundNumber}
               format={format}
               bestOf={battle?.best_of ?? 3}
+              viewer={isPlayerOne ? 'p1' : 'p2'}
             />
             <Text style={styles.seriesCaption}>
               Round {roundNumber} of {battle?.best_of ?? 3} — Locking in
@@ -340,13 +461,29 @@ export default function WaitingScreen() {
           size="large"
           color="#FFFFFF"
           style={styles.spinner}
+          accessibilityLabel={hero.title}
         />
-        <Text style={styles.heroTitle}>{heroTitle}</Text>
-        <Text style={styles.heroSubtitle}>{heroSubtitle}</Text>
+        <Text style={styles.heroTitle} accessibilityRole="header">
+          {hero.title}
+        </Text>
+        <Text style={styles.heroSubtitle}>{hero.subtitle}</Text>
+
+        {showCountdown ? (
+          <Text
+            style={[styles.countdown, NumericFontVariant]}
+            accessibilityLiveRegion="polite"
+          >
+            {opponentDeadlineLine(deadlineMs - now)}
+          </Text>
+        ) : null}
 
         {battle?.theme ? (
           <View
-            style={[styles.card, { backgroundColor: colors.card }, Elevation.md]}
+            style={[
+              styles.card,
+              { backgroundColor: colors.card },
+              Elevation.md,
+            ]}
           >
             <Text style={[styles.themeLabel, { color: colors.textSecondary }]}>
               THEME
@@ -361,7 +498,13 @@ export default function WaitingScreen() {
         <View
           style={[styles.card, { backgroundColor: colors.card }, Elevation.md]}
         >
-          <View style={styles.statusRow}>
+          <View
+            style={styles.statusRow}
+            accessible
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: myPromptLocked }}
+            accessibilityLabel="Your prompt submitted"
+          >
             <Ionicons
               name={myPromptLocked ? 'checkmark-circle' : 'ellipse-outline'}
               size={20}
@@ -373,7 +516,13 @@ export default function WaitingScreen() {
             </Text>
           </View>
 
-          <View style={styles.statusRow}>
+          <View
+            style={styles.statusRow}
+            accessible
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: opponentPromptLocked }}
+            accessibilityLabel={opponentRowLabel}
+          >
             <Ionicons
               name={
                 opponentPromptLocked ? 'checkmark-circle' : 'ellipse-outline'
@@ -385,12 +534,18 @@ export default function WaitingScreen() {
               style={styles.statusIcon}
             />
             <Text style={[styles.statusText, { color: colors.text }]}>
-              Opponent's prompt submitted
+              {opponentRowLabel}
             </Text>
           </View>
 
           {isResolving && (
-            <View style={styles.statusRow}>
+            <View
+              style={styles.statusRow}
+              accessible
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: false }}
+              accessibilityLabel="Judge is scoring"
+            >
               <Ionicons
                 name="flash"
                 size={20}
@@ -405,27 +560,33 @@ export default function WaitingScreen() {
         </View>
 
         {!isSubscribed && (
-          <Text style={styles.onScrimNote}>Realtime updates connecting…</Text>
+          <Text style={styles.onScrimNote}>{RECONNECTING}</Text>
         )}
 
-        {retryMessage && (
-          <Text style={[styles.onScrimNote, styles.retryMessage]}>
-            {retryMessage}
+        {isResolving && slowScoring ? (
+          <Text style={styles.onScrimNote}>{STILL_SCORING}</Text>
+        ) : null}
+
+        {!opponentReady && queueNote ? (
+          <Text style={[styles.onScrimNote, styles.queueNote]}>
+            {queueNote}
           </Text>
-        )}
+        ) : null}
 
         <TouchableOpacity
           style={styles.homeButton}
-          onPress={() => router.push('/(tabs)/home')}
+          onPress={() => router.replace('/(tabs)/home')}
           accessibilityLabel="Return to home"
           accessibilityRole="button"
         >
           <Text style={styles.homeButtonText}>Return to Home</Text>
         </TouchableOpacity>
 
-        <Text style={styles.hint}>
-          You'll be notified when the result is ready
-        </Text>
+        {notifGranted === null ? null : (
+          <Text style={styles.hint}>
+            {notifGranted ? NOTIFY_ON : NOTIFY_OFF}
+          </Text>
+        )}
 
         <TouchableOpacity
           style={styles.leaveLink}
@@ -434,7 +595,6 @@ export default function WaitingScreen() {
           accessibilityLabel="Leave battle"
           accessibilityRole="button"
           accessibilityState={{ disabled: leave.isLeaving }}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Text style={styles.leaveLinkText}>Leave battle</Text>
         </TouchableOpacity>
@@ -487,6 +647,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: Spacing.xl,
   },
+  countdown: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
+    color: 'rgba(255,255,255,0.85)',
+    textAlign: 'center',
+    marginTop: -Spacing.md,
+    marginBottom: Spacing.lg,
+  },
   card: {
     width: '100%',
     padding: Spacing.lg,
@@ -522,7 +690,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: Spacing.lg,
   },
-  retryMessage: {
+  queueNote: {
     fontStyle: 'italic',
   },
   homeButton: {
@@ -541,11 +709,14 @@ const styles = StyleSheet.create({
   },
   // Deliberately quieter than the home button: leaving costs money and ends
   // the battle, so it must be findable without competing with the free action
-  // that is right for almost everyone here.
+  // that is right for almost everyone here. Quiet is not small, though: the
+  // target is the 44pt minimum, met by the control itself rather than hitSlop.
   leaveLink: {
     marginTop: Spacing.lg,
     alignSelf: 'center',
-    paddingVertical: Spacing.xs,
+    minHeight: 44,
+    paddingHorizontal: Spacing.md,
+    justifyContent: 'center',
   },
   leaveLinkText: {
     fontSize: Typography.sizes.sm,

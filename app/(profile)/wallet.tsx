@@ -1,30 +1,81 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
   Linking,
   Alert,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
+import {
+  Spacing,
+  Typography,
+  BorderRadius,
+  NumericFontVariant,
+  Layout,
+} from '@/constants/DesignTokens';
 import { Links } from '@/constants/Links';
 import SubscriberBadge from '@/components/SubscriberBadge';
-import { getWalletBalance, getWalletTransactions, WalletBalance } from '@/utils/monetization';
+import Toast from '@/components/Toast';
+import { HEADER_BUTTON_SIZE } from '@/components/HeaderBackButton';
+import {
+  getWalletBalanceResult,
+  getWalletTransactions,
+  type WalletBalance,
+} from '@/utils/monetization';
 import { useRevenueCat } from '@/providers/RevenueCatProvider';
-import { CREDIT_PACK_CREDITS, CREDIT_PACK_META, PRODUCT_IDS } from '@/utils/revenuecat';
+import {
+  CREDIT_PACK_CREDITS,
+  CREDIT_PACK_META,
+  PLUS_ENTITLEMENT_ID,
+  PRODUCT_IDS,
+} from '@/utils/revenuecat';
+import { formatCredits } from '@/utils/credits';
+import { transactionAmountLabel, transactionLabel } from '@/utils/walletCopy';
+import {
+  BALANCE_POLL_DELAYS_MS,
+  allowanceLabel,
+  autoRenewDisclosure,
+  shortDate,
+  subscriptionManageUrl,
+  subscriptionRenewalLabel,
+} from '@/utils/walletView';
+
+interface WalletTransaction {
+  id: string;
+  reason: string | null;
+  amount: number;
+  created_at: string;
+}
+
+type LoadState = 'loading' | 'ready' | 'error';
+
+const TOAST_MS = 2500;
 
 export default function WalletScreen() {
   const colors = useThemedColors();
   const router = useRouter();
-  const { offerings, purchasePackage, restorePurchases, isLoading: rcLoading } = useRevenueCat();
+  const insets = useSafeAreaInsets();
+  const accessibleText = useAccessibleTextStyle();
+  const {
+    offerings,
+    customerInfo,
+    purchase,
+    restorePurchases,
+    isLoading: rcLoading,
+  } = useRevenueCat();
 
   // Derived from the live offering: only packs the store actually sells are
   // shown, with the store's own localized price string. Unknown product ids are
   // skipped rather than rendered with a guessed credit count.
-  const isLoadingOfferings = rcLoading;
-  // Same reasoning as the credit packs: the subscription price was a hardcoded
-  // "$9.99/month" that could drift from App Store Connect, and would show the
-  // wrong currency to every non-US user.
   const plusPackage = (offerings?.current?.availablePackages ?? []).find(
     (pkg) => pkg.product.identifier === PRODUCT_IDS.PLUS_MONTHLY,
   );
@@ -48,24 +99,95 @@ export default function WalletScreen() {
     .sort((a, b) => a.order - b.order);
 
   const [balance, setBalance] = useState<WalletBalance | null>(null);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [loadState, setLoadState] = useState<LoadState>('loading');
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [awaitingBalance, setAwaitingBalance] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Every timer this screen sets, so unmounting mid-poll cannot set state on a
+  // dead component or keep re-reading the wallet after the player has left.
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      timers.current.forEach(clearTimeout);
+      timers.current = [];
+    };
+  }, []);
+
+  const schedule = useCallback((fn: () => void, ms: number) => {
+    const id = setTimeout(() => {
+      timers.current = timers.current.filter((t) => t !== id);
+      if (mounted.current) fn();
+    }, ms);
+    timers.current.push(id);
+  }, []);
+
+  const showToast = useCallback(
+    (text: string) => {
+      setToast(text);
+      schedule(() => setToast(null), TOAST_MS);
+    },
+    [schedule],
+  );
+
+  const loadWalletData =
+    useCallback(async (): Promise<WalletBalance | null> => {
+      const [balanceResult, transactionsData] = await Promise.all([
+        getWalletBalanceResult(),
+        getWalletTransactions(20),
+      ]);
+      if (!mounted.current) return null;
+      if (!balanceResult.ok) {
+        // A failed read must not render as "0 credits". Keep whatever we last
+        // knew and show the error state only when we know nothing.
+        setLoadState((prev) => (prev === 'ready' ? 'ready' : 'error'));
+        return null;
+      }
+      setBalance(balanceResult.balance);
+      setTransactions(transactionsData as WalletTransaction[]);
+      setLoadState('ready');
+      return balanceResult.balance;
+    }, []);
 
   useEffect(() => {
     loadWalletData();
-  }, []);
+  }, [loadWalletData]);
 
-  async function loadWalletData() {
-    setIsLoading(true);
-    const [balanceData, transactionsData] = await Promise.all([
-      getWalletBalance(),
-      getWalletTransactions(20),
-    ]);
-    setBalance(balanceData);
-    setTransactions(transactionsData);
-    setIsLoading(false);
-  }
+  const retry = () => {
+    setLoadState('loading');
+    loadWalletData();
+  };
+
+  /**
+   * The webhook grants credits asynchronously. Re-read at a few widening
+   * intervals and stop as soon as the balance moves; say so on screen while
+   * waiting so the unchanged number does not read as a failed purchase.
+   */
+  const pollBalanceAfterPurchase = useCallback(
+    (before: number | null) => {
+      setAwaitingBalance(true);
+      let settled = false;
+      BALANCE_POLL_DELAYS_MS.forEach((delay, index) => {
+        schedule(async () => {
+          if (settled) return;
+          const next = await loadWalletData();
+          if (!mounted.current) return;
+          const changed = next !== null && next.credits_balance !== before;
+          const last = index === BALANCE_POLL_DELAYS_MS.length - 1;
+          if (changed || last) {
+            settled = true;
+            setAwaitingBalance(false);
+          }
+        }, delay);
+      });
+    },
+    [loadWalletData, schedule],
+  );
 
   async function handlePurchase(productId: string) {
     // Both failure paths used to `console.warn` and return, so tapping a
@@ -99,189 +221,460 @@ export default function WalletScreen() {
     }
 
     setIsPurchasing(true);
-    const success = await purchasePackage(pkg);
+    const before = balance?.credits_balance ?? null;
+    const outcome = await purchase(pkg);
+    if (!mounted.current) return;
     setIsPurchasing(false);
 
-    if (success) {
-      // Reload wallet after purchase (webhook will have processed)
-      setTimeout(() => loadWalletData(), 2000);
+    switch (outcome) {
+      case 'purchased':
+        showToast('Purchase complete — credits arrive in a moment');
+        pollBalanceAfterPurchase(before);
+        break;
+      case 'failed':
+        Alert.alert(
+          'Couldn’t complete the purchase',
+          'You haven’t been charged. Check your connection and try again.',
+        );
+        break;
+      case 'cancelled':
+      default:
+        // The player closed the store sheet. Nothing to say.
+        break;
     }
   }
 
   async function handleRestore() {
-    setIsPurchasing(true);
-    await restorePurchases();
-    setIsPurchasing(false);
-    setTimeout(() => loadWalletData(), 1000);
+    setIsRestoring(true);
+    const outcome = await restorePurchases();
+    if (!mounted.current) return;
+    setIsRestoring(false);
+    switch (outcome) {
+      case 'restored':
+        showToast('Purchases restored');
+        schedule(() => {
+          loadWalletData();
+        }, 1000);
+        break;
+      case 'nothing':
+        showToast('Nothing to restore');
+        break;
+      case 'failed':
+      default:
+        Alert.alert(
+          'Couldn’t restore purchases',
+          'Check your connection and that you’re signed in to the right store account.',
+        );
+        break;
+    }
   }
 
-  if (isLoading || rcLoading) {
+  const busy = isPurchasing || isRestoring;
+  const topInset = insets.top + HEADER_BUTTON_SIZE;
+
+  if (loadState === 'loading' || rcLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.centered,
+          { backgroundColor: colors.background, paddingTop: topInset },
+        ]}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
-  return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.title, { color: colors.text }]}>Wallet & Subscription</Text>
-
-      {/* Balance Card */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Current Balance</Text>
-        <Text style={[styles.balanceAmount, { color: colors.primary }]}>
-          {balance?.credits_balance ?? 0} Credits
-        </Text>
-        {balance?.is_subscriber && (
-          <View style={styles.subscriberBadge}>
-            <SubscriberBadge suffix="Active" />
-            <Text style={[styles.allowanceText, { color: colors.textSecondary }]}>
-              {balance.monthly_video_allowance_remaining} video reveals remaining this month
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Cosmetic shop entry */}
-      <TouchableOpacity
-        style={[styles.shopLink, { backgroundColor: colors.card, borderColor: colors.primary }]}
-        onPress={() => router.push('/(profile)/shop')}
-        accessibilityRole="button"
-        accessibilityLabel="Open cosmetic shop"
+  if (loadState === 'error') {
+    return (
+      <View
+        style={[
+          styles.centered,
+          { backgroundColor: colors.background, paddingTop: topInset },
+        ]}
       >
-        <View style={styles.shopLinkLabel}>
-          <Ionicons
-            name="color-palette-outline"
-            size={18}
-            color={colors.primary}
-          />
-          <Text style={[styles.shopLinkText, { color: colors.text }]}>
-            Cosmetic Shop
-          </Text>
-        </View>
-        <Ionicons
-          name="chevron-forward"
-          size={18}
-          color={colors.textSecondary}
-        />
-      </TouchableOpacity>
-
-      {/* Credit Packs — rendered from the live RevenueCat offering.
-          These were hardcoded, and the literals had drifted from the products:
-          "Standard" advertised 50 credits for $3.99 on a button carrying
-          credits_30, and the server grants 30. Price came from a literal too,
-          so it could diverge from App Store Connect without anyone noticing.
-          Credits now come from CREDIT_PACK_CREDITS (which mirrors the server's
-          authoritative map) and price from the store product itself. */}
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>Credit Packs</Text>
-      {creditPackages.length === 0 ? (
-        <Text style={[styles.packsEmpty, { color: colors.textSecondary }]}>
-          {isLoadingOfferings
-            ? 'Loading credit packs…'
-            : 'Credit packs are unavailable right now. Please try again later.'}
+        <Ionicons name="wallet-outline" size={32} color={colors.textTertiary} />
+        <Text
+          accessibilityRole="header"
+          style={[styles.errorTitle, accessibleText, { color: colors.text }]}
+        >
+          Couldn’t load your balance
         </Text>
-      ) : (
-        <View style={styles.packsContainer}>
-          {creditPackages.map((pack) => (
-            <CreditPackButton
-              key={pack.productId}
-              title={pack.title}
-              credits={pack.credits}
-              price={pack.price}
-              badge={pack.badge}
-              productId={pack.productId}
-              onPress={handlePurchase}
-              isPurchasing={isPurchasing}
-              colors={colors}
-            />
-          ))}
-        </View>
-      )}
+        <Text
+          style={[
+            styles.errorBody,
+            accessibleText,
+            { color: colors.textSecondary },
+          ]}
+        >
+          Check your connection and try again.
+        </Text>
+        <TouchableOpacity
+          onPress={retry}
+          accessibilityRole="button"
+          accessibilityLabel="Retry"
+          style={[styles.retryButton, { backgroundColor: colors.primary }]}
+        >
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
-      {/* Subscription */}
-      {!balance?.is_subscriber && (
-        <>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Prompt Wars+</Text>
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>
-              {plusPackage ? `${plusPackage.product.priceString}/month` : 'Prompt Wars+'}
-            </Text>
-            <Text style={[styles.benefitText, { color: colors.textSecondary }]}>
-              • 30 video reveals per month{'\n'}
-              • Exclusive badge{'\n'}
-              • Priority queue{'\n'}
-              • Cosmetic unlocks{'\n'}
-              • Full video history
-            </Text>
-            <TouchableOpacity
-              style={[styles.subscribeButton, { backgroundColor: colors.primary }]}
-              onPress={() => handlePurchase(PRODUCT_IDS.PLUS_MONTHLY)}
-              disabled={isPurchasing}
-            >
-              <Text style={styles.subscribeButtonText}>
-                {isPurchasing ? 'Processing...' : 'Subscribe Now'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
+  const plusEntitlement =
+    customerInfo?.entitlements.active[PLUS_ENTITLEMENT_ID];
+  const renewalLabel = subscriptionRenewalLabel(plusEntitlement);
+  const isSubscriber = Boolean(balance?.is_subscriber);
 
-      {/* Transaction History */}
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Transactions</Text>
-      {transactions.map((tx) => (
-        <View key={tx.id} style={[styles.transactionRow, { borderBottomColor: colors.border }]}>
-          <View>
-            <Text style={[styles.transactionReason, { color: colors.text }]}>{tx.reason}</Text>
-            <Text style={[styles.transactionDate, { color: colors.textSecondary }]}>
-              {new Date(tx.created_at).toLocaleDateString()}
-            </Text>
-          </View>
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.content, { paddingTop: topInset }]}
+      >
+        <Text
+          accessibilityRole="header"
+          style={[styles.title, accessibleText, { color: colors.text }]}
+        >
+          Wallet & Subscription
+        </Text>
+
+        {/* Balance Card */}
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <Text
+            style={[styles.cardTitle, accessibleText, { color: colors.text }]}
+          >
+            Current Balance
+          </Text>
           <Text
             style={[
-              styles.transactionAmount,
-              { color: tx.amount > 0 ? colors.success : colors.error },
+              styles.balanceAmount,
+              NumericFontVariant,
+              { color: colors.primary },
+            ]}
+            accessibilityLabel={formatCredits(
+              balance?.credits_balance ?? 0,
+              'sentence',
+            )}
+          >
+            {formatCredits(balance?.credits_balance ?? 0, 'sentence')}
+          </Text>
+          {awaitingBalance ? (
+            <View style={styles.updatingRow} accessibilityLiveRegion="polite">
+              <ActivityIndicator size="small" color={colors.textSecondary} />
+              <Text
+                style={[styles.updatingText, { color: colors.textSecondary }]}
+              >
+                Updating balance…
+              </Text>
+            </View>
+          ) : null}
+          {isSubscriber && balance ? (
+            <View style={styles.subscriberBlock}>
+              <SubscriberBadge suffix="Active" />
+              <Text
+                style={[
+                  styles.allowanceText,
+                  NumericFontVariant,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                {allowanceLabel(balance.monthly_video_allowance_remaining)}
+              </Text>
+              {renewalLabel ? (
+                <Text
+                  style={[
+                    styles.allowanceText,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {renewalLabel}
+                </Text>
+              ) : null}
+              <TouchableOpacity
+                onPress={() =>
+                  Linking.openURL(subscriptionManageUrl(Platform.OS))
+                }
+                accessibilityRole="link"
+                accessibilityLabel="Manage subscription"
+                style={styles.manageLink}
+              >
+                <Text
+                  style={[styles.manageLinkText, { color: colors.primary }]}
+                >
+                  Manage subscription
+                </Text>
+                <Ionicons
+                  name="open-outline"
+                  size={14}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Cosmetic shop entry */}
+        <TouchableOpacity
+          style={[
+            styles.shopLink,
+            { backgroundColor: colors.card, borderColor: colors.primary },
+          ]}
+          onPress={() => router.push('/(profile)/shop')}
+          accessibilityRole="button"
+          accessibilityLabel="Open cosmetic shop"
+        >
+          <View style={styles.shopLinkLabel}>
+            <Ionicons
+              name="color-palette-outline"
+              size={18}
+              color={colors.primary}
+            />
+            <Text
+              style={[
+                styles.shopLinkText,
+                accessibleText,
+                { color: colors.text },
+              ]}
+            >
+              Cosmetic Shop
+            </Text>
+          </View>
+          <Ionicons
+            name="chevron-forward"
+            size={18}
+            color={colors.textSecondary}
+          />
+        </TouchableOpacity>
+
+        {/* Credit Packs — rendered from the live RevenueCat offering.
+            Credits come from CREDIT_PACK_CREDITS (which mirrors the server's
+            authoritative map) and price from the store product itself. */}
+        <Text
+          accessibilityRole="header"
+          style={[styles.sectionTitle, accessibleText, { color: colors.text }]}
+        >
+          Credit Packs
+        </Text>
+        {creditPackages.length === 0 ? (
+          <Text
+            style={[
+              styles.packsEmpty,
+              accessibleText,
+              { color: colors.textSecondary },
             ]}
           >
-            {tx.amount > 0 ? '+' : ''}
-            {tx.amount}
+            Credit packs are unavailable right now. Please try again later.
           </Text>
+        ) : (
+          <View style={styles.packsContainer}>
+            {creditPackages.map((pack) => (
+              <CreditPackButton
+                key={pack.productId}
+                title={pack.title}
+                credits={pack.credits}
+                price={pack.price}
+                badge={pack.badge}
+                productId={pack.productId}
+                onPress={handlePurchase}
+                disabled={busy}
+                colors={colors}
+              />
+            ))}
+          </View>
+        )}
+
+        {/* Subscription */}
+        {!isSubscriber ? (
+          <>
+            <Text
+              accessibilityRole="header"
+              style={[
+                styles.sectionTitle,
+                accessibleText,
+                { color: colors.text },
+              ]}
+            >
+              Prompt Wars+
+            </Text>
+            <View style={[styles.card, { backgroundColor: colors.card }]}>
+              <Text
+                style={[
+                  styles.cardTitle,
+                  NumericFontVariant,
+                  accessibleText,
+                  { color: colors.text },
+                ]}
+              >
+                {plusPackage
+                  ? `${plusPackage.product.priceString}/month`
+                  : 'Prompt Wars+'}
+              </Text>
+              <Text
+                style={[
+                  styles.benefitText,
+                  accessibleText,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                • 30 video reveals per month{'\n'}• Exclusive badge{'\n'}•
+                Priority queue{'\n'}• Cosmetic unlocks{'\n'}• Full video history
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.subscribeButton,
+                  {
+                    backgroundColor: colors.primary,
+                    opacity: busy || !plusPackage ? 0.5 : 1,
+                  },
+                ]}
+                onPress={() => handlePurchase(PRODUCT_IDS.PLUS_MONTHLY)}
+                disabled={busy || !plusPackage}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  plusPackage
+                    ? `Subscribe to Prompt Wars+ for ${plusPackage.product.priceString} a month`
+                    : 'Subscribe to Prompt Wars+, unavailable right now'
+                }
+                accessibilityState={{
+                  disabled: busy || !plusPackage,
+                  busy: isPurchasing,
+                }}
+              >
+                <Text style={styles.subscribeButtonText}>
+                  {isPurchasing
+                    ? 'Processing…'
+                    : plusPackage
+                      ? 'Subscribe Now'
+                      : 'Unavailable right now'}
+                </Text>
+              </TouchableOpacity>
+              <Text
+                style={[
+                  styles.disclosure,
+                  accessibleText,
+                  { color: colors.textTertiary },
+                ]}
+              >
+                {autoRenewDisclosure(plusPackage?.product.priceString)}
+              </Text>
+            </View>
+          </>
+        ) : null}
+
+        {/* Transaction History */}
+        <Text
+          accessibilityRole="header"
+          style={[styles.sectionTitle, accessibleText, { color: colors.text }]}
+        >
+          Recent Transactions
+        </Text>
+        {transactions.length === 0 ? (
+          <Text
+            style={[
+              styles.packsEmpty,
+              accessibleText,
+              { color: colors.textSecondary },
+            ]}
+          >
+            No transactions yet.
+          </Text>
+        ) : (
+          transactions.map((tx) => {
+            const label = transactionLabel(tx.reason);
+            const amount = transactionAmountLabel(tx.amount);
+            const date = shortDate(tx.created_at) ?? '';
+            return (
+              <View
+                key={tx.id}
+                accessible
+                accessibilityLabel={`${label}, ${amount}, ${date}`}
+                style={[
+                  styles.transactionRow,
+                  { borderBottomColor: colors.border },
+                ]}
+              >
+                <View style={styles.transactionText}>
+                  <Text
+                    style={[
+                      styles.transactionReason,
+                      accessibleText,
+                      { color: colors.text },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.transactionDate,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {date}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.transactionAmount,
+                    NumericFontVariant,
+                    { color: tx.amount > 0 ? colors.success : colors.error },
+                  ]}
+                >
+                  {amount}
+                </Text>
+              </View>
+            );
+          })
+        )}
+
+        {/* Restore Purchases */}
+        <TouchableOpacity
+          style={styles.restoreButton}
+          onPress={handleRestore}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel="Restore purchases"
+          accessibilityState={{ disabled: busy, busy: isRestoring }}
+        >
+          {isRestoring ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <Text style={[styles.restoreButtonText, { color: colors.primary }]}>
+              Restore Purchases
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {/* App Store 3.1.2 requires Terms and Privacy on any surface that sells
+            a subscription or consumable. */}
+        <View style={styles.legalRow}>
+          <TouchableOpacity
+            onPress={() => Linking.openURL(Links.termsAndConditions)}
+            accessibilityRole="link"
+            accessibilityLabel="Terms and conditions"
+            style={styles.legalButton}
+          >
+            <Text style={[styles.legalLink, { color: colors.textSecondary }]}>
+              Terms &amp; Conditions
+            </Text>
+          </TouchableOpacity>
+          <Text style={[styles.legalDot, { color: colors.textTertiary }]}>
+            •
+          </Text>
+          <TouchableOpacity
+            onPress={() => Linking.openURL(Links.privacyPolicy)}
+            accessibilityRole="link"
+            accessibilityLabel="Privacy policy"
+            style={styles.legalButton}
+          >
+            <Text style={[styles.legalLink, { color: colors.textSecondary }]}>
+              Privacy Policy
+            </Text>
+          </TouchableOpacity>
         </View>
-      ))}
-
-      {/* Restore Purchases */}
-      <TouchableOpacity
-        style={styles.restoreButton}
-        onPress={handleRestore}
-        disabled={isPurchasing}
-        accessibilityRole="button"
-        accessibilityLabel="Restore purchases"
-      >
-        <Text style={[styles.restoreButtonText, { color: colors.primary }]}>Restore Purchases</Text>
-      </TouchableOpacity>
-
-      {/* App Store 3.1.2 requires Terms and Privacy on any surface that sells
-          a subscription or consumable. */}
-      <View style={styles.legalRow}>
-        <Text
-          style={[styles.legalLink, { color: colors.textSecondary }]}
-          onPress={() => Linking.openURL(Links.termsAndConditions)}
-          accessibilityRole="link"
-          accessibilityLabel="Terms and conditions"
-        >
-          Terms &amp; Conditions
-        </Text>
-        <Text style={[styles.legalDot, { color: colors.textTertiary }]}>•</Text>
-        <Text
-          style={[styles.legalLink, { color: colors.textSecondary }]}
-          onPress={() => Linking.openURL(Links.privacyPolicy)}
-          accessibilityRole="link"
-          accessibilityLabel="Privacy policy"
-        >
-          Privacy Policy
-        </Text>
-      </View>
-    </ScrollView>
+      </ScrollView>
+      {toast ? <Toast text={toast} /> : null}
+    </View>
   );
 }
 
@@ -292,7 +685,7 @@ function CreditPackButton({
   badge,
   productId,
   onPress,
-  isPurchasing,
+  disabled,
   colors,
 }: {
   title: string;
@@ -301,14 +694,27 @@ function CreditPackButton({
   badge?: string;
   productId: string;
   onPress: (productId: string) => void;
-  isPurchasing: boolean;
-  colors: any;
+  disabled: boolean;
+  colors: ReturnType<typeof useThemedColors>;
 }) {
+  const creditsSentence = formatCredits(credits, 'sentence');
   return (
     <TouchableOpacity
-      style={[styles.packCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+      style={[
+        styles.packCard,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          opacity: disabled ? 0.5 : 1,
+        },
+      ]}
       onPress={() => onPress(productId)}
-      disabled={isPurchasing}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={`${title} pack, ${creditsSentence} for ${price}${
+        badge ? `, ${badge}` : ''
+      }`}
+      accessibilityState={{ disabled }}
     >
       {badge && (
         <View style={[styles.badge, { backgroundColor: colors.primary }]}>
@@ -316,8 +722,24 @@ function CreditPackButton({
         </View>
       )}
       <Text style={[styles.packTitle, { color: colors.text }]}>{title}</Text>
-      <Text style={[styles.packCredits, { color: colors.primary }]}>{credits} Credits</Text>
-      <Text style={[styles.packPrice, { color: colors.textSecondary }]}>{price}</Text>
+      <Text
+        style={[
+          styles.packCredits,
+          NumericFontVariant,
+          { color: colors.primary },
+        ]}
+      >
+        {creditsSentence}
+      </Text>
+      <Text
+        style={[
+          styles.packPrice,
+          NumericFontVariant,
+          { color: colors.textSecondary },
+        ]}
+      >
+        {price}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -325,7 +747,40 @@ function CreditPackButton({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  content: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xxl,
+  },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  errorTitle: {
+    fontSize: Typography.sizes.lg,
+    fontWeight: Typography.weights.semibold,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+  },
+  errorBody: {
+    fontSize: Typography.sizes.sm,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: Spacing.md,
+    minHeight: Layout.inputHeight,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryText: {
+    color: '#FFFFFF',
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
   },
   title: {
     fontSize: Typography.sizes.xxxl,
@@ -334,7 +789,7 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: Spacing.lg,
-    borderRadius: 12,
+    borderRadius: BorderRadius.lg,
     marginBottom: Spacing.md,
   },
   cardTitle: {
@@ -345,21 +800,41 @@ const styles = StyleSheet.create({
   balanceAmount: {
     fontSize: 36,
     fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
-  subscriberBadge: {
+  updatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  updatingText: {
+    fontSize: Typography.sizes.sm,
+  },
+  subscriberBlock: {
     marginTop: Spacing.sm,
+    gap: Spacing.xs,
   },
   allowanceText: {
     fontSize: Typography.sizes.sm,
-    marginTop: Spacing.xs,
+  },
+  manageLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    minHeight: Layout.inputHeight,
+    alignSelf: 'flex-start',
+  },
+  manageLinkText: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
   },
   shopLink: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: Spacing.md,
-    borderRadius: 12,
+    borderRadius: BorderRadius.lg,
     borderWidth: 1.5,
     marginBottom: Spacing.md,
   },
@@ -390,18 +865,19 @@ const styles = StyleSheet.create({
   packCard: {
     flex: 1,
     padding: Spacing.md,
-    borderRadius: 8,
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
     marginHorizontal: Spacing.xs,
     alignItems: 'center',
     position: 'relative',
+    minHeight: Layout.inputHeight,
   },
   badge: {
     position: 'absolute',
     top: -8,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: BorderRadius.sm,
   },
   badgeText: {
     fontSize: Typography.sizes.xs,
@@ -416,6 +892,7 @@ const styles = StyleSheet.create({
   packCredits: {
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
+    textAlign: 'center',
   },
   packPrice: {
     fontSize: Typography.sizes.sm,
@@ -427,21 +904,32 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   subscribeButton: {
+    minHeight: Layout.buttonHeight,
     padding: Spacing.md,
-    borderRadius: 8,
+    borderRadius: BorderRadius.md,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   subscribeButtonText: {
     color: '#fff',
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.bold,
   },
+  disclosure: {
+    fontSize: Typography.sizes.xs,
+    lineHeight: 17,
+    marginTop: Spacing.sm,
+    textAlign: 'center',
+  },
   transactionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.md,
   },
+  transactionText: { flex: 1 },
   transactionReason: {
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.medium,
@@ -455,18 +943,27 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
   },
   restoreButton: {
+    minHeight: Layout.inputHeight,
     padding: Spacing.md,
     marginTop: Spacing.lg,
-    marginBottom: Spacing.xl,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  restoreButtonText: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
   },
   legalRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.xl,
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  legalButton: {
+    minHeight: Layout.inputHeight,
+    paddingHorizontal: Spacing.sm,
+    justifyContent: 'center',
   },
   legalLink: {
     fontSize: Typography.sizes.xs,
@@ -475,9 +972,4 @@ const styles = StyleSheet.create({
   legalDot: {
     fontSize: Typography.sizes.xs,
   },
-  restoreButtonText: {
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
-  },
 });
-

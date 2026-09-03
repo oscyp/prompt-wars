@@ -30,6 +30,7 @@ describe('useCredits', () => {
     const { result } = renderHook(() => useCredits());
     await waitFor(() => expect(result.current.credits).toBe(12));
     expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBe(false);
   });
 
   it('defaults to 0 when there is no wallet', async () => {
@@ -37,6 +38,13 @@ describe('useCredits', () => {
     const { result } = renderHook(() => useCredits());
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.credits).toBe(0);
+  });
+
+  it('flags an unreadable balance so callers do not claim zero', async () => {
+    mockedGetWalletBalance.mockResolvedValue(null);
+    const { result } = renderHook(() => useCredits());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe(true);
   });
 
   it('re-reads the balance on refresh()', async () => {
@@ -49,5 +57,41 @@ describe('useCredits', () => {
       await result.current.refresh();
     });
     expect(result.current.credits).toBe(3);
+  });
+
+  it('clears the error once a refresh succeeds', async () => {
+    mockedGetWalletBalance.mockResolvedValue(null);
+    const { result } = renderHook(() => useCredits());
+    await waitFor(() => expect(result.current.error).toBe(true));
+
+    mockedGetWalletBalance.mockResolvedValue(balance(8));
+    await act(async () => {
+      await result.current.refresh();
+    });
+    expect(result.current.error).toBe(false);
+    expect(result.current.credits).toBe(8);
+  });
+
+  it('fetches once on mount, not once per code path', async () => {
+    mockedGetWalletBalance.mockResolvedValue(balance(1));
+    const { result } = renderHook(() => useCredits());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(mockedGetWalletBalance).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores a read that lands after unmount', async () => {
+    let resolve: (value: ReturnType<typeof balance>) => void = () => {};
+    mockedGetWalletBalance.mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+    const { result, unmount } = renderHook(() => useCredits());
+    unmount();
+    await act(async () => {
+      resolve(balance(99));
+    });
+    expect(result.current.credits).toBe(0);
+    expect(result.current.loading).toBe(true);
   });
 });

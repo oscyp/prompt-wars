@@ -24,16 +24,31 @@ Notifications.setNotificationHandler({
 let cachedToken: string | null = null;
 
 export interface BattleNotificationData {
-  type?: 'result_ready' | 'opponent_submitted' | 'video_ready' | string;
+  type?:
+    | 'result_ready'
+    | 'opponent_submitted'
+    | 'round_start'
+    | 'video_ready'
+    | 'daily_quest'
+    | 'friend_challenge'
+    | 'season_ending'
+    | string;
   battleId?: string;
 }
 
 function resolveProjectId(): string | undefined {
-  const fromExpoConfig = (Constants?.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)
-    ?.eas?.projectId;
-  const fromEasConfig = (Constants as unknown as { easConfig?: { projectId?: string } })?.easConfig
-    ?.projectId;
-  return fromExpoConfig ?? fromEasConfig ?? process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? undefined;
+  const fromExpoConfig = (
+    Constants?.expoConfig?.extra as { eas?: { projectId?: string } } | undefined
+  )?.eas?.projectId;
+  const fromEasConfig = (
+    Constants as unknown as { easConfig?: { projectId?: string } }
+  )?.easConfig?.projectId;
+  return (
+    fromExpoConfig ??
+    fromEasConfig ??
+    process.env.EXPO_PUBLIC_EAS_PROJECT_ID ??
+    undefined
+  );
 }
 
 /**
@@ -41,7 +56,9 @@ function resolveProjectId(): string | undefined {
  * device. Returns the token, or null if unavailable (denied, simulator, or no
  * EAS projectId configured). Safe to call repeatedly — the upsert is idempotent.
  */
-export async function registerForPushNotifications(profileId: string): Promise<string | null> {
+export async function registerForPushNotifications(
+  profileId: string,
+): Promise<string | null> {
   try {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
@@ -101,39 +118,72 @@ export async function deactivatePushToken(): Promise<void> {
   }
 }
 
-/** Deep-link from a notification payload to the relevant battle screen. */
-export function routeFromNotificationData(data: BattleNotificationData | null | undefined): void {
-  if (!data?.battleId) return;
+/**
+ * Deep-link from a notification payload to the screen it is about.
+ *
+ * Battle categories need a `battleId`; the retention categories land on the
+ * tab that owns them (quests live on the Arena, season standings on Rankings,
+ * a friend's challenge in the Battles list). Unknown types do nothing rather
+ * than guess.
+ */
+export function routeFromNotificationData(
+  data: BattleNotificationData | null | undefined,
+): void {
+  if (!data) return;
   const { battleId, type } = data;
   switch (type) {
     case 'opponent_submitted':
-      router.push(`/(battle)/waiting?battleId=${battleId}`);
+    case 'round_start':
+      if (battleId) router.push(`/(battle)/waiting?battleId=${battleId}`);
       break;
     case 'result_ready':
     case 'video_ready':
-      router.push(`/(battle)/result?battleId=${battleId}`);
+      if (battleId) router.push(`/(battle)/result?battleId=${battleId}`);
+      break;
+    case 'daily_quest':
+      router.push('/(tabs)/home');
+      break;
+    case 'season_ending':
+      router.push('/(tabs)/rankings');
+      break;
+    case 'friend_challenge':
+      router.push('/(tabs)/battles');
       break;
     default:
       break;
   }
 }
 
-/** Listen for notification taps while the app is running. */
-export function addNotificationResponseListener(): { remove: () => void } {
-  return Notifications.addNotificationResponseReceivedListener((response) => {
-    const data = response.notification.request.content.data as BattleNotificationData;
-    routeFromNotificationData(data);
-  });
+// The identifier of the last notification response we routed. The root layout
+// re-runs the cold-start check whenever the session object changes (every
+// token refresh), and `getLastNotificationResponseAsync` keeps returning the
+// same tap for the life of the process — so without this, a player who opened
+// the app from a result push got bounced back to that result on every refresh.
+let lastHandledNotificationId: string | null = null;
+
+function handleNotificationResponse(
+  response: Notifications.NotificationResponse,
+): void {
+  const id = response.notification.request.identifier;
+  if (id && id === lastHandledNotificationId) return;
+  lastHandledNotificationId = id ?? null;
+  const data = response.notification.request.content
+    .data as BattleNotificationData;
+  routeFromNotificationData(data);
 }
 
-/** Route from a notification that cold-started the app. */
+/** Listen for notification taps while the app is running. */
+export function addNotificationResponseListener(): { remove: () => void } {
+  return Notifications.addNotificationResponseReceivedListener(
+    handleNotificationResponse,
+  );
+}
+
+/** Route from a notification that cold-started the app (once per tap). */
 export async function handleInitialNotification(): Promise<void> {
   try {
     const response = await Notifications.getLastNotificationResponseAsync();
-    if (response) {
-      const data = response.notification.request.content.data as BattleNotificationData;
-      routeFromNotificationData(data);
-    }
+    if (response) handleNotificationResponse(response);
   } catch (error) {
     console.warn('Failed to handle initial notification:', error);
   }

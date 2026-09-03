@@ -5,45 +5,34 @@ import {
   ActivityIndicator,
   SafeAreaView,
   Alert,
+  Pressable,
+  View,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography } from '@/constants/DesignTokens';
+import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
-import { useLeaveBattle } from '@/hooks/useLeaveBattle';
+import { useBattleExitGuard } from '@/hooks/useBattleExitGuard';
+import { useBattleCharacters } from '@/hooks/useBattleCharacters';
+import type { BattleCharacterInfo } from '@/hooks/useBattleCharacters';
+import { usePortraitViewer } from '@/hooks/usePortraitViewer';
 import { useAuth } from '@/providers/AuthProvider';
 import FaceOffPortraits, { FaceOffPlayer } from '@/components/FaceOffPortraits';
 import PortraitViewer from '@/components/PortraitViewer';
-import { supabase, invokeFunctionResult } from '@/utils/supabase';
+import SeriesScoreIndicator from '@/components/SeriesScoreIndicator';
+import { supabase } from '@/utils/supabase';
 import { StatBlock } from '@/types/battle';
 import { BattleMode } from '@/utils/battles';
-import { resolveEquippedCosmetics } from '@/utils/cosmetics';
+import { inkFor } from '@/utils/contrast';
 
-interface CharacterRow {
-  id: string;
-  name: string | null;
-  archetype: string;
-  signature_color: string | null;
-  battle_cry: string | null;
-  cosmetic_config: Record<string, string> | null;
-}
-
+/** How long a missing battle row is a spinner before it is a problem. */
+const LOAD_TIMEOUT_MS = 6000;
 /**
- * Response contract of the `sign-battle-portraits` edge function. Signed URLs
- * (~1h TTL) into the private character-portraits bucket, or null for bots and
- * characters without a generated portrait.
+ * How long to hold the clash for character identity to arrive. Names and
+ * colours come from a second query and a signing call; playing the slide-in
+ * with "Player 2" and swapping the name mid-animation looked like a bug.
  */
-interface SignedPortraitSide {
-  portrait_url: string | null;
-  /** Full-body render for the tap-to-enlarge viewer; null when there is none. */
-  fighter_url: string | null;
-  archetype: string | null;
-}
-
-interface SignBattlePortraitsResponse {
-  player_one: SignedPortraitSide | null;
-  player_two: SignedPortraitSide | null;
-}
+const CHARACTER_GRACE_MS = 1500;
 
 export default function FaceOffScreen() {
   const colors = useThemedColors();
@@ -51,109 +40,72 @@ export default function FaceOffScreen() {
   const { battleId } = useLocalSearchParams<{ battleId: string }>();
 
   const { user } = useAuth();
-  const { battle, prompts, format, hp, hp_max, stats_snapshot, isSubscribed } =
-    useRealtimeBattle(battleId || null);
+  const {
+    battle,
+    prompts,
+    format,
+    hp,
+    hp_max,
+    stats_snapshot,
+    series_score,
+    isSubscribed,
+    refetch,
+  } = useRealtimeBattle(battleId || null);
 
-  const [chars, setChars] = useState<{
-    p1: CharacterRow | null;
-    p2: CharacterRow | null;
-  }>({ p1: null, p2: null });
-  const [portraits, setPortraits] = useState<{
-    p1: string | null;
-    p2: string | null;
-  }>({ p1: null, p2: null });
-  // The full-body renders, opened by tapping a portrait. Separate images from
-  // the circle-cropped ones above, not larger crops of them.
-  const [fighters, setFighters] = useState<{
-    p1: string | null;
-    p2: string | null;
-  }>({ p1: null, p2: null });
-  const [viewer, setViewer] = useState<{
-    uri: string;
-    caption: string;
-  } | null>(null);
-  const [signNonce, setSignNonce] = useState(0);
-  const [loadingChars, setLoadingChars] = useState(true);
-  const handledTerminalRef = useRef(false);
+  const { p1, p2, refreshPortraits } = useBattleCharacters(
+    battleId || null,
+    battle,
+  );
+  const portraitViewer = usePortraitViewer(refreshPortraits);
 
+  // The hook does not carry the battle cry, and the opponent's was never
+  // readable (characters RLS is owner-only), so this only ever fetched our
+  // own. Kept as a tiny side query rather than widening the shared hook.
+  const [myBattleCry, setMyBattleCry] = useState<string | null>(null);
+  const isPlayerOne = battle ? battle.player_one_id === user?.id : true;
+  const myCharacterId = battle
+    ? isPlayerOne
+      ? battle.player_one_character_id
+      : battle.player_two_character_id
+    : null;
   useEffect(() => {
+    if (!myCharacterId) return;
     let cancelled = false;
-    async function load() {
-      if (!battle) return;
-      const ids = [
-        battle.player_one_character_id,
-        battle.player_two_character_id,
-      ].filter(Boolean) as string[];
-      if (ids.length === 0) {
-        setLoadingChars(false);
-        return;
-      }
-      const { data, error } = await supabase
-        .from('characters')
-        .select('id, name, archetype, signature_color, battle_cry, cosmetic_config')
-        .in('id', ids);
-      if (cancelled) return;
-      if (error || !data) {
-        setLoadingChars(false);
-        return;
-      }
-      const byId = new Map<string, CharacterRow>(
-        data.map((c) => [c.id as string, c as CharacterRow]),
-      );
-      setChars({
-        p1: byId.get(battle.player_one_character_id) ?? null,
-        p2: battle.player_two_character_id
-          ? (byId.get(battle.player_two_character_id) ?? null)
-          : null,
+    supabase
+      .from('characters')
+      .select('battle_cry')
+      .eq('id', myCharacterId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setMyBattleCry((data?.battle_cry as string | null) ?? null);
       });
-      setLoadingChars(false);
-    }
-    load();
     return () => {
       cancelled = true;
     };
+  }, [myCharacterId]);
+
+  const handledTerminalRef = useRef(false);
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+  const [graceElapsed, setGraceElapsed] = useState(false);
+
+  // No battle row after LOAD_TIMEOUT_MS is a problem the player can act on,
+  // not a reason to advance blind: the old 4 s auto-advance sent people into
+  // move-select for a battle that had not loaded, where nothing worked.
+  useEffect(() => {
+    if (!battleId || battle) return;
+    const t = setTimeout(() => setLoadTimedOut(true), LOAD_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [battleId, battle]);
+
+  useEffect(() => {
+    if (!battle) return;
+    const t = setTimeout(() => setGraceElapsed(true), CHARACTER_GRACE_MS);
+    return () => clearTimeout(t);
   }, [battle]);
 
-  // Fetch signed portrait URLs from the private character-portraits bucket via
-  // the sign-battle-portraits edge function. Read-only, ~1h TTL signed URLs;
-  // returns null for bots or characters with no portrait. Degrades silently to
-  // the bundled archetype illustrations on any failure — never blocks the
-  // screen. Real photos only appear once the function is deployed.
-  useEffect(() => {
-    if (!battleId) return;
-    let cancelled = false;
-    async function signPortraits() {
-      try {
-        const { data, error } = await invokeFunctionResult(
-          'sign-battle-portraits',
-          { battle_id: battleId },
-        );
-        if (cancelled || error || !data) return;
-        const payload = data as SignBattlePortraitsResponse;
-        setPortraits({
-          p1: payload.player_one?.portrait_url ?? null,
-          p2: payload.player_two?.portrait_url ?? null,
-        });
-        setFighters({
-          p1: payload.player_one?.fighter_url ?? null,
-          p2: payload.player_two?.fighter_url ?? null,
-        });
-      } catch {
-        // Degrade silently to bundled archetype illustrations.
-      }
-    }
-    signPortraits();
-    return () => {
-      cancelled = true;
-    };
-    // signNonce re-signs after a URL expires mid-screen; they last ~1h and the
-    // face-off can sit open longer than that.
-  }, [battleId, signNonce]);
-
-  const advance = useCallback(() => {
-    if (!battleId) return;
-    router.replace(`/(battle)/move-select?battleId=${battleId}&round=1`);
-  }, [battleId, router]);
+  const currentRound = battle?.current_round ?? 1;
+  const isBo3 = format === 'bo3';
 
   const isRankedHumanMatch =
     battle?.mode === 'ranked' &&
@@ -162,54 +114,133 @@ export default function FaceOffScreen() {
 
   const leaveLabel = isRankedHumanMatch ? 'Forfeit' : 'Leave Battle';
 
-  // Nobody can have locked a prompt yet on this screen, so leaving here is
-  // always free and the dialog is byte-for-byte the one that shipped before the
-  // toll existed. Routed through the shared hook anyway so the six exit
-  // surfaces cannot drift into six different answers.
-  const leave = useLeaveBattle(battleId || null, {
+  // Android hardware back is the only navigation off this screen (the header
+  // and swipe gesture are off in the layout), and it used to abandon the
+  // battle silently. The guard funnels it into the same dialog as the footer
+  // button. Leaving is usually free here, but not always: a Bo3 re-entry can
+  // reach the face-off after a round-1 lock, and then it costs credits -- the
+  // shared hook reads the lock state, so the dialog says the right thing.
+  const leave = useBattleExitGuard(battleId || null, {
     format,
     mode: (battle?.mode ?? 'ranked') as BattleMode,
     isBot: Boolean(battle?.is_player_two_bot),
     prompts,
     myProfileId: user?.id,
+    enabled: Boolean(battle),
   });
 
-  const handleLeave = leave.confirmLeave;
+  const handleLeave = () => leave.confirmLeave();
+  const { exitTo } = leave;
+
+  // Continue is a router.replace, and a replace removes this screen -- which
+  // the guard above would intercept with the leave dialog. exitTo stands the
+  // guard down first. (This is what made bot battles look broken: Continue
+  // asked "Leave battle?", and confirming cancelled the battle.)
+  const advance = useCallback(() => {
+    if (!battleId) return;
+    exitTo(() =>
+      router.replace(
+        `/(battle)/move-select?battleId=${battleId}&round=${currentRound}`,
+      ),
+    );
+  }, [battleId, router, currentRound, exitTo]);
 
   useEffect(() => {
     if (!battle || handledTerminalRef.current) return;
 
-    if (battle.status === 'canceled') {
+    if (
+      battle.status === 'canceled' ||
+      battle.status === 'expired' ||
+      battle.status === 'moderation_failed'
+    ) {
       handledTerminalRef.current = true;
-      Alert.alert('Battle Canceled', 'This battle is no longer available.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/home') },
+      Alert.alert('Battle ended', 'This battle is no longer available.', [
+        {
+          text: 'OK',
+          onPress: () => exitTo(() => router.replace('/(tabs)/home')),
+        },
       ]);
       return;
     }
 
-    if (battle.status === 'completed') {
+    if (
+      battle.status === 'completed' ||
+      battle.status === 'generation_failed'
+    ) {
       handledTerminalRef.current = true;
-      router.replace(`/(battle)/result?battleId=${battleId}`);
+      exitTo(() => router.replace(`/(battle)/result?battleId=${battleId}`));
     }
-  }, [battle, battleId, router]);
+  }, [battle, battleId, router, exitTo]);
 
-  // Defensive fallback: if data fails to load within 4s, advance anyway.
-  useEffect(() => {
-    if (!battleId) return;
-    const t = setTimeout(() => {
-      if (!battle) {
-        advance();
-      }
-    }, 4000);
-    return () => clearTimeout(t);
-  }, [battle, battleId, advance]);
-
-  if (!battle || loadingChars) {
+  if (!battle && loadTimedOut) {
     return (
       <SafeAreaView
         style={[styles.center, { backgroundColor: colors.background }]}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
+        <Text
+          style={[styles.errorTitle, { color: colors.text }]}
+          accessibilityRole="header"
+        >
+          Couldn't load this battle
+        </Text>
+        <Text style={[styles.loading, { color: colors.textSecondary }]}>
+          Check your connection and try again.
+        </Text>
+        <View style={styles.errorActions}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.primaryButton,
+              { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
+            ]}
+            onPress={() => {
+              setLoadTimedOut(false);
+              refetch();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Retry"
+          >
+            <Text
+              style={[
+                styles.primaryButtonText,
+                { color: inkFor(colors.primary) },
+              ]}
+            >
+              Retry
+            </Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.secondaryButton,
+              {
+                borderColor: colors.border,
+                backgroundColor: colors.card,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
+            onPress={() => router.replace('/(tabs)/home')}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
+            <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
+              Back
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const charactersReady = Boolean(p1 && p2);
+  if (!battle || (!charactersReady && !graceElapsed)) {
+    return (
+      <SafeAreaView
+        style={[styles.center, { backgroundColor: colors.background }]}
+      >
+        <ActivityIndicator
+          size="large"
+          color={colors.primary}
+          accessibilityLabel="Loading the arena"
+        />
         <Text style={[styles.loading, { color: colors.textSecondary }]}>
           {isSubscribed ? 'Preparing the arena…' : 'Connecting…'}
         </Text>
@@ -217,87 +248,109 @@ export default function FaceOffScreen() {
     );
   }
 
-  // Undefined when there is nothing to show, so the portrait stays a plain
-  // image rather than a button that does nothing.
-  const openViewer = (caption: string, uri: string | null) =>
-    uri ? () => setViewer({ uri, caption }) : undefined;
+  // The viewer is always on the left, as on every other arena screen.
+  const me = isPlayerOne ? p1 : p2;
+  const them = isPlayerOne ? p2 : p1;
+  const myStats = isPlayerOne ? stats_snapshot.p1 : stats_snapshot.p2;
+  const theirStats = isPlayerOne ? stats_snapshot.p2 : stats_snapshot.p1;
+  const myHp = isPlayerOne ? hp.p1 : hp.p2;
+  const theirHp = isPlayerOne ? hp.p2 : hp.p1;
+  const myHpMax = isPlayerOne ? hp_max.p1 : hp_max.p2;
+  const theirHpMax = isPlayerOne ? hp_max.p2 : hp_max.p1;
 
-  const playerOne = buildPlayer(
-    chars.p1,
-    stats_snapshot.p1,
-    hp.p1,
-    hp_max.p1,
-    'Player 1',
-    portraits.p1,
-    openViewer(chars.p1?.name ?? 'Player 1', fighters.p1 ?? portraits.p1),
-  );
-  const playerTwo = buildPlayer(
-    chars.p2,
-    stats_snapshot.p2,
-    hp.p2,
-    hp_max.p2,
-    battle.is_player_two_bot ? 'Bot Opponent' : 'Player 2',
-    portraits.p2,
-    openViewer(
-      chars.p2?.name ?? (battle.is_player_two_bot ? 'Bot Opponent' : 'Player 2'),
-      fighters.p2 ?? portraits.p2,
-    ),
-  );
+  const openViewer = (c: BattleCharacterInfo | null) =>
+    portraitViewer.canOpen(c) ? () => portraitViewer.open(c) : undefined;
+
+  const theirCharacterId = isPlayerOne
+    ? battle.player_two_character_id
+    : battle.player_one_character_id;
+
+  const mine = buildPlayer({
+    info: me,
+    characterId: myCharacterId,
+    fallbackName: 'You',
+    label: 'YOU',
+    stats: myStats,
+    hp: myHp,
+    hpMax: myHpMax,
+    battleCry: myBattleCry,
+    fallbackColor: colors.primary,
+    onPortraitPress: openViewer(me),
+  });
+  const theirs = buildPlayer({
+    info: them,
+    characterId: theirCharacterId,
+    fallbackName: battle.is_player_two_bot ? 'Bot Opponent' : 'Opponent',
+    label: 'OPPONENT',
+    stats: theirStats,
+    hp: theirHp,
+    hpMax: theirHpMax,
+    battleCry: null,
+    fallbackColor: colors.textSecondary,
+    onPortraitPress: openViewer(them),
+  });
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
       <FaceOffPortraits
-        playerOne={playerOne}
-        playerTwo={playerTwo}
+        playerOne={mine}
+        playerTwo={theirs}
         theme={battle.theme}
+        roundLabel={isBo3 ? `Round ${currentRound}` : null}
+        header={
+          isBo3 ? (
+            <SeriesScoreIndicator
+              score={series_score}
+              currentRound={currentRound}
+              format={format}
+              bestOf={battle.best_of ?? 3}
+              viewer={isPlayerOne ? 'p1' : 'p2'}
+            />
+          ) : null
+        }
         onAdvance={advance}
         onLeave={handleLeave}
         leaveLabel={leaveLabel}
         actionsDisabled={leave.isLeaving}
       />
       <PortraitViewer
-        visible={viewer !== null}
-        uri={viewer?.uri ?? null}
-        caption={viewer?.caption}
-        // A fighter render is 2:3; the avatar fallback is square, and forcing
-        // it into a 2:3 frame would letterbox it.
-        aspect={
-          viewer &&
-          (viewer.uri === fighters.p1 || viewer.uri === fighters.p2)
-            ? 1.5
-            : 1
-        }
-        onImageError={() => {
-          setViewer(null);
-          setSignNonce((n) => n + 1);
-        }}
-        onClose={() => setViewer(null)}
+        visible={portraitViewer.visible}
+        uri={portraitViewer.viewer?.uri ?? null}
+        caption={portraitViewer.viewer?.caption}
+        aspect={portraitViewer.viewer?.aspect}
+        onImageError={portraitViewer.handleError}
+        onClose={portraitViewer.close}
       />
     </SafeAreaView>
   );
 }
 
-function buildPlayer(
-  c: CharacterRow | null,
-  stats: StatBlock,
-  hp: number,
-  hpMax: number,
-  fallbackName: string,
-  portraitUrl: string | null,
-  onPortraitPress?: () => void,
-): FaceOffPlayer {
+function buildPlayer(args: {
+  info: BattleCharacterInfo | null;
+  characterId: string | null | undefined;
+  fallbackName: string;
+  label: string;
+  stats: StatBlock;
+  hp: number;
+  hpMax: number;
+  battleCry: string | null;
+  fallbackColor: string;
+  onPortraitPress?: () => void;
+}): FaceOffPlayer {
+  const { info } = args;
   return {
-    onPortraitPress,
-    characterId: c?.id ?? 'unknown',
-    displayName: c?.name ?? fallbackName,
-    archetype: c?.archetype ?? 'fighter',
-    battleCry: c?.battle_cry ?? null,
-    signatureColor: c?.signature_color ?? '#8B5CF6',
-    portraitUrl: portraitUrl ?? null,
-    cosmetics: resolveEquippedCosmetics(c?.cosmetic_config),
-    stats,
-    hp,
-    hpMax,
+    onPortraitPress: args.onPortraitPress,
+    characterId: args.characterId ?? 'unknown',
+    displayName: info?.name ?? args.fallbackName,
+    archetype: info?.archetype ?? 'fighter',
+    battleCry: args.battleCry,
+    signatureColor: info?.signatureColor ?? args.fallbackColor,
+    portraitUrl: info?.portraitUrl ?? null,
+    cosmetics: info?.cosmetics,
+    label: args.label,
+    stats: args.stats,
+    hp: args.hp,
+    hpMax: args.hpMax,
   };
 }
 
@@ -312,5 +365,39 @@ const styles = StyleSheet.create({
   loading: {
     marginTop: Spacing.md,
     fontSize: Typography.sizes.base,
+    textAlign: 'center',
+  },
+  errorTitle: {
+    fontSize: Typography.sizes.xxl,
+    fontWeight: Typography.weights.bold,
+    textAlign: 'center',
+  },
+  errorActions: {
+    width: '100%',
+    gap: Spacing.sm,
+    marginTop: Spacing.xl,
+  },
+  primaryButton: {
+    minHeight: 52,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  primaryButtonText: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.bold,
+  },
+  secondaryButton: {
+    minHeight: 44,
+    borderRadius: BorderRadius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  secondaryButtonText: {
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
   },
 });

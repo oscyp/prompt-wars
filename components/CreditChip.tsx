@@ -1,13 +1,24 @@
 import React from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import {
+  Spacing,
+  Typography,
+  BorderRadius,
+  NumericFontVariant,
+} from '@/constants/DesignTokens';
 import AnimatedCounter from './AnimatedCounter';
 
 export interface CreditChipProps {
   credits: number;
+  /**
+   * The balance could not be read. Shows a dash instead of a number so the
+   * chip never claims "0 credits" on a network failure; still opens the
+   * wallet, which is where the player can retry.
+   */
+  unavailable?: boolean;
   /** Where a tap goes. Defaults to the wallet. */
   onPress?: () => void;
 }
@@ -19,7 +30,11 @@ export interface CreditChipProps {
  * the shop", leaving them to find the wallet on their own from a screen with no
  * route to it. Matches the home-screen chip's behaviour.
  */
-export default function CreditChip({ credits, onPress }: CreditChipProps) {
+export default function CreditChip({
+  credits,
+  unavailable = false,
+  onPress,
+}: CreditChipProps) {
   const colors = useThemedColors();
   const router = useRouter();
 
@@ -27,8 +42,11 @@ export default function CreditChip({ credits, onPress }: CreditChipProps) {
     <Pressable
       onPress={onPress ?? (() => router.push('/(profile)/wallet'))}
       accessibilityRole="button"
-      accessibilityLabel={`View wallet, ${credits} credits`}
-      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      accessibilityLabel={
+        unavailable
+          ? 'View wallet, balance unavailable'
+          : `View wallet, ${credits} credits`
+      }
       style={({ pressed }) => [
         styles.chip,
         {
@@ -39,11 +57,23 @@ export default function CreditChip({ credits, onPress }: CreditChipProps) {
       ]}
     >
       <Ionicons name="sparkles" size={13} color={colors.primary} />
-      <AnimatedCounter
-        value={credits}
-        style={[styles.text, { color: colors.text }]}
-        accessibilityLabel={`${credits} credits`}
-      />
+      {unavailable ? (
+        <Text
+          style={[
+            styles.text,
+            NumericFontVariant,
+            { color: colors.textSecondary },
+          ]}
+        >
+          —
+        </Text>
+      ) : (
+        <AnimatedCounter
+          value={credits}
+          style={[styles.text, { color: colors.text }]}
+          accessibilityLabel={`${credits} credits`}
+        />
+      )}
     </Pressable>
   );
 }
@@ -53,7 +83,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    minHeight: 32,
+    // 44pt: the design language's minimum target, met by the visible control.
+    minHeight: 44,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.full,
     borderWidth: StyleSheet.hairlineWidth,

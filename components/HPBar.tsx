@@ -1,14 +1,15 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  AccessibilityInfo,
-} from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography, BorderRadius, Motion, NumericFontVariant } from '@/constants/DesignTokens';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import {
+  Spacing,
+  Typography,
+  BorderRadius,
+  Motion,
+  NumericFontVariant,
+} from '@/constants/DesignTokens';
 
 export interface HPBarProps {
   current: number;
@@ -37,59 +38,56 @@ export default function HPBar({
   showName = true,
 }: HPBarProps) {
   const colors = useThemedColors();
+  // The shared hook, not AccessibilityInfo directly: it ORs in the in-app
+  // Reduce Motion toggle, which this bar used to ignore.
+  const reduceMotion = useReducedMotion();
   const safeMax = Math.max(1, max);
   const clampedCurrent = Math.max(0, Math.min(current, safeMax));
-  const startPct = animateFrom != null
-    ? Math.max(0, Math.min(animateFrom, safeMax)) / safeMax
-    : clampedCurrent / safeMax;
+  const startPct =
+    animateFrom != null
+      ? Math.max(0, Math.min(animateFrom, safeMax)) / safeMax
+      : clampedCurrent / safeMax;
   const endPct = clampedCurrent / safeMax;
 
   const widthAnim = useRef(new Animated.Value(startPct)).current;
   const lostAnim = useRef(new Animated.Value(0)).current;
-  const lost = animateFrom != null
-    ? Math.max(0, animateFrom - clampedCurrent)
-    : 0;
+  const lost =
+    animateFrom != null ? Math.max(0, animateFrom - clampedCurrent) : 0;
 
   useEffect(() => {
-    let cancelled = false;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((reduce) => {
-        if (cancelled) return;
-        if (reduce) {
-          widthAnim.setValue(endPct);
-          return;
-        }
-        Animated.spring(widthAnim, {
-          toValue: endPct,
-          useNativeDriver: false,
-          damping: Motion.spring.damping,
-          stiffness: Motion.spring.stiffness,
-          mass: Motion.spring.mass,
-        }).start();
-        if (lost > 0) {
-          lostAnim.setValue(1);
-          Animated.timing(lostAnim, {
-            toValue: 0,
-            duration: 1400,
-            useNativeDriver: true,
-          }).start();
-        }
-      })
-      .catch(() => {
-        widthAnim.setValue(endPct);
+    if (reduceMotion) {
+      widthAnim.setValue(endPct);
+      // The damage number still shows; it just does not fade.
+      lostAnim.setValue(lost > 0 ? 1 : 0);
+      return;
+    }
+    const spring = Animated.spring(widthAnim, {
+      toValue: endPct,
+      useNativeDriver: false,
+      damping: Motion.spring.damping,
+      stiffness: Motion.spring.stiffness,
+      mass: Motion.spring.mass,
+    });
+    spring.start();
+    let fade: Animated.CompositeAnimation | null = null;
+    if (lost > 0) {
+      lostAnim.setValue(1);
+      fade = Animated.timing(lostAnim, {
+        toValue: 0,
+        duration: 1400,
+        useNativeDriver: true,
       });
+      fade.start();
+    }
     return () => {
-      cancelled = true;
+      spring.stop();
+      fade?.stop();
     };
-  }, [endPct, lost, widthAnim, lostAnim]);
+  }, [endPct, lost, widthAnim, lostAnim, reduceMotion]);
 
   const ratio = endPct;
   const fillColor =
-    ratio > 0.5
-      ? colors.success
-      : ratio > 0.25
-        ? colors.warning
-        : colors.error;
+    ratio > 0.5 ? colors.success : ratio > 0.25 ? colors.warning : colors.error;
 
   const widthInterpolation = widthAnim.interpolate({
     inputRange: [0, 1],
@@ -150,10 +148,7 @@ export default function HPBar({
         </View>
         {lost > 0 ? (
           <Animated.Text
-            style={[
-              styles.lost,
-              { color: colors.error, opacity: lostAnim },
-            ]}
+            style={[styles.lost, { color: colors.error, opacity: lostAnim }]}
             accessibilityElementsHidden
             importantForAccessibility="no"
           >
@@ -164,7 +159,10 @@ export default function HPBar({
       <View
         style={[
           styles.track,
-          { backgroundColor: colors.backgroundTertiary, borderColor: colors.border },
+          {
+            backgroundColor: colors.backgroundTertiary,
+            borderColor: colors.border,
+          },
         ]}
       >
         <Animated.View

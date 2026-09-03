@@ -1,52 +1,13 @@
-import Purchases, { LOG_LEVEL } from 'react-native-purchases';
-import { Platform } from 'react-native';
-
-const IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
-const ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
-
 /**
- * Initialize RevenueCat SDK
- * Call this once on app startup, after user authentication if needed
- * 
- * NOTE: Prefer using RevenueCatProvider instead of calling this directly.
- * This utility is kept for legacy/testing purposes.
+ * RevenueCat identifiers and pure predicates shared by the provider and the
+ * wallet screen.
+ *
+ * The SDK itself is driven from `providers/RevenueCatProvider.tsx`. The
+ * module-level `initializeRevenueCat`, `getCustomerInfo`, `hasActiveSubscription`
+ * and `restorePurchases` helpers that used to live here duplicated the
+ * provider's own calls and had no callers; they were removed rather than left
+ * as a second, unmaintained way to talk to the store.
  */
-export const initializeRevenueCat = (userId?: string) => {
-  const apiKey = Platform.select({
-    ios: IOS_API_KEY,
-    android: ANDROID_API_KEY,
-  });
-
-  if (!apiKey) {
-    console.warn(
-      'RevenueCat API key not found for this platform. In-app purchases will not work.',
-    );
-    return;
-  }
-
-  // Configure RevenueCat
-  Purchases.setLogLevel(LOG_LEVEL.DEBUG);
-
-  Purchases.configure({
-    apiKey,
-    appUserID: userId, // Optional: set after authentication
-  });
-
-  console.log('RevenueCat initialized');
-};
-
-/**
- * Get current customer info (entitlements, subscriptions)
- */
-export const getCustomerInfo = async () => {
-  try {
-    const customerInfo = await Purchases.getCustomerInfo();
-    return customerInfo;
-  } catch (error) {
-    console.error('Error fetching customer info:', error);
-    throw error;
-  }
-};
 
 /**
  * The single RevenueCat entitlement that grants Prompt Wars+.
@@ -70,20 +31,14 @@ export const PLUS_ENTITLEMENT_ID = 'plus';
  * time any other one is added (a cosmetic bundle, a founder's pack, a promo),
  * everyone holding it silently becomes a subscriber. Checking the name is
  * correct regardless of what else gets configured later.
+ *
+ * Pure predicate over a CustomerInfo-shaped object, so it is unit-testable.
  */
-export const hasActiveSubscription = async (): Promise<boolean> => {
-  try {
-    const customerInfo = await getCustomerInfo();
-    return isPlusActive(customerInfo);
-  } catch (error) {
-    console.error('Error checking subscription status:', error);
-    return false;
-  }
-};
-
-/** Pure predicate over a CustomerInfo-shaped object, so it is unit-testable. */
 export function isPlusActive(
-  customerInfo: { entitlements?: { active?: Record<string, unknown> } } | null | undefined,
+  customerInfo:
+    | { entitlements?: { active?: Record<string, unknown> } }
+    | null
+    | undefined,
 ): boolean {
   const active = customerInfo?.entitlements?.active;
   if (!active) return false;
@@ -91,32 +46,19 @@ export function isPlusActive(
 }
 
 /**
- * Restore purchases (for users who already purchased)
- */
-export const restorePurchases = async () => {
-  try {
-    const customerInfo = await Purchases.restorePurchases();
-    return customerInfo;
-  } catch (error) {
-    console.error('Error restoring purchases:', error);
-    throw error;
-  }
-};
-
-/**
  * Product IDs for credit packs and subscriptions
  * Match these with RevenueCat dashboard and .env.example documentation
  */
 export const PRODUCT_IDS = {
   // Credit packs (consumable)
-  CREDITS_10: 'credits_10',    // Starter: $1.99
-  CREDITS_30: 'credits_30',    // Standard: $4.99 (best value)
-  CREDITS_80: 'credits_80',    // Big: $9.99
-  CREDITS_200: 'credits_200',  // Whale: $19.99
+  CREDITS_10: 'credits_10', // Starter: $1.99
+  CREDITS_30: 'credits_30', // Standard: $4.99 (best value)
+  CREDITS_80: 'credits_80', // Big: $9.99
+  CREDITS_200: 'credits_200', // Mega: $19.99
 
   // Subscription (Prompt Wars+)
-  PLUS_MONTHLY: 'promptwars_plus_monthly',   // ~$9.99/mo
-  PLUS_ANNUAL: 'promptwars_plus_annual',     // ~$59.99/yr
+  PLUS_MONTHLY: 'promptwars_plus_monthly', // ~$9.99/mo
+  PLUS_ANNUAL: 'promptwars_plus_annual', // ~$59.99/yr
 
   // First-time-user offer (one-time bundle; product_id must match the
   // first_time_offers.product_id seeded in the DB migration)
@@ -127,14 +69,14 @@ export const PRODUCT_IDS = {
  * IMPORTANT: All purchase validation and entitlement grants MUST happen
  * server-side via Supabase Edge Functions. Never trust client-side
  * purchase state for gameplay decisions.
- * 
+ *
  * Purchase flow:
  * 1. Client initiates purchase via RevenueCat SDK
  * 2. RevenueCat processes payment with App Store / Play Store
  * 3. RevenueCat sends webhook to `revenuecat-webhook` Edge Function
  * 4. Server validates, mirrors purchase/subscription to DB, grants credits
  * 5. Client queries `entitlements` view to check feature gates
- * 
+ *
  * Video upgrade flow:
  * 1. Client calls `request-video-upgrade` Edge Function
  * 2. Server checks `entitlements` view (single source of truth)
@@ -142,7 +84,6 @@ export const PRODUCT_IDS = {
  * 4. Server creates `video_jobs` row
  * 5. Client subscribes to Realtime updates for video status
  */
-
 
 /**
  * Credits delivered per pack, mirroring the server's authoritative map in
@@ -161,13 +102,21 @@ export const CREDIT_PACK_CREDITS: Record<string, number> = {
   [PRODUCT_IDS.CREDITS_200]: 200,
 };
 
-/** Display name and ordering for the credit packs. */
+/**
+ * Display name and ordering for the credit packs. "Mega", not "Whale": the
+ * latter is industry slang for a high-spending player and is not a name to put
+ * in front of one.
+ */
 export const CREDIT_PACK_META: Record<
   string,
   { title: string; order: number; badge?: string }
 > = {
   [PRODUCT_IDS.CREDITS_10]: { title: 'Starter', order: 1 },
-  [PRODUCT_IDS.CREDITS_30]: { title: 'Standard', order: 2, badge: 'Best value' },
+  [PRODUCT_IDS.CREDITS_30]: {
+    title: 'Standard',
+    order: 2,
+    badge: 'Best value',
+  },
   [PRODUCT_IDS.CREDITS_80]: { title: 'Big', order: 3 },
-  [PRODUCT_IDS.CREDITS_200]: { title: 'Whale', order: 4 },
+  [PRODUCT_IDS.CREDITS_200]: { title: 'Mega', order: 4 },
 };

@@ -43,7 +43,8 @@ export const HighContrastColors: Record<ColorStyle, ThemeColors> = {
     info: '#1D4ED8',
     attack: '#B91C1C',
     defense: '#1D4ED8',
-    finisher: '#5B21B6',
+    // Finisher must never equal primary (see constants/Colors.ts).
+    finisher: '#9D174D',
     link: '#1D4ED8',
     tabIconDefault: '#374151',
     tabIconSelected: '#5B21B6',
@@ -69,7 +70,8 @@ export const HighContrastColors: Record<ColorStyle, ThemeColors> = {
     info: '#93C5FD',
     attack: '#FCA5A5',
     defense: '#93C5FD',
-    finisher: '#C4B5FD',
+    // Finisher must never equal primary (see constants/Colors.ts).
+    finisher: '#F9A8D4',
     link: '#93C5FD',
     tabIconDefault: '#D1D5DB',
     tabIconSelected: '#C4B5FD',

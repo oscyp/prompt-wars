@@ -9,6 +9,11 @@ import { renderHook, act } from '@testing-library/react-native';
 import { usePortraitViewer } from '@/hooks/usePortraitViewer';
 import type { BattleCharacterInfo } from '@/hooks/useBattleCharacters';
 
+jest.mock('@/constants/ArchetypeAvatars', () => ({
+  archetypeIllustrationUri: (archetype: string | null | undefined) =>
+    archetype ? `asset://avatars/${archetype}.jpg` : null,
+}));
+
 function character(
   over: Partial<BattleCharacterInfo> = {},
 ): BattleCharacterInfo {
@@ -49,12 +54,25 @@ describe('usePortraitViewer', () => {
     });
   });
 
-  it('stays shut when there is no image at all', () => {
+  it('opens the archetype illustration when there is no render at all', () => {
+    // A bot, or a fighter whose portrait never landed: the strip is already
+    // drawing the archetype art, so the tap enlarges that rather than dying.
     const { result } = renderHook(() => usePortraitViewer());
     act(() =>
-      result.current.open(character({ fighterUrl: null, portraitUrl: null })),
+      result.current.open(
+        character({
+          fighterUrl: null,
+          portraitUrl: null,
+          archetype: 'titan',
+          name: 'Forge',
+        }),
+      ),
     );
-    expect(result.current.visible).toBe(false);
+    expect(result.current.viewer).toEqual({
+      uri: 'asset://avatars/titan.jpg',
+      caption: 'Forge',
+      aspect: 1,
+    });
   });
 
   it('stays shut for a missing character', () => {
@@ -64,20 +82,22 @@ describe('usePortraitViewer', () => {
   });
 
   describe('canOpen', () => {
-    it('is false with no imagery, so the avatar stays a plain image', () => {
+    it('is true with no imagery, because the archetype art stands in', () => {
       const { result } = renderHook(() => usePortraitViewer());
       expect(
         result.current.canOpen(
           character({ fighterUrl: null, portraitUrl: null }),
         ),
-      ).toBe(false);
+      ).toBe(true);
       expect(result.current.canOpen(null)).toBe(false);
     });
 
     it('is true when either render exists', () => {
       const { result } = renderHook(() => usePortraitViewer());
       expect(result.current.canOpen(character())).toBe(true);
-      expect(result.current.canOpen(character({ fighterUrl: null }))).toBe(true);
+      expect(result.current.canOpen(character({ fighterUrl: null }))).toBe(
+        true,
+      );
     });
   });
 

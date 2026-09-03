@@ -18,6 +18,15 @@ export interface Archetype {
   description: string;
   trait: string;
   color: string;
+  /**
+   * What this archetype's persona is written to favour; display copy for the
+   * edit screen's archetype cards. Not a judge coefficient: the judge scores
+   * `archetype_fit` (persona consistency) plus the shared rubric, with no
+   * per-archetype move-type multiplier (see `_shared/judge.ts`). Keep in step
+   * with `description` — `__tests__/archetypes.test.ts` asserts the
+   * description mentions it.
+   */
+  rewards: string;
 }
 
 export const ARCHETYPES: Record<ArchetypeId, Archetype> = {
@@ -27,6 +36,7 @@ export const ARCHETYPES: Record<ArchetypeId, Archetype> = {
     description: 'Precise, tactical, rewards Defense moves',
     trait: 'Tactical Precision',
     color: '#3B82F6', // Blue
+    rewards: 'Defense moves',
   },
   trickster: {
     id: 'trickster',
@@ -34,6 +44,7 @@ export const ARCHETYPES: Record<ArchetypeId, Archetype> = {
     description: 'Creative, chaotic, rewards unexpected angles',
     trait: 'Unpredictable Chaos',
     color: '#F59E0B', // Orange
+    rewards: 'unexpected angles',
   },
   titan: {
     id: 'titan',
@@ -41,6 +52,7 @@ export const ARCHETYPES: Record<ArchetypeId, Archetype> = {
     description: 'Direct, powerful, rewards Attack moves',
     trait: 'Raw Power',
     color: '#EF4444', // Red
+    rewards: 'Attack moves',
   },
   mystic: {
     id: 'mystic',
@@ -48,6 +60,7 @@ export const ARCHETYPES: Record<ArchetypeId, Archetype> = {
     description: 'Poetic, abstract, rewards Originality',
     trait: 'Abstract Vision',
     color: '#8B5CF6', // Purple
+    rewards: 'Originality',
   },
   engineer: {
     id: 'engineer',
@@ -55,6 +68,7 @@ export const ARCHETYPES: Record<ArchetypeId, Archetype> = {
     description: 'Structured, technical, rewards Specificity',
     trait: 'Technical Mastery',
     color: '#10B981', // Green
+    rewards: 'Specificity',
   },
 } as const;
 

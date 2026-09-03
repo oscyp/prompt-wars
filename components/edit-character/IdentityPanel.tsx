@@ -1,12 +1,16 @@
 import React from 'react';
-import { View, Text, TextInput, ScrollView } from 'react-native';
+import { View, Text, TextInput } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { PALETTES, TRAIT_LABELS } from '@/constants/CharacterTraits';
-import { ARCHETYPE_LIST, type ArchetypeId } from '@/constants/Archetypes';
-import type { EditPricing } from '@/utils/editCooldowns';
+import type { ArchetypeId } from '@/constants/Archetypes';
+import {
+  describeCooldownLength,
+  type EditPricing,
+} from '@/utils/editCooldowns';
+import { archetypeOptions } from '@/utils/traitOptions';
 import type { DraftKey } from '@/hooks/useCharacterEditDraft';
-import TraitPicker, { type TraitOption } from '../TraitPicker';
+import OptionGrid from '../OptionGrid';
 import ColorSwatchGrid, {
   withCustomOption,
   selectedValueForHex,
@@ -59,6 +63,8 @@ export const PALETTE_SWATCHES: ColorSwatchOption[] = PALETTES.map((p) => ({
  * route to a renamed fighter was to make a new one. Signature colour did the
  * opposite: it committed the instant a swatch was touched, silently starting a
  * 24-hour lock.
+ *
+ * Does not scroll itself: the screen's single scroll owns that.
  */
 export default function IdentityPanel({
   character,
@@ -75,19 +81,23 @@ export default function IdentityPanel({
   const name = (staged.name as string) ?? character.name;
   const archetype = (staged.archetype ?? character.archetype) as ArchetypeId;
   const battleCry = (staged.battleCry as string) ?? character.battle_cry;
-  const colorHex = (staged.signatureColor as string) ?? character.signature_color;
+  const colorHex =
+    (staged.signatureColor as string) ?? character.signature_color;
 
   const colorOptions = withCustomOption(
     PALETTE_SWATCHES,
     character.signature_color,
   );
 
+  // Said before the change, not after: once a cooldown is running the card's
+  // badge already shows the countdown, so repeating the lock length would be
+  // the same fact twice.
+  const archetypeLockLength = pricing.cooldownMs.archetype
+    ? null
+    : describeCooldownLength(pricing.prices.archetype?.cooldownSeconds ?? 0);
+
   return (
-    <ScrollView
-      style={s.panelScroll}
-      contentContainerStyle={s.panel}
-      keyboardShouldPersistTaps="handled"
-    >
+    <View style={s.panel}>
       <EditCardShell
         title="Name"
         subtitle="What opponents see on the versus screen."
@@ -121,19 +131,20 @@ export default function IdentityPanel({
         changed={changedKeys.has('archetype')}
         disabled={disabled}
       >
-        <TraitPicker
-          title=""
+        <OptionGrid
+          label="Archetype"
+          options={archetypeOptions()}
           value={archetype}
           onChange={(v) => onStage('archetype', v)}
-          options={ARCHETYPE_LIST.map<TraitOption>((a) => ({
-            value: a.id,
-            label: a.name,
-            swatch: a.color,
-          }))}
+          disabled={disabled}
         />
-        <Text style={[s.hint, accessibleText, { color: colors.textTertiary }]}>
-          {ARCHETYPE_LIST.find((a) => a.id === archetype)?.description ?? ''}
-        </Text>
+        {archetypeLockLength ? (
+          <Text
+            style={[s.hint, accessibleText, { color: colors.textTertiary }]}
+          >
+            {`A change locks it for ${archetypeLockLength}.`}
+          </Text>
+        ) : null}
       </EditCardShell>
 
       <EditCardShell
@@ -181,8 +192,6 @@ export default function IdentityPanel({
           onChange={(v) => onStage('signatureColor', v)}
         />
       </EditCardShell>
-
-      <View />
-    </ScrollView>
+    </View>
   );
 }

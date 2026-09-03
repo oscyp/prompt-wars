@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
+import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 
 interface SectionCardProps {
@@ -13,8 +14,10 @@ interface SectionCardProps {
 }
 
 /**
- * Visual grouping container used by the Create/Edit character flows.
- * Surfaces a rounded card on the secondary background with optional title row.
+ * Visual grouping container used by the tab screens and the character flows.
+ * Surfaces a rounded card on the secondary background with an optional
+ * header row: a title (announced as a heading), a one-to-two line subtitle,
+ * and a trailing slot for a count, badge or small action.
  */
 export default function SectionCard({
   title,
@@ -24,6 +27,7 @@ export default function SectionCard({
   style,
 }: SectionCardProps) {
   const colors = useThemedColors();
+  const accessibleText = useAccessibleTextStyle();
   return (
     <View
       style={[
@@ -35,24 +39,31 @@ export default function SectionCard({
         style,
       ]}
     >
-      {title || subtitle ? (
+      {title || subtitle || trailing ? (
         <View style={styles.header}>
           <View style={styles.headerText}>
             {title ? (
-              <Text style={[styles.title, { color: colors.text }]}>
+              <Text
+                style={[styles.title, { color: colors.text }]}
+                accessibilityRole="header"
+              >
                 {title}
               </Text>
             ) : null}
             {subtitle ? (
               <Text
-                style={[styles.subtitle, { color: colors.textSecondary }]}
+                style={[
+                  styles.subtitle,
+                  accessibleText,
+                  { color: colors.textSecondary },
+                ]}
                 numberOfLines={2}
               >
                 {subtitle}
               </Text>
             ) : null}
           </View>
-          {trailing ? <View>{trailing}</View> : null}
+          {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
         </View>
       ) : null}
       {children}
@@ -76,6 +87,9 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
     paddingRight: Spacing.sm,
+  },
+  trailing: {
+    alignSelf: 'center',
   },
   title: {
     fontSize: Typography.sizes.lg,

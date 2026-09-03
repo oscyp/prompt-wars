@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { hapticSelection } from '@/utils/haptics';
 
 export interface SegmentedCategoryItem {
   key: string;
@@ -35,6 +36,7 @@ export default function SegmentedCategoryBar({
 
   return (
     <View
+      accessibilityRole="tablist"
       style={[
         styles.bar,
         { backgroundColor: colors.card, borderColor: colors.border },
@@ -45,7 +47,10 @@ export default function SegmentedCategoryBar({
         return (
           <TouchableOpacity
             key={item.key}
-            onPress={() => onChange(item.key)}
+            onPress={() => {
+              if (!selected) hapticSelection();
+              onChange(item.key);
+            }}
             accessibilityRole="tab"
             accessibilityLabel={item.label}
             accessibilityState={{ selected }}

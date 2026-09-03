@@ -88,3 +88,28 @@ export interface BattleRound {
 }
 
 export type RubricCategory = keyof RubricScoreSet;
+
+/**
+ * What one player got out of a battle, written once by
+ * `apply_post_battle_rewards` into `battles.reward_payload` (keyed by profile
+ * id; bots never appear). Null on battles resolved before 2026-09-03.
+ */
+export interface RewardSummary {
+  credits_granted: number;
+  credit_reasons: string[];
+  /** Ranked, human opponent: the only battles that pay streak credits. */
+  credits_eligible: boolean;
+  win_streak_after: number;
+  best_win_streak: number;
+  streak_milestone: boolean;
+  quests_advanced: string[];
+  /** Quests this battle carried over their target; claiming is still a tap. */
+  quests_completed: {
+    quest_type: string;
+    title: string;
+    reward_credits: number;
+  }[];
+  mode: string;
+}
+
+export type RewardPayload = Record<string, RewardSummary>;

@@ -32,7 +32,15 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import {
+  Spacing,
+  Typography,
+  BorderRadius,
+  Layout,
+  Ink,
+  NumericFontVariant,
+} from '@/constants/DesignTokens';
 import {
   generateMoveSuggestions,
   getBattle,
@@ -43,10 +51,22 @@ import {
   MoveType,
 } from '@/utils/battles';
 import { MOVE_META } from '@/constants/MoveTypes';
-import { validatePromptText } from '@/utils/promptSelection';
+import {
+  validatePromptText,
+  CUSTOM_PROMPT_MAX_LENGTH,
+  CUSTOM_PROMPT_MIN_LENGTH,
+} from '@/utils/promptSelection';
+import { coachPrompt, type CoachTone } from '@/utils/promptCoach';
+import { describeSubmitError, moveLabel } from '@/utils/battleCopy';
+import { inkFor } from '@/utils/contrast';
+import { formatCredits, insufficientCreditsMessage } from '@/utils/credits';
+import { fetchEditPrice } from '@/utils/editCooldowns';
 import { hapticImpact, hapticSelection } from '@/utils/haptics';
 import { useAuth } from '@/providers/AuthProvider';
-import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
+import {
+  useRealtimeBattle,
+  type PromptUpdate,
+} from '@/hooks/useRealtimeBattle';
 import { useLeaveBattle } from '@/hooks/useLeaveBattle';
 import { useBattleCharacters } from '@/hooks/useBattleCharacters';
 import { usePortraitViewer } from '@/hooks/usePortraitViewer';
@@ -55,22 +75,47 @@ import HPBar from '@/components/HPBar';
 import VersusStrip from '@/components/VersusStrip';
 import PortraitViewer from '@/components/PortraitViewer';
 import HeaderLeaveButton from '@/components/HeaderLeaveButton';
-
-// Judge length normalization (soft target 15–80 words, penalty past 100 —
-// see _shared/judge.ts normalizeScores). Client-side hint only.
-const WORDS_MIN_GOOD = 15;
-const WORDS_MAX_GOOD = 80;
-const WORDS_PENALTY = 100;
+import InlineBanner from '@/components/InlineBanner';
 
 // Lock-in ceremony: press-and-hold duration before the submit fires.
 const HOLD_DURATION_MS = 600;
+// How long the "keep holding" nudge replaces the standing hint after an
+// early release.
+const HINT_FLASH_MS = 1600;
+// The channel is not joined for the first few hundred ms of every mount;
+// "Reconnecting…" only appears once the gap is long enough to mean something.
+const RECONNECT_GRACE_MS = 2000;
+// setTimeout wraps past 2^31-1 ms; deadlines are minutes away, but clamp.
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
 const MOVE_TYPES: MoveType[] = ['attack', 'defense', 'finisher'];
+
+// Battle- and round-level states in which writing a prompt is pointless: the
+// server has moved on, so the screen must too. Waiting knows where to go next.
+const CLOSED_BATTLE_STATUSES = new Set([
+  'completed',
+  'expired',
+  'canceled',
+  'result_ready',
+  'generation_failed',
+  'moderation_failed',
+]);
+const CLOSED_ROUND_STATUSES = new Set([
+  'resolving',
+  'result_ready',
+  'expired',
+  'canceled',
+]);
+
+// `battle_prompts` is fetched with `select('*')`, so the row carries the text;
+// the shared hook type just never declared it. Own rows only, under RLS.
+type PromptRow = PromptUpdate & { custom_prompt_text?: string | null };
 
 export default function PromptEntryScreen() {
   const colors = useThemedColors();
   // Dyslexia-friendly spacing on the theme + prompt-writing surface (§22a).
   const accessibleText = useAccessibleTextStyle();
+  const reduceMotion = useReducedMotion();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -84,9 +129,9 @@ export default function PromptEntryScreen() {
     moveType?: string;
   }>();
 
-  // The move type is now chosen on move-select and arrives as a param. It is
-  // NOT defaulted: a silent fallback to 'attack' would submit a move the
-  // player never picked, and they would not find out until the reveal.
+  // The move type is chosen on move-select and arrives as a param. It is NOT
+  // defaulted: a silent fallback to 'attack' would submit a move the player
+  // never picked, and they would not find out until the reveal.
   const moveType = MOVE_TYPES.includes(moveTypeParam as MoveType)
     ? (moveTypeParam as MoveType)
     : null;
@@ -107,15 +152,31 @@ export default function PromptEntryScreen() {
   const [suggestionRetry, setSuggestionRetry] = useState<
     'read' | 'generate' | null
   >(null);
-  const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(
-    null,
-  );
+  // The credit wall gets a way out that is not "run the paid call again".
+  const [suggestionPaywall, setSuggestionPaywall] = useState(false);
   const [customText, setCustomText] = useState('');
   const [isCustom, setIsCustom] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Realtime Bo3 state (HP, series score, opponent move history).
+  // Reroll price, read once. The server bills from its own table; this only
+  // decides what the button and the confirmation say. 1 is the seeded price
+  // and the fallback if the read fails, so the copy never shows a blank.
+  const [rerollCredits, setRerollCredits] = useState(1);
+  useEffect(() => {
+    let mounted = true;
+    fetchEditPrice('prompt_suggestions_reroll').then((price) => {
+      if (mounted && price) setRerollCredits(price.credits);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+  const rerollIsFree = rerollCredits <= 0;
+  const rerollChip = formatCredits(rerollCredits, 'chip');
+  const rerollSentence = formatCredits(rerollCredits, 'sentence');
+
+  // Realtime Bo3 state (HP, series score, opponent lock status).
   const {
     battle: rtBattle,
     prompts,
@@ -125,6 +186,7 @@ export default function PromptEntryScreen() {
     series_score,
     hp,
     hp_max,
+    isSubscribed,
   } = useRealtimeBattle(battleId || null);
 
   const roundNumber = round ? Number(round) : current_round;
@@ -143,6 +205,9 @@ export default function PromptEntryScreen() {
     [rounds, roundNumber],
   );
   const isBo3 = format === 'bo3';
+
+  const waitingHref =
+    `/(battle)/waiting?battleId=${battleId}&round=${roundNumber}` as const;
 
   // useLeaveBattle, not useBattleExitGuard: back from this screen returns to
   // move-select, which is still inside the battle. Guarding it would ask a
@@ -172,12 +237,62 @@ export default function PromptEntryScreen() {
   const myChar = isPlayerOne ? p1Char : p2Char;
   const oppChar = isPlayerOne ? p2Char : p1Char;
 
+  // My own prompt row for THIS round. If it is already locked there is nothing
+  // to write: coming back here (a stale deep link, a back-swipe from waiting)
+  // must not present an editor that would be refused on submit.
+  const myPrompt = useMemo<PromptRow | null>(
+    () =>
+      (prompts.find(
+        (p) =>
+          p.profile_id === user?.id && (p.round_number ?? 1) === roundNumber,
+      ) as PromptRow | undefined) ?? null,
+    [prompts, user?.id, roundNumber],
+  );
+  const alreadyLocked = Boolean(myPrompt?.is_locked);
+  const lockedMove: MoveType | null = myPrompt?.move_type ?? moveType;
+  const lockedText = myPrompt?.custom_prompt_text ?? null;
+
   // Lock-in deadline for the countdown: per-round for Bo3, per-player for single.
   const myDeadline = isBo3
     ? (roundData?.lock_in_deadline ?? null)
     : isPlayerOne
       ? (rtBattle?.player_one_prompt_deadline ?? null)
       : (rtBattle?.player_two_prompt_deadline ?? null);
+
+  // One timer that fires at the deadline, rather than a 1s tick: the strip
+  // already ticks its own clock, and re-rendering an editor every second while
+  // someone types is a jank source for nothing.
+  const deadlineMs = myDeadline ? Date.parse(myDeadline) : NaN;
+  const [deadlinePassed, setDeadlinePassed] = useState(false);
+  useEffect(() => {
+    if (!Number.isFinite(deadlineMs)) {
+      setDeadlinePassed(false);
+      return;
+    }
+    const remaining = deadlineMs - Date.now();
+    if (remaining <= 0) {
+      setDeadlinePassed(true);
+      return;
+    }
+    setDeadlinePassed(false);
+    const t = setTimeout(
+      () => setDeadlinePassed(true),
+      Math.min(remaining, MAX_TIMEOUT_MS),
+    );
+    return () => clearTimeout(t);
+  }, [deadlineMs]);
+
+  // "Reconnecting…" after a grace period, so the ordinary join delay on mount
+  // does not flash a warning at every player.
+  const [showReconnecting, setShowReconnecting] = useState(false);
+  useEffect(() => {
+    if (isSubscribed) {
+      setShowReconnecting(false);
+      return;
+    }
+    const t = setTimeout(() => setShowReconnecting(true), RECONNECT_GRACE_MS);
+    return () => clearTimeout(t);
+  }, [isSubscribed]);
 
   // Opponent lock status (never move type or content). Bo3 uses the current
   // round's per-round timestamps; single uses the battle-level columns. All
@@ -198,12 +313,21 @@ export default function PromptEntryScreen() {
     );
   }, [rtBattle, isBo3, roundData, isPlayerOne]);
 
-  // Live custom-prompt quality hints (mirrors the judge's length
-  // normalization; theme check is a simple keyword heuristic).
-  const customWordCount = useMemo(() => {
-    const trimmed = customText.trim();
-    return trimmed.length === 0 ? 0 : trimmed.split(/\s+/).length;
-  }, [customText]);
+  // Live length coaching (utils/promptCoach.ts) + a keyword theme check.
+  const coach = useMemo(
+    () =>
+      coachPrompt(customText, {
+        minChars: CUSTOM_PROMPT_MIN_LENGTH,
+        maxChars: CUSTOM_PROMPT_MAX_LENGTH,
+      }),
+    [customText],
+  );
+  const toneColor: Record<CoachTone, string> = {
+    muted: colors.textTertiary,
+    warning: colors.warning,
+    success: colors.success,
+    error: colors.error,
+  };
   const referencesTheme = useMemo(() => {
     const theme = (battle?.theme ?? '').toLowerCase();
     if (!theme || customText.trim().length === 0) return false;
@@ -211,6 +335,13 @@ export default function PromptEntryScreen() {
     const text = customText.toLowerCase();
     return themeWords.some((w) => text.includes(w));
   }, [battle?.theme, customText]);
+
+  // Which idea, if any, the editor currently holds verbatim. Derived rather
+  // than stored so a card stops looking selected the moment the text differs.
+  const selectedSuggestion = useMemo(
+    () => suggestions.findIndex((s) => s.body === customText),
+    [suggestions, customText],
+  );
 
   // Mount guard: no valid move type means this screen was reached without a
   // choice being made. Redirect rather than defaulting -- a silent 'attack'
@@ -225,9 +356,50 @@ export default function PromptEntryScreen() {
     }
   }, [battleId, moveType, roundNumber, router]);
 
+  // The battle moved on underneath this screen: the round resolved or expired,
+  // the battle ended, or the server opened a later round. Hand off to waiting,
+  // which owns the "where does this battle go next" routing, once.
+  const redirectedRef = useRef(false);
   useEffect(() => {
-    loadData();
-  }, [battleId]);
+    if (!battleId || !rtBattle || redirectedRef.current) return;
+    const battleClosed = CLOSED_BATTLE_STATUSES.has(rtBattle.status);
+    const roundClosed =
+      isBo3 && roundData ? CLOSED_ROUND_STATUSES.has(roundData.status) : false;
+    const roundMovedOn = (rtBattle.current_round ?? 1) > roundNumber;
+    if (battleClosed || roundClosed || roundMovedOn) {
+      redirectedRef.current = true;
+      router.replace(waitingHref);
+    }
+  }, [battleId, rtBattle, isBo3, roundData, roundNumber, router, waitingHref]);
+
+  useEffect(() => {
+    if (!battleId) {
+      setIsLoading(false);
+      Alert.alert('Battle not found', 'This battle couldn’t be opened.');
+      router.back();
+      return;
+    }
+    let cancelled = false;
+    getBattle(battleId as string)
+      .then((data) => {
+        if (!cancelled) setBattle(data as { theme?: string | null });
+      })
+      .catch((err) => {
+        console.error('Failed to load prompt entry data:', err);
+        if (!cancelled) {
+          Alert.alert(
+            'Couldn’t load the battle',
+            'Check your connection and try again.',
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [battleId, router]);
 
   /**
    * Loads the free suggestion set for this move type.
@@ -243,6 +415,7 @@ export default function PromptEntryScreen() {
       setSuggestionsGenerating(true);
       setSuggestionsError(null);
       setSuggestionRetry(null);
+      setSuggestionPaywall(false);
       try {
         const result = await generateMoveSuggestions(
           battleId as string,
@@ -251,11 +424,13 @@ export default function PromptEntryScreen() {
         );
         if (result.set) {
           setSuggestions(result.set.suggestions);
-          setSelectedSuggestion(null);
           setSuggestionRetry(null);
         } else if (result.failure === 'insufficient_credits') {
-          setSuggestionsError('Not enough credits for another set.');
+          // Not retryable: running the paid call again is the one thing that
+          // cannot help. The way forward is the wallet, or writing your own.
+          setSuggestionsError(insufficientCreditsMessage());
           setSuggestionRetry(null);
+          setSuggestionPaywall(true);
         } else if (result.failure === 'rate_limited') {
           setSuggestionsError(
             'Too many suggestion requests — try again in a few minutes.',
@@ -270,7 +445,7 @@ export default function PromptEntryScreen() {
           // forward except writing from scratch.
           setSuggestionsError(
             paid
-              ? 'Could not generate new ideas. You were not charged.'
+              ? 'Couldn’t generate new ideas. You weren’t charged.'
               : 'Ideas unavailable right now.',
           );
           setSuggestionRetry('generate');
@@ -297,9 +472,7 @@ export default function PromptEntryScreen() {
   // instead, so the retry is one deliberate call rather than a loop.
 
   // Guards against a stale read landing after the player has changed move or
-  // round: only the newest call may write state. Replaces the `cancelled` flag
-  // the effect used to own, which no longer fits now that the retry button
-  // calls this outside any effect.
+  // round: only the newest call may write state.
   const suggestionRunRef = useRef(0);
 
   const readOrGenerateSuggestions = useCallback(async () => {
@@ -311,6 +484,7 @@ export default function PromptEntryScreen() {
     setSuggestionsGenerating(false);
     setSuggestionsError(null);
     setSuggestionRetry(null);
+    setSuggestionPaywall(false);
     try {
       const existing = await getMoveSuggestions(
         battleId as string,
@@ -329,10 +503,8 @@ export default function PromptEntryScreen() {
       // The read is free, so this is safe to offer again -- but it must go
       // back through the read, never straight to generate: a failed read
       // proves nothing about whether a set already exists, and generating on
-      // top of one is a purchase. It has to say *something* too; the ideas are
-      // the whole tab now, so failing silently would leave the player staring
-      // at a header and nothing else.
-      setSuggestionsError('Could not load your ideas.');
+      // top of one is a purchase.
+      setSuggestionsError('Couldn’t load your ideas.');
       setSuggestionRetry('read');
       return;
     }
@@ -341,26 +513,10 @@ export default function PromptEntryScreen() {
   }, [battleId, moveType, roundNumber, loadSuggestions]);
 
   useEffect(() => {
+    // Nothing to read for once the prompt is in; the editor is not shown.
+    if (alreadyLocked) return;
     readOrGenerateSuggestions();
-  }, [readOrGenerateSuggestions]);
-
-  const loadData = async () => {
-    if (!battleId) {
-      Alert.alert('Error', 'No battle ID');
-      router.back();
-      return;
-    }
-
-    try {
-      const battleData = await getBattle(battleId as string);
-      setBattle(battleData as { theme?: string | null });
-    } catch (err) {
-      console.error('Failed to load prompt entry data:', err);
-      Alert.alert('Error', 'Failed to load battle');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [readOrGenerateSuggestions, alreadyLocked]);
 
   // Shared pre-flight validation: used both before starting the hold gesture
   // (so a hold never ends in a validation error) and inside the submit path.
@@ -375,11 +531,49 @@ export default function PromptEntryScreen() {
     return true;
   }, [customText]);
 
+  // Applying an idea over text the player typed themselves is destructive, so
+  // it asks. Text that IS one of the ideas (tapped, not typed) is not a draft.
+  const applySuggestion = useCallback(
+    (index: number, openEditor: boolean) => {
+      const idea = suggestions[index];
+      if (!idea) return;
+      setCustomText(idea.body);
+      if (openEditor) setIsCustom(true);
+    },
+    [suggestions],
+  );
+  const handleUseSuggestion = useCallback(
+    (index: number, openEditor: boolean) => {
+      hapticSelection();
+      const idea = suggestions[index];
+      if (!idea) return;
+      const hasDraft = customText.trim().length > 0;
+      const draftIsAnIdea = suggestions.some((s) => s.body === customText);
+      if (hasDraft && !draftIsAnIdea && customText !== idea.body) {
+        Alert.alert(
+          'Replace your draft?',
+          'Using this idea replaces what you wrote.',
+          [
+            { text: 'Keep mine', style: 'cancel' },
+            {
+              text: 'Replace',
+              style: 'destructive',
+              onPress: () => applySuggestion(index, openEditor),
+            },
+          ],
+        );
+        return;
+      }
+      applySuggestion(index, openEditor);
+    },
+    [suggestions, customText, applySuggestion],
+  );
+
   // --- Lock-in ceremony state (press-and-hold) -------------------------------
   const holdProgress = useSharedValue(0);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [showHoldHint, setShowHoldHint] = useState(false);
+  const [hintFlash, setHintFlash] = useState(false);
 
   // Screen readers can't perform a timed hold; fall back to tap + confirm.
   const [screenReaderEnabled, setScreenReaderEnabled] = useState(false);
@@ -408,8 +602,10 @@ export default function PromptEntryScreen() {
     [],
   );
 
+  const lockDisabled = isSubmitting || deadlinePassed || alreadyLocked;
+
   const handleSubmit = async () => {
-    if (!battleId) return;
+    if (!battleId || !moveType) return;
 
     if (!validateSelection()) return;
 
@@ -418,27 +614,35 @@ export default function PromptEntryScreen() {
     try {
       const result = await submitPrompt(
         battleId as string,
-        // Non-null by the time submit is reachable: the mount guard below
-        // redirects to move-select when the param is missing or invalid.
-        moveType as MoveType,
+        moveType,
         customText,
         isBo3 ? roundNumber : undefined,
       );
 
       if (result.success) {
         // Optimistic transition; no Alert interstitial.
-        router.replace(
-          `/(battle)/waiting?battleId=${battleId}${isBo3 ? `&round=${roundNumber}` : ''}`,
-        );
+        router.replace(waitingHref);
+        return;
+      }
+
+      // Status and code decide the words; the server's message is developer
+      // prose and never reaches the player (utils/battleCopy.ts).
+      const copy = describeSubmitError({
+        status: result.status,
+        code: result.code,
+        message: result.error,
+      });
+      if (copy.roundClosed) {
+        Alert.alert(copy.title, copy.message, [
+          { text: 'OK', onPress: () => router.replace(waitingHref) },
+        ]);
       } else {
-        throw new Error(result.error || 'Failed to submit prompt');
+        Alert.alert(copy.title, copy.message);
       }
     } catch (err) {
       console.error('Submit error:', err);
-      Alert.alert(
-        'Error',
-        err instanceof Error ? err.message : 'Failed to submit',
-      );
+      const copy = describeSubmitError({});
+      Alert.alert(copy.title, copy.message);
     } finally {
       setIsSubmitting(false);
       holdProgress.value = 0;
@@ -446,21 +650,29 @@ export default function PromptEntryScreen() {
   };
 
   const flashHoldHint = () => {
-    setShowHoldHint(true);
+    setHintFlash(true);
     if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
-    hintTimerRef.current = setTimeout(() => setShowHoldHint(false), 1600);
+    hintTimerRef.current = setTimeout(() => setHintFlash(false), HINT_FLASH_MS);
   };
 
   const startHold = () => {
-    if (isSubmitting) return;
+    if (lockDisabled) return;
     if (!validateSelection()) return;
+    hapticSelection();
+    cancelAnimation(holdProgress);
     holdProgress.value = 0;
-    holdProgress.value = withTiming(1, {
-      duration: HOLD_DURATION_MS,
-      easing: Easing.linear,
-    });
+    // Under Reduce Motion the fill does not sweep; the 600 ms hold still
+    // applies (it is the ceremony, not decoration) and the fill snaps to full
+    // when it completes so the button still reads as "done".
+    if (!reduceMotion) {
+      holdProgress.value = withTiming(1, {
+        duration: HOLD_DURATION_MS,
+        easing: Easing.linear,
+      });
+    }
     holdTimerRef.current = setTimeout(() => {
       holdTimerRef.current = null;
+      if (reduceMotion) holdProgress.value = 1;
       hapticImpact(ImpactFeedbackStyle.Heavy);
       handleSubmit();
     }, HOLD_DURATION_MS);
@@ -472,19 +684,19 @@ export default function PromptEntryScreen() {
     clearTimeout(holdTimerRef.current);
     holdTimerRef.current = null;
     cancelAnimation(holdProgress);
-    holdProgress.value = withTiming(0, { duration: 150 });
+    holdProgress.value = reduceMotion ? 0 : withTiming(0, { duration: 150 });
     flashHoldHint();
   };
 
   // Screen-reader activation path: plain tap + confirmation Alert.
   const confirmLockIn = () => {
-    if (isSubmitting || !validateSelection()) return;
+    if (lockDisabled || !validateSelection()) return;
     Alert.alert(
-      'Lock In?',
-      'Lock in your prompt? You cannot change it afterward.',
+      'Lock in?',
+      'Lock in your prompt? You can’t change it afterward.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Lock In', onPress: () => handleSubmit() },
+        { text: 'Lock in', onPress: () => handleSubmit() },
       ],
     );
   };
@@ -492,6 +704,36 @@ export default function PromptEntryScreen() {
   const holdFillStyle = useAnimatedStyle(() => ({
     width: `${holdProgress.value * 100}%`,
   }));
+
+  // The standing hint carries the irreversibility so it is said once, visibly,
+  // before the gesture; the early-release nudge swaps the text in place so the
+  // footer never changes height.
+  const holdHintText = deadlinePassed
+    ? ''
+    : screenReaderEnabled
+      ? 'Tap to lock in · you can’t change it afterward'
+      : hintFlash
+        ? 'Keep holding to lock in'
+        : 'Hold to lock in · you can’t change it afterward';
+
+  const primaryInk = Ink.onAccentLight;
+
+  // The read-only move badge: text and glyph ink chosen for the move colour,
+  // never a fixed white. Renders nothing for a null move -- the mount guard is
+  // already redirecting, and a badge that says "null" helps nobody.
+  const renderMoveBadge = (move: MoveType | null) => {
+    if (!move) return null;
+    const fill = colors[move];
+    const ink = inkFor(fill);
+    return (
+      <View style={[styles.moveChipBadge, { backgroundColor: fill }]}>
+        <Ionicons name={MOVE_META[move].icon} size={14} color={ink} />
+        <Text style={[styles.moveChipBadgeText, { color: ink }]}>
+          {move.toUpperCase()}
+        </Text>
+      </View>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -588,7 +830,7 @@ export default function PromptEntryScreen() {
         ) : null}
 
         {/* Opponent lock status only — never their move type or content. */}
-        {opponentHasLocked ? (
+        {opponentHasLocked && !alreadyLocked ? (
           <View
             style={[
               styles.opponentLockedBanner,
@@ -605,9 +847,18 @@ export default function PromptEntryScreen() {
             </Text>
           </View>
         ) : null}
+
+        {showReconnecting ? (
+          <Text
+            style={[styles.reconnecting, { color: colors.textTertiary }]}
+            accessibilityLiveRegion="polite"
+          >
+            Reconnecting…
+          </Text>
+        ) : null}
       </View>
 
-      {/* Scrolling decision surface: strategy (move type) + prompt authoring. */}
+      {/* Scrolling decision surface: move reminder + prompt authoring. */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -621,6 +872,7 @@ export default function PromptEntryScreen() {
               currentRound={roundNumber}
               format={format}
               bestOf={rtBattle?.best_of ?? 3}
+              viewer={isPlayerOne ? 'p1' : 'p2'}
             />
             <View style={styles.hpRow}>
               <View style={styles.hpCol}>
@@ -645,220 +897,463 @@ export default function PromptEntryScreen() {
           </>
         ) : null}
 
-        {/* Read-only move chip. The choice was made on move-select; this is
-            a reminder plus a way back, not a second selector -- two places to
-            change one value is how a player ends up submitting a move they
-            thought they had changed. */}
-        <TouchableOpacity
-          style={[styles.moveChip, { backgroundColor: colors.card }]}
-          onPress={() => {
-            hapticSelection();
-            router.back();
-          }}
-          accessibilityLabel={`Move type ${moveType}. Tap to change.`}
-          accessibilityRole="button"
-        >
+        {alreadyLocked ? (
+          /* Locked panel: the prompt is in. No editor, no ideas, no hold. */
           <View
             style={[
-              styles.moveChipBadge,
-              { backgroundColor: moveType ? colors[moveType] : colors.card },
+              styles.lockedPanel,
+              { backgroundColor: colors.card, borderColor: colors.success },
             ]}
           >
-            <Ionicons
-              name={moveType ? MOVE_META[moveType].icon : 'help'}
-              size={14}
-              color="#FFFFFF"
-            />
-            <Text style={styles.moveChipBadgeText}>
-              {(moveType ?? '').toUpperCase()}
-            </Text>
-          </View>
-          <Text style={[styles.moveChipHint, { color: colors.textSecondary }]}>
-            {moveType ? `beats ${MOVE_META[moveType].beats.toUpperCase()}` : ''}
-          </Text>
-          <View style={styles.moveChipChange}>
-            <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
-            <Text
-              style={[styles.moveChipChangeText, { color: colors.primary }]}
-            >
-              Change
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Template/Custom segmented control */}
-        <View style={[styles.segmented, { backgroundColor: colors.card }]}>
-          <TouchableOpacity
-            style={[
-              styles.segment,
-              !isCustom && { backgroundColor: colors.primary },
-            ]}
-            onPress={() => {
-              hapticSelection();
-              setIsCustom(false);
-            }}
-            accessibilityLabel="Use a generated idea"
-            accessibilityRole="button"
-            accessibilityState={{ selected: !isCustom }}
-          >
-            <Ionicons
-              name="sparkles"
-              size={16}
-              color={!isCustom ? '#FFFFFF' : colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.segmentText,
-                { color: !isCustom ? '#FFFFFF' : colors.text },
-              ]}
-            >
-              Ideas
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.segment,
-              isCustom && { backgroundColor: colors.primary },
-            ]}
-            onPress={() => {
-              hapticSelection();
-              setIsCustom(true);
-            }}
-            accessibilityLabel="Write your own prompt"
-            accessibilityRole="button"
-            accessibilityState={{ selected: isCustom }}
-          >
-            <Ionicons
-              name="create"
-              size={16}
-              color={isCustom ? '#FFFFFF' : colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.segmentText,
-                { color: isCustom ? '#FFFFFF' : colors.text },
-              ]}
-            >
-              Write your own
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={[styles.segmentHelp, { color: colors.textTertiary }]}>
-          {isCustom
-            ? 'Write your own prompt from scratch (20–800 characters). It is moderated, then judged on clarity, originality and theme fit.'
-            : 'Ideas written for your fighter, this move and this theme. Tap one to use it, or edit it first.'}
-        </Text>
-
-        {/* Suggestions written for THIS fighter and THIS move type — the only
-            prompt help the arena offers now that the static template library is
-            retired. Rendered unconditionally on this tab: with no templates
-            underneath, an empty tab has to say why it is empty and offer a way
-            out, rather than collapsing to nothing. */}
-        {!isCustom ? (
-          <View style={styles.section}>
-            <View style={styles.suggestionHeader}>
-              <Ionicons name="bulb" size={14} color={colors.primary} />
-              <Text style={[styles.suggestionTitle, { color: colors.text }]}>
-                Ideas for {myChar?.name ?? 'your fighter'}
+            <View style={styles.lockedHeader}>
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                color={colors.success}
+              />
+              <Text
+                style={[styles.lockedTitle, { color: colors.text }]}
+                accessibilityRole="header"
+              >
+                You’re locked in
               </Text>
             </View>
-
-            {suggestionsLoading ? (
+            {lockedMove ? (
               <View
-                style={[
-                  styles.suggestionCard,
-                  styles.suggestionLoadingCard,
-                  { backgroundColor: colors.card },
-                ]}
-                accessibilityLiveRegion="polite"
-                accessibilityLabel={
-                  suggestionsGenerating
-                    ? 'Writing ideas for your fighter. This takes a few seconds.'
-                    : 'Loading ideas'
-                }
+                style={styles.lockedMoveRow}
+                accessible
+                accessibilityRole="text"
+                accessibilityLabel={`Move: ${moveLabel(lockedMove)}`}
               >
-                <ActivityIndicator color={colors.primary} />
-                {suggestionsGenerating ? (
-                  <>
-                    <Text
-                      style={[
-                        styles.suggestionLoadingTitle,
-                        { color: colors.text },
-                      ]}
-                    >
-                      Writing ideas for {myChar?.name ?? 'your fighter'}…
-                    </Text>
-                    <Text
-                      style={[
-                        styles.suggestionLoadingHint,
-                        { color: colors.textTertiary },
-                      ]}
-                    >
-                      This takes a few seconds — each idea is written for this
-                      fighter, this move and this theme.
-                    </Text>
-                  </>
-                ) : null}
+                {renderMoveBadge(lockedMove)}
+                <Text
+                  style={[styles.moveChipHint, { color: colors.textSecondary }]}
+                >
+                  beats {MOVE_META[lockedMove].beats.toUpperCase()}
+                </Text>
               </View>
             ) : null}
+            <Text
+              style={[
+                styles.lockedPrompt,
+                { color: colors.textSecondary },
+                accessibleText,
+              ]}
+              accessibilityLabel={
+                lockedText ? `Your prompt: ${lockedText}` : 'Your prompt is in.'
+              }
+            >
+              {lockedText ?? 'Your prompt is in.'}
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Read-only move chip. The choice was made on move-select; this is
+                a reminder plus a way back, not a second selector -- two places
+                to change one value is how a player ends up submitting a move
+                they thought they had changed. */}
+            {moveType ? (
+              <TouchableOpacity
+                style={[styles.moveChip, { backgroundColor: colors.card }]}
+                onPress={() => {
+                  hapticSelection();
+                  router.back();
+                }}
+                accessibilityLabel={`Move: ${moveLabel(moveType)}. Beats ${moveLabel(
+                  MOVE_META[moveType].beats,
+                )}. Tap to change.`}
+                accessibilityRole="button"
+              >
+                {renderMoveBadge(moveType)}
+                <Text
+                  style={[styles.moveChipHint, { color: colors.textSecondary }]}
+                >
+                  beats {MOVE_META[moveType].beats.toUpperCase()}
+                </Text>
+                <View style={styles.moveChipChange}>
+                  <Ionicons
+                    name="swap-horizontal"
+                    size={14}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.moveChipChangeText,
+                      { color: colors.primary },
+                    ]}
+                  >
+                    Change
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ) : null}
 
-            {!suggestionsLoading && suggestionsError ? (
-              <View>
+            {/* Ideas / Write-your-own segmented control */}
+            <View style={[styles.segmented, { backgroundColor: colors.card }]}>
+              <TouchableOpacity
+                style={[
+                  styles.segment,
+                  !isCustom && { backgroundColor: colors.primary },
+                ]}
+                onPress={() => {
+                  hapticSelection();
+                  setIsCustom(false);
+                }}
+                accessibilityLabel="Use a generated idea"
+                accessibilityRole="button"
+                accessibilityState={{ selected: !isCustom }}
+              >
+                <Ionicons
+                  name="sparkles"
+                  size={16}
+                  color={!isCustom ? primaryInk : colors.textSecondary}
+                />
                 <Text
                   style={[
-                    styles.suggestionError,
-                    { color: colors.textTertiary },
+                    styles.segmentText,
+                    { color: !isCustom ? primaryInk : colors.text },
                   ]}
                 >
-                  {suggestionsError}
+                  Ideas
                 </Text>
-                <View style={styles.suggestionFallback}>
-                  {suggestionRetry ? (
-                    <TouchableOpacity
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.segment,
+                  isCustom && { backgroundColor: colors.primary },
+                ]}
+                onPress={() => {
+                  hapticSelection();
+                  setIsCustom(true);
+                }}
+                accessibilityLabel="Write your own prompt"
+                accessibilityRole="button"
+                accessibilityState={{ selected: isCustom }}
+              >
+                <Ionicons
+                  name="create"
+                  size={16}
+                  color={isCustom ? primaryInk : colors.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.segmentText,
+                    { color: isCustom ? primaryInk : colors.text },
+                  ]}
+                >
+                  Write your own
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.segmentHelp, { color: colors.textTertiary }]}>
+              {isCustom
+                ? 'Write your own prompt (20–800 characters; 15–80 words is the sweet spot). It’s moderated, then judged on clarity, originality and theme fit.'
+                : 'Ideas written for your fighter, this move and this theme. Use one as is, or edit it first.'}
+            </Text>
+
+            {/* Suggestions written for THIS fighter and THIS move type — the
+                only prompt help the arena offers now that the static template
+                library is retired. Rendered unconditionally on this tab: an
+                empty tab has to say why it is empty and offer a way out. */}
+            {!isCustom ? (
+              <View style={styles.section}>
+                <View style={styles.suggestionHeader}>
+                  <Ionicons name="bulb" size={14} color={colors.primary} />
+                  <Text
+                    style={[styles.suggestionTitle, { color: colors.text }]}
+                  >
+                    Ideas for {myChar?.name ?? 'your fighter'}
+                  </Text>
+                </View>
+
+                {suggestionsLoading ? (
+                  <View
+                    style={[
+                      styles.suggestionCard,
+                      styles.suggestionLoadingCard,
+                      { backgroundColor: colors.card },
+                    ]}
+                    accessibilityLiveRegion="polite"
+                    accessibilityLabel={
+                      suggestionsGenerating
+                        ? 'Writing ideas for your fighter. This takes a few seconds.'
+                        : 'Loading ideas'
+                    }
+                  >
+                    <ActivityIndicator color={colors.primary} />
+                    {suggestionsGenerating ? (
+                      <>
+                        <Text
+                          style={[
+                            styles.suggestionLoadingTitle,
+                            { color: colors.text },
+                          ]}
+                        >
+                          Writing ideas for {myChar?.name ?? 'your fighter'}…
+                        </Text>
+                        <Text
+                          style={[
+                            styles.suggestionLoadingHint,
+                            { color: colors.textTertiary },
+                          ]}
+                        >
+                          This takes a few seconds — each idea is written for
+                          this fighter, this move and this theme.
+                        </Text>
+                      </>
+                    ) : null}
+                  </View>
+                ) : null}
+
+                {!suggestionsLoading && suggestionsError ? (
+                  <View>
+                    <Text
                       style={[
-                        styles.rerollButton,
-                        { borderColor: colors.border },
+                        styles.suggestionError,
+                        { color: colors.textTertiary },
                       ]}
-                      onPress={() => {
-                        hapticSelection();
-                        if (suggestionRetry === 'read') {
-                          readOrGenerateSuggestions();
-                        } else {
-                          loadSuggestions(false);
-                        }
-                      }}
-                      accessibilityLabel="Try loading ideas again"
-                      accessibilityRole="button"
+                      accessibilityLiveRegion="polite"
                     >
-                      <Ionicons
-                        name="refresh"
-                        size={14}
-                        color={colors.textSecondary}
-                      />
-                      <Text
+                      {suggestionsError}
+                    </Text>
+                    <View style={styles.suggestionFallback}>
+                      {suggestionPaywall ? (
+                        <TouchableOpacity
+                          style={[
+                            styles.rerollButton,
+                            { borderColor: colors.primary },
+                          ]}
+                          onPress={() => {
+                            hapticSelection();
+                            router.push('/(profile)/wallet');
+                          }}
+                          accessibilityLabel="Top up credits"
+                          accessibilityRole="button"
+                        >
+                          <Ionicons
+                            name="wallet-outline"
+                            size={14}
+                            color={colors.primary}
+                          />
+                          <Text
+                            style={[
+                              styles.rerollText,
+                              { color: colors.primary },
+                            ]}
+                          >
+                            Top up
+                          </Text>
+                        </TouchableOpacity>
+                      ) : null}
+                      {suggestionRetry ? (
+                        <TouchableOpacity
+                          style={[
+                            styles.rerollButton,
+                            { borderColor: colors.border },
+                          ]}
+                          onPress={() => {
+                            hapticSelection();
+                            if (suggestionRetry === 'read') {
+                              readOrGenerateSuggestions();
+                            } else {
+                              loadSuggestions(false);
+                            }
+                          }}
+                          accessibilityLabel="Try loading ideas again"
+                          accessibilityRole="button"
+                        >
+                          <Ionicons
+                            name="refresh"
+                            size={14}
+                            color={colors.textSecondary}
+                          />
+                          <Text
+                            style={[
+                              styles.rerollText,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            Try again
+                          </Text>
+                        </TouchableOpacity>
+                      ) : null}
+                      <TouchableOpacity
                         style={[
-                          styles.rerollText,
-                          { color: colors.textSecondary },
+                          styles.rerollButton,
+                          { borderColor: colors.border },
+                        ]}
+                        onPress={() => {
+                          hapticSelection();
+                          setIsCustom(true);
+                        }}
+                        accessibilityLabel="Write your own prompt instead"
+                        accessibilityRole="button"
+                      >
+                        <Ionicons
+                          name="create-outline"
+                          size={14}
+                          color={colors.textSecondary}
+                        />
+                        <Text
+                          style={[
+                            styles.rerollText,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Write your own
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : null}
+
+                {!suggestionsLoading &&
+                  suggestions.map((suggestion, index) => {
+                    const selected = selectedSuggestion === index;
+                    return (
+                      /* The card is content, not a target: two explicit
+                         buttons below it, each a full 44pt row, replace the
+                         old card-tap + nested "Use and edit" link. */
+                      <View
+                        key={`${index}-${suggestion.title}`}
+                        style={[
+                          styles.suggestionCard,
+                          {
+                            backgroundColor: colors.card,
+                            borderColor: selected
+                              ? colors.primary
+                              : 'transparent',
+                          },
                         ]}
                       >
-                        Try again
-                      </Text>
-                    </TouchableOpacity>
-                  ) : null}
+                        <View style={styles.suggestionCardHeader}>
+                          <Text
+                            style={[
+                              styles.suggestionCardTitle,
+                              { color: colors.text },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {suggestion.title}
+                          </Text>
+                          {selected ? (
+                            <View style={styles.suggestionSelectedTag}>
+                              <Ionicons
+                                name="checkmark-circle"
+                                size={14}
+                                color={colors.primary}
+                              />
+                              <Text
+                                style={[
+                                  styles.suggestionSelectedText,
+                                  { color: colors.primary },
+                                ]}
+                              >
+                                Selected
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text
+                          style={[
+                            styles.suggestionCardBody,
+                            { color: colors.textSecondary },
+                            accessibleText,
+                          ]}
+                        >
+                          {suggestion.body}
+                        </Text>
+                        <View style={styles.suggestionActions}>
+                          <TouchableOpacity
+                            style={[
+                              styles.suggestionAction,
+                              { backgroundColor: colors.primary },
+                            ]}
+                            onPress={() => handleUseSuggestion(index, false)}
+                            accessibilityLabel={`Use idea: ${suggestion.title}`}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected }}
+                          >
+                            <Ionicons
+                              name="checkmark"
+                              size={16}
+                              color={primaryInk}
+                            />
+                            <Text
+                              style={[
+                                styles.suggestionActionText,
+                                { color: primaryInk },
+                              ]}
+                            >
+                              Use
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.suggestionAction,
+                              styles.suggestionActionOutline,
+                              { borderColor: colors.border },
+                            ]}
+                            onPress={() => handleUseSuggestion(index, true)}
+                            accessibilityLabel={`Edit idea: ${suggestion.title}`}
+                            accessibilityRole="button"
+                          >
+                            <Ionicons
+                              name="create-outline"
+                              size={16}
+                              color={colors.primary}
+                            />
+                            <Text
+                              style={[
+                                styles.suggestionActionText,
+                                { color: colors.primary },
+                              ]}
+                            >
+                              Edit
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })}
+
+                {/* Paid reroll, only once a set is on screen: after a failure
+                    the server has already released the free slot, so the next
+                    attempt is not a purchase and must not be priced like one.
+                    The price is on the button, in the question and on the
+                    confirm, so nobody is surprised by a charge. */}
+                {suggestions.length > 0 && !suggestionsLoading ? (
                   <TouchableOpacity
                     style={[
                       styles.rerollButton,
                       { borderColor: colors.border },
                     ]}
                     onPress={() => {
-                      hapticSelection();
-                      setIsCustom(true);
+                      Alert.alert(
+                        'New ideas',
+                        rerollIsFree
+                          ? 'Generate three new ideas? It takes a few seconds.'
+                          : `Generate three new ideas for ${rerollSentence}?`,
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: rerollIsFree
+                              ? 'Generate'
+                              : `Spend ${rerollSentence}`,
+                            onPress: () => loadSuggestions(true),
+                          },
+                        ],
+                      );
                     }}
-                    accessibilityLabel="Write your own prompt instead"
+                    accessibilityLabel={
+                      rerollIsFree
+                        ? 'Generate three new ideas'
+                        : `Generate three new ideas for ${rerollSentence}`
+                    }
                     accessibilityRole="button"
                   >
                     <Ionicons
-                      name="create-outline"
+                      name="refresh"
                       size={14}
                       color={colors.textSecondary}
                     />
@@ -868,220 +1363,100 @@ export default function PromptEntryScreen() {
                         { color: colors.textSecondary },
                       ]}
                     >
-                      Write your own
+                      New ideas · {rerollChip}
                     </Text>
                   </TouchableOpacity>
-                </View>
+                ) : null}
               </View>
             ) : null}
 
-            {!suggestionsLoading &&
-              suggestions.map((suggestion, index) => (
-                <TouchableOpacity
-                  key={`${index}-${suggestion.title}`}
+            {/* Custom Prompt Input */}
+            {isCustom ? (
+              <View style={styles.section}>
+                <TextInput
                   style={[
-                    styles.suggestionCard,
-                    { backgroundColor: colors.card },
-                    selectedSuggestion === index && {
-                      borderColor: colors.primary,
-                      borderWidth: 2,
-                    },
+                    styles.customInput,
+                    { backgroundColor: colors.card, color: colors.text },
+                    accessibleText,
                   ]}
-                  onPress={() => {
-                    hapticSelection();
-                    // A suggestion becomes the player's own custom text, so it
-                    // is editable before lock-in and travels the ordinary
-                    // custom-prompt path (moderation, length hints, judging).
-                    setSelectedSuggestion(index);
-                    setCustomText(suggestion.body);
-                  }}
-                  accessibilityLabel={`Use suggestion: ${suggestion.title}`}
-                  accessibilityRole="button"
-                >
-                  <Text
-                    style={[styles.suggestionCardTitle, { color: colors.text }]}
-                    numberOfLines={1}
-                  >
-                    {suggestion.title}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.suggestionCardBody,
-                      { color: colors.textSecondary },
-                      accessibleText,
-                    ]}
-                  >
-                    {suggestion.body}
-                  </Text>
-                  {/* The card body selects; this opens the editor with the
-                      suggestion in it. Previously "Use and edit" was inert
-                      text, so there was no way to edit a suggestion. */}
-                  <TouchableOpacity
-                    style={styles.suggestionUse}
-                    onPress={() => {
-                      hapticSelection();
-                      setSelectedSuggestion(index);
-                      setCustomText(suggestion.body);
-                      setIsCustom(true);
-                    }}
-                    accessibilityLabel={`Edit suggestion: ${suggestion.title}`}
-                    accessibilityRole="button"
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  placeholder="Write your prompt (20–800 characters)…"
+                  placeholderTextColor={colors.textTertiary}
+                  value={customText}
+                  onChangeText={setCustomText}
+                  multiline
+                  maxLength={CUSTOM_PROMPT_MAX_LENGTH}
+                  accessibilityLabel="Your prompt"
+                  accessibilityHint="20 to 800 characters"
+                />
+                <View style={styles.qualityRow}>
+                  <View
+                    style={styles.qualityItem}
+                    accessible
+                    accessibilityRole="text"
+                    accessibilityLiveRegion="polite"
+                    accessibilityLabel={coach.label}
                   >
                     <Ionicons
-                      name="create-outline"
-                      size={14}
-                      color={colors.primary}
+                      name={coach.icon}
+                      size={13}
+                      color={toneColor[coach.tone]}
                     />
                     <Text
                       style={[
-                        styles.suggestionUseText,
-                        { color: colors.primary },
+                        styles.qualityText,
+                        { color: toneColor[coach.tone] },
                       ]}
                     >
-                      Use and edit
-                    </Text>
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              ))}
-
-            {/* Paid reroll, only once a set is on screen: after a failure the
-                server has already released the free slot, so the next attempt
-                is not a purchase and must not be priced like one. */}
-            {suggestions.length > 0 && !suggestionsLoading ? (
-              <TouchableOpacity
-                style={[styles.rerollButton, { borderColor: colors.border }]}
-                onPress={() => {
-                  Alert.alert(
-                    'New ideas',
-                    'Generate three new suggestions for 1 credit? It takes a few seconds.',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Spend 1 credit',
-                        onPress: () => loadSuggestions(true),
-                      },
-                    ],
-                  );
-                }}
-                accessibilityLabel="Generate new suggestions for one credit"
-                accessibilityRole="button"
-              >
-                <Ionicons
-                  name="refresh"
-                  size={14}
-                  color={colors.textSecondary}
-                />
-                <Text
-                  style={[styles.rerollText, { color: colors.textSecondary }]}
-                >
-                  New suggestions — 1 credit
-                </Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        ) : null}
-
-        {/* Custom Prompt Input */}
-        {isCustom && (
-          <View style={styles.section}>
-            <TextInput
-              style={[
-                styles.customInput,
-                { backgroundColor: colors.card, color: colors.text },
-                accessibleText,
-              ]}
-              placeholder="Write your prompt (20-800 characters)..."
-              placeholderTextColor={colors.textTertiary}
-              value={customText}
-              onChangeText={setCustomText}
-              multiline
-              maxLength={800}
-              accessibilityLabel="Custom prompt input"
-            />
-            {/* Live quality hints: mirrors the judge's length normalization
-                (sweet spot 15–80 words, penalty past 100) + theme reference. */}
-            {(() => {
-              const length =
-                customWordCount === 0
-                  ? {
-                      color: colors.textTertiary,
-                      icon: 'ellipse-outline' as const,
-                      text: `Aim for ${WORDS_MIN_GOOD}–${WORDS_MAX_GOOD} words`,
-                    }
-                  : customWordCount < WORDS_MIN_GOOD
-                    ? {
-                        color: colors.warning,
-                        icon: 'alert-circle' as const,
-                        text: 'Too short — add detail',
-                      }
-                    : customWordCount <= WORDS_MAX_GOOD
-                      ? {
-                          color: colors.success,
-                          icon: 'checkmark-circle' as const,
-                          text: "In the judge's sweet spot",
-                        }
-                      : customWordCount <= WORDS_PENALTY
-                        ? {
-                            color: colors.warning,
-                            icon: 'alert-circle' as const,
-                            text: 'Getting long',
-                          }
-                        : {
-                            color: colors.error,
-                            icon: 'close-circle' as const,
-                            text: 'Length penalty applies',
-                          };
-              return (
-                <View style={styles.qualityRow}>
-                  <View style={styles.qualityItem}>
-                    <Ionicons
-                      name={length.icon}
-                      size={13}
-                      color={length.color}
-                    />
-                    <Text style={[styles.qualityText, { color: length.color }]}>
-                      {length.text}
+                      {coach.label}
                     </Text>
                   </View>
                   <Text
-                    style={[styles.charCount, { color: colors.textTertiary }]}
+                    style={[
+                      styles.charCount,
+                      NumericFontVariant,
+                      { color: colors.textTertiary },
+                    ]}
                   >
-                    {customWordCount} words · {customText.length}/800
+                    {coach.counter}
                   </Text>
                 </View>
-              );
-            })()}
-            {battle?.theme && customWordCount > 0 ? (
-              <View style={styles.qualityItem}>
-                <Ionicons
-                  name={referencesTheme ? 'checkmark-circle' : 'bulb-outline'}
-                  size={13}
-                  color={referencesTheme ? colors.success : colors.textTertiary}
-                />
-                <Text
-                  style={[
-                    styles.qualityText,
-                    {
-                      color: referencesTheme
-                        ? colors.success
-                        : colors.textTertiary,
-                    },
-                  ]}
-                >
-                  {referencesTheme
-                    ? 'References the theme'
-                    : 'Tip: work the theme into your prompt'}
-                </Text>
+                {battle?.theme && coach.words > 0 ? (
+                  <View style={styles.qualityItem}>
+                    <Ionicons
+                      name={
+                        referencesTheme ? 'checkmark-circle' : 'bulb-outline'
+                      }
+                      size={13}
+                      color={
+                        referencesTheme ? colors.success : colors.textTertiary
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.qualityText,
+                        {
+                          color: referencesTheme
+                            ? colors.success
+                            : colors.textTertiary,
+                        },
+                      ]}
+                    >
+                      {referencesTheme
+                        ? 'References the theme'
+                        : 'Tip: work the theme into your prompt'}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             ) : null}
-          </View>
+          </>
         )}
       </ScrollView>
 
-      {/* Pinned Lock-In footer: the primary action is always reachable and never
+      {/* Pinned footer: the primary action is always reachable and never
           hidden behind the keyboard. Press-and-hold ceremony; tap + confirm
-          under a screen reader, where a timed hold isn't feasible. */}
+          under a screen reader, where a timed hold isn't feasible. Once the
+          prompt is in, the only action left is to go and wait. */}
       <View
         style={[
           styles.footer,
@@ -1092,44 +1467,88 @@ export default function PromptEntryScreen() {
           },
         ]}
       >
-        <Pressable
-          style={[
-            styles.submitButton,
-            { backgroundColor: colors.primary },
-            isSubmitting && styles.buttonDisabled,
-          ]}
-          onPressIn={screenReaderEnabled ? undefined : startHold}
-          onPressOut={screenReaderEnabled ? undefined : cancelHold}
-          onPress={screenReaderEnabled ? confirmLockIn : undefined}
-          disabled={isSubmitting}
-          accessibilityLabel="Lock in prompt"
-          accessibilityHint={
-            screenReaderEnabled
-              ? 'Activates a confirmation to lock in your prompt'
-              : 'Press and hold to lock in your prompt'
-          }
-          accessibilityRole="button"
-          accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
-        >
-          {/* Hold progress fill. */}
-          <Animated.View
-            style={[styles.holdFill, holdFillStyle]}
-            pointerEvents="none"
-          />
-          {isSubmitting ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
+        {alreadyLocked ? (
+          <TouchableOpacity
+            style={[styles.submitButton, { backgroundColor: colors.primary }]}
+            onPress={() => {
+              hapticSelection();
+              router.replace(waitingHref);
+            }}
+            accessibilityLabel="Wait for your opponent"
+            accessibilityRole="button"
+          >
             <View style={styles.submitButtonInner}>
-              <Ionicons name="lock-closed" size={18} color="#FFFFFF" />
-              <Text style={styles.submitButtonText}>Lock In</Text>
+              <Ionicons name="hourglass-outline" size={18} color={primaryInk} />
+              <Text style={[styles.submitButtonText, { color: primaryInk }]}>
+                Wait for your opponent
+              </Text>
             </View>
-          )}
-        </Pressable>
-        {showHoldHint ? (
-          <Text style={[styles.holdHint, { color: colors.textSecondary }]}>
-            Hold to lock in
-          </Text>
-        ) : null}
+          </TouchableOpacity>
+        ) : (
+          <>
+            {deadlinePassed ? (
+              <View style={styles.footerBanner}>
+                <InlineBanner
+                  tone="warning"
+                  icon="time-outline"
+                  text="Time’s up for this round — waiting for the judge."
+                />
+              </View>
+            ) : null}
+            <Pressable
+              style={[
+                styles.submitButton,
+                { backgroundColor: colors.primary },
+                lockDisabled && styles.buttonDisabled,
+              ]}
+              onPressIn={screenReaderEnabled ? undefined : startHold}
+              onPressOut={screenReaderEnabled ? undefined : cancelHold}
+              onPress={screenReaderEnabled ? confirmLockIn : undefined}
+              disabled={lockDisabled}
+              accessibilityLabel="Lock in prompt"
+              accessibilityHint={
+                deadlinePassed
+                  ? 'The deadline for this round has passed'
+                  : screenReaderEnabled
+                    ? 'Activates a confirmation to lock in your prompt. You can’t change it afterward.'
+                    : 'Press and hold to lock in your prompt. You can’t change it afterward.'
+              }
+              accessibilityRole="button"
+              accessibilityState={{
+                disabled: lockDisabled,
+                busy: isSubmitting,
+              }}
+            >
+              {/* Hold progress fill. */}
+              <Animated.View
+                style={[styles.holdFill, holdFillStyle]}
+                pointerEvents="none"
+              />
+              {isSubmitting ? (
+                <ActivityIndicator color={primaryInk} />
+              ) : (
+                <View style={styles.submitButtonInner}>
+                  <Ionicons name="lock-closed" size={18} color={primaryInk} />
+                  <Text
+                    style={[styles.submitButtonText, { color: primaryInk }]}
+                  >
+                    Lock In
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+            {/* Reserved height: the hint changes words, never the footer's size. */}
+            <Text
+              style={[
+                styles.holdHint,
+                { color: hintFlash ? colors.warning : colors.textSecondary },
+              ]}
+              accessibilityLiveRegion={hintFlash ? 'polite' : 'none'}
+            >
+              {holdHintText}
+            </Text>
+          </>
+        )}
       </View>
       <PortraitViewer
         visible={portraitViewer.visible}
@@ -1169,6 +1588,9 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
+  footerBanner: {
+    marginBottom: Spacing.sm,
+  },
   hpRow: {
     flexDirection: 'row',
     gap: Spacing.md,
@@ -1195,18 +1617,18 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.bold,
   },
+  reconnecting: {
+    fontSize: Typography.sizes.xs,
+    textAlign: 'center',
+  },
   section: {
     marginBottom: Spacing.lg,
-  },
-  label: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.semibold,
-    marginBottom: Spacing.md,
   },
   moveChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+    minHeight: Layout.inputHeight,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
@@ -1221,7 +1643,6 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
   },
   moveChipBadgeText: {
-    color: '#FFFFFF',
     fontSize: 10,
     fontWeight: Typography.weights.bold,
     letterSpacing: 0.5,
@@ -1239,6 +1660,31 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.semibold,
   },
+  lockedPanel: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  lockedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  lockedTitle: {
+    fontSize: Typography.sizes.lg,
+    fontWeight: Typography.weights.bold,
+  },
+  lockedMoveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  lockedPrompt: {
+    fontSize: Typography.sizes.sm,
+    lineHeight: 20,
+  },
   suggestionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1252,25 +1698,54 @@ const styles = StyleSheet.create({
   suggestionCard: {
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
+    // Always 2 so selecting a card never shifts the list.
+    borderWidth: 2,
     marginBottom: Spacing.sm,
     gap: Spacing.xs,
   },
+  suggestionCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
   suggestionCardTitle: {
+    flex: 1,
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.bold,
+  },
+  suggestionSelectedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  suggestionSelectedText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.semibold,
   },
   suggestionCardBody: {
     fontSize: Typography.sizes.xs,
     lineHeight: 18,
   },
-  suggestionUse: {
+  suggestionActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    gap: Spacing.sm,
     marginTop: Spacing.xs,
   },
-  suggestionUseText: {
-    fontSize: Typography.sizes.xs,
+  suggestionAction: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    minHeight: Layout.inputHeight,
+    borderRadius: BorderRadius.md,
+  },
+  suggestionActionOutline: {
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  suggestionActionText: {
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
   suggestionLoadingCard: {
@@ -1302,6 +1777,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
+    minHeight: Layout.inputHeight,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
     borderWidth: StyleSheet.hairlineWidth,
@@ -1309,24 +1785,6 @@ const styles = StyleSheet.create({
   rerollText: {
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.semibold,
-  },
-  matchupHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.xs,
-    marginTop: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: BorderRadius.full,
-  },
-  matchupText: {
-    fontSize: Typography.sizes.xs,
-  },
-  matchupDivider: {
-    width: 1,
-    height: 12,
-    marginHorizontal: Spacing.xs,
   },
   segmented: {
     flexDirection: 'row',
@@ -1341,6 +1799,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
+    minHeight: Layout.inputHeight,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
   },
@@ -1356,18 +1815,13 @@ const styles = StyleSheet.create({
   customInput: {
     minHeight: 120,
     padding: Spacing.md,
-    borderRadius: 8,
+    borderRadius: BorderRadius.md,
     fontSize: Typography.sizes.base,
     textAlignVertical: 'top',
   },
   charCount: {
     fontSize: Typography.sizes.xs,
     textAlign: 'right',
-  },
-  winRateText: {
-    fontSize: Typography.sizes.xs,
-    textAlign: 'center',
-    marginTop: Spacing.xs,
   },
   qualityRow: {
     flexDirection: 'row',
@@ -1400,7 +1854,7 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     height: 56,
-    borderRadius: 12,
+    borderRadius: BorderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -1418,12 +1872,14 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   submitButtonText: {
-    color: '#FFFFFF',
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
   },
   holdHint: {
+    // Reserved so the footer keeps its height whether or not a hint shows.
+    minHeight: 20,
     fontSize: Typography.sizes.sm,
+    lineHeight: 20,
     textAlign: 'center',
     marginTop: Spacing.sm,
   },

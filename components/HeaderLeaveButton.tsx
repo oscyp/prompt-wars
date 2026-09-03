@@ -35,7 +35,7 @@ export default function HeaderLeaveButton({
       accessibilityRole="button"
       accessibilityLabel="Leave battle"
       accessibilityState={{ disabled: Boolean(disabled) }}
-      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       style={[
         styles.button,
         {
@@ -46,15 +46,17 @@ export default function HeaderLeaveButton({
         },
       ]}
     >
-      <Ionicons name="exit-outline" size={18} color={colors.error} />
+      <Ionicons name="exit-outline" size={20} color={colors.error} />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    width: 36,
-    height: 36,
+    // 44pt: the design language's minimum target, met by the visible chip
+    // itself rather than rescued by hitSlop.
+    width: 44,
+    height: 44,
     borderRadius: BorderRadius.full,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',

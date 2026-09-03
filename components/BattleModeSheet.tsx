@@ -1,9 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-} from 'react';
+import React, { createContext, useContext, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +7,7 @@ import {
   Animated,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemedColors } from '@/hooks/useThemedColors';
@@ -21,6 +17,7 @@ import {
   Typography,
   BorderRadius,
   Motion,
+  Scrim,
 } from '@/constants/DesignTokens';
 import { BATTLE_MODES, BattleMode } from '@/constants/BattleModes';
 import ModeCard from './ModeCard';
@@ -86,11 +83,15 @@ export default function BattleModeSheet({
       animationType="none"
       onRequestClose={onClose}
     >
+      {/* Tap-outside-to-dismiss for sighted users only. It is hidden from the
+          accessibility tree because a full-screen "Close" button that sits
+          behind the sheet is a trap for screen-reader focus order; the header
+          button below is the accessible way out. */}
       <Pressable
         style={styles.scrim}
         onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Close battle mode selection"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
       />
       <Animated.View
         style={[
@@ -105,12 +106,36 @@ export default function BattleModeSheet({
         accessibilityViewIsModal
       >
         <View style={[styles.grabber, { backgroundColor: colors.border }]} />
-        <Text style={[styles.title, { color: colors.text }]}>
-          Start a Battle
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Choose your battle mode
-        </Text>
+        <View style={styles.header}>
+          <View style={styles.headerSpacer} />
+          <View style={styles.headerText}>
+            <Text
+              style={[styles.title, { color: colors.text }]}
+              accessibilityRole="header"
+            >
+              Start a Battle
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              Choose your battle mode
+            </Text>
+          </View>
+          <Pressable
+            onPress={onClose}
+            style={({ pressed }) => [
+              styles.closeButton,
+              {
+                backgroundColor: pressed
+                  ? colors.backgroundTertiary
+                  : colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
+            <Ionicons name="close" size={22} color={colors.text} />
+          </Pressable>
+        </View>
         <View style={styles.modes}>
           {BATTLE_MODES.map((info) => (
             <ModeCard key={info.mode} info={info} onPress={selectMode} />
@@ -124,7 +149,7 @@ export default function BattleModeSheet({
 const styles = StyleSheet.create({
   scrim: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: Scrim.sheet,
   },
   sheet: {
     borderTopLeftRadius: BorderRadius.xl,
@@ -140,6 +165,29 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     marginBottom: Spacing.md,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: Spacing.md,
+  },
+  // Mirrors the close button's footprint so the title stays centred.
+  headerSpacer: {
+    width: 44,
+  },
+  headerText: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  closeButton: {
+    // 44pt: the design language's minimum target, met by the visible control
+    // itself rather than rescued by hitSlop.
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     fontSize: Typography.sizes.xxl,
     fontWeight: Typography.weights.bold,
@@ -149,7 +197,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.sm,
     textAlign: 'center',
     marginTop: 2,
-    marginBottom: Spacing.md,
   },
   modes: {
     gap: Spacing.md,

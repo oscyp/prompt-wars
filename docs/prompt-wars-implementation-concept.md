@@ -289,7 +289,7 @@ Best-of-3 (Bo3) is **the live battle format for every mode** — ranked, unranke
 
 > The `battles.format` column still defaults to `'single'` and the single-format resolver (plus `expire_timed_out_battles` and `claim_forfeit_timeout_battles`) is still maintained, but **no new battle reaches it** — `create_battle` and `create_bot_battle` both force `'bo3'`. Those paths are legacy-only, for rows created before the flip.
 
-**Character stats.** Each character has four stats — Strength, Stamina, Agility, Focus — each integer 1-10 (default 5), earn-only (no paid boosts). Archetype affinity grants +1 to one stat (mapping defined in the seed). Stats are **snapshotted into the battle row at face-off** (`player_one_stats_snapshot`, `player_two_stats_snapshot` JSONB). All resolution code reads the snapshot — never the live `characters.stat_*` columns — so retroactive stat changes never alter past battles.
+**Character stats.** Each character has four stats — Strength, Stamina, Agility, Focus — each integer 1-10. At creation the player distributes a fixed pool of **20 points** across them (min 1, max 10 each; the historical default was 5/5/5/5, which is the same total), validated server-side in `finalize-character-creation` (`_shared/character-stats.ts`); the client can never write `stat_*` directly. After creation stats are earn-only (no paid boosts). _(Updated 2026-09-03: creation-time allocation added; presets per archetype are UI convenience, not bonuses.)_ Archetype affinity grants +1 to one stat (mapping defined in the seed). Stats are **snapshotted into the battle row at face-off** (`player_one_stats_snapshot`, `player_two_stats_snapshot` JSONB). All resolution code reads the snapshot — never the live `characters.stat_*` columns — so retroactive stat changes never alter past battles.
 
 - Strength: damage modifier.
 - Stamina: HP. `HP_max = clamp(60 + Stamina * 8, 70, 140)`.
@@ -359,6 +359,8 @@ Every completed battle produces, in order:
    - Scored result card: winner, per-category rubric scores, judge "why," character portraits, prompt quotes, signature-color theming, applied move-type modifier.
 2. **Tier 1 - Silent cinematic short, automatic with paid overflow.** A 6-12 second AI-generated video composed from both prompts, both characters, and the battle outcome. The backend automatically queues ONE shared video per completed battle when either participant has not sponsored an automatic video that UTC day, capped at 100 automatic jobs project-wide per day. Automatic jobs spend no credits. When both players have used the daily automatic slot (or the circuit is open), the existing credit/subscription upgrade path remains available. New accounts also retain **3 free Tier 1 upgrades in the first 7 days**.
 3. **Tier 2 - Highlight reel (later phase).** Stitched best moments from the season; for sharing.
+
+> **Client presentation of Tier 0 (2026-09-03).** The series result plays as a reveal sequence of up to four beats — verdict (series dots, KNOCKOUT stamp), winner (full-body render with a per-move-type sting chosen from `reveal_spec.animation_preset`), what the judge saw (both prompt excerpts, rubric bars, the judge's line), payoff (rating, credits, streak, quests) — auto-advancing, tap-to-skip, a static pager under Reduce Motion, then a summary with the shareable card. The payoff reads `battles.reward_payload`, written once per battle by `apply_post_battle_rewards` (credits granted and why, win streak after/best, quests advanced and quests carried over their target). The final round's own screen no longer shows the poster; the series reveal owns the cinematic moment.
 
 This structure protects unit economics through atomic daily caps, makes the app usable when the provider is degraded, and still supports desire-driven paid overflow.
 
@@ -961,6 +963,7 @@ User-generated battles are free content; expose them. Most shares on TikTok/Reel
 - ~~All shared content carries an AI-generated content disclosure to comply with platform policies.~~ **Removed 2026-08-26** by product decision. The in-app AI badges (reveal poster, result card, portrait frame) and the AI-tagged share filename/title were deleted, and the corresponding claims in `landing/index.html`, `privacy-policy.html` and `terms-and-conditions.html` were rewritten so nothing published asserts labeling the app no longer performs. `videos.is_ai_generated` is retained as an internal record only.
 
 > **Store-review note:** this was a deliberate trade. AI-generated UGC is a high-scrutiny category (§22 below), and an explicit disclosure was the strongest argument at submission. If review pushes back, the badges are the thing to restore first.
+
 - Hashtag and ASO guidance: "AI battle video" trend keywords drive TikTok/Shorts as the primary acquisition funnel; share captions are pre-filled with handle + hashtag set.
 
 ## 22. Safety, Moderation, And Platform Compliance

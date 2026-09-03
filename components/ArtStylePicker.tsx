@@ -10,6 +10,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { hapticSelection } from '@/utils/haptics';
 import {
   ART_STYLES,
   ART_STYLE_LABELS,
@@ -90,7 +91,10 @@ export default function ArtStylePicker({
           return (
             <TouchableOpacity
               key={key}
-              onPress={() => onChange(key)}
+              onPress={() => {
+                hapticSelection();
+                onChange(key);
+              }}
               disabled={disabled}
               accessibilityRole="button"
               accessibilityLabel={`Art style: ${ART_STYLE_LABELS[key]}`}

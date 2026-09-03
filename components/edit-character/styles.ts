@@ -2,13 +2,14 @@ import { StyleSheet } from 'react-native';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 
 /**
- * Layout shared by the four editor panels.
+ * Layout shared by the three editor panels.
  *
+ * Panels are plain views inside the screen's single outer scroll (the Stage
+ * collapses against that scroll), so there is no per-panel scroll style.
  * Colours are applied inline from `useThemedColors` at each use site, matching
  * the rest of the app; only geometry lives here.
  */
 export const editStyles = StyleSheet.create({
-  panelScroll: { flex: 1 },
   panel: {
     padding: Spacing.lg,
     paddingBottom: Spacing.xxl,
