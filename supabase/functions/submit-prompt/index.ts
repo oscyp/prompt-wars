@@ -9,21 +9,21 @@ import {
   getAuthUserId,
   getSupabaseSecretKey,
   successResponse,
-} from "../_shared/utils.ts";
-import { MoveType } from "../_shared/types.ts";
-import { TextModerationProvider } from "../_shared/moderation.ts";
-import { notifyOpponentSubmitted } from "../_shared/push.ts";
+} from '../_shared/utils.ts';
+import { MoveType } from '../_shared/types.ts';
+import { TextModerationProvider } from '../_shared/moderation.ts';
+import { notifyOpponentSubmitted } from '../_shared/push.ts';
 
 /**
  * Trigger battle resolution server-side (reliable async invocation)
  * Uses EdgeRuntime.waitUntil() when available, with awaited fallback for local/test runtimes
  */
 async function triggerBattleResolution(battleId: string): Promise<void> {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceKey = getSupabaseSecretKey();
 
   if (!supabaseUrl || !serviceKey) {
-    throw new Error("Missing Supabase environment variables");
+    throw new Error('Missing Supabase environment variables');
   }
 
   const resolveFunctionUrl = `${supabaseUrl}/functions/v1/resolve-battle`;
@@ -31,9 +31,9 @@ async function triggerBattleResolution(battleId: string): Promise<void> {
   const resolutionTask = (async () => {
     try {
       const response = await fetch(resolveFunctionUrl, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           apikey: serviceKey,
         },
         body: JSON.stringify({ battle_id: battleId }),
@@ -41,20 +41,20 @@ async function triggerBattleResolution(battleId: string): Promise<void> {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Resolve-battle invocation failed:", errorText);
+        console.error('Resolve-battle invocation failed:', errorText);
         throw new Error(`Resolve-battle failed: ${response.status}`);
       }
 
-      console.log("Battle resolution triggered for:", battleId);
+      console.log('Battle resolution triggered for:', battleId);
     } catch (error) {
-      console.error("Battle resolution error:", error);
+      console.error('Battle resolution error:', error);
       throw error;
     }
   })();
 
   // Use EdgeRuntime.waitUntil when available (production/deployed)
   // @ts-ignore - EdgeRuntime may not be defined in all contexts
-  if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+  if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
     // @ts-ignore
     EdgeRuntime.waitUntil(resolutionTask);
   } else {
@@ -70,17 +70,17 @@ async function invokeFn(
   fn: string,
   body: Record<string, unknown>,
 ): Promise<void> {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const secretKey = getSupabaseSecretKey();
   if (!supabaseUrl || !secretKey) {
-    throw new Error("Missing Supabase environment variables");
+    throw new Error('Missing Supabase environment variables');
   }
   const url = `${supabaseUrl}/functions/v1/${fn}`;
   const task = (async () => {
     const res = await fetch(url, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         apikey: secretKey,
       },
       body: JSON.stringify(body),
@@ -90,7 +90,7 @@ async function invokeFn(
     }
   })();
   // @ts-ignore EdgeRuntime may not be defined
-  if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+  if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
     // @ts-ignore
     EdgeRuntime.waitUntil(task);
   } else {
@@ -107,8 +107,8 @@ interface SubmitPromptRequest {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
@@ -122,12 +122,12 @@ Deno.serve(async (req) => {
     }: SubmitPromptRequest = await req.json();
 
     if (!battle_id || !move_type) {
-      return errorResponse("battle_id and move_type required");
+      return errorResponse('battle_id and move_type required');
     }
 
     if (!prompt_template_id && !custom_prompt_text) {
       return errorResponse(
-        "Either prompt_template_id or custom_prompt_text required",
+        'Either prompt_template_id or custom_prompt_text required',
       );
     }
 
@@ -136,8 +136,8 @@ Deno.serve(async (req) => {
     {
       const rateLimitClient = createServiceClient();
       const { data: rateCheck, error: rateErr } = await rateLimitClient.rpc(
-        "check_rate_limit",
-        { p_profile_id: userId, p_action: "prompt_submit" },
+        'check_rate_limit',
+        { p_profile_id: userId, p_action: 'prompt_submit' },
       );
       if (rateErr) {
         // Fail CLOSED. A rate limiter that opens under load is not a rate
@@ -146,14 +146,14 @@ Deno.serve(async (req) => {
         // fail-open removed the cap precisely when it was needed. 503 rather
         // than 429 so the client shows "try again" instead of "you did too
         // much".
-        console.error("check_rate_limit error (failing closed):", rateErr);
+        console.error('check_rate_limit error (failing closed):', rateErr);
         return errorResponse(
-          "Cannot verify rate limits right now. Please try again.",
+          'Cannot verify rate limits right now. Please try again.',
           503,
         );
       } else if (rateCheck && rateCheck.allowed === false) {
         return errorResponse(
-          "Too many prompts submitted. Try again later.",
+          'Too many prompts submitted. Try again later.',
           429,
         );
       }
@@ -163,10 +163,10 @@ Deno.serve(async (req) => {
 
     // Pre-gen moderation for custom prompts
     let moderationStatus:
-      | "approved"
-      | "rejected"
-      | "flagged_human_review"
-      | "pending" = "approved";
+      | 'approved'
+      | 'rejected'
+      | 'flagged_human_review'
+      | 'pending' = 'approved';
 
     if (custom_prompt_text) {
       const moderator = new TextModerationProvider();
@@ -179,13 +179,13 @@ Deno.serve(async (req) => {
       // trail. Best-effort: a logging failure must never block the response.
       try {
         const { error: modLogError } = await supabase
-          .from("moderation_events")
+          .from('moderation_events')
           .insert({
-            target_type: "battle_prompt",
+            target_type: 'battle_prompt',
             target_id: battle_id, // Prompt row may never exist for blocked submissions
             action: moderationResult.status,
             reason: moderationResult.reason,
-            moderator_notes: moderationResult.flaggedCategories?.join(", "),
+            moderator_notes: moderationResult.flaggedCategories?.join(', '),
             automated: true,
             provider: moderationResult.provider,
             provider_request_id: moderationResult.providerRequestId,
@@ -193,26 +193,33 @@ Deno.serve(async (req) => {
             flagged_categories: moderationResult.flaggedCategories,
           });
         if (modLogError) {
-          console.error("moderation_events insert failed:", modLogError);
+          console.error('moderation_events insert failed:', modLogError);
         }
       } catch (modLogException) {
-        console.error("moderation_events insert threw:", modLogException);
+        console.error('moderation_events insert threw:', modLogException);
       }
 
       // MVP: reject unsafe, allow approved, reject flagged_human_review (conservative)
-      if (moderationResult.status === "rejected") {
+      // `code` is the contract the app maps to copy; the message stays
+      // developer prose (utils/battleCopy.ts describeSubmitError).
+      if (moderationResult.status === 'rejected') {
         return errorResponse(
           `Prompt rejected: ${
-            moderationResult.reason || "Content policy violation"
+            moderationResult.reason || 'Content policy violation'
           }`,
           403,
+          { code: 'moderation_rejected' },
         );
       }
 
-      if (moderationResult.status === "flagged_human_review") {
+      if (moderationResult.status === 'flagged_human_review') {
         return errorResponse(
-          "Prompt requires review and cannot be submitted at this time",
+          'Prompt requires review and cannot be submitted at this time',
           403,
+          {
+            code: 'moderation_review',
+            flagged_categories: moderationResult.flaggedCategories ?? [],
+          },
         );
       }
     }
@@ -220,17 +227,17 @@ Deno.serve(async (req) => {
     // Fetch battle context BEFORE locking so lock_prompt writes the row for
     // the correct round (Bo3 rounds 2-3 have their own battle_prompts rows).
     const { data: battle, error: battleError } = await supabase
-      .from("battles")
+      .from('battles')
       .select(
-        "status, player_one_id, player_two_id, is_player_two_bot, format, current_round, mode",
+        'status, player_one_id, player_two_id, is_player_two_bot, format, current_round, mode',
       )
-      .eq("id", battle_id)
+      .eq('id', battle_id)
       .single();
     if (battleError || !battle) {
-      return errorResponse("Battle not found", 404);
+      return errorResponse('Battle not found', 404);
     }
 
-    const isBo3 = battle.format === "bo3";
+    const isBo3 = battle.format === 'bo3';
     const roundNumber = isBo3
       ? (requestedRound ?? battle.current_round ?? 1)
       : 1;
@@ -244,15 +251,15 @@ Deno.serve(async (req) => {
     } | null = null;
     if (isBo3) {
       const { data: roundRow, error: roundErr } = await supabase
-        .from("battle_rounds")
-        .select("id, status, player_one_locked_at, player_two_locked_at")
-        .eq("battle_id", battle_id)
-        .eq("round_number", roundNumber)
+        .from('battle_rounds')
+        .select('id, status, player_one_locked_at, player_two_locked_at')
+        .eq('battle_id', battle_id)
+        .eq('round_number', roundNumber)
         .single();
       if (roundErr || !roundRow) {
-        return errorResponse("Round not found", 404);
+        return errorResponse('Round not found', 404);
       }
-      if (roundRow.status !== "waiting_for_prompts") {
+      if (roundRow.status !== 'waiting_for_prompts') {
         return errorResponse(
           `Round not accepting prompts (status=${roundRow.status})`,
           409,
@@ -264,7 +271,7 @@ Deno.serve(async (req) => {
     // Lock prompt via DB function (idempotent per battle/player/round; the
     // row is created with the correct round_number — no retag needed).
     const { data: promptId, error: lockError } = await supabase.rpc(
-      "lock_prompt",
+      'lock_prompt',
       {
         p_battle_id: battle_id,
         p_profile_id: userId,
@@ -277,8 +284,8 @@ Deno.serve(async (req) => {
     );
 
     if (lockError) {
-      console.error("Lock prompt error:", lockError);
-      return errorResponse(lockError.message || "Failed to submit prompt", 400);
+      console.error('Lock prompt error:', lockError);
+      return errorResponse(lockError.message || 'Failed to submit prompt', 400);
     }
 
     // ---- Bo3 lock-in flow ----
@@ -288,7 +295,7 @@ Deno.serve(async (req) => {
       // neither set both_locked_at and neither triggered resolution -- the
       // round then timed out as a double forfeit despite both submitting.
       const { data: lockResult, error: lockRoundErr } = await supabase.rpc(
-        "lock_round_side",
+        'lock_round_side',
         {
           p_battle_id: battle_id,
           p_round_number: roundNumber,
@@ -297,9 +304,9 @@ Deno.serve(async (req) => {
       );
 
       if (lockRoundErr) {
-        console.error("lock_round_side error:", lockRoundErr);
+        console.error('lock_round_side error:', lockRoundErr);
         return errorResponse(
-          lockRoundErr.message || "Failed to record lock-in",
+          lockRoundErr.message || 'Failed to record lock-in',
           400,
         );
       }
@@ -317,20 +324,20 @@ Deno.serve(async (req) => {
         // opponent who has already submitted.
         if (lock.should_resolve === true) {
           try {
-            await invokeFn("round-resolve", {
+            await invokeFn('round-resolve', {
               battle_id,
               round_number: roundNumber,
             });
           } catch (e) {
-            console.error("round-resolve invoke failed:", e);
+            console.error('round-resolve invoke failed:', e);
           }
         }
         return successResponse({
           success: true,
           prompt_id: promptId,
-          battle_status: "resolving",
+          battle_status: 'resolving',
           round_number: roundNumber,
-          message: "Prompt submitted. Round resolving...",
+          message: 'Prompt submitted. Round resolving...',
         });
       }
 
@@ -340,29 +347,29 @@ Deno.serve(async (req) => {
       return successResponse({
         success: true,
         prompt_id: promptId,
-        battle_status: "waiting_for_prompts",
+        battle_status: 'waiting_for_prompts',
         round_number: roundNumber,
-        message: "Prompt submitted. Waiting for opponent...",
+        message: 'Prompt submitted. Waiting for opponent...',
       });
     }
 
     // ---- Single-format flow (unchanged) ----
 
-    if (battle && battle.status === "resolving") {
+    if (battle && battle.status === 'resolving') {
       // Both prompts submitted (or bot battle with human prompt), battle ready for resolution
       // Trigger server-owned resolution reliably
       try {
         await triggerBattleResolution(battle_id);
       } catch (error) {
-        console.error("Failed to trigger battle resolution:", error);
+        console.error('Failed to trigger battle resolution:', error);
         // Don't fail the response - resolution can be retried via scheduled job
       }
 
       return successResponse({
         success: true,
         prompt_id: promptId,
-        battle_status: "resolving",
-        message: "Prompt submitted. Battle resolving...",
+        battle_status: 'resolving',
+        message: 'Prompt submitted. Battle resolving...',
       });
     }
 
@@ -373,13 +380,13 @@ Deno.serve(async (req) => {
     return successResponse({
       success: true,
       prompt_id: promptId,
-      battle_status: battle?.status || "waiting_for_prompts",
-      message: "Prompt submitted. Waiting for opponent...",
+      battle_status: battle?.status || 'waiting_for_prompts',
+      message: 'Prompt submitted. Waiting for opponent...',
     });
   } catch (error) {
-    console.error("Submit prompt error:", error);
+    console.error('Submit prompt error:', error);
     return errorResponse(
-      error instanceof Error ? error.message : "Internal error",
+      error instanceof Error ? error.message : 'Internal error',
       500,
     );
   }

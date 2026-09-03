@@ -62,7 +62,9 @@ export interface RenderPortraitFailure {
   status: number;
 }
 
-export type RenderPortraitResult = RenderPortraitSuccess | RenderPortraitFailure;
+export type RenderPortraitResult =
+  | RenderPortraitSuccess
+  | RenderPortraitFailure;
 
 /**
  * Renders one image and records it, leaving `characters` untouched.
@@ -76,8 +78,17 @@ export async function renderOnePortrait(
   input: RenderPortraitInput,
 ): Promise<RenderPortraitResult> {
   const {
-    supabase, userId, character, kind, promptRaw, artStyle,
-    traits, itemFragment, seed, jobKind, idempotencyKey = null,
+    supabase,
+    userId,
+    character,
+    kind,
+    promptRaw,
+    artStyle,
+    traits,
+    itemFragment,
+    seed,
+    jobKind,
+    idempotencyKey = null,
   } = input;
 
   const { data: job } = await supabase
@@ -108,7 +119,8 @@ export async function renderOnePortrait(
     await supabase
       .from('portrait_jobs')
       .update({
-        status: code === 'moderation_rejected' ? 'moderation_rejected' : 'failed',
+        status:
+          code === 'moderation_rejected' ? 'moderation_rejected' : 'failed',
         error_code: code,
         error_message: message,
         updated_at: new Date().toISOString(),
@@ -131,22 +143,24 @@ export async function renderOnePortrait(
       kind,
     });
   } catch (e) {
-    const code = e instanceof SafetyRefusedError
-      ? 'moderation_rejected'
-      : e instanceof ImageProviderError
-        ? e.code
-        : 'provider_error';
+    const code =
+      e instanceof SafetyRefusedError
+        ? 'moderation_rejected'
+        : e instanceof ImageProviderError
+          ? e.code
+          : 'provider_error';
     const message = e instanceof Error ? e.message : String(e);
     await failJob(code, message);
     return { ok: false, code, message, status: 502 };
   }
 
   const portraitId = crypto.randomUUID();
-  const ext = result.content_type === 'image/png'
-    ? 'png'
-    : result.content_type === 'image/jpeg'
-      ? 'jpg'
-      : 'webp';
+  const ext =
+    result.content_type === 'image/png'
+      ? 'png'
+      : result.content_type === 'image/jpeg'
+        ? 'jpg'
+        : 'webp';
   const storagePath = `${userId}/${character.id}/${portraitId}.${ext}`;
 
   const uploadRes = await supabase.storage
@@ -190,6 +204,9 @@ export async function renderOnePortrait(
         archetype: character.archetype,
         signature_color: character.signature_color,
         signature_item_id: character.signature_item_id,
+        // Lets the client say WHAT changed since this render, not just that
+        // something did; every other prompt input was already here.
+        art_style: artStyle,
       },
       generation_job_id: job?.id ?? null,
       is_current: true,
@@ -234,7 +251,9 @@ export async function renderOnePortrait(
 
 /** Builds the trait bundle the resolver expects from a character row. */
 // deno-lint-ignore no-explicit-any
-export function traitsFromCharacter(character: Record<string, any>): PortraitTraits {
+export function traitsFromCharacter(
+  character: Record<string, any>,
+): PortraitTraits {
   return {
     vibe: character.vibe ?? undefined,
     silhouette: character.silhouette ?? undefined,

@@ -26,6 +26,10 @@ import {
   ok,
   randomPortraitSeed,
 } from '../_shared/character-creation.ts';
+import {
+  insufficientCreditsResponse,
+  isInsufficientCreditsError,
+} from '../_shared/credits.ts';
 import { renderOnePortrait } from '../_shared/render-portrait.ts';
 import {
   generateCharacterPortrait,
@@ -52,7 +56,13 @@ interface GeneratePortraitRequest {
   traits?: PortraitTraits;
 }
 
-const TRAIT_KEYS = ['vibe', 'silhouette', 'palette', 'era', 'expression'] as const;
+const TRAIT_KEYS = [
+  'vibe',
+  'silhouette',
+  'palette',
+  'era',
+  'expression',
+] as const;
 const MAX_TRAIT_LEN = 40;
 
 /** Drop undefined entries so a null row column does not mask a body value. */
@@ -69,7 +79,11 @@ function sanitizeTraits(input: unknown): PortraitTraits {
   const out: Record<string, string> = {};
   for (const key of TRAIT_KEYS) {
     const value = src[key];
-    if (typeof value === 'string' && value.length > 0 && value.length <= MAX_TRAIT_LEN) {
+    if (
+      typeof value === 'string' &&
+      value.length > 0 &&
+      value.length <= MAX_TRAIT_LEN
+    ) {
       out[key] = value;
     }
   }
@@ -151,20 +165,25 @@ Deno.serve(async (req) => {
     const price = await getEditPrice(supabase, 'render_look');
     if (!price) return err('server_error', 'price config missing', 500);
     if (price.credits > 0) {
-      const { data: txId, error: spendErr } = await supabase.rpc('spend_credits', {
-        p_profile_id: userId,
-        p_amount: price.credits,
-        p_reason: 'draft_render',
-        p_idempotency_key: generateIdempotencyKey([
-          'draft_render', character.id, String(rendersUsed),
-        ]),
-        p_battle_id: null,
-        p_video_job_id: null,
-        p_metadata: { character_id: character.id, renders_used: rendersUsed },
-      });
+      const { data: txId, error: spendErr } = await supabase.rpc(
+        'spend_credits',
+        {
+          p_profile_id: userId,
+          p_amount: price.credits,
+          p_reason: 'draft_render',
+          p_idempotency_key: generateIdempotencyKey([
+            'draft_render',
+            character.id,
+            String(rendersUsed),
+          ]),
+          p_battle_id: null,
+          p_video_job_id: null,
+          p_metadata: { character_id: character.id, renders_used: rendersUsed },
+        },
+      );
       if (spendErr) {
-        if (/Insufficient credits/i.test(spendErr.message ?? '')) {
-          return err('insufficient_credits', spendErr.message, 402, {
+        if (isInsufficientCreditsError(spendErr.message)) {
+          return insufficientCreditsResponse(spendErr.message, price.credits, {
             free_renders_used: rendersUsed,
             free_renders_total: DRAFT_FREE_RENDERS,
           });
@@ -189,17 +208,23 @@ Deno.serve(async (req) => {
     });
   };
 
-  const promptRaw = body.portrait_prompt_raw ?? character.portrait_prompt_raw ?? '';
+  const promptRaw =
+    body.portrait_prompt_raw ?? character.portrait_prompt_raw ?? '';
   const artStyle: ArtStyle =
     (body.art_style as ArtStyle | undefined) ??
-    ((character as { art_style?: ArtStyle }).art_style ?? 'painterly');
+    (character as { art_style?: ArtStyle }).art_style ??
+    'painterly';
 
   // Moderate raw prompt (skip when empty).
   if (promptRaw.trim().length > 0) {
     const moderator = new TextModerationProvider();
     const modResult = await moderator.moderate(promptRaw);
     if (modResult.status === 'rejected') {
-      return err('moderation_rejected', modResult.reason ?? 'prompt rejected', 422);
+      return err(
+        'moderation_rejected',
+        modResult.reason ?? 'prompt rejected',
+        422,
+      );
     }
   }
 
@@ -217,15 +242,28 @@ Deno.serve(async (req) => {
     })
     .eq('id', character.id);
   const { data: claimed, error: claimErr } = await (
-    priorSeed === null ? claim.is('portrait_seed', null) : claim.eq('portrait_seed', priorSeed)
+    priorSeed === null
+      ? claim.is('portrait_seed', null)
+      : claim.eq('portrait_seed', priorSeed)
   )
-    .select('id')
+    .select('id, appearance_version')
     .maybeSingle();
 
   if (claimErr) return err('server_error', claimErr.message, 500);
   if (!claimed) {
     return err('conflict', 'portrait_seed already set', 409);
   }
+
+  // The claim above writes portrait_prompt_raw and art_style, both of which
+  // characters_guard_and_touch counts as appearance changes, so the version
+  // loaded before it is already behind whenever the prompt or style moved.
+  // Stamping the renders with the pre-claim value marked every first render
+  // stale on arrival and made the free avatar retry refuse with fighter_stale.
+  // The value the claim returns is the one this render actually depicts.
+  const stampVersion =
+    (claimed as { appearance_version?: number | null }).appearance_version ??
+    character.appearance_version ??
+    0;
 
   // Roll back our claim on a NON-safety failure so the free path can be retried
   // instead of 409ing to the paid regenerate flow. Restores the PREVIOUS seed
@@ -241,12 +279,16 @@ Deno.serve(async (req) => {
       .update({
         portrait_seed: priorSeed,
         portrait_prompt_raw: character.portrait_prompt_raw,
-        art_style: (character as { art_style?: ArtStyle }).art_style ?? 'painterly',
+        art_style:
+          (character as { art_style?: ArtStyle }).art_style ?? 'painterly',
       })
       .eq('id', character.id)
       .eq('portrait_seed', seed);
     if (releaseErr) {
-      console.error('Failed to release portrait_seed after failure:', releaseErr);
+      console.error(
+        'Failed to release portrait_seed after failure:',
+        releaseErr,
+      );
     }
   };
 
@@ -271,7 +313,10 @@ Deno.serve(async (req) => {
     era: character.era ?? undefined,
     expression: character.expression ?? undefined,
   };
-  const traits: PortraitTraits = { ...sanitizeTraits(body.traits), ...stripUndefined(rowTraits) };
+  const traits: PortraitTraits = {
+    ...sanitizeTraits(body.traits),
+    ...stripUndefined(rowTraits),
+  };
 
   // Create job row in queued state.
   const { data: job, error: jobErr } = await supabase
@@ -301,7 +346,11 @@ Deno.serve(async (req) => {
 
   await supabase
     .from('portrait_jobs')
-    .update({ status: 'running', attempt: 1, updated_at: new Date().toISOString() })
+    .update({
+      status: 'running',
+      attempt: 1,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', job.id);
 
   // Call provider.
@@ -317,15 +366,17 @@ Deno.serve(async (req) => {
       art_style: artStyle,
     });
   } catch (e) {
-    const code = e instanceof SafetyRefusedError
-      ? 'moderation_rejected'
-      : e instanceof ImageProviderError
-        ? e.code
-        : 'provider_error';
+    const code =
+      e instanceof SafetyRefusedError
+        ? 'moderation_rejected'
+        : e instanceof ImageProviderError
+          ? e.code
+          : 'provider_error';
     await supabase
       .from('portrait_jobs')
       .update({
-        status: code === 'moderation_rejected' ? 'moderation_rejected' : 'failed',
+        status:
+          code === 'moderation_rejected' ? 'moderation_rejected' : 'failed',
         error_code: code,
         error_message: e instanceof Error ? e.message : String(e),
         updated_at: new Date().toISOString(),
@@ -340,11 +391,12 @@ Deno.serve(async (req) => {
 
   // Upload bytes.
   const portraitId = crypto.randomUUID();
-  const ext = result.content_type === 'image/png'
-    ? 'png'
-    : result.content_type === 'image/jpeg'
-      ? 'jpg'
-      : 'webp';
+  const ext =
+    result.content_type === 'image/png'
+      ? 'png'
+      : result.content_type === 'image/jpeg'
+        ? 'jpg'
+        : 'webp';
   const storagePath = `${userId}/${character.id}/${portraitId}.${ext}`;
 
   const uploadRes = await supabase.storage
@@ -397,15 +449,18 @@ Deno.serve(async (req) => {
         archetype: character.archetype,
         signature_color: character.signature_color,
         signature_item_id: character.signature_item_id,
+        // Lets the client say WHAT changed since this render, not just that
+        // something did; every other prompt input was already here.
+        art_style: artStyle,
       },
       generation_job_id: job.id,
       is_current: true,
       moderation_status: 'approved',
-      // Stamps which version of the character's look this render depicts. The
-      // only character columns written below are portrait_id and
-      // portrait_prompt_resolved, neither of which the prompt reads, so the
-      // value loaded above is still current at insert time.
-      appearance_version: character.appearance_version ?? 0,
+      // Stamps which version of the character's look this render depicts: the
+      // version after the seed claim wrote the prompt and style. The only
+      // character columns written below are portrait_id, avatar_portrait_id and
+      // portrait_prompt_resolved, none of which the prompt reads.
+      appearance_version: stampVersion,
     })
     .select('id')
     .single();
@@ -422,7 +477,11 @@ Deno.serve(async (req) => {
       .eq('id', job.id);
     await releaseClaimedSeed();
     await refundDraftRender('portrait_insert_failed');
-    return err('server_error', portraitErr?.message ?? 'portrait insert failed', 500);
+    return err(
+      'server_error',
+      portraitErr?.message ?? 'portrait insert failed',
+      500,
+    );
   }
 
   await supabase
@@ -463,7 +522,7 @@ Deno.serve(async (req) => {
       .eq('id', character.id);
     await supabase
       .from('character_portraits')
-      .update({ appearance_version: character.appearance_version ?? 0 })
+      .update({ appearance_version: stampVersion })
       .eq('id', avatar.portraitId);
   } else {
     console.warn('avatar leg failed during first generation; fighter kept', {

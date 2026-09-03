@@ -22,7 +22,8 @@ Covered functions:
 - `create-custom-signature-item`
 - `list-signature-items-catalog`
 - `generate-portrait`
-- `regenerate-portrait`
+- `regenerate-portrait` (paid `render`, free `avatar_only`, idempotent replay, 402 shortfall)
+- `restore-portrait` (fighter restore brings its paired avatar back)
 
 Provider note: generated item icons and portraits currently use real deployed provider configuration. That can consume xAI/OpenAI quota and make tests slower or less deterministic. For routine CI, configure the function environment for fallback image mode before running these tests.
 

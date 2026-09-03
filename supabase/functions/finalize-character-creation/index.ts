@@ -26,8 +26,19 @@ import {
   PLACEHOLDER_BATTLE_CRY,
 } from '../_shared/character-creation.ts';
 import { TextModerationProvider } from '../_shared/moderation.ts';
+import {
+  statColumns,
+  validateStatAllocation,
+} from '../_shared/character-stats.ts';
 
-const VIBE = ['heroic', 'sinister', 'mischievous', 'stoic', 'unhinged', 'regal'];
+const VIBE = [
+  'heroic',
+  'sinister',
+  'mischievous',
+  'stoic',
+  'unhinged',
+  'regal',
+];
 const SILHOUETTE = [
   'lean_duelist',
   'heavy_bruiser',
@@ -38,11 +49,19 @@ const SILHOUETTE = [
 ];
 const ERA = ['ancient', 'industrial', 'modern', 'cyberpunk', 'far_future'];
 const EXPRESSION = ['smirk', 'glare', 'calm', 'roar', 'smile', 'thousand_yard'];
-const PALETTE = ['ember', 'ocean', 'neon', 'bone', 'forest', 'royal', 'ash', 'gold'];
+const PALETTE = [
+  'ember',
+  'ocean',
+  'neon',
+  'bone',
+  'forest',
+  'royal',
+  'ash',
+  'gold',
+];
 const ARCHETYPE = ['strategist', 'trickster', 'titan', 'mystic', 'engineer'];
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
-
 
 interface FinalizeRequest {
   character_id: string;
@@ -57,6 +76,13 @@ interface FinalizeRequest {
   expression?: string;
   signature_item_id?: string;
   portrait_id?: string;
+  /**
+   * Creation-time stat allocation, `{ strength, stamina, agility, focus }`.
+   * Optional so older clients keep working (they leave the 5/5/5/5 default);
+   * when present it must spend exactly the shared pool -- see
+   * `_shared/character-stats.ts`.
+   */
+  stats?: unknown;
 }
 
 Deno.serve(async (req) => {
@@ -182,7 +208,7 @@ Deno.serve(async (req) => {
     if (itemErr) return err('server_error', itemErr.message, 500);
     if (!item) return err('bad_request', 'signature item not found', 400);
     if (item.kind === 'custom' && item.profile_id !== userId) {
-      return err('forbidden', 'cannot equip another user\'s custom item', 403);
+      return err('forbidden', "cannot equip another user's custom item", 403);
     }
     if (item.moderation_status === 'rejected') {
       return err('bad_request', 'signature item is rejected', 400);
@@ -192,6 +218,13 @@ Deno.serve(async (req) => {
   }
   if (typeof body.portrait_id === 'string') {
     updates.portrait_id = body.portrait_id;
+  }
+  if (body.stats !== undefined) {
+    const stats = validateStatAllocation(body.stats);
+    if (!stats.ok) {
+      return err('bad_request', stats.message, 400, { field: 'stats' });
+    }
+    Object.assign(updates, statColumns(stats.stats));
   }
 
   if (Object.keys(updates).length === 0) {
@@ -207,7 +240,9 @@ Deno.serve(async (req) => {
     .join(' \n ');
 
   if (authoredText.length > 0) {
-    const moderation = await new TextModerationProvider().moderate(authoredText);
+    const moderation = await new TextModerationProvider().moderate(
+      authoredText,
+    );
     if (moderation.status === 'rejected') {
       return err(
         'bad_request',
@@ -252,7 +287,8 @@ Deno.serve(async (req) => {
       .from('character_portraits')
       .update({
         appearance_version:
-          (finalized as { appearance_version?: number }).appearance_version ?? 0,
+          (finalized as { appearance_version?: number }).appearance_version ??
+          0,
       })
       .eq('id', chosenPortraitId)
       .eq('character_id', character.id);

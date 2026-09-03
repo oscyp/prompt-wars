@@ -14,13 +14,23 @@ import {
 import { TextModerationProvider } from '../_shared/moderation.ts';
 import { err, getEditPrice, ok } from '../_shared/character-creation.ts';
 import {
+  insufficientCreditsResponse,
+  isInsufficientCreditsError,
+} from '../_shared/credits.ts';
+import {
   generateItemIcon,
   ImageProviderError,
   SafetyRefusedError,
 } from '../_shared/image-provider.ts';
 import { isTestUser } from '../_shared/test-user.ts';
 
-const ITEM_CLASSES = ['tool', 'symbol', 'weaponized_mundane', 'relic', 'instrument'] as const;
+const ITEM_CLASSES = [
+  'tool',
+  'symbol',
+  'weaponized_mundane',
+  'relic',
+  'instrument',
+] as const;
 type ItemClass = (typeof ITEM_CLASSES)[number];
 
 interface CreateRequest {
@@ -108,18 +118,21 @@ Deno.serve(async (req) => {
       userId,
       crypto.randomUUID(),
     ]);
-    const { data: txId, error: spendErr } = await supabase.rpc('spend_credits', {
-      p_profile_id: userId,
-      p_amount: price.credits,
-      p_reason: priceKey,
-      p_idempotency_key: spendKey,
-      p_battle_id: null,
-      p_video_job_id: null,
-      p_metadata: { item_name: body.name },
-    });
+    const { data: txId, error: spendErr } = await supabase.rpc(
+      'spend_credits',
+      {
+        p_profile_id: userId,
+        p_amount: price.credits,
+        p_reason: priceKey,
+        p_idempotency_key: spendKey,
+        p_battle_id: null,
+        p_video_job_id: null,
+        p_metadata: { item_name: body.name },
+      },
+    );
     if (spendErr) {
-      if (/Insufficient credits/i.test(spendErr.message ?? '')) {
-        return err('insufficient_credits', spendErr.message, 402);
+      if (isInsufficientCreditsError(spendErr.message)) {
+        return insufficientCreditsResponse(spendErr.message, price.credits);
       }
       return err('server_error', spendErr.message, 500);
     }
@@ -156,20 +169,26 @@ Deno.serve(async (req) => {
           p_metadata: { item_name: body.name },
         });
       }
-      const code = e instanceof SafetyRefusedError
-        ? 'moderation_rejected'
-        : e instanceof ImageProviderError
-          ? e.code
-          : 'provider_error';
-      return err(code, e instanceof Error ? e.message : 'provider failure', 502);
+      const code =
+        e instanceof SafetyRefusedError
+          ? 'moderation_rejected'
+          : e instanceof ImageProviderError
+            ? e.code
+            : 'provider_error';
+      return err(
+        code,
+        e instanceof Error ? e.message : 'provider failure',
+        502,
+      );
     }
 
     const itemId = crypto.randomUUID();
-    const ext = icon.content_type === 'image/png'
-      ? 'png'
-      : icon.content_type === 'image/jpeg'
-        ? 'jpg'
-        : 'webp';
+    const ext =
+      icon.content_type === 'image/png'
+        ? 'png'
+        : icon.content_type === 'image/jpeg'
+          ? 'jpg'
+          : 'webp';
     imagePath = `${userId}/${itemId}.${ext}`;
     const uploadRes = await supabase.storage
       .from('signature-items-custom')
@@ -208,7 +227,9 @@ Deno.serve(async (req) => {
       image_path: imagePath,
       moderation_status: moderationStatus,
     })
-    .select('id, name, item_class, prompt_fragment, image_path, moderation_status')
+    .select(
+      'id, name, item_class, prompt_fragment, image_path, moderation_status',
+    )
     .single();
 
   if (insertErr || !item) {

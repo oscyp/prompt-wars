@@ -50,32 +50,101 @@ export function assertTextModerationConfigured(): void {
   );
 }
 
+/**
+ * OpenAI's moderation endpoint returns a per-category boolean at its own
+ * default thresholds, and those thresholds are set for general-purpose chat.
+ * This is a game whose every prompt describes a fight: "a crushing shoulder
+ * bash" scored `violence` 0.51 and was held for review, three times in a row,
+ * for the same player. So the violence categories get their own bar, high
+ * enough that written combat clears it and low enough that a description of
+ * gore does not. Every other category keeps the provider's own flag.
+ */
+export const FICTION_TOLERANT_THRESHOLDS: Readonly<Record<string, number>> = {
+  violence: 0.85,
+  'violence/graphic': 0.7,
+};
+
+/** Above this, a flagged prompt is refused outright rather than held. */
+export const OPENAI_REJECT_SCORE = 0.9;
+
+export interface OpenAiModerationResult {
+  flagged: boolean;
+  categories: Record<string, boolean>;
+  category_scores: Record<string, number>;
+}
+
+/**
+ * Decide from one OpenAI moderation result. Pure, so the policy can be tested
+ * without the network.
+ */
+export function evaluateOpenAiModeration(
+  result: OpenAiModerationResult,
+  requestId?: string,
+): TextModerationResult {
+  const scores = result.category_scores ?? {};
+  const effective = Object.keys(result.categories ?? {}).filter((category) => {
+    if (!result.categories[category]) return false;
+    const tolerance = FICTION_TOLERANT_THRESHOLDS[category];
+    if (tolerance === undefined) return true;
+    return (scores[category] ?? 0) >= tolerance;
+  });
+
+  if (effective.length === 0) {
+    const allScores = Object.values(scores);
+    return {
+      status: 'approved',
+      confidence: 1.0 - (allScores.length ? Math.max(...allScores) : 0),
+      provider: 'openai',
+      providerRequestId: requestId,
+    };
+  }
+
+  const maxScore = Math.max(...effective.map((c) => scores[c] ?? 0));
+  return {
+    status:
+      maxScore > OPENAI_REJECT_SCORE ? 'rejected' : 'flagged_human_review',
+    reason: `Flagged categories: ${effective.join(', ')}`,
+    confidence: maxScore,
+    flaggedCategories: effective,
+    provider: 'openai',
+    providerRequestId: requestId,
+  };
+}
+
 export class TextModerationProvider {
-  private blocklist: string[] = [
-    // Minimal MVP blocklist; expand with production content policy
+  /** Never acceptable in this game, whatever the context. Rejected outright. */
+  private hardBlocklist: string[] = [
     'spam',
     'test123',
     'asdf',
     'xxx',
     'porn',
     'drugs',
-    'violence',
-    'kill',
-    'die',
     'nsfw',
     'sexual',
     'explicit',
   ];
 
+  /**
+   * Combat vocabulary. Only enforced when no classifier is configured (local
+   * development and tests): a word list cannot tell "kill the momentum" from a
+   * threat, but the classifier can, so in production it gets to decide.
+   */
+  private fallbackBlocklist: string[] = ['violence', 'kill', 'die'];
+
   async moderate(text: string): Promise<TextModerationResult> {
     const lowerText = text.toLowerCase().trim();
+    const configured = hasTextModerationProvider();
 
     // Word-boundary match, not substring. `includes()` flagged "skill" for
     // "kill", "soldier" for "die" and "assassin" for "ass" -- in a game whose
     // whole subject is written combat, that rejected ordinary prompts. It was
     // also trivially evaded by a single space, so it cost legitimate players
     // more than it cost anyone acting in bad faith.
-    for (const blocked of this.blocklist) {
+    const blocklist = configured
+      ? this.hardBlocklist
+      : [...this.hardBlocklist, ...this.fallbackBlocklist];
+    for (const blocked of blocklist) {
       const pattern = new RegExp(
         `\\b${blocked.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
       );
@@ -134,7 +203,6 @@ export class TextModerationProvider {
     // UGC pipeline -- prompts that reach a video generator -- to a
     // twelve-word blocklist, with nothing in the logs to say moderation had
     // stopped working.
-    const configured = hasTextModerationProvider();
     const providerResult = await this.callExternalProvider(text);
     if (providerResult) {
       return providerResult;
@@ -163,7 +231,9 @@ export class TextModerationProvider {
     };
   }
 
-  private async callExternalProvider(text: string): Promise<TextModerationResult | null> {
+  private async callExternalProvider(
+    text: string,
+  ): Promise<TextModerationResult | null> {
     const openAiKey = Deno.env.get('OPENAI_API_KEY');
     const perspectiveKey = Deno.env.get('PERSPECTIVE_API_KEY');
 
@@ -174,39 +244,15 @@ export class TextModerationProvider {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openAiKey}`,
+            Authorization: `Bearer ${openAiKey}`,
           },
           body: JSON.stringify({ input: text }),
         });
 
         if (response.ok) {
           const data = await response.json();
-          const result = data.results[0];
-
-          if (result.flagged) {
-            const categories = Object.keys(result.categories).filter(
-              (cat) => result.categories[cat]
-            );
-            const scores = Object.values(result.category_scores) as number[];
-            const maxScore = Math.max(...scores);
-
-            return {
-              status: maxScore > 0.9 ? 'rejected' : 'flagged_human_review',
-              reason: `Flagged categories: ${categories.join(', ')}`,
-              confidence: maxScore,
-              flaggedCategories: categories,
-              provider: 'openai',
-              providerRequestId: data.id,
-            };
-          }
-
-          const scores = Object.values(result.category_scores) as number[];
-          return {
-            status: 'approved',
-            confidence: 1.0 - Math.max(...scores),
-            provider: 'openai',
-            providerRequestId: data.id,
-          };
+          const result = data.results[0] as OpenAiModerationResult;
+          return evaluateOpenAiModeration(result, data.id);
         }
       } catch (error) {
         console.error('OpenAI moderation error:', error);
@@ -234,7 +280,7 @@ export class TextModerationProvider {
                 THREAT: {},
               },
             }),
-          }
+          },
         );
 
         if (response.ok) {
@@ -244,11 +290,11 @@ export class TextModerationProvider {
             scores.TOXICITY?.summaryScore?.value || 0,
             scores.SEVERE_TOXICITY?.summaryScore?.value || 0,
             scores.IDENTITY_ATTACK?.summaryScore?.value || 0,
-            scores.THREAT?.summaryScore?.value || 0
+            scores.THREAT?.summaryScore?.value || 0,
           );
 
           const flagged = Object.keys(scores).filter(
-            (attr) => scores[attr].summaryScore.value > 0.7
+            (attr) => scores[attr].summaryScore.value > 0.7,
           );
 
           if (maxScore > 0.85) {
@@ -290,7 +336,10 @@ export class TextModerationProvider {
  * MVP: stub with manual review trigger; production: video classification API
  */
 export class VideoModerationProvider {
-  async moderate(videoUrl: string, videoId: string): Promise<VideoModerationResult> {
+  async moderate(
+    videoUrl: string,
+    videoId: string,
+  ): Promise<VideoModerationResult> {
     const provider = Deno.env.get('VIDEO_MODERATION_PROVIDER') || 'manual';
 
     // Stub: in production, call video moderation API (e.g., Google Video Intelligence, Hive)
@@ -309,31 +358,40 @@ export class VideoModerationProvider {
     const hiveApiKey = Deno.env.get('HIVE_API_KEY');
     if (hiveApiKey && provider === 'hive') {
       try {
-        const response = await fetch('https://api.thehive.ai/api/v2/task/sync', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Token ${hiveApiKey}`,
-            'Content-Type': 'application/json',
+        const response = await fetch(
+          'https://api.thehive.ai/api/v2/task/sync',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Token ${hiveApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              url: videoUrl,
+              models: ['nsfw', 'violence', 'hate_speech'],
+            }),
           },
-          body: JSON.stringify({
-            url: videoUrl,
-            models: ['nsfw', 'violence', 'hate_speech'],
-          }),
-        });
+        );
 
         if (response.ok) {
           const data = await response.json();
           const classes = data.status[0]?.response?.output || [];
-          
-          const flaggedClasses = classes.filter((c: { score: number }) => c.score > 0.8);
-          
+
+          const flaggedClasses = classes.filter(
+            (c: { score: number }) => c.score > 0.8,
+          );
+
           if (flaggedClasses.length > 0) {
-            const maxScore = Math.max(...flaggedClasses.map((c: { score: number }) => c.score));
+            const maxScore = Math.max(
+              ...flaggedClasses.map((c: { score: number }) => c.score),
+            );
             return {
               status: maxScore > 0.95 ? 'rejected' : 'flagged_human_review',
               reason: `Flagged: ${flaggedClasses.map((c: { class: string }) => c.class).join(', ')}`,
               confidence: maxScore,
-              flaggedCategories: flaggedClasses.map((c: { class: string }) => c.class),
+              flaggedCategories: flaggedClasses.map(
+                (c: { class: string }) => c.class,
+              ),
               provider: 'hive',
             };
           }

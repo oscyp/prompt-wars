@@ -44,6 +44,7 @@ There are **two independent test systems**: Jest (`jest-expo` preset) for app co
 ### Client / server split (the core invariant)
 
 The mobile app is deliberately "thin". It may only:
+
 - **Read** its own rows (profiles, characters, battles, prompts, wallet) and public data, enforced by RLS.
 - **Subscribe** to Realtime for live updates.
 - **Invoke Edge Functions** for every state change.
@@ -53,11 +54,13 @@ The client **cannot** write server-owned state — battle results, judge scores,
 ### Edge Functions (`supabase/functions/`, Deno)
 
 Each function is a folder with `index.ts` calling `Deno.serve`. Shared code lives in `_shared/`:
+
 - `utils.ts` — `createServiceClient()` (service role, full power), `createUserClient(authHeader)` (runs under the caller's JWT + RLS), `getAuthUserId(req)` (validates the bearer token and returns the user id), plus `corsHeaders`, `errorResponse`, `successResponse`. Supabase keys are read from **JSON dictionaries** in env (`SUPABASE_PUBLISHABLE_KEYS`, `SUPABASE_SECRET_KEYS`) with legacy single-key fallbacks — use these helpers, don't read the env vars directly.
 - `judge.ts` / `providers.ts` — the AI provider layer (see below).
 - `moderation.ts`, `push.ts`, `entitlement-gate.ts`, `compose-reveal-payload.ts`, `glicko2.ts`, etc.
 
 Three call patterns (see `supabase/functions/README.md` for the full list):
+
 - **User-initiated** (`matchmaking`, `submit-prompt`, `appeal-battle`, …): require `Authorization: Bearer <jwt>`, validate via `getAuthUserId`.
 - **Service-role** (`resolve-battle`, `round-resolve`, `process-video-job`, `expire-battles`, …): invoked internally, not by clients.
 - **Webhooks** (`revenuecat-webhook`): JWT verification is disabled in `config.toml` (`[functions.revenuecat-webhook] verify_jwt = false`) because RevenueCat sends its own auth header, validated in-function.
@@ -98,8 +101,9 @@ A standalone, zero-build static marketing/legal site (pure HTML/CSS/JS — inclu
 - **Env vars:** only `EXPO_PUBLIC_*` are bundled into the app; everything else (provider keys, service key, webhook secret) lives in Supabase Edge Function secrets. See `.env.example` and `supabase/ENV_VARS.md`. Never add secrets to the mobile `.env`.
 - **`entitlements` is a derived VIEW, never a table** — it's the source of truth for feature gates; don't try to write to it. It is **not client-readable**: read it via the `get_my_entitlements()` RPC (`utils/monetization.ts`). Both entitlement views run `security_invoker`.
 - **Privileges are default-closed, and the migrations cannot be trusted to tell you so.** Schema `public`'s default ACL grants `anon`/`authenticated` on every new function, and `REVOKE ... FROM PUBLIC` does not remove explicit role grants — so every hardening migration here was a no-op for months while `anon` could execute `grant_credits` and `resolve_battle`. A `ddl_command_end` event trigger now strips PUBLIC EXECUTE at CREATE time, so a new client-callable function needs a deliberate `GRANT EXECUTE ... TO authenticated`. **Verify privileges against the live catalog, never the migration files:** `supabase db query --linked "$(cat supabase/checks/privilege_audit.sql)"` — any row returned is a defect.
+- **Trigger functions run as the role that issued the DML, not as their owner.** A BEFORE INSERT trigger on a client-writable table (`characters`, written by onboarding as `authenticated`) that calls a helper function will fail with `42501 permission denied for function …` because the event trigger above leaves new helpers executable by postgres and service_role only. That broke every onboarding insert from 2026-08-27 to 2026-09-03 (`characters_assign_default_item`). Either make the trigger function `SECURITY DEFINER SET search_path = public` (the pattern `validate_character_signature_item` uses) or grant the helper explicitly; test as the client role: `SET ROLE authenticated;` then the statement, inside `BEGIN … ROLLBACK`.
 - **A clean `supabase db push` says nothing about whether a PL/pgSQL function works.** Bodies are not planned until first execution, so enum/type mismatches surface only at call time. Three shipped this way during the August audit. Invoke new functions against the database before trusting them.
-- **Seeding:** starter content is seeded by an *idempotent migration* (`20260512195500_seed_starter_content.sql`), not `seed.sql`. `db.seed` is disabled in `config.toml` on purpose (re-running `seed.sql` caused duplicate-key errors). Add seed data as an idempotent migration.
+- **Seeding:** starter content is seeded by an _idempotent migration_ (`20260512195500_seed_starter_content.sql`), not `seed.sql`. `db.seed` is disabled in `config.toml` on purpose (re-running `seed.sql` caused duplicate-key errors). Add seed data as an idempotent migration.
 - **Migrations** are timestamped `YYYYMMDDHHMMSS_name.sql`, ordered by prefix, `timestamptz` everywhere, JSONB for flexible payloads. Write them idempotent where possible.
 - **Reanimated:** `react-native-worklets/plugin` must be **last** in `babel.config.js` or animations silently no-op. SVGs are imported as components via `react-native-svg-transformer` (configured in `metro.config.js`).
 - **Docs:** `docs/prompt-wars-implementation-concept.md` is the authoritative design doc (data models, state machines, RLS). The many `*_REPORT.md` files at the repo root and in `docs/` are historical implementation logs — informative, but the concept doc and the actual schema/code win on conflicts.

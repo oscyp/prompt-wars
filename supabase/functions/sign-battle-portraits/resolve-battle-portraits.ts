@@ -91,6 +91,43 @@ interface CharacterLite {
   cosmetic_config?: Record<string, string> | null;
 }
 
+interface BotPersonaLite {
+  name?: string | null;
+  archetype?: string | null;
+  signature_color?: string | null;
+}
+
+/**
+ * A bot's identity for the face-off and the strips.
+ *
+ * `bot_personas` is `USING (FALSE)` for clients, so without this the opponent
+ * of every practice battle was "Bot Opponent", archetype "fighter", in the
+ * default purple -- while the persona table has had names, archetypes and
+ * colours since the seed. Read-only, service-role, and only after the
+ * participant gate. Null when the battle has no persona or the read fails.
+ */
+async function loadBotPersona(
+  supabase: SupabaseClient,
+  personaId: string | null | undefined,
+): Promise<BotPersonaLite | null> {
+  if (!personaId) return null;
+  try {
+    const { data, error } = await supabase
+      .from('bot_personas')
+      .select('name, archetype, signature_color')
+      .eq('id', personaId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return data as BotPersonaLite;
+  } catch (error) {
+    console.error(
+      'sign-battle-portraits: bot persona lookup failed (non-blocking):',
+      error,
+    );
+    return null;
+  }
+}
+
 /**
  * Resolve one side's portrait URL + archetype.
  *
@@ -116,6 +153,8 @@ async function resolveSide(
   };
 
   if (opts.isBot || !characterId) {
+    // Bots have no render; the client shows the archetype illustration in the
+    // persona's colour, which is why the identity still travels.
     return { portrait_url: null, fighter_url: null, ...identity };
   }
 
@@ -183,7 +222,7 @@ export async function resolveBattlePortraits(
     .from('battles')
     .select(
       `
-      id, player_one_id, player_two_id, is_player_two_bot,
+      id, player_one_id, player_two_id, is_player_two_bot, bot_persona_id,
       player_one_character_id, player_two_character_id,
       player_one_character:characters!battles_player_one_character_id_fkey(id, archetype, name, signature_color, cosmetic_config),
       player_two_character:characters!battles_player_two_character_id_fkey(id, archetype, name, signature_color, cosmetic_config)
@@ -216,10 +255,27 @@ export async function resolveBattlePortraits(
       isBot: false,
       character: (battle.player_one_character as CharacterLite | null) ?? null,
     }),
-    resolveSide(supabase, {
-      isBot,
-      character: (battle.player_two_character as CharacterLite | null) ?? null,
-    }),
+    isBot
+      ? loadBotPersona(supabase, battle.bot_persona_id as string | null).then(
+          (persona) =>
+            resolveSide(supabase, {
+              isBot: true,
+              character: persona
+                ? {
+                    id: null,
+                    name: persona.name ?? null,
+                    archetype: persona.archetype ?? null,
+                    signature_color: persona.signature_color ?? null,
+                    cosmetic_config: null,
+                  }
+                : null,
+            }),
+        )
+      : resolveSide(supabase, {
+          isBot: false,
+          character:
+            (battle.player_two_character as CharacterLite | null) ?? null,
+        }),
   ]);
 
   return {

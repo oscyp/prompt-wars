@@ -10,6 +10,10 @@ import {
   getAuthUserId,
 } from '../_shared/utils.ts';
 import { err, getEditPrice, ok } from '../_shared/character-creation.ts';
+import {
+  insufficientCreditsResponse,
+  isInsufficientCreditsError,
+} from '../_shared/credits.ts';
 import { isTestUser } from '../_shared/test-user.ts';
 import {
   planIdentityBatch,
@@ -37,15 +41,35 @@ interface EditRequest {
   idempotency_key?: string;
 }
 
-const VIBE = ['heroic','sinister','mischievous','stoic','unhinged','regal'];
-const SILHOUETTE = [
-  'lean_duelist','heavy_bruiser','slim_trickster',
-  'armored_knight','robed_mystic','sharp_tactician',
+const VIBE = [
+  'heroic',
+  'sinister',
+  'mischievous',
+  'stoic',
+  'unhinged',
+  'regal',
 ];
-const ERA = ['ancient','industrial','modern','cyberpunk','far_future'];
-const EXPRESSION = ['smirk','glare','calm','roar','smile','thousand_yard'];
-const PALETTE = ['ember','ocean','neon','bone','forest','royal','ash','gold'];
-const ARCHETYPE = ['strategist','trickster','titan','mystic','engineer'];
+const SILHOUETTE = [
+  'lean_duelist',
+  'heavy_bruiser',
+  'slim_trickster',
+  'armored_knight',
+  'robed_mystic',
+  'sharp_tactician',
+];
+const ERA = ['ancient', 'industrial', 'modern', 'cyberpunk', 'far_future'];
+const EXPRESSION = ['smirk', 'glare', 'calm', 'roar', 'smile', 'thousand_yard'];
+const PALETTE = [
+  'ember',
+  'ocean',
+  'neon',
+  'bone',
+  'forest',
+  'royal',
+  'ash',
+  'gold',
+];
+const ARCHETYPE = ['strategist', 'trickster', 'titan', 'mystic', 'engineer'];
 
 // Maps the price/key edit_kind to the character_edits.edit_kind enum value.
 function editLogKind(k: EditKind): string {
@@ -53,17 +77,26 @@ function editLogKind(k: EditKind): string {
     // 'identity' is a batch of independently-priced fields and writes one log
     // row per field, so it has no single log kind of its own. Callers must not
     // reach here with it.
-    case 'identity': return 'identity';
+    case 'identity':
+      return 'identity';
     // Same shape as 'identity': a batch that writes one row per changed field.
-    case 'look': return 'look';
-    case 'rename': return 'name';
+    case 'look':
+      return 'look';
+    case 'rename':
+      return 'name';
     case 'traits_single_swap':
-    case 'traits_full_reroll': return 'traits';
-    case 'signature_item_swap': return 'signature_item';
-    case 'palette': return 'palette';
-    case 'archetype': return 'archetype';
-    case 'signature_color': return 'signature_color';
-    case 'battle_cry': return 'battle_cry';
+    case 'traits_full_reroll':
+      return 'traits';
+    case 'signature_item_swap':
+      return 'signature_item';
+    case 'palette':
+      return 'palette';
+    case 'archetype':
+      return 'archetype';
+    case 'signature_color':
+      return 'signature_color';
+    case 'battle_cry':
+      return 'battle_cry';
   }
 }
 
@@ -210,8 +243,8 @@ async function handleIdentityBatch(
       },
     );
     if (spendErr) {
-      if (/Insufficient credits/i.test(spendErr.message ?? '')) {
-        return err('insufficient_credits', spendErr.message, 402);
+      if (isInsufficientCreditsError(spendErr.message)) {
+        return insufficientCreditsResponse(spendErr.message, totalCredits);
       }
       return err('server_error', spendErr.message, 500);
     }
@@ -275,7 +308,6 @@ async function handleIdentityBatch(
   });
 }
 
-
 // ---------------------------------------------------------------------------
 // Look batch
 // ---------------------------------------------------------------------------
@@ -316,7 +348,12 @@ async function handleLookBatch(
 
   const plan = planLookBatch(character, payload);
   if (!plan.ok) {
-    return err('bad_request', plan.reason, 400, plan.field ? { field: plan.field } : undefined);
+    return err(
+      'bad_request',
+      plan.reason,
+      400,
+      plan.field ? { field: plan.field } : undefined,
+    );
   }
   const { changed, update } = plan;
 
@@ -415,9 +452,15 @@ Deno.serve(async (req) => {
 
   const supabase = createServiceClient();
 
-  const headerKey = req.headers.get('Idempotency-Key')?.trim() ?? body.idempotency_key;
+  const headerKey =
+    req.headers.get('Idempotency-Key')?.trim() ?? body.idempotency_key;
   const idempotencyKey = headerKey
-    ? generateIdempotencyKey(['edit', body.edit_kind, body.character_id, headerKey])
+    ? generateIdempotencyKey([
+        'edit',
+        body.edit_kind,
+        body.character_id,
+        headerKey,
+      ])
     : null;
 
   if (idempotencyKey) {
@@ -428,7 +471,11 @@ Deno.serve(async (req) => {
       .eq('idempotency_key', idempotencyKey)
       .maybeSingle();
     if (existing) {
-      return ok({ idempotent: true, edit_id: existing.id, after: existing.after });
+      return ok({
+        idempotent: true,
+        edit_id: existing.id,
+        after: existing.after,
+      });
     }
   }
 
@@ -491,7 +538,8 @@ Deno.serve(async (req) => {
   }
 
   const price = await getEditPrice(supabase, body.edit_kind);
-  if (!price) return err('bad_request', `unknown edit_kind: ${body.edit_kind}`, 400);
+  if (!price)
+    return err('bad_request', `unknown edit_kind: ${body.edit_kind}`, 400);
 
   // Cooldowns are tracked per edit category through character_edits.
   // Test users bypass cooldowns entirely.
@@ -545,7 +593,8 @@ Deno.serve(async (req) => {
     }
     case 'archetype': {
       const a = p.archetype as string;
-      if (!ARCHETYPE.includes(a)) return err('bad_request', 'invalid archetype', 400);
+      if (!ARCHETYPE.includes(a))
+        return err('bad_request', 'invalid archetype', 400);
       setField('archetype', a, character.archetype);
       break;
     }
@@ -567,18 +616,30 @@ Deno.serve(async (req) => {
     }
     case 'palette': {
       const k = p.palette_key as string;
-      if (!PALETTE.includes(k)) return err('bad_request', 'invalid palette_key', 400);
+      if (!PALETTE.includes(k))
+        return err('bad_request', 'invalid palette_key', 400);
       setField('palette_key', k, character.palette_key);
       break;
     }
     case 'traits_single_swap': {
       const trait = p.trait as string;
       const value = p.value as string;
-      const map: Record<string, { col: string; allowed: string[]; current: unknown }> = {
+      const map: Record<
+        string,
+        { col: string; allowed: string[]; current: unknown }
+      > = {
         vibe: { col: 'vibe', allowed: VIBE, current: character.vibe },
-        silhouette: { col: 'silhouette', allowed: SILHOUETTE, current: character.silhouette },
+        silhouette: {
+          col: 'silhouette',
+          allowed: SILHOUETTE,
+          current: character.silhouette,
+        },
         era: { col: 'era', allowed: ERA, current: character.era },
-        expression: { col: 'expression', allowed: EXPRESSION, current: character.expression },
+        expression: {
+          col: 'expression',
+          allowed: EXPRESSION,
+          current: character.expression,
+        },
       };
       const cfg = map[trait];
       if (!cfg) return err('bad_request', 'invalid trait', 400);
@@ -593,7 +654,12 @@ Deno.serve(async (req) => {
       const s = p.silhouette as string;
       const e = p.era as string;
       const x = p.expression as string;
-      if (!VIBE.includes(v) || !SILHOUETTE.includes(s) || !ERA.includes(e) || !EXPRESSION.includes(x)) {
+      if (
+        !VIBE.includes(v) ||
+        !SILHOUETTE.includes(s) ||
+        !ERA.includes(e) ||
+        !EXPRESSION.includes(x)
+      ) {
         return err('bad_request', 'invalid trait values', 400);
       }
       setField('vibe', v, character.vibe);
@@ -612,7 +678,11 @@ Deno.serve(async (req) => {
           .maybeSingle();
         if (!item) return err('bad_request', 'signature item not found', 400);
         if (item.kind === 'custom' && item.profile_id !== userId) {
-          return err('forbidden', 'cannot equip another user\'s custom item', 403);
+          return err(
+            'forbidden',
+            "cannot equip another user's custom item",
+            403,
+          );
         }
         if (item.moderation_status === 'rejected') {
           return err('bad_request', 'signature item is rejected', 400);
@@ -628,19 +698,27 @@ Deno.serve(async (req) => {
   if (price.credits > 0) {
     const spendKey = idempotencyKey
       ? `spend_${idempotencyKey}`
-      : generateIdempotencyKey(['spend', body.edit_kind, character.id, crypto.randomUUID()]);
-    const { data: txId, error: spendErr } = await supabase.rpc('spend_credits', {
-      p_profile_id: userId,
-      p_amount: price.credits,
-      p_reason: body.edit_kind,
-      p_idempotency_key: spendKey,
-      p_battle_id: null,
-      p_video_job_id: null,
-      p_metadata: { character_id: character.id, edit_kind: body.edit_kind },
-    });
+      : generateIdempotencyKey([
+          'spend',
+          body.edit_kind,
+          character.id,
+          crypto.randomUUID(),
+        ]);
+    const { data: txId, error: spendErr } = await supabase.rpc(
+      'spend_credits',
+      {
+        p_profile_id: userId,
+        p_amount: price.credits,
+        p_reason: body.edit_kind,
+        p_idempotency_key: spendKey,
+        p_battle_id: null,
+        p_video_job_id: null,
+        p_metadata: { character_id: character.id, edit_kind: body.edit_kind },
+      },
+    );
     if (spendErr) {
-      if (/Insufficient credits/i.test(spendErr.message ?? '')) {
-        return err('insufficient_credits', spendErr.message, 402);
+      if (isInsufficientCreditsError(spendErr.message)) {
+        return insufficientCreditsResponse(spendErr.message, price.credits);
       }
       return err('server_error', spendErr.message, 500);
     }
@@ -648,7 +726,10 @@ Deno.serve(async (req) => {
   }
 
   // Bump traits_version when traits changed.
-  if (body.edit_kind === 'traits_single_swap' || body.edit_kind === 'traits_full_reroll') {
+  if (
+    body.edit_kind === 'traits_single_swap' ||
+    body.edit_kind === 'traits_full_reroll'
+  ) {
     update.traits_version = (character.traits_version ?? 0) + 1;
   }
 
