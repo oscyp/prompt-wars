@@ -13,7 +13,9 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 
 /** Capture the scored result card to a PNG and open the share sheet. */
-export async function shareResultCard(ref: RefObject<View | null>): Promise<boolean> {
+export async function shareResultCard(
+  ref: RefObject<View | null>,
+): Promise<boolean> {
   if (!ref.current) return false;
 
   const uri = await captureRef(ref as RefObject<View>, {

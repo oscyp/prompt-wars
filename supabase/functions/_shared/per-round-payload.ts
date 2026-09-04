@@ -42,8 +42,12 @@ export async function composePerRoundPayload(
     .eq('is_locked', true);
   if (promptsErr) throw new Error('Failed to load round prompts');
 
-  const p1Row = prompts?.find((p: any) => p.profile_id === battle.player_one_id);
-  const p2Row = prompts?.find((p: any) => p.profile_id === battle.player_two_id);
+  const p1Row = prompts?.find(
+    (p: any) => p.profile_id === battle.player_one_id,
+  );
+  const p2Row = prompts?.find(
+    (p: any) => p.profile_id === battle.player_two_id,
+  );
 
   const promptText = async (row: any | null | undefined): Promise<string> => {
     if (!row) return '';
@@ -69,7 +73,8 @@ export async function composePerRoundPayload(
     signature_color: battle.player_one_character?.signature_color ?? '#6366f1',
     voice_id: battle.player_one_character?.voice_id ?? null,
     portrait_ref: battle.player_one_character?.portrait_signed_url ?? null,
-    stats_snapshot: (battle.player_one_stats_snapshot as Record<string, number>) ?? {},
+    stats_snapshot:
+      (battle.player_one_stats_snapshot as Record<string, number>) ?? {},
   };
   const p2Char: CharacterSnapshot = {
     user_id: battle.player_two_id,
@@ -78,7 +83,8 @@ export async function composePerRoundPayload(
     signature_color: battle.player_two_character?.signature_color ?? '#94a3b8',
     voice_id: battle.player_two_character?.voice_id ?? null,
     portrait_ref: battle.player_two_character?.portrait_signed_url ?? null,
-    stats_snapshot: (battle.player_two_stats_snapshot as Record<string, number>) ?? {},
+    stats_snapshot:
+      (battle.player_two_stats_snapshot as Record<string, number>) ?? {},
   };
 
   const p1Prompt: PromptSnapshot = {

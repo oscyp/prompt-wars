@@ -14,15 +14,34 @@ export type BattleStatus =
   | 'moderation_failed'
   | 'generation_failed';
 
-export type BattleMode = 'ranked' | 'unranked' | 'friend_challenge' | 'daily_theme' | 'bot';
+export type BattleMode =
+  | 'ranked'
+  | 'unranked'
+  | 'friend_challenge'
+  | 'daily_theme'
+  | 'bot';
 
 export type MoveType = 'attack' | 'defense' | 'finisher';
 
-export type ModerationStatus = 'pending' | 'approved' | 'rejected' | 'flagged_human_review';
+export type ModerationStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'flagged_human_review';
 
-export type VideoJobStatus = 'queued' | 'submitted' | 'processing' | 'succeeded' | 'failed';
+export type VideoJobStatus =
+  | 'queued'
+  | 'submitted'
+  | 'processing'
+  | 'succeeded'
+  | 'failed';
 
-export type Archetype = 'strategist' | 'trickster' | 'titan' | 'mystic' | 'engineer';
+export type Archetype =
+  | 'strategist'
+  | 'trickster'
+  | 'titan'
+  | 'mystic'
+  | 'engineer';
 
 export interface Battle {
   id: string;

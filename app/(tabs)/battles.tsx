@@ -33,6 +33,7 @@ import {
   seriesScoreFor,
   seriesLabel,
   opponentProfileIds,
+  iHaveLockedIn,
   type BattleListRow,
   type BattleListSection,
 } from '@/utils/battleLists';
@@ -50,6 +51,14 @@ import { useAuth } from '@/providers/AuthProvider';
 import { InlineBanner, PortraitPreview } from '@/components';
 import { useBattleSheet } from '@/components/BattleModeSheet';
 import ListSkeleton from '@/components/ListSkeleton';
+import { useLeaveBattle } from '@/hooks/useLeaveBattle';
+import {
+  canLeaveBattleStatus,
+  hasOpponent,
+  leaveActionLabel,
+  type BattleMode,
+} from '@/utils/battles';
+import type { BattleFormat } from '@/types/battle';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -63,6 +72,52 @@ interface OutcomePresentation {
   word: string;
   icon: IoniconName;
   color: string;
+}
+
+function BattleLeaveAction({
+  battle,
+  userId,
+  color,
+  onLeft,
+}: {
+  battle: BattleListRow;
+  userId: string | undefined;
+  color: string;
+  onLeft: () => void;
+}) {
+  const isBot = battle.is_player_two_bot === true;
+  const mode = (battle.mode ?? 'ranked') as BattleMode;
+  const label = leaveActionLabel({
+    status: battle.status,
+    mode,
+    isBot,
+    hasOpponent: hasOpponent(battle),
+  });
+  const leave = useLeaveBattle(battle.id, {
+    format: (battle.format ?? 'single') as BattleFormat,
+    mode,
+    isBot,
+    myProfileId: userId,
+    hasLockedPrompt: iHaveLockedIn(battle, userId),
+  });
+
+  return (
+    <Pressable
+      style={styles.rowLeaveAction}
+      onPress={(event) => {
+        event.stopPropagation();
+        leave.confirmLeave(onLeft);
+      }}
+      disabled={leave.isLeaving}
+      accessibilityRole="button"
+      accessibilityLabel={`${label} battle`}
+      accessibilityState={{ disabled: leave.isLeaving }}
+    >
+      <Text style={[styles.rowLeaveText, { color }]}>
+        {leave.isLeaving ? 'Leaving…' : label}
+      </Text>
+    </Pressable>
+  );
 }
 
 /** Word + icon + colour for a resolved battle; null while there is nothing to say. */
@@ -284,6 +339,21 @@ export default function BattlesScreen() {
               </Text>
             ) : null}
           </View>
+          {canLeaveBattleStatus(item.status) ? (
+            <BattleLeaveAction
+              battle={item}
+              userId={userId}
+              color={colors.error}
+              onLeft={() => {
+                // Optimistic removal makes a successful leave visible before
+                // the refetch round-trip. The server remains authoritative.
+                setBattles((current) =>
+                  current.filter((battle) => battle.id !== item.id),
+                );
+                void loadBattles();
+              }}
+            />
+          ) : null}
         </View>
       </Pressable>
     );
@@ -489,6 +559,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  rowLeaveAction: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.sm,
+    marginLeft: -Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  rowLeaveText: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
+    textDecorationLine: 'underline',
   },
   outcomeRow: {
     flexDirection: 'row',

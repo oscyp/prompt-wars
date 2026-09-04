@@ -5,18 +5,22 @@ Timestamped migration chain for Supabase Postgres schema evolution.
 ## Phase 1+ Migration Chain ✅ Complete
 
 ### `20260506000000_init_prompt_wars.sql` (Phase 0)
+
 - Extensions: uuid-ossp, pgcrypto
 - Placeholder for migration chain initialization
 
 ### `20260506100000_core_gameplay_schema.sql` ✅
+
 **Size**: 19KB, ~600 lines  
 **Content**: Enums (battle_status, move_type, archetype, etc.), core tables (profiles, characters, battles, prompts, judge_runs, appeals, rivals), indexes, RLS policies, Realtime, triggers
 
 ### `20260506110000_economy_video_social_schema.sql` ✅
+
 **Size**: 20KB, ~650 lines  
 **Content**: Video pipeline (video_jobs, videos), economy (wallet, purchases, subscriptions, entitlements view), seasons/rankings, daily meta (quests, themes), moderation/safety (reports, blocks, moderation_events), push notifications
 
 ### `20260506120000_database_functions.sql` ✅
+
 **Size**: 19KB, ~600 lines  
 **Content**: Server-owned functions (create_battle, match_battle, lock_prompt, resolve_battle, grant/spend/refund credits, appeals, daily login streak, notification frequency cap)
 
@@ -33,6 +37,7 @@ Migrations are ordered by timestamp prefix (YYYYMMDDHHMMSS). Each migration is a
 The authoritative data model is defined in `docs/prompt-wars-implementation-concept.md` §12. High-level summary:
 
 ### Core Gameplay Tables
+
 - `profiles` - User profiles, rating, season context
 - `characters` - Player-created characters (archetype, battle cry, signature color, cosmetics)
 - `prompt_templates` - Curated prompts by category, ranked-safe flags, active date ranges
@@ -42,16 +47,19 @@ The authoritative data model is defined in `docs/prompt-wars-implementation-conc
 - `appeals` - Player appeal requests for ranked losses (1/day cap), original vs appeal winner
 
 ### Video Pipeline Tables
+
 - `video_jobs` - Video generation job queue (provider, status, attempt count, error codes)
 - `videos` - Completed videos with Storage paths, thumbnails, visibility, retention metadata
 
 ### Economy Tables
+
 - `wallet_transactions` - Credit ledger (earned, purchased, spent, refunded) with audit trail
 - `purchases` - IAP purchase records mirrored from RevenueCat webhook
 - `subscriptions` - Subscription state (active, tier, allowance) mirrored from RevenueCat
 - `entitlements` - **Derived view** (never a table). Source of truth for feature gates; server-owned. Aggregates subscription + purchase state into is_subscriber, monthly_video_allowance_remaining, cosmetic_unlocks, priority_queue.
 
 ### Social & Retention Tables
+
 - `rivals` - Auto-tagged most-played opponent over 30d rolling window
 - `daily_quests` - Quest definitions and player progress
 - `prompt_journal` - Player's best-rated prompts (shareable, retention surface)
@@ -59,6 +67,7 @@ The authoritative data model is defined in `docs/prompt-wars-implementation-conc
 - `moderation_events` - Audit log of moderation decisions (pre-gen, post-gen, manual review)
 
 ### Rankings & Seasons
+
 - `rankings` - Glicko-2 ratings, seasonal placement, tier assignment
 - `seasons` - Season config (start, end, rewards, judge version)
 - `leaderboards` - Materialized view of top players by season/mode/archetype

@@ -31,37 +31,14 @@ import { HEADER_BUTTON_SIZE } from '@/components/HeaderBackButton';
 import { invokeAuthenticatedFunction } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import {
-  getThemePreference,
-  loadThemePreference,
-  setThemePreference,
-  type ThemePreference,
-} from '@/utils/themeSettings';
-import {
-  getAccessibilityPreferences,
-  loadAccessibilityPreferences,
-  setAccessibilityPreference,
-  DEFAULT_ACCESSIBILITY_PREFERENCES,
-  type AccessibilityPreferences,
-} from '@/utils/accessibilitySettings';
-import {
   getNotificationPreferences,
   registerForPushNotifications,
   updateNotificationPreference,
   DEFAULT_NOTIFICATION_PREFERENCES,
   type NotificationPreferences,
 } from '@/utils/notifications';
-import { hapticSelection } from '@/utils/haptics';
-import {
-  HAPTICS_COPY,
-  NOTIFICATION_COPY,
-  appVersionLabel,
-} from '@/utils/settingsCopy';
-
-const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
-  { value: 'dark', label: 'Dark' },
-  { value: 'light', label: 'Light' },
-  { value: 'system', label: 'System' },
-];
+import { NOTIFICATION_COPY, appVersionLabel } from '@/utils/settingsCopy';
+import { setAudioPreference, useAudioPreferences } from '@/utils/audioSettings';
 
 const TOAST_MS = 2500;
 
@@ -187,8 +164,7 @@ function LinkRow({
 export default function SettingsScreen() {
   const colors = useThemedColors();
   const insets = useSafeAreaInsets();
-  // Dyslexia-friendly spacing (§22a) — applied to the Accessibility section so
-  // toggling it gives immediate on-screen feedback where the switch lives.
+  // Keep persisted readable-text styling on the remaining settings content.
   const accessibleText = useAccessibleTextStyle();
   const { user, signOut } = useAuth();
   const router = useRouter();
@@ -207,14 +183,8 @@ export default function SettingsScreen() {
     toastTimer.current = setTimeout(() => setToast(null), TOAST_MS);
   };
 
-  // Theme preference — dark-first (docs/DESIGN_LANGUAGE.md), persisted.
-  const [theme, setTheme] = useState<ThemePreference>(getThemePreference());
-
-  useEffect(() => {
-    loadThemePreference().then(setTheme);
-  }, []);
-
   const [isDeleting, setIsDeleting] = useState(false);
+  const audio = useAudioPreferences();
 
   // Through the provider, not `supabase.auth.signOut()` directly: the provider
   // is what deactivates this device's push token. Calling the client straight
@@ -262,30 +232,6 @@ export default function SettingsScreen() {
         },
       ],
     );
-  };
-
-  const selectTheme = (value: ThemePreference) => {
-    setTheme(value);
-    setThemePreference(value);
-  };
-
-  // Accessibility preferences — persisted and read by the app (concept §22a).
-  // `reducedMotion` is OR-ed with the OS setting inside `useReducedMotion`;
-  // `haptics` drives the global mute in utils/haptics.ts.
-  const [a11y, setA11y] = useState<AccessibilityPreferences>(
-    getAccessibilityPreferences() ?? DEFAULT_ACCESSIBILITY_PREFERENCES,
-  );
-
-  useEffect(() => {
-    loadAccessibilityPreferences().then(setA11y);
-  }, []);
-
-  const toggleA11y = (key: keyof AccessibilityPreferences, value: boolean) => {
-    setA11y((prev) => ({ ...prev, [key]: value }));
-    setAccessibilityPreference(key, value);
-    // Let the player feel the setting take effect. Runs after the store has
-    // applied the new mute state, so turning haptics off stays silent.
-    if (key === 'haptics' && value) hapticSelection();
   };
 
   // Notification preferences (synced with notification_preferences table)
@@ -369,7 +315,8 @@ export default function SettingsScreen() {
           Settings
         </Text>
 
-        {/* Appearance */}
+        {/* Battle audio is independent from haptics and split by intent: a
+            player may keep event feedback without the ambient loop. */}
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <Text
             accessibilityRole="header"
@@ -379,96 +326,23 @@ export default function SettingsScreen() {
               { color: colors.text },
             ]}
           >
-            Appearance
+            Audio
           </Text>
-          <View
-            style={styles.segmentRow}
-            accessibilityRole="radiogroup"
-            accessibilityLabel="App theme"
-          >
-            {THEME_OPTIONS.map((option) => {
-              const selected = theme === option.value;
-              return (
-                <Pressable
-                  key={option.value}
-                  style={[
-                    styles.segment,
-                    {
-                      backgroundColor: selected
-                        ? colors.primary
-                        : colors.backgroundTertiary,
-                    },
-                  ]}
-                  onPress={() => selectTheme(option.value)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected, checked: selected }}
-                  accessibilityLabel={`${option.label} theme`}
-                >
-                  <Text
-                    style={[
-                      styles.segmentLabel,
-                      { color: selected ? '#FFFFFF' : colors.text },
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Accessibility */}
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text
-            accessibilityRole="header"
-            style={[
-              styles.sectionTitle,
-              accessibleText,
-              { color: colors.text },
-            ]}
-          >
-            Accessibility
-          </Text>
-
-          {/* "Dynamic Type" used to be a switch here. It wrote a preference that
-              nothing read -- no allowFontScaling, no maxFontSizeMultiplier, no
-              consumer anywhere -- so flipping it did nothing at all.
-              It is removed rather than wired because React Native honours the
-              OS text-size setting by default (allowFontScaling defaults to true),
-              so the app already supports Dynamic Type. The switch promised
-              control over something that needs no control, and an accessibility
-              toggle that silently does nothing is worse than no toggle. */}
-
           <SwitchRow
-            label="Dyslexia-Friendly Font"
-            value={a11y.dyslexiaFont}
-            onChange={(v) => toggleA11y('dyslexiaFont', v)}
-            accessibilityLabel="Toggle dyslexia-friendly font"
+            label="Music"
+            subline="Ambient music during battles"
+            value={audio.music}
+            onChange={(value) => setAudioPreference('music', value)}
+            accessibilityLabel="Toggle battle music"
             colors={colors}
             labelStyle={accessibleText}
           />
           <SwitchRow
-            label="Reduced Motion"
-            value={a11y.reducedMotion}
-            onChange={(v) => toggleA11y('reducedMotion', v)}
-            accessibilityLabel="Toggle reduced motion"
-            colors={colors}
-            labelStyle={accessibleText}
-          />
-          <SwitchRow
-            label="High Contrast Mode"
-            value={a11y.highContrast}
-            onChange={(v) => toggleA11y('highContrast', v)}
-            accessibilityLabel="Toggle high contrast"
-            colors={colors}
-            labelStyle={accessibleText}
-          />
-          <SwitchRow
-            label={HAPTICS_COPY.label}
-            value={a11y.haptics}
-            onChange={(v) => toggleA11y('haptics', v)}
-            accessibilityLabel={HAPTICS_COPY.accessibilityLabel}
+            label="Sound Effects"
+            subline="Match, move, lock-in, and transition feedback"
+            value={audio.soundEffects}
+            onChange={(value) => setAudioPreference('soundEffects', value)}
+            accessibilityLabel="Toggle battle sound effects"
             colors={colors}
             labelStyle={accessibleText}
             last
@@ -778,22 +652,6 @@ const styles = StyleSheet.create({
   },
   settingValue: {
     fontSize: Typography.sizes.sm,
-  },
-  segmentRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginTop: Spacing.xs,
-  },
-  segment: {
-    flex: 1,
-    minHeight: Layout.inputHeight,
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  segmentLabel: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold,
   },
   note: {
     fontSize: Typography.sizes.sm,

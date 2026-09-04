@@ -19,7 +19,7 @@ Deno.test('Judge: Aggregate score calculation', () => {
     archetype_fit: 7,
     dramatic_potential: 8,
   };
-  
+
   const total = aggregateScore(scores);
   assertEquals(total, 45);
 });
@@ -33,14 +33,14 @@ Deno.test('Judge: Length normalization penalizes verbosity', () => {
     archetype_fit: 10,
     dramatic_potential: 10,
   };
-  
+
   const normalizedShort = normalizeScores(scores, 50); // 50 words
   const normalizedLong = normalizeScores(scores, 200); // 200 words (over 100 threshold)
-  
+
   assertEquals(
     aggregateScore(normalizedShort) > aggregateScore(normalizedLong),
     true,
-    'Long prompts should be penalized'
+    'Long prompts should be penalized',
   );
 });
 
@@ -71,20 +71,23 @@ Deno.test('Judge: Move type modifier - finisher beats defense', () => {
 Deno.test('Judge: Move type modifier - same vs same is neutral', () => {
   const baseScore = 50;
   const modifiedScore = applyMoveTypeModifier(baseScore, 'attack', 'attack');
-  
+
   assertEquals(modifiedScore, baseScore, 'Same move types should be neutral');
 });
 
 Deno.test('Judge: Mock provider returns valid scores', async () => {
   const provider = new MockJudgeProvider();
   const result = await provider.judge({
-    promptOne: 'A swift and decisive strike that catches the opponent off guard.',
+    promptOne:
+      'A swift and decisive strike that catches the opponent off guard.',
     promptTwo: 'Block',
     moveTypeOne: 'attack',
     moveTypeTwo: 'defense',
     theme: 'speed',
-    seed: 12345,    promptVersion: 'v1.0.0-mvp',  });
-  
+    seed: 12345,
+    promptVersion: 'v1.0.0-mvp',
+  });
+
   assertEquals(typeof result.playerOneScores.clarity, 'number');
   assertEquals(typeof result.playerTwoScores.clarity, 'number');
   assertEquals(typeof result.explanation, 'string');
@@ -92,25 +95,43 @@ Deno.test('Judge: Mock provider returns valid scores', async () => {
   assertEquals(result.playerOneScores.clarity <= 10, true);
 });
 
-Deno.test('Judge: Quality floor gates when both prompts are low quality', () => {
-  const low: JudgeRubricScores = {
-    clarity: 2, originality: 2, specificity: 2,
-    theme_fit: 2, archetype_fit: 2, dramatic_potential: 2,
-  }; // aggregate 12 < floor
-  assertEquals(aggregateScore(low) < RATING_QUALITY_FLOOR, true);
-  assertEquals(isBelowQualityFloor(low, low), true);
-});
+Deno.test(
+  'Judge: Quality floor gates when both prompts are low quality',
+  () => {
+    const low: JudgeRubricScores = {
+      clarity: 2,
+      originality: 2,
+      specificity: 2,
+      theme_fit: 2,
+      archetype_fit: 2,
+      dramatic_potential: 2,
+    }; // aggregate 12 < floor
+    assertEquals(aggregateScore(low) < RATING_QUALITY_FLOOR, true);
+    assertEquals(isBelowQualityFloor(low, low), true);
+  },
+);
 
-Deno.test('Judge: Quality floor does not gate when one prompt is decent', () => {
-  const low: JudgeRubricScores = {
-    clarity: 2, originality: 2, specificity: 2,
-    theme_fit: 2, archetype_fit: 2, dramatic_potential: 2,
-  };
-  const decent: JudgeRubricScores = {
-    clarity: 6, originality: 6, specificity: 6,
-    theme_fit: 6, archetype_fit: 6, dramatic_potential: 6,
-  }; // aggregate 36 >= floor
-  assertEquals(isBelowQualityFloor(low, decent), false);
-  assertEquals(isBelowQualityFloor(decent, low), false);
-  assertEquals(isBelowQualityFloor(decent, decent), false);
-});
+Deno.test(
+  'Judge: Quality floor does not gate when one prompt is decent',
+  () => {
+    const low: JudgeRubricScores = {
+      clarity: 2,
+      originality: 2,
+      specificity: 2,
+      theme_fit: 2,
+      archetype_fit: 2,
+      dramatic_potential: 2,
+    };
+    const decent: JudgeRubricScores = {
+      clarity: 6,
+      originality: 6,
+      specificity: 6,
+      theme_fit: 6,
+      archetype_fit: 6,
+      dramatic_potential: 6,
+    }; // aggregate 36 >= floor
+    assertEquals(isBelowQualityFloor(low, decent), false);
+    assertEquals(isBelowQualityFloor(decent, low), false);
+    assertEquals(isBelowQualityFloor(decent, decent), false);
+  },
+);

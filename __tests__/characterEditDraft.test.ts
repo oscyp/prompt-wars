@@ -48,14 +48,21 @@ describe('computeDraft', () => {
   });
 
   it('marks the tab each change belongs to', () => {
-    const d = draft({ name: 'Golota', era: 'cyberpunk', signatureItemId: 'item-2' });
+    const d = draft({
+      name: 'Golota',
+      era: 'cyberpunk',
+      signatureItemId: 'item-2',
+    });
     expect(d.dirtySections).toEqual({ identity: true, look: true, gear: true });
     expect(d.changeCount).toBe(3);
   });
 
   it('reports how long each identity field will lock for', () => {
     const byLabel = Object.fromEntries(
-      draft({ name: 'Golota', archetype: 'titan' }).changes.map((c) => [c.label, c.locksFor]),
+      draft({ name: 'Golota', archetype: 'titan' }).changes.map((c) => [
+        c.label,
+        c.locksFor,
+      ]),
     );
     expect(byLabel.Name).toBe('7 days');
     expect(byLabel.Archetype).toBe('14 days');
@@ -70,7 +77,10 @@ describe('computeDraft', () => {
 
   it('treats clearing the prompt as a change, not an absent field', () => {
     // This is exactly what switching from "your own words" back to Guided does.
-    const withPrompt = { ...character, portrait_prompt_raw: 'a knight of glass' };
+    const withPrompt = {
+      ...character,
+      portrait_prompt_raw: 'a knight of glass',
+    };
     const d = computeDraft({
       character: withPrompt,
       values: { portraitPromptRaw: null } as never,
@@ -85,7 +95,9 @@ describe('computeDraft', () => {
   });
 
   it('names the item rather than showing a uuid', () => {
-    expect(draft({ signatureItemId: 'item-2' }).changes[0].to).toBe('Lucky Coin');
+    expect(draft({ signatureItemId: 'item-2' }).changes[0].to).toBe(
+      'Lucky Coin',
+    );
   });
 
   it('shows readable labels for trait values', () => {
@@ -97,7 +109,11 @@ describe('computeDraft', () => {
 
   it('builds one identity payload and one look payload', () => {
     // Gear rides with look: both are free describing fields on one write.
-    const d = draft({ name: 'Golota', era: 'cyberpunk', signatureItemId: 'item-2' });
+    const d = draft({
+      name: 'Golota',
+      era: 'cyberpunk',
+      signatureItemId: 'item-2',
+    });
     expect(d.changes.filter((c) => c.section === 'identity')).toHaveLength(1);
     expect(d.changes.filter((c) => c.section !== 'identity')).toHaveLength(2);
   });
@@ -109,8 +125,8 @@ describe('computeDraft', () => {
   });
 
   it('returns an empty summary with no character loaded', () => {
-    expect(
-      computeDraft({ character: null, values: {}, pricing }).dirty,
-    ).toBe(false);
+    expect(computeDraft({ character: null, values: {}, pricing }).dirty).toBe(
+      false,
+    );
   });
 });

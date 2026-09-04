@@ -31,20 +31,20 @@ export const TIER1_MAX_RETRY_ATTEMPTS = 3;
 export const TIER1_PER_ROUND_COST_UNITS = 1;
 
 /** Frozen video prompt template version, bumped on schema changes. */
-export const VIDEO_PROMPT_TEMPLATE_VERSION = "v1-per-round-2026.05";
+export const VIDEO_PROMPT_TEMPLATE_VERSION = 'v1-per-round-2026.05';
 
 /** Triggers recognized by the worker for refund policy. */
 export type VideoJobTrigger =
-  | "auto_free"
-  | "auto_subscriber"
-  | "on_demand_credit"
-  | "on_demand_grant"
-  | "series_end_legacy";
+  | 'auto_free'
+  | 'auto_subscriber'
+  | 'on_demand_credit'
+  | 'on_demand_grant'
+  | 'series_end_legacy';
 
 /** Triggers that DO get a refund on terminal failure / moderation rejection. */
 export const REFUNDABLE_TRIGGERS: ReadonlySet<VideoJobTrigger> = new Set([
-  "on_demand_credit",
-  "on_demand_grant",
+  'on_demand_credit',
+  'on_demand_grant',
 ]);
 
 export function isRefundableTrigger(t: string | null | undefined): boolean {
@@ -67,9 +67,9 @@ export function isRetryableFailedJob(job: {
   trigger?: string | null;
 }): boolean {
   return (
-    job.status === "failed" &&
-    (job.refunded === true || job.trigger === "auto_free") &&
-    job.error_code !== "moderation_rejected"
+    job.status === 'failed' &&
+    (job.refunded === true || job.trigger === 'auto_free') &&
+    job.error_code !== 'moderation_rejected'
   );
 }
 

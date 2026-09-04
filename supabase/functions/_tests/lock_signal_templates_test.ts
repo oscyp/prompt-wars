@@ -10,10 +10,24 @@
 //   - SUPABASE_PUBLISHABLE_KEYS / SUPABASE_ANON_KEY for the user-context RPC tests
 //   - Running Supabase instance with all migrations + starter seed applied
 
-import { assert, assertEquals, assertExists } from 'https://deno.land/std@0.192.0/testing/asserts.ts';
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import { getSupabasePublishableKey, getSupabaseSecretKey } from '../_shared/utils.ts';
-import { createTestPlayer, deleteTestPlayer, type ServiceClient } from './integration-helpers.ts';
+import {
+  assert,
+  assertEquals,
+  assertExists,
+} from 'https://deno.land/std@0.192.0/testing/asserts.ts';
+import {
+  createClient,
+  type SupabaseClient,
+} from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import {
+  getSupabasePublishableKey,
+  getSupabaseSecretKey,
+} from '../_shared/utils.ts';
+import {
+  createTestPlayer,
+  deleteTestPlayer,
+  type ServiceClient,
+} from './integration-helpers.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseServiceKey = getSupabaseSecretKey();
@@ -47,12 +61,13 @@ async function createSignedInPlayer(
   const email = `it_${crypto.randomUUID()}@example.test`;
   const password = `PwTest-${crypto.randomUUID()}!1`;
 
-  const { data: userData, error: userError } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { display_name: displayName, age_confirmed: true },
-  });
+  const { data: userData, error: userError } =
+    await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { display_name: displayName, age_confirmed: true },
+    });
   if (userError || !userData?.user) {
     throw userError ?? new Error('Failed to create test auth user');
   }
@@ -61,7 +76,11 @@ async function createSignedInPlayer(
   // Wait for the on_auth_user_created trigger to materialize the profile.
   const started = Date.now();
   while (Date.now() - started < 10_000) {
-    const { data } = await admin.from('profiles').select('id').eq('id', profileId).maybeSingle();
+    const { data } = await admin
+      .from('profiles')
+      .select('id')
+      .eq('id', profileId)
+      .maybeSingle();
     if (data?.id) break;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
@@ -84,10 +103,11 @@ async function createSignedInPlayer(
   const anonClient = createClient(supabaseUrl, supabasePublishableKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { data: session, error: signInError } = await anonClient.auth.signInWithPassword({
-    email,
-    password,
-  });
+  const { data: session, error: signInError } =
+    await anonClient.auth.signInWithPassword({
+      email,
+      password,
+    });
   if (signInError || !session.session?.access_token) {
     await admin.auth.admin.deleteUser(profileId).catch(() => {});
     throw signInError ?? new Error('Failed to sign in test user');
@@ -95,10 +115,16 @@ async function createSignedInPlayer(
 
   const userClient = createClient(supabaseUrl, supabasePublishableKey, {
     auth: { autoRefreshToken: false, persistSession: false },
-    global: { headers: { Authorization: `Bearer ${session.session.access_token}` } },
+    global: {
+      headers: { Authorization: `Bearer ${session.session.access_token}` },
+    },
   });
 
-  return { profileId, characterId: (character as { id: string }).id, userClient };
+  return {
+    profileId,
+    characterId: (character as { id: string }).id,
+    userClient,
+  };
 }
 
 async function createMatchedBattle(
@@ -106,11 +132,14 @@ async function createMatchedBattle(
   p1: { profileId: string; characterId: string },
   p2: { profileId: string; characterId: string },
 ): Promise<string> {
-  const { data: battleId, error: battleError } = await admin.rpc('create_battle', {
-    p_player_one_id: p1.profileId,
-    p_character_id: p1.characterId,
-    p_mode: 'unranked',
-  });
+  const { data: battleId, error: battleError } = await admin.rpc(
+    'create_battle',
+    {
+      p_player_one_id: p1.profileId,
+      p_character_id: p1.characterId,
+      p_mode: 'unranked',
+    },
+  );
   if (battleError) throw battleError;
   assertExists(battleId);
 
@@ -156,14 +185,17 @@ Deno.test({
       assertEquals(battle.player_two_locked_at, null);
 
       // Player 1 locks: only their side is stamped.
-      const { data: prompt1Id, error: lock1Error } = await admin.rpc('lock_prompt', {
-        p_battle_id: battleId,
-        p_profile_id: player1.profileId,
-        p_prompt_template_id: null,
-        p_custom_prompt_text: 'Player 1 attacks with precision and strategy.',
-        p_move_type: 'attack',
-        p_moderation_status: 'approved',
-      });
+      const { data: prompt1Id, error: lock1Error } = await admin.rpc(
+        'lock_prompt',
+        {
+          p_battle_id: battleId,
+          p_profile_id: player1.profileId,
+          p_prompt_template_id: null,
+          p_custom_prompt_text: 'Player 1 attacks with precision and strategy.',
+          p_move_type: 'attack',
+          p_moderation_status: 'approved',
+        },
+      );
       if (lock1Error) throw lock1Error;
       assertExists(prompt1Id);
 
@@ -174,19 +206,29 @@ Deno.test({
         .single());
       if (error) throw error;
       assertExists(battle);
-      assertExists(battle.player_one_locked_at, 'player_one_locked_at should be stamped');
-      assertEquals(battle.player_two_locked_at, null, 'player_two_locked_at must stay NULL');
+      assertExists(
+        battle.player_one_locked_at,
+        'player_one_locked_at should be stamped',
+      );
+      assertEquals(
+        battle.player_two_locked_at,
+        null,
+        'player_two_locked_at must stay NULL',
+      );
       const firstStamp = battle.player_one_locked_at;
 
       // Idempotent retry: same prompt id, stamp unchanged.
-      const { data: retryId, error: retryError } = await admin.rpc('lock_prompt', {
-        p_battle_id: battleId,
-        p_profile_id: player1.profileId,
-        p_prompt_template_id: null,
-        p_custom_prompt_text: 'Player 1 attacks with precision and strategy.',
-        p_move_type: 'attack',
-        p_moderation_status: 'approved',
-      });
+      const { data: retryId, error: retryError } = await admin.rpc(
+        'lock_prompt',
+        {
+          p_battle_id: battleId,
+          p_profile_id: player1.profileId,
+          p_prompt_template_id: null,
+          p_custom_prompt_text: 'Player 1 attacks with precision and strategy.',
+          p_move_type: 'attack',
+          p_moderation_status: 'approved',
+        },
+      );
       if (retryError) throw retryError;
       assertEquals(retryId, prompt1Id);
 
@@ -196,17 +238,24 @@ Deno.test({
         .eq('id', battleId)
         .single());
       if (error) throw error;
-      assertEquals(battle?.player_one_locked_at, firstStamp, 'retry must not move the stamp');
+      assertEquals(
+        battle?.player_one_locked_at,
+        firstStamp,
+        'retry must not move the stamp',
+      );
 
       // Player 2 locks: both stamped, battle resolving.
-      const { data: prompt2Id, error: lock2Error } = await admin.rpc('lock_prompt', {
-        p_battle_id: battleId,
-        p_profile_id: player2.profileId,
-        p_prompt_template_id: null,
-        p_custom_prompt_text: 'Player 2 defends with unbreakable will.',
-        p_move_type: 'defense',
-        p_moderation_status: 'approved',
-      });
+      const { data: prompt2Id, error: lock2Error } = await admin.rpc(
+        'lock_prompt',
+        {
+          p_battle_id: battleId,
+          p_profile_id: player2.profileId,
+          p_prompt_template_id: null,
+          p_custom_prompt_text: 'Player 2 defends with unbreakable will.',
+          p_move_type: 'defense',
+          p_moderation_status: 'approved',
+        },
+      );
       if (lock2Error) throw lock2Error;
       assertExists(prompt2Id);
 
@@ -256,7 +305,8 @@ Deno.test({
       if (fmtErr) throw fmtErr;
 
       // Round 1: player 1 locks distinctive text.
-      const round1Text = 'Round one: I open with a probing feint to bait the guard.';
+      const round1Text =
+        'Round one: I open with a probing feint to bait the guard.';
       const { data: r1Id, error: r1Err } = await admin.rpc('lock_prompt', {
         p_battle_id: battleId,
         p_profile_id: player1.profileId,
@@ -270,7 +320,8 @@ Deno.test({
       assertExists(r1Id);
 
       // Round 2: same player, DIFFERENT text — must NOT early-return round 1's id.
-      const round2Text = 'Round two: I pivot to an overwhelming finisher combination.';
+      const round2Text =
+        'Round two: I pivot to an overwhelming finisher combination.';
       const { data: r2Id, error: r2Err } = await admin.rpc('lock_prompt', {
         p_battle_id: battleId,
         p_profile_id: player1.profileId,
@@ -282,7 +333,10 @@ Deno.test({
       });
       if (r2Err) throw r2Err;
       assertExists(r2Id);
-      assert(r1Id !== r2Id, 'round 2 must create a distinct prompt row, not reuse round 1');
+      assert(
+        r1Id !== r2Id,
+        'round 2 must create a distinct prompt row, not reuse round 1',
+      );
 
       // Two distinct rows exist with the correct round_number + text mapping.
       const { data: rows, error: rowsErr } = await admin
@@ -301,15 +355,19 @@ Deno.test({
 
       // Idempotency is per-round: re-locking round 2 returns the same id and does
       // NOT overwrite the stored text.
-      const { data: r2Retry, error: retryErr } = await admin.rpc('lock_prompt', {
-        p_battle_id: battleId,
-        p_profile_id: player1.profileId,
-        p_prompt_template_id: null,
-        p_custom_prompt_text: 'A different round-two attempt that must be ignored.',
-        p_move_type: 'attack',
-        p_moderation_status: 'approved',
-        p_round_number: 2,
-      });
+      const { data: r2Retry, error: retryErr } = await admin.rpc(
+        'lock_prompt',
+        {
+          p_battle_id: battleId,
+          p_profile_id: player1.profileId,
+          p_prompt_template_id: null,
+          p_custom_prompt_text:
+            'A different round-two attempt that must be ignored.',
+          p_move_type: 'attack',
+          p_moderation_status: 'approved',
+          p_round_number: 2,
+        },
+      );
       if (retryErr) throw retryErr;
       assertEquals(r2Retry, r2Id, 'same-round retry must be idempotent');
 
@@ -319,7 +377,11 @@ Deno.test({
         .eq('id', r2Id as string)
         .single();
       if (r2RowErr) throw r2RowErr;
-      assertEquals(r2Row?.custom_prompt_text, round2Text, 'retry must not mutate stored text');
+      assertEquals(
+        r2Row?.custom_prompt_text,
+        round2Text,
+        'retry must not mutate stored text',
+      );
     } finally {
       await deleteTestPlayer(admin, player1.profileId);
       await deleteTestPlayer(admin, player2.profileId);
@@ -345,14 +407,23 @@ Deno.test({
 
       // Participant call: seed content covers all three move types, so the
       // full contract of 3 rows applies.
-      const { data: rows1, error: rpcError } = await p1.userClient.rpc('get_battle_templates', {
-        p_battle_id: battleId,
-      });
+      const { data: rows1, error: rpcError } = await p1.userClient.rpc(
+        'get_battle_templates',
+        {
+          p_battle_id: battleId,
+        },
+      );
       if (rpcError) throw rpcError;
       assertExists(rows1);
-      assertEquals(rows1.length, 3, 'starter seed covers all move types, expected 3 rows');
+      assertEquals(
+        rows1.length,
+        3,
+        'starter seed covers all move types, expected 3 rows',
+      );
 
-      const moveTypes = rows1.map((r: { suggested_move_type: string }) => r.suggested_move_type);
+      const moveTypes = rows1.map(
+        (r: { suggested_move_type: string }) => r.suggested_move_type,
+      );
       assertEquals(
         [...moveTypes].sort(),
         [...MOVE_TYPES].sort(),
@@ -371,12 +442,19 @@ Deno.test({
         { p_battle_id: battleId },
       );
       if (againError) throw againError;
-      assertEquals(JSON.stringify(rows1Again), JSON.stringify(rows1), 'refetch must not reshuffle');
+      assertEquals(
+        JSON.stringify(rows1Again),
+        JSON.stringify(rows1),
+        'refetch must not reshuffle',
+      );
 
       // The opponent gets their own deterministic set (may or may not overlap).
-      const { data: rows2, error: p2Error } = await p2.userClient.rpc('get_battle_templates', {
-        p_battle_id: battleId,
-      });
+      const { data: rows2, error: p2Error } = await p2.userClient.rpc(
+        'get_battle_templates',
+        {
+          p_battle_id: battleId,
+        },
+      );
       if (p2Error) throw p2Error;
       assertExists(rows2);
       assertEquals(rows2.length, 3);
@@ -388,10 +466,10 @@ Deno.test({
       assertEquals(JSON.stringify(rows2Again), JSON.stringify(rows2));
 
       // Non-participant is rejected.
-      const { data: outsiderRows, error: outsiderError } = await outsider.userClient.rpc(
-        'get_battle_templates',
-        { p_battle_id: battleId },
-      );
+      const { data: outsiderRows, error: outsiderError } =
+        await outsider.userClient.rpc('get_battle_templates', {
+          p_battle_id: battleId,
+        });
       assertExists(outsiderError, 'non-participant call must fail');
       assert(
         (outsiderError.message ?? '').includes('not_a_participant'),

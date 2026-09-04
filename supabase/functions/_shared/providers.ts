@@ -1,7 +1,7 @@
 // AI Provider Interfaces and Adapters
 // Implements judge, image, video, and TTS providers with mock fallbacks
 
-import { Archetype, JudgeRubricScores, MoveType } from "./types.ts";
+import { Archetype, JudgeRubricScores, MoveType } from './types.ts';
 
 /**
  * Judge provider interface with strict JSON schema validation
@@ -62,7 +62,7 @@ export interface MotionPosterRequest {
 
 export interface MotionPosterResponse {
   // Tier 0 always returns deterministic composition metadata, never blocks battle
-  compositionType: "motion_poster" | "static_scorecard";
+  compositionType: 'motion_poster' | 'static_scorecard';
   backgroundImageUrl?: string; // optional, may be deterministic gradient
   animationPreset: string; // per-move-type animation sting
   musicStingId: string; // selected by archetype + outcome
@@ -98,7 +98,7 @@ export interface VideoGenerationRequest {
   isDraw: boolean;
   theme: string | null;
   targetDurationSeconds: number; // 6-12s for MVP
-  aspectRatio: "9:16";
+  aspectRatio: '9:16';
   /**
    * Signed HTTPS URLs of the two fighters' full-body renders, used as
    * reference-to-video inputs so the cinematic shows the players' actual
@@ -118,7 +118,7 @@ export interface VideoJobSubmission {
 }
 
 export interface VideoJobStatus {
-  status: "queued" | "processing" | "succeeded" | "failed";
+  status: 'queued' | 'processing' | 'succeeded' | 'failed';
   videoUrl?: string;
   /** Provider's post-generation safety verdict, when explicitly supplied. */
   moderationApproved?: boolean;
@@ -133,31 +133,31 @@ export function mapXAIVideoStatus(data: {
   error?: { code?: string; message?: string };
 }): VideoJobStatus {
   switch (data.status) {
-    case "done":
+    case 'done':
       return {
-        status: "succeeded",
+        status: 'succeeded',
         videoUrl: data.video?.url,
-        moderationApproved: typeof data.video?.respect_moderation ===
-            "boolean"
-          ? data.video.respect_moderation
-          : undefined,
-        moderationProvider: "xai_generation",
+        moderationApproved:
+          typeof data.video?.respect_moderation === 'boolean'
+            ? data.video.respect_moderation
+            : undefined,
+        moderationProvider: 'xai_generation',
       };
-    case "failed":
+    case 'failed':
       return {
-        status: "failed",
-        errorCode: data.error?.code || "xai_failed",
-        errorMessage: data.error?.message || "xAI reported failure",
+        status: 'failed',
+        errorCode: data.error?.code || 'xai_failed',
+        errorMessage: data.error?.message || 'xAI reported failure',
       };
-    case "expired":
+    case 'expired':
       return {
-        status: "failed",
-        errorCode: "expired",
-        errorMessage: "xAI video request expired before completion",
+        status: 'failed',
+        errorCode: 'expired',
+        errorMessage: 'xAI video request expired before completion',
       };
-    case "pending":
+    case 'pending':
     default:
-      return { status: "processing" };
+      return { status: 'processing' };
   }
 }
 
@@ -189,7 +189,7 @@ export interface BattleCryResponse {
  */
 export class MockJudgeProvider implements AiJudgeProvider {
   getModelId(): string {
-    return "mock-judge-v1.0.0";
+    return 'mock-judge-v1.0.0';
   }
 
   async judge(req: JudgeRequest): Promise<JudgeResponse> {
@@ -201,7 +201,7 @@ export class MockJudgeProvider implements AiJudgeProvider {
       playerOneScores: scoreOne,
       playerTwoScores: scoreTwo,
       explanation:
-        "Mock judge evaluated both prompts based on length, clarity, move type matchup, and deterministic seed.",
+        'Mock judge evaluated both prompts based on length, clarity, move type matchup, and deterministic seed.',
       modelId: this.getModelId(),
       promptVersion: req.promptVersion,
     };
@@ -244,7 +244,7 @@ export class MockImageProvider implements AiImageProvider {
     const musicStingId = this.getMusicSting(req.winnerArchetype, req.isDraw);
 
     return {
-      compositionType: "motion_poster",
+      compositionType: 'motion_poster',
       animationPreset,
       musicStingId,
       metadata: {
@@ -256,32 +256,32 @@ export class MockImageProvider implements AiImageProvider {
   }
 
   private getAnimationPreset(moveType: MoveType, isDraw: boolean): string {
-    if (isDraw) return "draw_neutral";
+    if (isDraw) return 'draw_neutral';
 
     switch (moveType) {
-      case "attack":
-        return "attack_sting_3s";
-      case "defense":
-        return "defense_counter_3s";
-      case "finisher":
-        return "finisher_dramatic_3s";
+      case 'attack':
+        return 'attack_sting_3s';
+      case 'defense':
+        return 'defense_counter_3s';
+      case 'finisher':
+        return 'finisher_dramatic_3s';
       default:
-        return "default_sting";
+        return 'default_sting';
     }
   }
 
   private getMusicSting(archetype: Archetype, isDraw: boolean): string {
-    if (isDraw) return "music_draw_ambiguous";
+    if (isDraw) return 'music_draw_ambiguous';
 
     const stings: Record<Archetype, string> = {
-      strategist: "music_tactical_victory",
-      trickster: "music_chaos_triumph",
-      titan: "music_power_surge",
-      mystic: "music_ethereal_win",
-      engineer: "music_precision_success",
+      strategist: 'music_tactical_victory',
+      trickster: 'music_chaos_triumph',
+      titan: 'music_power_surge',
+      mystic: 'music_ethereal_win',
+      engineer: 'music_precision_success',
     };
 
-    return stings[archetype] || "music_default_win";
+    return stings[archetype] || 'music_default_win';
   }
 }
 
@@ -305,7 +305,7 @@ export class MockVideoProvider implements AiVideoProvider {
   async pollVideoStatus(providerJobId: string): Promise<VideoJobStatus> {
     // Mock: always succeeds after short delay
     return {
-      status: "succeeded",
+      status: 'succeeded',
       videoUrl: `https://mock-storage.example.com/videos/${providerJobId}.mp4`,
     };
   }
@@ -337,23 +337,23 @@ export class XAIVideoProvider implements AiVideoProvider {
   private resolution: string;
 
   constructor() {
-    this.apiKey = Deno.env.get("XAI_API_KEY") || "";
+    this.apiKey = Deno.env.get('XAI_API_KEY') || '';
     // Ignore legacy XAI_VIDEO_BASE_URL (was hard-coded to non-existent
     // /v1/video path). Allow override via XAI_API_BASE_URL if ever needed.
-    this.baseUrl = Deno.env.get("XAI_API_BASE_URL") || "https://api.x.ai/v1";
-    this.model = Deno.env.get("XAI_VIDEO_MODEL") || "grok-imagine-video";
+    this.baseUrl = Deno.env.get('XAI_API_BASE_URL') || 'https://api.x.ai/v1';
+    this.model = Deno.env.get('XAI_VIDEO_MODEL') || 'grok-imagine-video';
     // Reference-to-video requires a 1.5-class model; the base model has no
     // image input at all. Kept as a SEPARATE setting so enabling references
     // cannot silently change the model used for ordinary text-to-video.
-    this.referenceModel = Deno.env.get("XAI_VIDEO_REFERENCE_MODEL") ||
-      "grok-imagine-video-1.5";
+    this.referenceModel =
+      Deno.env.get('XAI_VIDEO_REFERENCE_MODEL') || 'grok-imagine-video-1.5';
     this.referencesEnabled =
-      (Deno.env.get("XAI_VIDEO_REFERENCE_ENABLED") || "").toLowerCase() ===
-        "true";
-    this.resolution = Deno.env.get("XAI_VIDEO_RESOLUTION") || "720p";
+      (Deno.env.get('XAI_VIDEO_REFERENCE_ENABLED') || '').toLowerCase() ===
+      'true';
+    this.resolution = Deno.env.get('XAI_VIDEO_RESOLUTION') || '720p';
 
     if (!this.apiKey) {
-      console.warn("XAI_API_KEY not set, video generation will fail");
+      console.warn('XAI_API_KEY not set, video generation will fail');
     }
   }
 
@@ -374,10 +374,10 @@ export class XAIVideoProvider implements AiVideoProvider {
     const useReferences = references.length > 0;
 
     const response = await fetch(`${this.baseUrl}/videos/generations`, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Authorization": `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         // Only switch models when references are actually being sent, so
@@ -392,10 +392,10 @@ export class XAIVideoProvider implements AiVideoProvider {
     });
 
     if (!response.ok) {
-      const bodyText = await response.text().catch(() => "");
+      const bodyText = await response.text().catch(() => '');
       throw new Error(
         `xAI video submission failed: ${response.status} ${response.statusText}${
-          bodyText ? " — " + bodyText.slice(0, 500) : ""
+          bodyText ? ' — ' + bodyText.slice(0, 500) : ''
         }`,
       );
     }
@@ -403,7 +403,7 @@ export class XAIVideoProvider implements AiVideoProvider {
     const data = await response.json();
     const requestId = data.request_id;
     if (!requestId) {
-      throw new Error("xAI video submission returned no request_id");
+      throw new Error('xAI video submission returned no request_id');
     }
 
     return {
@@ -416,15 +416,15 @@ export class XAIVideoProvider implements AiVideoProvider {
   async pollVideoStatus(providerJobId: string): Promise<VideoJobStatus> {
     const response = await fetch(`${this.baseUrl}/videos/${providerJobId}`, {
       headers: {
-        "Authorization": `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${this.apiKey}`,
       },
     });
 
     if (!response.ok) {
-      const bodyText = await response.text().catch(() => "");
+      const bodyText = await response.text().catch(() => '');
       throw new Error(
         `xAI status poll failed: ${response.status} ${response.statusText}${
-          bodyText ? " — " + bodyText.slice(0, 300) : ""
+          bodyText ? ' — ' + bodyText.slice(0, 300) : ''
         }`,
       );
     }
@@ -438,8 +438,8 @@ export class XAIVideoProvider implements AiVideoProvider {
   async getVideoUrl(providerJobId: string): Promise<string> {
     const status = await this.pollVideoStatus(providerJobId);
 
-    if (status.status !== "succeeded" || !status.videoUrl) {
-      throw new Error("Video not ready or failed");
+    if (status.status !== 'succeeded' || !status.videoUrl) {
+      throw new Error('Video not ready or failed');
     }
 
     return status.videoUrl;
@@ -449,12 +449,14 @@ export class XAIVideoProvider implements AiVideoProvider {
     // Compose narrative prompt from battle context
     // Format: character intros, move types, prompts (sanitized), winner framing
 
-    const winnerName = req.winnerId === "p1"
-      ? req.playerOneCharacterName
-      : req.playerTwoCharacterName;
-    const loserName = req.winnerId === "p1"
-      ? req.playerTwoCharacterName
-      : req.playerOneCharacterName;
+    const winnerName =
+      req.winnerId === 'p1'
+        ? req.playerOneCharacterName
+        : req.playerTwoCharacterName;
+    const loserName =
+      req.winnerId === 'p1'
+        ? req.playerTwoCharacterName
+        : req.playerOneCharacterName;
 
     if (req.isDraw) {
       return `
@@ -463,14 +465,14 @@ A cinematic vertical mobile video (9:16) depicting an intense creative battle be
 Character 1: ${req.playerOneCharacterName}, a ${req.playerOneArchetype} wielding a ${req.playerOneMoveType} approach.
 Character 2: ${req.playerTwoCharacterName}, a ${req.playerTwoArchetype} wielding a ${req.playerTwoMoveType} approach.
 
-Theme: ${req.theme || "Open battle"}
+Theme: ${req.theme || 'Open battle'}
 
-Prompt 1 (${req.playerOneCharacterName}): "${
-        this.sanitizePrompt(req.playerOnePrompt)
-      }"
-Prompt 2 (${req.playerTwoCharacterName}): "${
-        this.sanitizePrompt(req.playerTwoPrompt)
-      }"
+Prompt 1 (${req.playerOneCharacterName}): "${this.sanitizePrompt(
+        req.playerOnePrompt,
+      )}"
+Prompt 2 (${req.playerTwoCharacterName}): "${this.sanitizePrompt(
+        req.playerTwoPrompt,
+      )}"
 
 The battle is evenly matched. Both characters unleash their strategies simultaneously, resulting in a dramatic stalemate. Energy crackling, tension high, but neither gains the upper hand. The scene fades with both standing strong.
 
@@ -482,28 +484,24 @@ Duration: ${req.targetDurationSeconds} seconds. Vertical mobile format. No real 
 A cinematic vertical mobile video (9:16) depicting a creative battle between two characters.
 
 Winner: ${winnerName}, a ${
-      req.winnerId === "p1" ? req.playerOneArchetype : req.playerTwoArchetype
+      req.winnerId === 'p1' ? req.playerOneArchetype : req.playerTwoArchetype
     } using a ${
-      req.winnerId === "p1" ? req.playerOneMoveType : req.playerTwoMoveType
+      req.winnerId === 'p1' ? req.playerOneMoveType : req.playerTwoMoveType
     } approach.
 Challenger: ${loserName}, a ${
-      req.winnerId === "p1" ? req.playerTwoArchetype : req.playerOneArchetype
+      req.winnerId === 'p1' ? req.playerTwoArchetype : req.playerOneArchetype
     } using a ${
-      req.winnerId === "p1" ? req.playerTwoMoveType : req.playerOneMoveType
+      req.winnerId === 'p1' ? req.playerTwoMoveType : req.playerOneMoveType
     } approach.
 
-Theme: ${req.theme || "Open battle"}
+Theme: ${req.theme || 'Open battle'}
 
-Winning prompt (${winnerName}): "${
-      this.sanitizePrompt(
-        req.winnerId === "p1" ? req.playerOnePrompt : req.playerTwoPrompt,
-      )
-    }"
-Losing prompt (${loserName}): "${
-      this.sanitizePrompt(
-        req.winnerId === "p1" ? req.playerTwoPrompt : req.playerOnePrompt,
-      )
-    }"
+Winning prompt (${winnerName}): "${this.sanitizePrompt(
+      req.winnerId === 'p1' ? req.playerOnePrompt : req.playerTwoPrompt,
+    )}"
+Losing prompt (${loserName}): "${this.sanitizePrompt(
+      req.winnerId === 'p1' ? req.playerTwoPrompt : req.playerOnePrompt,
+    )}"
 
 The video shows ${winnerName} executing their strategy with precision and dramatic flair. ${loserName} puts up a strong fight but is ultimately outmaneuvered. The scene culminates in ${winnerName}'s victory, with energy and visual effects emphasizing their triumph.
 
@@ -515,12 +513,12 @@ Duration: ${req.targetDurationSeconds} seconds. Vertical mobile format. No real 
     // Truncate long prompts, strip unsafe patterns
     const maxLength = 400;
     const sanitized = prompt
-      .replace(/[<>]/g, "") // strip angle brackets
-      .replace(/\n+/g, " ") // collapse newlines
+      .replace(/[<>]/g, '') // strip angle brackets
+      .replace(/\n+/g, ' ') // collapse newlines
       .trim();
 
     return sanitized.length > maxLength
-      ? sanitized.substring(0, maxLength) + "..."
+      ? sanitized.substring(0, maxLength) + '...'
       : sanitized;
   }
 }
@@ -541,14 +539,14 @@ export class MockTtsProvider implements TtsProvider {
 
   private getVoicePreset(archetype: Archetype): string {
     const presets: Record<Archetype, string> = {
-      strategist: "voice_calm_authoritative",
-      trickster: "voice_playful_chaotic",
-      titan: "voice_deep_powerful",
-      mystic: "voice_ethereal_mysterious",
-      engineer: "voice_precise_technical",
+      strategist: 'voice_calm_authoritative',
+      trickster: 'voice_playful_chaotic',
+      titan: 'voice_deep_powerful',
+      mystic: 'voice_ethereal_mysterious',
+      engineer: 'voice_precise_technical',
     };
 
-    return presets[archetype] || "voice_default";
+    return presets[archetype] || 'voice_default';
   }
 }
 
@@ -566,11 +564,12 @@ const JUDGE_REQUEST_TIMEOUT_MS = 30_000;
  * rather than a wrong one, so a missing entry shows up as a gap in the rollup
  * instead of quietly understating spend.
  */
-const JUDGE_MODEL_PRICING: Record<string, { inPerM: number; outPerM: number }> = {
-  "grok-4.3": { inPerM: 1.25, outPerM: 2.50 },
-  "grok-4.5": { inPerM: 2.00, outPerM: 6.00 },
-  "grok-4.6": { inPerM: 2.00, outPerM: 6.00 },
-};
+const JUDGE_MODEL_PRICING: Record<string, { inPerM: number; outPerM: number }> =
+  {
+    'grok-4.3': { inPerM: 1.25, outPerM: 2.5 },
+    'grok-4.5': { inPerM: 2.0, outPerM: 6.0 },
+    'grok-4.6': { inPerM: 2.0, outPerM: 6.0 },
+  };
 
 function estimateJudgeCostUsd(
   model: string,
@@ -595,29 +594,29 @@ function estimateJudgeCostUsd(
  * `required` list are mandatory for xAI strict mode.
  */
 const JUDGE_SCORE_PROPERTIES = {
-  clarity: { type: "number", minimum: 0, maximum: 10 },
-  originality: { type: "number", minimum: 0, maximum: 10 },
-  specificity: { type: "number", minimum: 0, maximum: 10 },
-  theme_fit: { type: "number", minimum: 0, maximum: 10 },
-  archetype_fit: { type: "number", minimum: 0, maximum: 10 },
-  dramatic_potential: { type: "number", minimum: 0, maximum: 10 },
+  clarity: { type: 'number', minimum: 0, maximum: 10 },
+  originality: { type: 'number', minimum: 0, maximum: 10 },
+  specificity: { type: 'number', minimum: 0, maximum: 10 },
+  theme_fit: { type: 'number', minimum: 0, maximum: 10 },
+  archetype_fit: { type: 'number', minimum: 0, maximum: 10 },
+  dramatic_potential: { type: 'number', minimum: 0, maximum: 10 },
 } as const;
 
 const JUDGE_SCORE_OBJECT = {
-  type: "object",
+  type: 'object',
   properties: JUDGE_SCORE_PROPERTIES,
   required: Object.keys(JUDGE_SCORE_PROPERTIES),
   additionalProperties: false,
 } as const;
 
 const JUDGE_RESPONSE_SCHEMA = {
-  type: "object",
+  type: 'object',
   properties: {
     playerOneScores: JUDGE_SCORE_OBJECT,
     playerTwoScores: JUDGE_SCORE_OBJECT,
-    explanation: { type: "string", minLength: 10, maxLength: 600 },
+    explanation: { type: 'string', minLength: 10, maxLength: 600 },
   },
-  required: ["playerOneScores", "playerTwoScores", "explanation"],
+  required: ['playerOneScores', 'playerTwoScores', 'explanation'],
   additionalProperties: false,
 } as const;
 
@@ -625,7 +624,7 @@ export class JudgeProviderError extends Error {
   code: string;
   constructor(code: string, message: string) {
     super(message);
-    this.name = "JudgeProviderError";
+    this.name = 'JudgeProviderError';
     this.code = code;
   }
 }
@@ -644,28 +643,28 @@ export class JudgeProviderError extends Error {
  */
 function buildJudgeSystemPrompt(): string {
   return [
-    "You are the impartial judge of a competitive prompt-writing duel.",
-    "Score BOTH prompts independently on six criteria, each 0-10:",
-    "  clarity            - unambiguous, well-formed, easy to act on",
-    "  originality        - unexpected angle rather than a generic take",
-    "  specificity        - concrete detail over vague gesturing",
-    "  theme_fit          - answers the stated theme constraint",
-    "  archetype_fit      - internally consistent voice and persona",
-    "  dramatic_potential - would make a compelling short cinematic",
-    "",
-    "Rules:",
-    "- Judge only the writing. Ignore length except where it harms clarity.",
-    "- Do not reward or penalise the declared move type; it is scored separately.",
-    "- Be willing to separate the two prompts. Identical scores should be rare.",
-    "- explanation: 1-3 sentences, under 600 characters, naming the deciding factor.",
-    "",
-    "Respond with JSON only, exactly this shape:",
+    'You are the impartial judge of a competitive prompt-writing duel.',
+    'Score BOTH prompts independently on six criteria, each 0-10:',
+    '  clarity            - unambiguous, well-formed, easy to act on',
+    '  originality        - unexpected angle rather than a generic take',
+    '  specificity        - concrete detail over vague gesturing',
+    '  theme_fit          - answers the stated theme constraint',
+    '  archetype_fit      - internally consistent voice and persona',
+    '  dramatic_potential - would make a compelling short cinematic',
+    '',
+    'Rules:',
+    '- Judge only the writing. Ignore length except where it harms clarity.',
+    '- Do not reward or penalise the declared move type; it is scored separately.',
+    '- Be willing to separate the two prompts. Identical scores should be rare.',
+    '- explanation: 1-3 sentences, under 600 characters, naming the deciding factor.',
+    '',
+    'Respond with JSON only, exactly this shape:',
     '{"playerOneScores":{"clarity":0,"originality":0,"specificity":0,' +
       '"theme_fit":0,"archetype_fit":0,"dramatic_potential":0},',
     '"playerTwoScores":{"clarity":0,"originality":0,"specificity":0,' +
       '"theme_fit":0,"archetype_fit":0,"dramatic_potential":0},',
     '"explanation":"..."}',
-  ].join("\n");
+  ].join('\n');
 }
 
 /**
@@ -688,20 +687,22 @@ export class XAIJudgeProvider implements AiJudgeProvider {
   constructor() {
     // JUDGE_API_KEY lets the judge use a separate key/quota from video and
     // portraits; falls back to the shared xAI key.
-    this.apiKey = Deno.env.get("JUDGE_API_KEY") ||
-      Deno.env.get("XAI_API_KEY") || "";
-    this.baseUrl = Deno.env.get("JUDGE_API_BASE_URL") ||
-      Deno.env.get("XAI_API_BASE_URL") || "https://api.x.ai/v1";
+    this.apiKey =
+      Deno.env.get('JUDGE_API_KEY') || Deno.env.get('XAI_API_KEY') || '';
+    this.baseUrl =
+      Deno.env.get('JUDGE_API_BASE_URL') ||
+      Deno.env.get('XAI_API_BASE_URL') ||
+      'https://api.x.ai/v1';
     // grok-4.3: cheapest Grok 4 model that supports strict structured outputs
     // ($1.25-2.50 in / $2.50-5.00 out per 1M as of 2026-08). The judge runs
     // 2-3 times per round and every battle is Bo3, so this is up to 9 calls per
     // battle -- model choice here is an economics decision, not just a quality
     // one. Use grok-4.6 if judging quality matters more than cost.
     // grok-3 and grok-2 are no longer in the xAI catalog; do not default to them.
-    this.model = Deno.env.get("JUDGE_MODEL_ID") || "grok-4.3";
+    this.model = Deno.env.get('JUDGE_MODEL_ID') || 'grok-4.3';
 
     if (!this.apiKey) {
-      console.warn("JUDGE_API_KEY/XAI_API_KEY not set; judge calls will fail");
+      console.warn('JUDGE_API_KEY/XAI_API_KEY not set; judge calls will fail');
     }
   }
 
@@ -711,42 +712,45 @@ export class XAIJudgeProvider implements AiJudgeProvider {
 
   async judge(req: JudgeRequest): Promise<JudgeResponse> {
     if (!this.apiKey) {
-      throw new JudgeProviderError("no_api_key", "Judge API key not configured");
+      throw new JudgeProviderError(
+        'no_api_key',
+        'Judge API key not configured',
+      );
     }
 
     const userContent = [
-      `Theme: ${req.theme ?? "(no theme constraint)"}`,
-      "",
+      `Theme: ${req.theme ?? '(no theme constraint)'}`,
+      '',
       `Player one move type: ${req.moveTypeOne}`,
       `Player one prompt: ${req.promptOne}`,
-      "",
+      '',
       `Player two move type: ${req.moveTypeTwo}`,
       `Player two prompt: ${req.promptTwo}`,
-    ].join("\n");
+    ].join('\n');
 
     let status = 0;
     const startedAt = Date.now();
     try {
       const res = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: "POST",
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           model: this.model,
           messages: [
-            { role: "system", content: buildJudgeSystemPrompt() },
-            { role: "user", content: userContent },
+            { role: 'system', content: buildJudgeSystemPrompt() },
+            { role: 'user', content: userContent },
           ],
           // Strict json_schema rather than json_object: it guarantees all six
           // rubric fields are present and numeric, which removes the main way a
           // real judge run would fail validateJudgeResponse() and silently
           // degrade to the mock. Supported across the Grok 4 family.
           response_format: {
-            type: "json_schema",
+            type: 'json_schema',
             json_schema: {
-              name: "prompt_wars_judge_verdict",
+              name: 'prompt_wars_judge_verdict',
               strict: true,
               schema: JUDGE_RESPONSE_SCHEMA,
             },
@@ -762,22 +766,25 @@ export class XAIJudgeProvider implements AiJudgeProvider {
       status = res.status;
 
       if (!res.ok) {
-        const bodyText = await res.text().catch(() => "");
+        const bodyText = await res.text().catch(() => '');
         if (res.status >= 500) {
-          throw new JudgeProviderError("server_error", `xAI judge ${res.status}`);
+          throw new JudgeProviderError(
+            'server_error',
+            `xAI judge ${res.status}`,
+          );
         }
         throw new JudgeProviderError(
-          "client_error",
+          'client_error',
           `xAI judge ${res.status}: ${bodyText.slice(0, 200)}`,
         );
       }
 
       const data = await res.json();
       const content = data?.choices?.[0]?.message?.content;
-      if (typeof content !== "string" || content.length === 0) {
+      if (typeof content !== 'string' || content.length === 0) {
         throw new JudgeProviderError(
-          "malformed_response",
-          "xAI judge response missing message content",
+          'malformed_response',
+          'xAI judge response missing message content',
         );
       }
 
@@ -786,8 +793,8 @@ export class XAIJudgeProvider implements AiJudgeProvider {
         parsed = JSON.parse(content);
       } catch {
         throw new JudgeProviderError(
-          "malformed_response",
-          "xAI judge did not return parseable JSON",
+          'malformed_response',
+          'xAI judge did not return parseable JSON',
         );
       }
 
@@ -798,7 +805,7 @@ export class XAIJudgeProvider implements AiJudgeProvider {
       return {
         playerOneScores: parsed.playerOneScores as JudgeRubricScores,
         playerTwoScores: parsed.playerTwoScores as JudgeRubricScores,
-        explanation: String(parsed.explanation ?? ""),
+        explanation: String(parsed.explanation ?? ''),
         modelId: this.getModelId(),
         promptVersion: req.promptVersion,
         costUsd: estimateJudgeCostUsd(
@@ -810,9 +817,10 @@ export class XAIJudgeProvider implements AiJudgeProvider {
       };
     } catch (err) {
       if (err instanceof JudgeProviderError) throw err;
-      const isAbort = err instanceof DOMException && err.name === "TimeoutError";
+      const isAbort =
+        err instanceof DOMException && err.name === 'TimeoutError';
       throw new JudgeProviderError(
-        isAbort ? "timeout" : "network",
+        isAbort ? 'timeout' : 'network',
         err instanceof Error ? err.message : `xAI judge failed (${status})`,
       );
     }
@@ -850,7 +858,7 @@ export class FallbackJudgeProvider implements AiJudgeProvider {
       return await this.primary.judge(req);
     } catch (err) {
       console.error(
-        "Judge provider failed, falling back to mock:",
+        'Judge provider failed, falling back to mock:',
         err instanceof Error ? `${err.name}: ${err.message}` : err,
       );
       return await this.fallback.judge(req);
@@ -863,12 +871,12 @@ export class FallbackJudgeProvider implements AiJudgeProvider {
 // ============================================================================
 
 export function createJudgeProvider(): AiJudgeProvider {
-  const providerType = Deno.env.get("JUDGE_PROVIDER") || "mock";
+  const providerType = Deno.env.get('JUDGE_PROVIDER') || 'mock';
 
   switch (providerType) {
-    case "mock":
+    case 'mock':
       return new MockJudgeProvider();
-    case "xai":
+    case 'xai':
       // Always wrapped: a judge outage must degrade, never strand a round.
       return new FallbackJudgeProvider(
         new XAIJudgeProvider(),
@@ -888,12 +896,12 @@ export function createImageProvider(): AiImageProvider {
 }
 
 export function createVideoProvider(): AiVideoProvider {
-  const providerType = Deno.env.get("VIDEO_PROVIDER") || "mock";
+  const providerType = Deno.env.get('VIDEO_PROVIDER') || 'mock';
 
   switch (providerType) {
-    case "xai":
+    case 'xai':
       return new XAIVideoProvider();
-    case "mock":
+    case 'mock':
       return new MockVideoProvider();
     default:
       console.warn(

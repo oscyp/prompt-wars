@@ -53,15 +53,15 @@ function updateVolatility(
   sigma: number,
   phi: number,
   v: number,
-  delta: number
+  delta: number,
 ): number {
   const a = Math.log(sigma * sigma);
   const tau = TAU;
-  
+
   // Initial values
   let A = a;
   let B: number;
-  
+
   if (delta * delta > phi * phi + v) {
     B = Math.log(delta * delta - phi * phi - v);
   } else {
@@ -71,35 +71,35 @@ function updateVolatility(
     }
     B = a - k * tau;
   }
-  
+
   function f(x: number): number {
     const ex = Math.exp(x);
     const num1 = ex * (delta * delta - phi * phi - v - ex);
-    const den1 = 2 * ((phi * phi + v + ex) ** 2);
+    const den1 = 2 * (phi * phi + v + ex) ** 2;
     const num2 = x - a;
     const den2 = tau * tau;
     return num1 / den1 - num2 / den2;
   }
-  
+
   // Iterative convergence
   let fA = f(A);
   let fB = f(B);
-  
+
   while (Math.abs(B - A) > EPSILON) {
     const C = A + ((A - B) * fA) / (fB - fA);
     const fC = f(C);
-    
+
     if (fC * fB < 0) {
       A = B;
       fA = fB;
     } else {
       fA = fA / 2;
     }
-    
+
     B = C;
     fB = fC;
   }
-  
+
   return Math.exp(A / 2);
 }
 
@@ -112,7 +112,7 @@ export function updateGlicko2(
   playerVol: number,
   opponentRating: number,
   opponentRd: number,
-  score: number // 1 = win, 0.5 = draw, 0 = loss
+  score: number, // 1 = win, 0.5 = draw, 0 = loss
 ): { rating: number; rd: number; vol: number; delta: number } {
   // Convert to Glicko-2 scale
   const mu = toGlicko2Scale(playerRating);
@@ -120,25 +120,25 @@ export function updateGlicko2(
   const sigma = playerVol;
   const muJ = toGlicko2Scale(opponentRating);
   const phiJ = rdToGlicko2(opponentRd);
-  
+
   // Step 3: Compute v (estimated variance)
   const gPhiJ = g(phiJ);
   const expectedScore = E(mu, muJ, phiJ);
   const v = 1 / (gPhiJ * gPhiJ * expectedScore * (1 - expectedScore));
-  
+
   // Step 4: Compute delta (improvement in rating)
   const delta = v * gPhiJ * (score - expectedScore);
-  
+
   // Step 5: Update volatility
   const sigmaPrime = updateVolatility(sigma, phi, v, delta);
-  
+
   // Step 6: Update rating deviation
   const phiStar = Math.sqrt(phi * phi + sigmaPrime * sigmaPrime);
   const phiPrime = 1 / Math.sqrt(1 / (phiStar * phiStar) + 1 / v);
-  
+
   // Step 7: Update rating
   const muPrime = mu + phiPrime * phiPrime * gPhiJ * (score - expectedScore);
-  
+
   // Convert back to Glicko scale
   return {
     rating: toGlickoScale(muPrime),
@@ -165,29 +165,29 @@ export function computeRatingDeltas(
   playerTwoRd: number,
   playerTwoVol: number,
   playerOneWon: boolean,
-  isDraw: boolean
+  isDraw: boolean,
 ): { playerOne: RatingUpdate; playerTwo: RatingUpdate } {
   const p1Score = isDraw ? 0.5 : playerOneWon ? 1 : 0;
   const p2Score = isDraw ? 0.5 : playerOneWon ? 0 : 1;
-  
+
   const p1Update = updateGlicko2(
     playerOneRating,
     playerOneRd,
     playerOneVol,
     playerTwoRating,
     playerTwoRd,
-    p1Score
+    p1Score,
   );
-  
+
   const p2Update = updateGlicko2(
     playerTwoRating,
     playerTwoRd,
     playerTwoVol,
     playerOneRating,
     playerOneRd,
-    p2Score
+    p2Score,
   );
-  
+
   return {
     playerOne: {
       delta: p1Update.delta,

@@ -76,7 +76,11 @@ Deno.serve(async (req) => {
   }
 
   if (!body.battle_id || !MOVE_TYPES.includes(body.move_type)) {
-    return err('bad_request', 'battle_id and a valid move_type are required', 400);
+    return err(
+      'bad_request',
+      'battle_id and a valid move_type are required',
+      400,
+    );
   }
 
   const supabase = createServiceClient();
@@ -90,7 +94,9 @@ Deno.serve(async (req) => {
     // Single string literal, not a concatenation: postgrest-js parses this at
     // the type level and a runtime-built string collapses every column to
     // GenericStringError.
-    .select('id, status, theme, current_round, player_one_id, player_two_id, player_one_character_id, player_two_character_id')
+    .select(
+      'id, status, theme, current_round, player_one_id, player_two_id, player_one_character_id, player_two_character_id',
+    )
     .eq('id', body.battle_id)
     .maybeSingle();
 
@@ -134,17 +140,17 @@ Deno.serve(async (req) => {
   // a flaky connection cannot rate-limit the player out of a set they have
   // already paid for.
   // ---------------------------------------------------------------------
-  const headerKey = req.headers.get('Idempotency-Key')?.trim() ??
-    body.idempotency_key;
+  const headerKey =
+    req.headers.get('Idempotency-Key')?.trim() ?? body.idempotency_key;
   const idempotencyKey = headerKey
     ? generateIdempotencyKey([
-      'suggest',
-      body.battle_id,
-      String(roundNumber),
-      body.move_type,
-      userId,
-      headerKey,
-    ])
+        'suggest',
+        body.battle_id,
+        String(roundNumber),
+        body.move_type,
+        userId,
+        headerKey,
+      ])
     : null;
 
   if (idempotencyKey) {
@@ -195,7 +201,9 @@ Deno.serve(async (req) => {
   // ---------------------------------------------------------------------
   const { data: character, error: charErr } = await supabase
     .from('characters')
-    .select('id, profile_id, name, archetype, vibe, silhouette, era, expression, palette_key, battle_cry, style_description, signature_item:signature_items(name, prompt_fragment)')
+    .select(
+      'id, profile_id, name, archetype, vibe, silhouette, era, expression, palette_key, battle_cry, style_description, signature_item:signature_items(name, prompt_fragment)',
+    )
     .eq('id', characterId)
     .maybeSingle();
 
@@ -248,7 +256,8 @@ Deno.serve(async (req) => {
     const credits = price?.credits ?? 1;
 
     if (credits > 0 && !testUser) {
-      const spendKey = idempotencyKey ??
+      const spendKey =
+        idempotencyKey ??
         `suggest_${battle.id}_${roundNumber}_${body.move_type}_${userId}_${Date.now()}`;
 
       const { data: spend, error: spendErr } = await supabase.rpc(
@@ -344,7 +353,9 @@ Deno.serve(async (req) => {
     // suggestions and never sees text that should not have been shown.
     const moderator = new TextModerationProvider();
     const verdicts = await Promise.all(
-      result.suggestions.map((s) => moderator.moderate(`${s.title}\n${s.body}`)),
+      result.suggestions.map((s) =>
+        moderator.moderate(`${s.title}\n${s.body}`),
+      ),
     );
     const kept = result.suggestions.filter(
       (_, i) => verdicts[i].status !== 'rejected',
@@ -425,6 +436,11 @@ async function refund(
   });
   if (error) {
     // Surfaced loudly: the player is out a credit and only the log will say so.
-    console.error('CREDIT REFUND FAILED', { userId, credits, walletTxId, error });
+    console.error('CREDIT REFUND FAILED', {
+      userId,
+      credits,
+      walletTxId,
+      error,
+    });
   }
 }

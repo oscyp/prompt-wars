@@ -48,8 +48,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { battle_id, battle_round_id, round_number }: GenerateTier0RevealRequest =
-      await req.json();
+    const {
+      battle_id,
+      battle_round_id,
+      round_number,
+    }: GenerateTier0RevealRequest = await req.json();
 
     if (!battle_id) {
       return errorResponse('battle_id required');
@@ -112,7 +115,10 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error('Tier 0 reveal enrichment error:', error);
-    return errorResponse(error instanceof Error ? error.message : 'Unknown error', 500);
+    return errorResponse(
+      error instanceof Error ? error.message : 'Unknown error',
+      500,
+    );
   }
 });
 
@@ -126,9 +132,10 @@ Deno.serve(async (req) => {
  * Until then this is a no-op: the deterministic ids/presets + signature-color
  * gradient fully drive the reveal, so the base payload is never blocked.
  */
-function enrichAssetUrls(
-  base: RevealPayloadV1,
-): { payload: RevealPayloadV1; changed: boolean } {
+function enrichAssetUrls(base: RevealPayloadV1): {
+  payload: RevealPayloadV1;
+  changed: boolean;
+} {
   return { payload: base, changed: false };
 }
 
@@ -141,7 +148,10 @@ async function readBattleReveal(
     .select('tier0_reveal_payload')
     .eq('id', battleId)
     .maybeSingle();
-  const payload = data?.tier0_reveal_payload as RevealPayloadV1 | null | undefined;
+  const payload = data?.tier0_reveal_payload as
+    | RevealPayloadV1
+    | null
+    | undefined;
   return isRevealPayloadV1(payload) ? payload : null;
 }
 

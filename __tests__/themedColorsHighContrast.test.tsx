@@ -1,6 +1,10 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { Colors } from '@/constants/Colors';
-import { useThemedColors, HighContrastColors } from '@/hooks/useThemedColors';
+import {
+  useEffectiveColorScheme,
+  useThemedColors,
+  HighContrastColors,
+} from '@/hooks/useThemedColors';
 import {
   setAccessibilityPreference,
   DEFAULT_ACCESSIBILITY_PREFERENCES,
@@ -14,6 +18,11 @@ describe('useThemedColors high contrast', () => {
         DEFAULT_ACCESSIBILITY_PREFERENCES.highContrast,
       ),
     );
+  });
+
+  it('uses the single dark app theme', () => {
+    const { result } = renderHook(() => useEffectiveColorScheme());
+    expect(result.current).toBe('dark');
   });
 
   it('returns the standard palette when high contrast is off', () => {

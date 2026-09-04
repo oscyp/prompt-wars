@@ -24,6 +24,7 @@ import { supabase } from '@/utils/supabase';
 import { StatBlock } from '@/types/battle';
 import { BattleMode } from '@/utils/battles';
 import { inkFor } from '@/utils/contrast';
+import { useBattleAudio } from '@/providers/BattleAudioProvider';
 
 /** How long a missing battle row is a spinner before it is a problem. */
 const LOAD_TIMEOUT_MS = 6000;
@@ -51,6 +52,7 @@ export default function FaceOffScreen() {
     isSubscribed,
     refetch,
   } = useRealtimeBattle(battleId || null);
+  const battleAudio = useBattleAudio(battle?.theme);
 
   const { p1, p2, refreshPortraits } = useBattleCharacters(
     battleId || null,
@@ -138,12 +140,13 @@ export default function FaceOffScreen() {
   // asked "Leave battle?", and confirming cancelled the battle.)
   const advance = useCallback(() => {
     if (!battleId) return;
+    battleAudio.playSound('transition');
     exitTo(() =>
       router.replace(
         `/(battle)/move-select?battleId=${battleId}&round=${currentRound}`,
       ),
     );
-  }, [battleId, router, currentRound, exitTo]);
+  }, [battleId, router, currentRound, exitTo, battleAudio]);
 
   useEffect(() => {
     if (!battle || handledTerminalRef.current) return;

@@ -9,15 +9,18 @@ import {
 
 const onRetryPricing = jest.fn();
 const onRetryAvatar = jest.fn();
+const onManageBattles = jest.fn();
 
 function merge(over: Partial<Parameters<typeof mergeEditNotices>[0]> = {}) {
   return mergeEditNotices({
     battleLocked: false,
+    activeBattleCount: 0,
     pricingVerified: true,
     avatarPending: false,
     canRetryAvatar: false,
     onRetryPricing,
     onRetryAvatar,
+    onManageBattles,
     ...over,
   });
 }
@@ -27,20 +30,26 @@ describe('mergeEditNotices', () => {
     expect(merge()).toBeNull();
   });
 
-  it('merges the battle lock and the pricing failure into one warning with Retry', () => {
-    const notice = merge({ battleLocked: true, pricingVerified: false });
+  it('merges the battle lock and pricing failure with a battle-management exit', () => {
+    const notice = merge({
+      battleLocked: true,
+      activeBattleCount: 2,
+      pricingVerified: false,
+    });
     expect(notice).toEqual({
       tone: 'warning',
-      text: "Editing is locked during a battle, and credit prices couldn't be checked.",
-      actionLabel: 'Retry',
-      onAction: onRetryPricing,
+      text: "View only — this fighter is in 2 active battles. Credit prices also couldn't be checked.",
+      actionLabel: 'Manage 2 battles',
+      onAction: onManageBattles,
     });
   });
 
-  it('states the battle lock alone without an action', () => {
-    expect(merge({ battleLocked: true })).toEqual({
+  it('states the battle count and provides a route out', () => {
+    expect(merge({ battleLocked: true, activeBattleCount: 1 })).toEqual({
       tone: 'warning',
-      text: 'Editing is unavailable while this fighter is in an active battle.',
+      text: 'View only — editing is locked while this fighter is in 1 active battle.',
+      actionLabel: 'Manage 1 battle',
+      onAction: onManageBattles,
     });
   });
 
@@ -70,7 +79,7 @@ describe('mergeEditNotices', () => {
     expect(
       merge({ battleLocked: true, pricingVerified: false, avatarPending: true })
         ?.text,
-    ).toMatch(/locked during a battle/);
+    ).toMatch(/View only/);
     expect(merge({ pricingVerified: false, avatarPending: true })?.tone).toBe(
       'error',
     );

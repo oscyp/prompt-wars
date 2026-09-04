@@ -84,6 +84,7 @@ JUDGE_API_BASE_URL=https://api.x.ai/v1   # optional; falls back to XAI_API_BASE_
 ```
 
 Notes:
+
 - `JUDGE_PROVIDER=xai` is always wrapped in `FallbackJudgeProvider`. If the
   provider times out or errors, the run falls back to the mock rather than
   throwing, because `round-resolve` claims the round into `resolving` before
@@ -169,6 +170,14 @@ OPENAI_API_KEY=sk-...
 # Useful for unit tests and offline development. When set, no network calls
 # are made and the adapter returns a 1x1 PNG with provider='fallback'.
 IMAGE_PROVIDER_MODE=  # unset in prod | "fallback" in tests/offline
+
+# Optional exact per-successful-image charges from the deployed provider
+# contract. Leave unset when unknown; telemetry stores NULL rather than a
+# misleading zero. Update these when the contract or model changes.
+XAI_IMAGE_COST_USD_SQUARE=
+XAI_IMAGE_COST_USD_PORTRAIT=
+OPENAI_IMAGE_COST_USD_SQUARE=
+OPENAI_IMAGE_COST_USD_PORTRAIT=
 ```
 
 Note that the Tier 0 reveal's `createImageProvider()` in `_shared/providers.ts`

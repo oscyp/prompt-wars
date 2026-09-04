@@ -21,7 +21,7 @@ const WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS = 300;
 export async function validateWebhookSignature(
   body: string,
   signature: string,
-  secret: string
+  secret: string,
 ): Promise<boolean> {
   try {
     const parts = new Map(
@@ -52,7 +52,9 @@ export async function validateWebhookSignature(
     }
     const ageSeconds = Math.abs(Date.now() / 1000 - sentAt);
     if (ageSeconds > WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS) {
-      console.error(`Webhook timestamp outside tolerance (${Math.round(ageSeconds)}s)`);
+      console.error(
+        `Webhook timestamp outside tolerance (${Math.round(ageSeconds)}s)`,
+      );
       return false;
     }
 
@@ -62,7 +64,7 @@ export async function validateWebhookSignature(
       encoder.encode(secret),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
-      ['verify']
+      ['verify'],
     );
 
     const signatureBuffer = Uint8Array.from(

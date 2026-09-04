@@ -51,7 +51,9 @@ export default function SaveBar({
         <Text style={[styles.title, accessibleText, { color: colors.text }]}>
           {changeCount} change{changeCount === 1 ? '' : 's'}
         </Text>
-        <Text style={[styles.sub, accessibleText, { color: colors.textSecondary }]}>
+        <Text
+          style={[styles.sub, accessibleText, { color: colors.textSecondary }]}
+        >
           Free
         </Text>
       </View>

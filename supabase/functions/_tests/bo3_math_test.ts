@@ -47,7 +47,11 @@ Deno.test('moveTypePoints - rock-paper-scissors wiring', () => {
     ['finisher', 'finisher', 0],
   ];
   for (const [mine, theirs, expected] of cases) {
-    assertEquals(moveTypePoints(mine, theirs), expected, `${mine} vs ${theirs}`);
+    assertEquals(
+      moveTypePoints(mine, theirs),
+      expected,
+      `${mine} vs ${theirs}`,
+    );
   }
 });
 
@@ -90,22 +94,29 @@ Deno.test('applyMoveTypeModifier floors at zero', () => {
 // Damage / HP / KO
 // ---------------------------------------------------------------------------
 
-Deno.test('damage varies with the score gap instead of pinning to a clamp', () => {
-  const table: [number, number][] = [
-    [3, 19],
-    [5, 23],
-    [10, 34],
-    [15, 45],
-    [20, 56],
-  ];
-  for (const [gap, expected] of table) {
-    assertEquals(computeDamage(gap, 5), expected, `gap ${gap}`);
-  }
+Deno.test(
+  'damage varies with the score gap instead of pinning to a clamp',
+  () => {
+    const table: [number, number][] = [
+      [3, 19],
+      [5, 23],
+      [10, 34],
+      [15, 45],
+      [20, 56],
+    ];
+    for (const [gap, expected] of table) {
+      assertEquals(computeDamage(gap, 5), expected, `gap ${gap}`);
+    }
 
-  // The old formula produced 40 for every one of these.
-  const distinct = new Set(table.map(([gap]) => computeDamage(gap, 5)));
-  assertEquals(distinct.size, table.length, 'each gap must give distinct damage');
-});
+    // The old formula produced 40 for every one of these.
+    const distinct = new Set(table.map(([gap]) => computeDamage(gap, 5)));
+    assertEquals(
+      distinct.size,
+      table.length,
+      'each gap must give distinct damage',
+    );
+  },
+);
 
 Deno.test('strength shifts damage but does not dominate it', () => {
   const weak = computeDamage(10, 1);
@@ -160,5 +171,9 @@ Deno.test('forfeit walkover damage stays below an instant KO', () => {
   // round-resolve sets scoreGap = KO_SCORE_GAP_THRESHOLD on a walkover.
   const forfeitDamage = computeDamage(KO_SCORE_GAP_THRESHOLD, 5);
   assertEquals(forfeitDamage, 27);
-  assertEquals(forfeitDamage < hpMax(1), true, 'one forfeit must not KO outright');
+  assertEquals(
+    forfeitDamage < hpMax(1),
+    true,
+    'one forfeit must not KO outright',
+  );
 });

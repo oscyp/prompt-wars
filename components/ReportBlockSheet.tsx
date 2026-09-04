@@ -79,9 +79,8 @@ export default function ReportBlockSheet({
   const reduceMotion = useReducedMotion();
   const translateY = useRef(new Animated.Value(420)).current;
 
-  const [reason, setReason] = useState<ReportContentParams['reason']>(
-    'inappropriate',
-  );
+  const [reason, setReason] =
+    useState<ReportContentParams['reason']>('inappropriate');
   const [alsoBlock, setAlsoBlock] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -269,7 +268,10 @@ export default function ReportBlockSheet({
             accessibilityLabel="Submit report"
             style={[
               styles.button,
-              { backgroundColor: colors.error, opacity: isSubmitting ? 0.6 : 1 },
+              {
+                backgroundColor: colors.error,
+                opacity: isSubmitting ? 0.6 : 1,
+              },
             ]}
           >
             {isSubmitting ? (

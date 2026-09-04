@@ -34,7 +34,6 @@ Server-owned logic for Prompt Wars gameplay, economy, and AI integrations.
   - `MockImageProvider` - Returns deterministic Tier 0 composition metadata
   - `MockVideoProvider` - Stubs video generation lifecycle
   - `MockTtsProvider` - Returns client-side TTS presets
-  
 - **Production providers**:
   - `XAIVideoProvider` - xAI / X AI video generation (requires `XAI_API_KEY` env var)
   - Other judge/image providers can be added via factory pattern
@@ -43,7 +42,7 @@ Server-owned logic for Prompt Wars gameplay, economy, and AI integrations.
 
 - `moderate-prompt` - External moderation service (minimal blocklist in submit-prompt for MVP)
 - `moderate-video` - Post-gen video safety checks
-**Provider API Keys** (set as Edge Function secrets):
+  **Provider API Keys** (set as Edge Function secrets):
 - `JUDGE_PROVIDER` - Judge provider type: `mock` (default) | `xai`. `xai` is wrapped in a mock fallback so a provider outage degrades instead of stranding a round in `resolving`. `openai`/`anthropic` are documented elsewhere but not implemented.
 - `JUDGE_API_KEY` / `JUDGE_MODEL_ID` - judge credentials and model (falls back to `XAI_API_KEY`)
 - `VIDEO_PROVIDER` - Video provider type: `mock` (default) | `xai`
@@ -60,6 +59,7 @@ deno test --allow-all _tests/
 ```
 
 Tests include:
+
 - `judge_test.ts` - Original judge pipeline tests
 - `judge_enhanced_test.ts` ✅ - JSON schema validation, length normalization, move matchup
 - `providers_test.ts` ✅ - All provider interfaces (judge, image, video, TTS)
@@ -70,6 +70,7 @@ Tests include:
 ## Security Notes
 
 All Edge Functions requiring provider API access (xAI, moderation services, RevenueCat) must:
+
 - Store keys as Supabase Edge Function secrets, never in code or client-exposed config
 - Use service-role JWT for writes to protected tables (battles, video_jobs, wallet_transactions)
 - Validate user identity before mutating player-owned resources
@@ -97,7 +98,9 @@ supabase functions deploy
 Deploy a single function:
 
 ### User-initiated functions
+
 Require `Authorization: Bearer <jwt>` header, validate user identity via JWT:
+
 - `matchmaking` - POST `{ mode: 'ranked' | 'unranked', character_id: string }`
 - `submit-prompt` - POST `{ battle_id, prompt_template_id?, custom_prompt_text?, move_type }`
 - `appeal-battle` - POST `{ battle_id }` (capped 1/day on ranked losses)
@@ -105,19 +108,24 @@ Require `Authorization: Bearer <jwt>` header, validate user identity via JWT:
 - `grant-credits` - POST `{ reason, amount }` (service-owned, called by backend logic)
 
 ### Service-role functions
+
 Called by internal cron/queue, not exposed to clients:
+
 - `resolve-battle` - POST `{ battle_id }` - Runs judge pipeline, updates scores and ratings
 - `generate-tier0-reveal` - POST `{ battle_id }` - Generates free cinematic reveal payload
 - `process-video-job` - POST `{ video_job_id?, batch_size? }` - Processes queued/in-flight video jobs
 - `expire-battles` - POST `{}` - Cron job to expire timed-out battles
 
 ### Webhooks
+
 Validate webhook signature in production, use idempotency keys for all wallet transactions:
+
 - `revenuecat-webhook` - POST (RevenueCat events)
 
 ## Tier 0 vs Tier 1 Reveal Pipeline
 
 **Tier 0** (always free, always succeeds, never blocks battle completion):
+
 1. Battle reaches `result_ready` status
 2. `generate-tier0-reveal` creates payload with:
    - Motion poster composition metadata (deterministic, no provider call required)
@@ -129,6 +137,7 @@ Validate webhook signature in production, use idempotency keys for all wallet tr
 4. Client renders cinematic reveal immediately
 
 **Tier 1** (paid or sub, one shared video per battle, async):
+
 1. Player requests video upgrade (credits or sub allowance)
 2. Server creates `video_jobs` row with status `queued`
 3. `process-video-job` picks up job:
@@ -143,23 +152,27 @@ Validate webhook signature in production, use idempotency keys for all wallet tr
 ## Provider Architecture
 
 All AI providers follow the adapter pattern:
+
 - Interface defines contract (e.g., `AiJudgeProvider.judge()`)
 - Mock provider is default, deterministic, always available
 - Production providers (xAI, OpenAI, etc.) swap in via env var
 - Provider failures fall back gracefully: mock judge, Tier 0 reveal only, credit refunds
 
 **Adding a new judge provider**:
+
 1. Implement `AiJudgeProvider` interface
 2. Add to `createJudgeProvider()` factory in `providers.ts`
 3. Set `JUDGE_PROVIDER=<provider-name>` env var
 4. Provider response MUST pass JSON schema validation (see `validateJudgeResponse()`)
 
 **Adding a new video provider**:
+
 1. Implement `AiVideoProvider` interface (submit, poll, getVideoUrl)
 2. Add to `createVideoProvider()` factory
 3. Set `VIDEO_PROVIDER=<provider-name>` env var and API key secrets
 4. Compose prompts from `VideoGenerationRequest` fields (character names, prompts, theme, winner framing)nction-name>
-```
+
+````
 
 User-initiated functions (matchmaking, submit-prompt, appeal-battle, grant-credits):
 - Require `Authorization: Bearer <jwt>` header
@@ -184,6 +197,6 @@ supabase functions serve
 
 # Deploy to remote
 supabase functions deploy function-name
-```
+````
 
 See official docs: https://supabase.com/docs/guides/functions

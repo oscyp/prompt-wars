@@ -27,7 +27,9 @@ Deno.serve(async (req) => {
   const supabase = createServiceClient();
   const { data: catalogRows, error: catalogError } = await supabase
     .from('signature_items_catalog')
-    .select('id, slug, name, description, item_class, archetype_affinity, image_path, prompt_fragment, min_subscription_tier')
+    .select(
+      'id, slug, name, description, item_class, archetype_affinity, image_path, prompt_fragment, min_subscription_tier',
+    )
     .eq('is_active', true)
     .order('name', { ascending: true });
 

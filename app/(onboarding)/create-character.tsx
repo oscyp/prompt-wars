@@ -15,7 +15,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -73,7 +72,6 @@ import {
 } from '@/components';
 import { HEADER_BUTTON_SIZE } from '@/components/HeaderBackButton';
 import {
-  createCustomSignatureItem,
   generatePortrait,
   getPortraitFallbackUri,
   listSignatureItemsCatalog,
@@ -82,8 +80,6 @@ import {
 import {
   INITIAL_DRAFT,
   MAX_BATTLE_CRY_LEN,
-  MAX_ITEM_DESC_LEN,
-  MAX_ITEM_NAME_LEN,
   MAX_NAME_LEN,
   MAX_PROMPT_LEN,
   MIN_NAME_LEN,
@@ -95,8 +91,6 @@ import {
   canAdvance,
   clampStepToDraft,
   clearDraft,
-  customItemCreateLabel,
-  describeCustomItemError,
   describeFinalizeError,
   describePortraitError,
   draftAccentHex,
@@ -104,7 +98,6 @@ import {
   finalizeErrorNamesStats,
   freePortraitsIntro,
   freePortraitsLeft,
-  iconSwitchCaption,
   loadDraft,
   nextDisabledHint,
   outOfFreePortraitsCopy,
@@ -117,8 +110,6 @@ import {
   stepForSummaryLabel,
   summaryRows,
   type CreationPath,
-  type CustomItemErrorCopy,
-  type CustomItemPrices,
   type Draft,
   type PortraitErrorCopy,
 } from '@/utils/onboardingDraft';
@@ -516,7 +507,7 @@ export default function CreateCharacterScreen() {
         )}
         {step === STEP.stats && <StepStats draft={draft} patch={patch} />}
         {step === STEP.item && (
-          <StepSignatureItem draft={draft} patch={patch} onTopUp={openWallet} />
+          <StepSignatureItem draft={draft} patch={patch} />
         )}
         {step === STEP.battleCry && draft.archetype && (
           <StepBattleCry
@@ -1446,42 +1437,19 @@ function StepPortrait({
   );
 }
 
-function StepSignatureItem({
-  draft,
-  patch,
-  onTopUp,
-}: {
-  draft: Draft;
-  patch: Patch;
-  onTopUp: () => void;
-}) {
+function StepSignatureItem({ draft, patch }: { draft: Draft; patch: Patch }) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
   const [items, setItems] = useState<ItemGridItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
 
-  const [customOpen, setCustomOpen] = useState(false);
-  const [customName, setCustomName] = useState('');
-  const [customDesc, setCustomDesc] = useState('');
-  const [customClass, setCustomClass] = useState<ItemClass>('tool');
-  const [customIcon, setCustomIcon] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [customError, setCustomError] = useState<CustomItemErrorCopy | null>(
-    null,
-  );
-  const [prices, setPrices] = useState<CustomItemPrices>({
-    text: null,
-    image: null,
-  });
-  const descRef = useRef<TextInput>(null);
-
   const load = useCallback(async () => {
     setLoading(true);
     setLoadFailed(false);
     try {
       const list = await listSignatureItemsCatalog();
-      setItems(list.slice(0, 15));
+      setItems(list.filter((item) => !item.isCustom).slice(0, 15));
     } catch (err) {
       console.warn('Could not load signature items:', err);
       setLoadFailed(true);
@@ -1494,56 +1462,9 @@ function StepSignatureItem({
     void load();
   }, [load]);
 
-  useEffect(() => {
-    let active = true;
-    void Promise.all([
-      fetchEditPrice('custom_item_text'),
-      fetchEditPrice('custom_item_image'),
-    ]).then(([text, image]) => {
-      if (active) {
-        setPrices({
-          text: text?.credits ?? null,
-          image: image?.credits ?? null,
-        });
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const skip = () => {
     hapticSelection();
     patch({ signatureItem: undefined, itemSkipped: true });
-  };
-
-  const customReady =
-    customName.trim().length > 0 && customDesc.trim().length > 0;
-
-  const submitCustom = async () => {
-    if (!customReady || creating) return;
-    setCreating(true);
-    setCustomError(null);
-    try {
-      const item = await createCustomSignatureItem({
-        name: customName.trim(),
-        description: customDesc.trim(),
-        itemClass: customClass,
-        generateIcon: customIcon,
-      });
-      hapticSuccess();
-      patch({ signatureItem: item, itemSkipped: false });
-      setCustomOpen(false);
-      setCustomName('');
-      setCustomDesc('');
-      setCustomIcon(false);
-    } catch (err) {
-      console.warn('Could not create custom item:', err);
-      hapticError();
-      setCustomError(describeCustomItemError(err));
-    } finally {
-      setCreating(false);
-    }
   };
 
   return (
@@ -1575,7 +1496,6 @@ function StepSignatureItem({
             const item = items.find((i) => i.id === id);
             if (item) patch({ signatureItem: item, itemSkipped: false });
           }}
-          onCreateCustom={() => setCustomOpen(true)}
         />
       )}
 
@@ -1605,158 +1525,6 @@ function StepSignatureItem({
             : 'Skip — the arena assigns one'}
         </Text>
       </TouchableOpacity>
-
-      {customOpen ? (
-        <View style={[styles.customForm, { backgroundColor: colors.card }]}>
-          <Text
-            accessibilityRole="header"
-            style={[styles.h2, accessibleText, { color: colors.text }]}
-          >
-            Create your own
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              accessibleText,
-              { backgroundColor: colors.background, color: colors.text },
-            ]}
-            placeholder="Item name"
-            placeholderTextColor={colors.textTertiary}
-            value={customName}
-            onChangeText={setCustomName}
-            maxLength={MAX_ITEM_NAME_LEN}
-            returnKeyType="next"
-            onSubmitEditing={() => descRef.current?.focus()}
-            editable={!creating}
-            accessibilityLabel="Custom item name"
-          />
-          <TextInput
-            ref={descRef}
-            style={[
-              styles.input,
-              styles.multiline,
-              accessibleText,
-              { backgroundColor: colors.background, color: colors.text },
-            ]}
-            placeholder="Short description"
-            placeholderTextColor={colors.textTertiary}
-            value={customDesc}
-            onChangeText={setCustomDesc}
-            maxLength={MAX_ITEM_DESC_LEN}
-            multiline
-            submitBehavior="blurAndSubmit"
-            returnKeyType="done"
-            editable={!creating}
-            accessibilityLabel="Custom item description"
-          />
-          <Counter value={customDesc.length} max={MAX_ITEM_DESC_LEN} />
-          <OptionGrid
-            title="Class"
-            label="Class"
-            options={traitOptions('itemClass')}
-            value={customClass}
-            onChange={(v) => setCustomClass(v as ItemClass)}
-            disabled={creating}
-          />
-          <View style={styles.switchRow}>
-            <View style={styles.switchText}>
-              <Text
-                style={[
-                  styles.switchLabel,
-                  accessibleText,
-                  { color: colors.text },
-                ]}
-              >
-                Generate icon
-              </Text>
-              <Text
-                style={[
-                  styles.switchCaption,
-                  accessibleText,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                {iconSwitchCaption(prices)}
-              </Text>
-            </View>
-            <Switch
-              value={customIcon}
-              onValueChange={(v) => {
-                hapticSelection();
-                setCustomIcon(v);
-              }}
-              disabled={creating}
-              accessibilityLabel="Generate icon"
-              accessibilityHint={iconSwitchCaption(prices)}
-            />
-          </View>
-          {customError ? (
-            <View style={styles.bannerWrap}>
-              <InlineBanner
-                tone="error"
-                text={customError.message}
-                actionLabel={customError.topUp ? 'Top up' : undefined}
-                onAction={customError.topUp ? onTopUp : undefined}
-              />
-            </View>
-          ) : null}
-          <View style={styles.row}>
-            <TouchableOpacity
-              onPress={() => {
-                setCustomOpen(false);
-                setCustomError(null);
-              }}
-              disabled={creating}
-              accessibilityRole="button"
-              accessibilityLabel="Cancel custom item"
-              style={[
-                styles.secondaryBtn,
-                styles.flexBtn,
-                { borderColor: colors.border },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.secondaryBtnText,
-                  accessibleText,
-                  { color: colors.text },
-                ]}
-              >
-                Cancel
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={submitCustom}
-              disabled={creating || !customReady}
-              accessibilityRole="button"
-              accessibilityLabel={customItemCreateLabel(prices, customIcon)}
-              accessibilityHint={
-                customReady
-                  ? undefined
-                  : 'Enter a name and description to continue'
-              }
-              accessibilityState={{
-                disabled: creating || !customReady,
-                busy: creating,
-              }}
-              style={[
-                styles.primaryBtn,
-                styles.flexBtn,
-                { backgroundColor: colors.primary },
-                (creating || !customReady) && styles.btnDisabled,
-              ]}
-            >
-              {creating ? (
-                <ActivityIndicator color={Ink.onAccentLight} />
-              ) : (
-                <Text style={[styles.primaryBtnText, accessibleText]}>
-                  {customItemCreateLabel(prices, customIcon)}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -2190,27 +1958,6 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   footerBtn: { flex: 1 },
-  customForm: {
-    marginTop: Spacing.lg,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    gap: Spacing.sm,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.md,
-    minHeight: Layout.inputHeight,
-  },
-  switchText: { flex: 1 },
-  switchLabel: {
-    fontSize: Typography.sizes.base,
-  },
-  switchCaption: {
-    fontSize: Typography.sizes.xs,
-    marginTop: 2,
-  },
   suggestionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',

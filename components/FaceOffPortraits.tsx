@@ -6,6 +6,7 @@ import {
   Animated,
   Pressable,
   Image,
+  ImageBackground,
   AccessibilityInfo,
 } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
@@ -26,6 +27,7 @@ import type { EquippedCosmetics } from '@/utils/cosmetics';
 import StatBar from './StatBar';
 import HPBar from './HPBar';
 import { StatBlock } from '@/types/battle';
+import { presentationForTheme } from '@/constants/ThemeArt';
 
 export interface FaceOffPlayer {
   characterId: string;
@@ -199,7 +201,12 @@ export default function FaceOffPortraits({
     : `Theme: ${themeText}`;
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <ImageBackground
+      source={presentationForTheme(theme).backdrop}
+      style={[styles.root, { backgroundColor: colors.background }]}
+      resizeMode="cover"
+    >
+      <View style={styles.backdropScrim} />
       {header}
 
       {/* Full-width theme banner: the theme is the shared constraint both
@@ -310,7 +317,7 @@ export default function FaceOffPortraits({
           </Pressable>
         ) : null}
       </View>
-    </View>
+    </ImageBackground>
   );
 }
 
@@ -469,6 +476,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.lg,
+  },
+  backdropScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(11,11,15,0.62)',
   },
   split: {
     flex: 1,

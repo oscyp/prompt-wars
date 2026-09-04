@@ -9,7 +9,10 @@ import {
   successResponse,
   getAuthUserId,
 } from '../_shared/utils.ts';
-import { XAIVideoProvider, type VideoGenerationRequest } from '../_shared/providers.ts';
+import {
+  XAIVideoProvider,
+  type VideoGenerationRequest,
+} from '../_shared/providers.ts';
 import { isDevFunctionsEnabled } from '../_shared/dev-gate.ts';
 
 interface DevGenerateVideoRequest {
@@ -56,12 +59,14 @@ Deno.serve(async (req) => {
   // Load battle with character + bot_persona joins
   const { data: battle, error: battleError } = await supabase
     .from('battles')
-    .select(`
+    .select(
+      `
       *,
       player_one_character:characters!battles_player_one_character_id_fkey(*),
       player_two_character:characters!battles_player_two_character_id_fkey(*),
       bot_persona:bot_personas(*)
-    `)
+    `,
+    )
     .eq('id', battleId)
     .single();
 
@@ -89,7 +94,10 @@ Deno.serve(async (req) => {
 
   if (battle.is_player_two_bot) {
     if (!prompts || prompts.length !== 1) {
-      return errorResponse('prompts_not_found: bot battle requires exactly one locked human prompt', 400);
+      return errorResponse(
+        'prompts_not_found: bot battle requires exactly one locked human prompt',
+        400,
+      );
     }
     p1Prompt = prompts.find((p: any) => p.profile_id === battle.player_one_id);
     if (!p1Prompt) {
@@ -102,10 +110,14 @@ Deno.serve(async (req) => {
       .eq('bot_persona_id', battle.bot_persona_id);
 
     if (botPromptError || !botPrompts || botPrompts.length === 0) {
-      return errorResponse('bot_prompts_not_found: no bot prompts for persona', 400);
+      return errorResponse(
+        'bot_prompts_not_found: no bot prompts for persona',
+        400,
+      );
     }
 
-    const randomBotPrompt = botPrompts[Math.floor(Math.random() * botPrompts.length)];
+    const randomBotPrompt =
+      botPrompts[Math.floor(Math.random() * botPrompts.length)];
     p2Prompt = {
       custom_prompt_text: randomBotPrompt.prompt_text,
       prompt_template_id: null,
@@ -115,12 +127,18 @@ Deno.serve(async (req) => {
     };
   } else {
     if (!prompts || prompts.length !== 2) {
-      return errorResponse('prompts_not_found: PvP battle requires two locked prompts', 400);
+      return errorResponse(
+        'prompts_not_found: PvP battle requires two locked prompts',
+        400,
+      );
     }
     p1Prompt = prompts.find((p: any) => p.profile_id === battle.player_one_id);
     p2Prompt = prompts.find((p: any) => p.profile_id === battle.player_two_id);
     if (!p1Prompt || !p2Prompt) {
-      return errorResponse('prompts_mismatch: could not match prompts to participants', 400);
+      return errorResponse(
+        'prompts_mismatch: could not match prompts to participants',
+        400,
+      );
     }
   }
 
@@ -255,7 +273,9 @@ Deno.serve(async (req) => {
       await new Promise((r) => setTimeout(r, SLEEP_MS));
 
       try {
-        const providerStatus = await provider.pollVideoStatus(submission.providerJobId);
+        const providerStatus = await provider.pollVideoStatus(
+          submission.providerJobId,
+        );
 
         if (providerStatus.status === 'succeeded' && providerStatus.videoUrl) {
           await supabase
@@ -275,7 +295,8 @@ Deno.serve(async (req) => {
             .update({
               status: 'failed',
               error_code: providerStatus.errorCode ?? 'xai_failed',
-              error_message: providerStatus.errorMessage ?? 'xAI reported failure',
+              error_message:
+                providerStatus.errorMessage ?? 'xAI reported failure',
               completed_at: new Date().toISOString(),
             })
             .eq('id', videoJobId);
@@ -291,7 +312,8 @@ Deno.serve(async (req) => {
           })
           .eq('id', videoJobId);
       } catch (loopErr) {
-        const msg = loopErr instanceof Error ? loopErr.message : String(loopErr);
+        const msg =
+          loopErr instanceof Error ? loopErr.message : String(loopErr);
         console.error('xAI poll exception:', msg);
         await supabase
           .from('video_jobs')

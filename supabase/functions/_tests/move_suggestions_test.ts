@@ -94,7 +94,10 @@ Deno.test('validateSuggestions rejects the wrong count', () => {
 });
 
 Deno.test('validateSuggestions rejects a non-array payload', () => {
-  assertThrows(() => validateSuggestions({ suggestions: 'nope' }), SuggestionError);
+  assertThrows(
+    () => validateSuggestions({ suggestions: 'nope' }),
+    SuggestionError,
+  );
   assertThrows(() => validateSuggestions({}), SuggestionError);
   assertThrows(() => validateSuggestions(null), SuggestionError);
 });
@@ -128,10 +131,17 @@ Deno.test('validateSuggestions trims and truncates the title', () => {
   assertEquals(out[0].title.length, 48);
 });
 
-Deno.test('validateSuggestions counts a whitespace-padded body after trimming', () => {
-  // A body of 19 real characters padded to 25 must still be rejected: the
-  // trimmed value is what gets persisted and checked.
-  const set = validSet();
-  set.suggestions[0].body = `   ${'x'.repeat(19)}   `;
-  assertThrows(() => validateSuggestions(set), SuggestionError, 'outside 20-800');
-});
+Deno.test(
+  'validateSuggestions counts a whitespace-padded body after trimming',
+  () => {
+    // A body of 19 real characters padded to 25 must still be rejected: the
+    // trimmed value is what gets persisted and checked.
+    const set = validSet();
+    set.suggestions[0].body = `   ${'x'.repeat(19)}   `;
+    assertThrows(
+      () => validateSuggestions(set),
+      SuggestionError,
+      'outside 20-800',
+    );
+  },
+);

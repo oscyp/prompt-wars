@@ -576,7 +576,7 @@ export default function ProfileScreen() {
         />
         <NavCard
           title="Settings"
-          description="Accessibility, notifications, account"
+          description="Audio, notifications and account"
           onPress={() => router.push('/(profile)/settings')}
         />
       </>

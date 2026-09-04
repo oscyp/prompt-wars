@@ -68,7 +68,8 @@ export default function ConfirmSheet({
 }: ConfirmSheetProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
-  const confirmColor = confirmTone === 'destructive' ? colors.error : colors.primary;
+  const confirmColor =
+    confirmTone === 'destructive' ? colors.error : colors.primary;
 
   return (
     <BottomSheet
@@ -93,7 +94,10 @@ export default function ConfirmSheet({
             style={[
               styles.title,
               accessibleText,
-              { color: colors.text, textAlign: thumbnailUri ? 'left' : 'center' },
+              {
+                color: colors.text,
+                textAlign: thumbnailUri ? 'left' : 'center',
+              },
             ]}
           >
             {title}
@@ -132,13 +136,20 @@ export default function ConfirmSheet({
         <View
           style={[
             styles.rows,
-            { backgroundColor: colors.backgroundSecondary, borderColor: colors.border },
+            {
+              backgroundColor: colors.backgroundSecondary,
+              borderColor: colors.border,
+            },
           ]}
         >
           {rows.map((row) => (
             <View key={row.label} style={styles.row}>
               <Text
-                style={[styles.rowLabel, accessibleText, { color: colors.textSecondary }]}
+                style={[
+                  styles.rowLabel,
+                  accessibleText,
+                  { color: colors.textSecondary },
+                ]}
               >
                 {row.label}
               </Text>
@@ -158,7 +169,13 @@ export default function ConfirmSheet({
       ) : null}
 
       {footnote ? (
-        <Text style={[styles.footnote, accessibleText, { color: colors.textTertiary }]}>
+        <Text
+          style={[
+            styles.footnote,
+            accessibleText,
+            { color: colors.textTertiary },
+          ]}
+        >
           {footnote}
         </Text>
       ) : null}
@@ -170,7 +187,10 @@ export default function ConfirmSheet({
           accessibilityRole="button"
           accessibilityLabel={cancelLabel}
           accessibilityState={{ disabled: busy }}
-          style={[styles.button, { backgroundColor: colors.backgroundTertiary }]}
+          style={[
+            styles.button,
+            { backgroundColor: colors.backgroundTertiary },
+          ]}
         >
           <Text style={[styles.buttonText, { color: colors.text }]}>
             {cancelLabel}

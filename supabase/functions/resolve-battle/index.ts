@@ -9,17 +9,17 @@ import {
   getSupabaseSecretKey,
   hasSupabaseSecretAuthorization,
   successResponse,
-} from "../_shared/utils.ts";
+} from '../_shared/utils.ts';
 import {
   isBelowQualityFloor,
   JUDGE_PROMPT_VERSION,
   runJudgePipeline,
-} from "../_shared/judge.ts";
-import { createJudgeProvider } from "../_shared/providers.ts";
-import { computeRatingDeltas } from "../_shared/glicko2.ts";
-import { notifyBattleResult } from "../_shared/push.ts";
-import { composeRevealPayload } from "../_shared/compose-reveal-payload.ts";
-import { enqueueAutoBattleVideo } from "../_shared/auto-video.ts";
+} from '../_shared/judge.ts';
+import { createJudgeProvider } from '../_shared/providers.ts';
+import { computeRatingDeltas } from '../_shared/glicko2.ts';
+import { notifyBattleResult } from '../_shared/push.ts';
+import { composeRevealPayload } from '../_shared/compose-reveal-payload.ts';
+import { enqueueAutoBattleVideo } from '../_shared/auto-video.ts';
 
 interface ResolveBattleRequest {
   battle_id: string;
@@ -29,55 +29,52 @@ async function resolveCurrentBo3Round(
   battleId: string,
   roundNumber: number,
 ): Promise<Response> {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const secretKey = getSupabaseSecretKey();
 
   if (!supabaseUrl || !secretKey) {
-    return errorResponse("Missing Supabase environment variables", 500);
+    return errorResponse('Missing Supabase environment variables', 500);
   }
 
-  const response = await fetch(
-    `${supabaseUrl}/functions/v1/round-resolve`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: secretKey,
-      },
-      body: JSON.stringify({
-        battle_id: battleId,
-        round_number: roundNumber,
-      }),
+  const response = await fetch(`${supabaseUrl}/functions/v1/round-resolve`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: secretKey,
     },
-  );
+    body: JSON.stringify({
+      battle_id: battleId,
+      round_number: roundNumber,
+    }),
+  });
 
   const body = await response.text();
   return new Response(body, {
     status: response.status,
     headers: {
       ...corsHeaders,
-      "Content-Type": response.headers.get("Content-Type") ??
-        "application/json",
+      'Content-Type':
+        response.headers.get('Content-Type') ?? 'application/json',
     },
   });
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     const { battle_id }: ResolveBattleRequest = await req.json();
 
     if (!battle_id) {
-      return errorResponse("battle_id required");
+      return errorResponse('battle_id required');
     }
 
-    const authHeader = req.headers.get("Authorization");
+    const authHeader = req.headers.get('Authorization');
     const isServiceRequest = hasSupabaseSecretAuthorization(
       authHeader,
-      req.headers.get("apikey"),
+      req.headers.get('apikey'),
     );
     let requesterUserId: string | null = null;
 
@@ -86,7 +83,7 @@ Deno.serve(async (req) => {
         requesterUserId = await getAuthUserId(req);
       } catch {
         return errorResponse(
-          "Service role or battle participant required",
+          'Service role or battle participant required',
           403,
         );
       }
@@ -96,7 +93,7 @@ Deno.serve(async (req) => {
 
     // Fetch battle with prompts and characters for Tier 0 payload
     const { data: battle, error: battleError } = await supabase
-      .from("battles")
+      .from('battles')
       .select(
         `
         *,
@@ -107,11 +104,11 @@ Deno.serve(async (req) => {
         bot_persona:bot_personas(id, name, archetype, signature_color, battle_cry)
       `,
       )
-      .eq("id", battle_id)
+      .eq('id', battle_id)
       .single();
 
     if (battleError || !battle) {
-      return errorResponse("Battle not found");
+      return errorResponse('Battle not found');
     }
 
     if (
@@ -119,32 +116,32 @@ Deno.serve(async (req) => {
       requesterUserId !== battle.player_one_id &&
       requesterUserId !== battle.player_two_id
     ) {
-      return errorResponse("Battle participant required", 403);
+      return errorResponse('Battle participant required', 403);
     }
 
     // Bo3 retries arrive through this participant-callable endpoint. Dispatch
     // them to the service-only round resolver and return its real outcome;
     // returning a successful no-op strands the client in `resolving` forever.
-    if ((battle as { format?: string }).format === "bo3") {
+    if ((battle as { format?: string }).format === 'bo3') {
       return await resolveCurrentBo3Round(
         battle_id,
         Number((battle as { current_round?: number }).current_round ?? 1),
       );
     }
 
-    if (battle.status !== "resolving") {
+    if (battle.status !== 'resolving') {
       return errorResponse(`Battle not ready to resolve: ${battle.status}`);
     }
 
     // Fetch both prompts
     const { data: prompts, error: promptsError } = await supabase
-      .from("battle_prompts")
-      .select("*")
-      .eq("battle_id", battle_id)
-      .eq("is_locked", true);
+      .from('battle_prompts')
+      .select('*')
+      .eq('battle_id', battle_id)
+      .eq('is_locked', true);
 
     if (promptsError) {
-      return errorResponse("Failed to fetch prompts");
+      return errorResponse('Failed to fetch prompts');
     }
 
     // Handle bot battles vs human battles
@@ -153,22 +150,22 @@ Deno.serve(async (req) => {
     if (battle.is_player_two_bot) {
       // Bot battle: only player one has a prompt in battle_prompts
       if (!prompts || prompts.length !== 1) {
-        return errorResponse("Bot battle requires exactly one human prompt");
+        return errorResponse('Bot battle requires exactly one human prompt');
       }
 
       p1Prompt = prompts.find((p) => p.profile_id === battle.player_one_id);
       if (!p1Prompt) {
-        return errorResponse("Human prompt not found");
+        return errorResponse('Human prompt not found');
       }
 
       // Generate bot prompt from bot_prompt_library
       const { data: botPrompts, error: botPromptError } = await supabase
-        .from("bot_prompt_library")
-        .select("*")
-        .eq("bot_persona_id", battle.bot_persona_id);
+        .from('bot_prompt_library')
+        .select('*')
+        .eq('bot_persona_id', battle.bot_persona_id);
 
       if (botPromptError || !botPrompts || botPrompts.length === 0) {
-        return errorResponse("Bot prompts not found for persona");
+        return errorResponse('Bot prompts not found for persona');
       }
 
       // Select random bot prompt (in production, could match theme/move type)
@@ -186,14 +183,14 @@ Deno.serve(async (req) => {
     } else {
       // Human vs human: both prompts in battle_prompts
       if (!prompts || prompts.length !== 2) {
-        return errorResponse("Both prompts not found or not locked");
+        return errorResponse('Both prompts not found or not locked');
       }
 
       p1Prompt = prompts.find((p) => p.profile_id === battle.player_one_id);
       p2Prompt = prompts.find((p) => p.profile_id === battle.player_two_id);
 
       if (!p1Prompt || !p2Prompt) {
-        return errorResponse("Prompts mismatch");
+        return errorResponse('Prompts mismatch');
       }
     }
 
@@ -205,22 +202,22 @@ Deno.serve(async (req) => {
 
       if (prompt.prompt_template_id) {
         const { data: template } = await supabase
-          .from("prompt_templates")
-          .select("body")
-          .eq("id", prompt.prompt_template_id)
+          .from('prompt_templates')
+          .select('body')
+          .eq('id', prompt.prompt_template_id)
           .single();
 
-        return template?.body || "";
+        return template?.body || '';
       }
 
-      return "";
+      return '';
     };
 
     const p1Text = await getPromptText(p1Prompt);
     const p2Text = await getPromptText(p2Prompt);
 
     if (!p1Text || !p2Text) {
-      return errorResponse("Failed to retrieve prompt text");
+      return errorResponse('Failed to retrieve prompt text');
     }
 
     // Create judge provider and run pipeline
@@ -238,11 +235,12 @@ Deno.serve(async (req) => {
     );
 
     // Determine winner
-    const winnerId = judgeResult.winner_profile_id === "p1"
-      ? battle.player_one_id
-      : judgeResult.winner_profile_id === "p2"
-      ? battle.player_two_id
-      : null;
+    const winnerId =
+      judgeResult.winner_profile_id === 'p1'
+        ? battle.player_one_id
+        : judgeResult.winner_profile_id === 'p2'
+          ? battle.player_two_id
+          : null;
 
     // Compute rating deltas (only for ranked). §7.8 quality floor: when both
     // prompts score below the floor, ratings stay untouched so throwaway
@@ -254,7 +252,8 @@ Deno.serve(async (req) => {
     );
 
     if (
-      battle.mode === "ranked" && !battle.is_player_two_bot &&
+      battle.mode === 'ranked' &&
+      !battle.is_player_two_bot &&
       !ratingGatedByQualityFloor
     ) {
       const p1Profile = battle.player_one as unknown as {
@@ -299,14 +298,14 @@ Deno.serve(async (req) => {
         player_one: p1Prompt.move_type,
         player_two: p2Prompt.move_type,
       },
-      ...(ratingGatedByQualityFloor ? { rating_gated: "quality_floor" } : {}),
+      ...(ratingGatedByQualityFloor ? { rating_gated: 'quality_floor' } : {}),
     };
 
     // Get judge model ID from provider
     const judgeModelId = judgeProvider.getModelId();
 
     // Insert judge run
-    const { error: judgeRunError } = await supabase.from("judge_runs").insert({
+    const { error: judgeRunError } = await supabase.from('judge_runs').insert({
       battle_id,
       judge_prompt_version: JUDGE_PROMPT_VERSION,
       model_id: judgeModelId,
@@ -325,11 +324,11 @@ Deno.serve(async (req) => {
     });
 
     if (judgeRunError) {
-      console.error("Judge run insert error:", judgeRunError);
+      console.error('Judge run insert error:', judgeRunError);
     }
 
     // Resolve battle via DB function
-    const { error: resolveError } = await supabase.rpc("resolve_battle", {
+    const { error: resolveError } = await supabase.rpc('resolve_battle', {
       p_battle_id: battle_id,
       p_winner_id: winnerId,
       p_is_draw: judgeResult.is_draw,
@@ -341,8 +340,8 @@ Deno.serve(async (req) => {
     });
 
     if (resolveError) {
-      console.error("Resolve battle error:", resolveError);
-      return errorResponse("Failed to resolve battle", 500);
+      console.error('Resolve battle error:', resolveError);
+      return errorResponse('Failed to resolve battle', 500);
     }
 
     // Apply daily-meta rewards (quest progress + win-streak milestone credits).
@@ -350,17 +349,17 @@ Deno.serve(async (req) => {
     // battle completion.
     try {
       const { error: rewardsError } = await supabase.rpc(
-        "apply_post_battle_rewards",
+        'apply_post_battle_rewards',
         { p_battle_id: battle_id },
       );
       if (rewardsError) {
         console.error(
-          "apply_post_battle_rewards error (non-blocking):",
+          'apply_post_battle_rewards error (non-blocking):',
           rewardsError,
         );
       }
     } catch (rewardsErr) {
-      console.error("Post-battle rewards failed (non-blocking):", rewardsErr);
+      console.error('Post-battle rewards failed (non-blocking):', rewardsErr);
     }
 
     // Result is ready: push the must-send "result ready" notification to both
@@ -376,18 +375,18 @@ Deno.serve(async (req) => {
         battleId: battle_id,
       });
       const { error: revealError } = await supabase
-        .from("battles")
+        .from('battles')
         .update({ tier0_reveal_payload: revealPayload })
-        .eq("id", battle_id);
+        .eq('id', battle_id);
       if (revealError) {
         console.error(
-          "Failed to store Tier 0 reveal (non-blocking):",
+          'Failed to store Tier 0 reveal (non-blocking):',
           revealError,
         );
       }
     } catch (tier0Error) {
       console.error(
-        "Tier 0 reveal composition failed (non-blocking):",
+        'Tier 0 reveal composition failed (non-blocking):',
         tier0Error,
       );
       // Continue - Tier 0 failure does not block battle completion
@@ -406,9 +405,9 @@ Deno.serve(async (req) => {
       score_diff: judgeResult.aggregate_score_diff,
     });
   } catch (error) {
-    console.error("Resolve battle error:", error);
+    console.error('Resolve battle error:', error);
     return errorResponse(
-      error instanceof Error ? error.message : "Internal error",
+      error instanceof Error ? error.message : 'Internal error',
       500,
     );
   }

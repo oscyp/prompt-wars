@@ -6,7 +6,10 @@
 // cosmetic that reaches the judge would let money buy scoring, which the
 // concept doc forbids outright.
 
-import { assert, assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
+import {
+  assert,
+  assertEquals,
+} from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import { RENDERABLE_TYPES_FOR_TEST } from '../cosmetics/renderable-types.ts';
 
 Deno.test('cosmetics - reveal_style is not sellable', () => {
@@ -17,7 +20,10 @@ Deno.test('cosmetics - reveal_style is not sellable', () => {
 
 Deno.test('cosmetics - every other type is sellable', () => {
   for (const type of ['frame', 'title', 'badge', 'avatar_effect', 'color']) {
-    assert(RENDERABLE_TYPES_FOR_TEST.includes(type), `${type} should be sellable`);
+    assert(
+      RENDERABLE_TYPES_FOR_TEST.includes(type),
+      `${type} should be sellable`,
+    );
   }
 });
 
@@ -33,9 +39,12 @@ Deno.test('judge isolation - cosmetic fields are redacted', async () => {
     source.indexOf('const banned = ['),
     source.indexOf(']', source.indexOf('const banned = [')),
   );
-  assert(bannedBlock.includes('"cosmetic"'), 'the guard must redact "cosmetic"');
   assert(
-    bannedBlock.includes('"cosmetic_unlocks"'),
+    /['"]cosmetic['"]/.test(bannedBlock),
+    'the guard must redact "cosmetic"',
+  );
+  assert(
+    /['"]cosmetic_unlocks['"]/.test(bannedBlock),
     'the guard must redact "cosmetic_unlocks"',
   );
 });
@@ -47,25 +56,28 @@ Deno.test('judge isolation - round-resolve still runs the guard', async () => {
     new URL('../round-resolve/index.ts', import.meta.url),
   );
   assert(
-    source.includes("from \"../_shared/anti-p2w.ts\""),
+    /from\s+['"]\.\.\/_shared\/anti-p2w\.ts['"]/.test(source),
     'round-resolve must import the anti-pay-to-win guard',
   );
   assert(
-    source.includes('assertNoMonetizationDataInScoring({'),
+    /assertNoMonetizationDataInScoring\s*\(\s*\{/.test(source),
     'round-resolve must call the guard on its scoring inputs',
   );
 });
 
-Deno.test('judge isolation - no cosmetic field reaches the judge payload', async () => {
-  // The judge builds from prompts, move types, theme and rubric only. A
-  // `cosmetic` reference appearing in the payload construction would mean a
-  // purchase is visible at scoring time.
-  const source = await Deno.readTextFile(
-    new URL('../_shared/judge.ts', import.meta.url),
-  );
-  assertEquals(
-    /cosmetic/i.test(source),
-    false,
-    'judge.ts must not reference cosmetics at all',
-  );
-});
+Deno.test(
+  'judge isolation - no cosmetic field reaches the judge payload',
+  async () => {
+    // The judge builds from prompts, move types, theme and rubric only. A
+    // `cosmetic` reference appearing in the payload construction would mean a
+    // purchase is visible at scoring time.
+    const source = await Deno.readTextFile(
+      new URL('../_shared/judge.ts', import.meta.url),
+    );
+    assertEquals(
+      /cosmetic/i.test(source),
+      false,
+      'judge.ts must not reference cosmetics at all',
+    );
+  },
+);

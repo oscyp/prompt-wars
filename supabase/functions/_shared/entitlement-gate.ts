@@ -81,7 +81,10 @@ export async function checkRoundUpgradeEntitlement(
     const circuitOpen = await isDailyCostCircuitOpen(client);
     const isFullBattleCandidate = roundNumber === 1;
 
-    if (isFullBattleCandidate && (ent.monthly_full_battle_cap_remaining ?? 0) > 0) {
+    if (
+      isFullBattleCandidate &&
+      (ent.monthly_full_battle_cap_remaining ?? 0) > 0
+    ) {
       // Cap allows whole-battle auto-cinematic.
       if (circuitOpen && !isDecidingRound(roundNumber, ctx.battle)) {
         // Circuit breaker downgrades subscriber to deciding-round-only.
@@ -192,7 +195,8 @@ export async function finalizeRoundUpgradeEntitlement(
   // Subscriber: no hold to finalize; decrement counters only on success.
   if (args.source === 'subscriber_full' || args.source === 'subscriber_round') {
     if (outcome !== 'succeeded') return; // do not decrement on failure
-    const isFullBattle = args.source === 'subscriber_full' || !!args.is_full_battle;
+    const isFullBattle =
+      args.source === 'subscriber_full' || !!args.is_full_battle;
     const idemKey = `sub_decr:${args.battle_id}:${args.round_number}:${args.profile_id}`;
     const { error } = await client.rpc('decrement_subscriber_round_allowance', {
       p_profile_id: args.profile_id,
@@ -209,7 +213,10 @@ export async function finalizeRoundUpgradeEntitlement(
 
   // Credit / grant path: finalize the held row.
   if (!args.reservation_id) {
-    console.warn('finalizeRoundUpgradeEntitlement: missing reservation_id for', args.source);
+    console.warn(
+      'finalizeRoundUpgradeEntitlement: missing reservation_id for',
+      args.source,
+    );
     return;
   }
   const { error } = await client.rpc('finalize_round_upgrade', {
@@ -237,7 +244,9 @@ function isDecidingRound(
   return false;
 }
 
-async function isDailyCostCircuitOpen(client: SupabaseClient): Promise<boolean> {
+async function isDailyCostCircuitOpen(
+  client: SupabaseClient,
+): Promise<boolean> {
   const since = new Date();
   since.setUTCHours(0, 0, 0, 0);
   const { count, error } = await client

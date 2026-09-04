@@ -86,45 +86,61 @@ export type CosmeticPresentation =
   | ColorPresentation
   | RevealStylePresentation;
 
-export const COSMETIC_PRESENTATION: Record<CosmeticSlug, CosmeticPresentation> = {
-  // --- Frames -------------------------------------------------------------
-  classic_frame: { kind: 'frame', colors: ['#8B8699'], width: 3 },
-  veteran_frame: { kind: 'frame', colors: ['#B08D57'], width: 3 },
-  gold_frame: { kind: 'frame', colors: ['#F5C542', '#B8860B'], width: 4, glow: 6 },
-  plus_frame: { kind: 'frame', colors: ['#A78BFA', '#7C3AED'], width: 4, glow: 8 },
-  neon_frame: { kind: 'frame', colors: ['#22D3EE', '#EC4899'], width: 4, glow: 10 },
-  founders_frame: {
-    kind: 'frame',
-    colors: ['#F5C542', '#EC4899', '#7C3AED'],
-    width: 5,
-    glow: 12,
-  },
+export const COSMETIC_PRESENTATION: Record<CosmeticSlug, CosmeticPresentation> =
+  {
+    // --- Frames -------------------------------------------------------------
+    classic_frame: { kind: 'frame', colors: ['#8B8699'], width: 3 },
+    veteran_frame: { kind: 'frame', colors: ['#B08D57'], width: 3 },
+    gold_frame: {
+      kind: 'frame',
+      colors: ['#F5C542', '#B8860B'],
+      width: 4,
+      glow: 6,
+    },
+    plus_frame: {
+      kind: 'frame',
+      colors: ['#A78BFA', '#7C3AED'],
+      width: 4,
+      glow: 8,
+    },
+    neon_frame: {
+      kind: 'frame',
+      colors: ['#22D3EE', '#EC4899'],
+      width: 4,
+      glow: 10,
+    },
+    founders_frame: {
+      kind: 'frame',
+      colors: ['#F5C542', '#EC4899', '#7C3AED'],
+      width: 5,
+      glow: 12,
+    },
 
-  // --- Titles -------------------------------------------------------------
-  rookie_title: { kind: 'title', label: 'Rookie', color: '#8B8699' },
-  champion_title: { kind: 'title', label: 'Champion', color: '#F5C542' },
-  plus_title: { kind: 'title', label: 'Plus One', color: '#A78BFA' },
-  royal_title: { kind: 'title', label: 'Royal', color: '#C084FC' },
+    // --- Titles -------------------------------------------------------------
+    rookie_title: { kind: 'title', label: 'Rookie', color: '#8B8699' },
+    champion_title: { kind: 'title', label: 'Champion', color: '#F5C542' },
+    plus_title: { kind: 'title', label: 'Plus One', color: '#A78BFA' },
+    royal_title: { kind: 'title', label: 'Royal', color: '#C084FC' },
 
-  // --- Badges -------------------------------------------------------------
-  streak_badge: {
-    kind: 'badge',
-    icon: 'flame',
-    color: '#F97316',
-    label: 'On Fire',
-  },
+    // --- Badges -------------------------------------------------------------
+    streak_badge: {
+      kind: 'badge',
+      icon: 'flame',
+      color: '#F97316',
+      label: 'On Fire',
+    },
 
-  // --- Avatar effects -----------------------------------------------------
-  plus_aura: { kind: 'avatar_effect', color: '#A78BFA', glow: 10 },
+    // --- Avatar effects -----------------------------------------------------
+    plus_aura: { kind: 'avatar_effect', color: '#A78BFA', glow: 10 },
 
-  // --- Colours (unlock a signature-colour swatch) --------------------------
-  crimson_color: { kind: 'color', hex: '#EF4444', label: 'Crimson' },
-  galaxy_color: { kind: 'color', hex: '#7C3AED', label: 'Galaxy' },
+    // --- Colours (unlock a signature-colour swatch) --------------------------
+    crimson_color: { kind: 'color', hex: '#EF4444', label: 'Crimson' },
+    galaxy_color: { kind: 'color', hex: '#7C3AED', label: 'Galaxy' },
 
-  // --- Reveal styles (deferred — nothing renders these yet) ----------------
-  noir_reveal: { kind: 'reveal_style', label: 'Noir' },
-  inferno_reveal: { kind: 'reveal_style', label: 'Inferno' },
-};
+    // --- Reveal styles (deferred — nothing renders these yet) ----------------
+    noir_reveal: { kind: 'reveal_style', label: 'Noir' },
+    inferno_reveal: { kind: 'reveal_style', label: 'Inferno' },
+  };
 
 /** Types that have a display surface. `reveal_style` deliberately does not. */
 export const RENDERABLE_COSMETIC_TYPES = [

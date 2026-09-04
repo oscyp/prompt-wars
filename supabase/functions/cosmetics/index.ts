@@ -47,7 +47,6 @@ async function listCatalog(
   return { items, owned_count: ownedIds.size };
 }
 
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -76,11 +75,11 @@ Deno.serve(async (req) => {
         .select('cosmetic_type')
         .eq('slug', body.cosmetic_slug)
         .maybeSingle();
-      if (target && !RENDERABLE_TYPES.includes(target.cosmetic_type as string)) {
-        return errorResponse(
-          'That cosmetic is not available yet.',
-          409,
-        );
+      if (
+        target &&
+        !RENDERABLE_TYPES.includes(target.cosmetic_type as string)
+      ) {
+        return errorResponse('That cosmetic is not available yet.', 409);
       }
 
       const { data, error } = await supabase.rpc('purchase_cosmetic', {

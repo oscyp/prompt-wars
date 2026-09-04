@@ -103,9 +103,7 @@ describe('useRealtimeBattle', () => {
   });
 
   it('removes its own channel on unmount', async () => {
-    const { result, unmount } = renderHook(() =>
-      useRealtimeBattle(BATTLE_ID),
-    );
+    const { result, unmount } = renderHook(() => useRealtimeBattle(BATTLE_ID));
     await waitFor(() => expect(result.current.isSubscribed).toBe(true));
     unmount();
     expect(mockedSupabase.removeChannel).toHaveBeenCalledTimes(1);

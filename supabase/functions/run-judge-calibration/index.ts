@@ -1,7 +1,13 @@
 // Run Judge Calibration Edge Function
 // Runs nightly accuracy checks against frozen calibration sets (service-role only)
 
-import { createServiceClient, corsHeaders, errorResponse, hasSupabaseSecretAuthorization, successResponse } from '../_shared/utils.ts';
+import {
+  createServiceClient,
+  corsHeaders,
+  errorResponse,
+  hasSupabaseSecretAuthorization,
+  successResponse,
+} from '../_shared/utils.ts';
 import { runJudgePipeline, JUDGE_PROMPT_VERSION } from '../_shared/judge.ts';
 import { createJudgeProvider } from '../_shared/providers.ts';
 
@@ -25,23 +31,23 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
-  
+
   // Service-role only
   const authHeader = req.headers.get('Authorization');
-  
+
   if (!hasSupabaseSecretAuthorization(authHeader)) {
     return errorResponse('Service role required', 403);
   }
-  
+
   try {
     const {
       locale = 'en',
       limit = 100,
-      threshold = 0.90,
+      threshold = 0.9,
     }: RunCalibrationRequest = await req.json();
-    
+
     const supabase = createServiceClient();
-    
+
     // Load active calibration sets
     const { data: calibrationSets, error: setsError } = await supabase
       .from('judge_calibration_sets')
@@ -49,20 +55,20 @@ Deno.serve(async (req) => {
       .eq('locale', locale)
       .eq('is_active', true)
       .limit(limit);
-    
+
     if (setsError) {
       return errorResponse('Failed to load calibration sets');
     }
-    
+
     if (!calibrationSets || calibrationSets.length === 0) {
       return errorResponse('No active calibration sets found for locale');
     }
-    
+
     // Run judge pipeline for each calibration set
     const judgeProvider = createJudgeProvider();
     const results: CalibrationItemResult[] = [];
     let correctCount = 0;
-    
+
     for (const set of calibrationSets) {
       try {
         const judgeResult = await runJudgePipeline(
@@ -74,33 +80,31 @@ Deno.serve(async (req) => {
           set.prompt_one_text.split(/\s+/).length,
           set.prompt_two_text.split(/\s+/).length,
           set.theme,
-          JUDGE_PROMPT_VERSION
+          JUDGE_PROMPT_VERSION,
         );
-        
+
         // Map judge result to winner number (1, 2, or null for draw)
         let actualWinner: number | null = null;
-        
+
         if (!judgeResult.is_draw) {
           actualWinner = judgeResult.winner_profile_id === 'p1' ? 1 : 2;
         }
-        
+
         // Treat draw/null as incorrect
         const isCorrect = actualWinner === set.expected_winner;
-        
+
         if (isCorrect) {
           correctCount++;
         }
-        
+
         // Calculate scores for logging
-        const p1Score = Object.values(judgeResult.player_one_normalized_scores).reduce(
-          (sum: number, val) => sum + (val as number), 
-          0
-        );
-        const p2Score = Object.values(judgeResult.player_two_normalized_scores).reduce(
-          (sum: number, val) => sum + (val as number), 
-          0
-        );
-        
+        const p1Score = Object.values(
+          judgeResult.player_one_normalized_scores,
+        ).reduce((sum: number, val) => sum + (val as number), 0);
+        const p2Score = Object.values(
+          judgeResult.player_two_normalized_scores,
+        ).reduce((sum: number, val) => sum + (val as number), 0);
+
         results.push({
           id: set.id,
           expected_winner: set.expected_winner,
@@ -124,12 +128,12 @@ Deno.serve(async (req) => {
         });
       }
     }
-    
+
     // Calculate accuracy
     const totalCount = calibrationSets.length;
     const accuracy = totalCount > 0 ? correctCount / totalCount : 0;
     const status = accuracy >= threshold ? 'passed' : 'failed';
-    
+
     // Insert calibration run
     const { data: calibrationRun, error: runError } = await supabase
       .from('judge_calibration_runs')
@@ -146,12 +150,12 @@ Deno.serve(async (req) => {
       })
       .select()
       .single();
-    
+
     if (runError) {
       console.error('Failed to insert calibration run:', runError);
       return errorResponse('Failed to save calibration run');
     }
-    
+
     return successResponse({
       calibration_run_id: calibrationRun.id,
       locale,
@@ -164,9 +168,11 @@ Deno.serve(async (req) => {
       judge_prompt_version: JUDGE_PROMPT_VERSION,
       summary: `${correctCount}/${totalCount} correct (${(accuracy * 100).toFixed(2)}%) - ${status.toUpperCase()}`,
     });
-    
   } catch (error) {
     console.error('Calibration run error:', error);
-    return errorResponse(error instanceof Error ? error.message : 'Internal error', 500);
+    return errorResponse(
+      error instanceof Error ? error.message : 'Internal error',
+      500,
+    );
   }
 });

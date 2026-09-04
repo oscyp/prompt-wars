@@ -39,10 +39,8 @@ function renderPanel(
     equippedId: 'coin',
     loading: false,
     error: null,
-    customCost: 3,
     onRetry: jest.fn(),
     onEquip: jest.fn(),
-    onCreateCustom: jest.fn(),
     ...overrides,
   };
   return { ...render(<GearPanel {...props} />), props };
@@ -91,12 +89,13 @@ describe('GearPanel', () => {
     expect(queryByLabelText('Choose Lucky Coin')).toBeNull();
   });
 
-  it("opens the player's own items too", () => {
-    const { getByLabelText, getByTestId } = renderPanel();
-    fireEvent.press(
-      getByLabelText('Signature item: Rubber Duck, Weaponized Mundane'),
-    );
-    expect(within(getByTestId(SHEET)).getByText('Your creation')).toBeTruthy();
+  it('shows only predefined catalogue items', () => {
+    const { queryByLabelText, queryByText } = renderPanel();
+    expect(
+      queryByLabelText('Signature item: Rubber Duck, Weaponized Mundane'),
+    ).toBeNull();
+    expect(queryByText('Your items')).toBeNull();
+    expect(queryByLabelText('Create your own signature item')).toBeNull();
   });
 
   it('closes without staging when dismissed', () => {
@@ -117,15 +116,5 @@ describe('GearPanel', () => {
     const { getByPlaceholderText, getByLabelText } = renderPanel();
     expect(getByPlaceholderText('Search the catalogue')).toBeTruthy();
     expect(getByLabelText('Search the item catalogue')).toBeTruthy();
-  });
-
-  it('shows the Create tile once, in the player-items grid', () => {
-    const { getAllByLabelText } = renderPanel();
-    expect(getAllByLabelText('Create your own signature item')).toHaveLength(1);
-  });
-
-  it('hides the Create tile while prices are unverified', () => {
-    const { queryByLabelText } = renderPanel({ pricingVerified: false });
-    expect(queryByLabelText('Create your own signature item')).toBeNull();
   });
 });

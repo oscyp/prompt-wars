@@ -6,7 +6,7 @@
 // other value means blocked. See supabase/ENV_VARS.md (DEV_FUNCTIONS_ENABLED).
 
 export function isDevFunctionsEnabled(
-  env: { get: (key: string) => string | undefined } = Deno.env
+  env: { get: (key: string) => string | undefined } = Deno.env,
 ): boolean {
   return env.get('DEV_FUNCTIONS_ENABLED') === '1';
 }

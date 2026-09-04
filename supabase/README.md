@@ -7,6 +7,7 @@ Supabase-powered backend for async 1v1 prompt battles with AI judge, video gener
 Complete MVP schema, database functions, Edge Functions, and seed data implemented.
 
 **Implemented:**
+
 - ✅ Core gameplay schema (battles, prompts, characters, profiles)
 - ✅ Economy & monetization (wallet, purchases, subscriptions, entitlements view)
 - ✅ Video pipeline (jobs, videos, moderation)
@@ -43,6 +44,7 @@ All data models, state machines, RLS policies, and Edge Function responsibilitie
 ## Quick Start (Local Development)
 
 ### Prerequisites
+
 - Supabase CLI v2.78.1+ (installed: v2.78.1, v2.98.2+ recommended)
 - Docker Desktop (for local Postgres, Realtime, Storage)
 - Node.js 18+ (for Edge Functions)
@@ -85,6 +87,7 @@ supabase db pull
 ## Architecture Overview
 
 ### Client Responsibilities (Mobile App)
+
 - Auth screens and session handling
 - Character creation UI
 - Prompt template browsing and custom prompt editor
@@ -94,6 +97,7 @@ supabase db pull
 - Profile, stats, and rankings
 
 ### Backend Responsibilities (Supabase)
+
 - **Postgres**: Source of truth for gameplay state, wallet, rankings
 - **Realtime**: Battle state updates, video job status, appeal results
 - **Storage**: Generated videos, thumbnails, avatar assets (signed URLs)
@@ -101,6 +105,7 @@ supabase db pull
 - **RLS**: Restrict players to their own data; server-role owns battle outcomes
 
 ### Key Security Invariants
+
 - ✅ Client can read own battles, prompts, wallet, and public leaderboards
 - ✅ Client can insert prompts for own active battle slot
 - ❌ Client **cannot** update battle results, judge scores, wallet balance, or video job status
@@ -111,6 +116,7 @@ supabase db pull
 ## Phase Roadmap
 
 ### ✅ Phase 0: Scaffolding (Current)
+
 - [x] Supabase config.toml with project_id "prompt-wars"
 - [x] Empty initial migration (20260506000000)
 - [x] Migrations README with planned schema
@@ -120,6 +126,7 @@ supabase db pull
 - [x] .gitignore for local dev artifacts
 
 ### Phase 1: Core Gameplay Schema (Next)
+
 - [ ] Profiles, characters, prompt_templates tables
 - [ ] Battles, battle_prompts, judge_runs tables
 - [ ] RLS policies for all user-facing tables
@@ -129,6 +136,7 @@ supabase db pull
 - [ ] Realtime publication for battles table
 
 ### Phase 2: Battle Resolution
+
 - [ ] `matchmaking` Edge Function (newbie bucket, bot fallback)
 - [ ] `resolve-battle` Edge Function (LLM judge, Glicko-2 rating)
 - [ ] `judge-prompt` provider adapter (double-run, length normalization)
@@ -136,6 +144,7 @@ supabase db pull
 - [ ] Appeal flow tables and Edge Function
 
 ### Phase 3: Video Pipeline
+
 - [ ] Video_jobs, videos tables
 - [ ] `generate-video` Edge Function (xAI provider)
 - [ ] `generate-motion-poster` Edge Function (Tier 0 cinematic)
@@ -143,6 +152,7 @@ supabase db pull
 - [ ] Storage retention policy (14d for free tier)
 
 ### Phase 4: Economy & Monetization
+
 - [ ] Wallet_transactions, purchases, subscriptions tables
 - [ ] Entitlements derived view
 - [ ] `revenuecat-webhook` Edge Function
@@ -151,6 +161,7 @@ supabase db pull
 - [ ] FTUO (first-time-user offer) trigger
 
 ### Phase 5: Retention & Social
+
 - [ ] Rivals, daily_quests, prompt_journal tables
 - [ ] `rival-update` Edge Function (30d most-played)
 - [ ] `daily-login-grant` Edge Function (streak with mercy day)
@@ -158,12 +169,14 @@ supabase db pull
 - [ ] `send-push-notification` Edge Function (Expo push tokens)
 
 ### Phase 6: Rankings & Seasons
+
 - [ ] Rankings, seasons, leaderboards tables
 - [ ] Glicko-2 rating update function
 - [ ] Seasonal leaderboard materialized view
 - [ ] Anti-collusion heuristics (opponent diversity, quality floor)
 
 ### Phase 7: Moderation & Safety
+
 - [ ] Reports, moderation_events tables
 - [ ] `moderate-prompt` Edge Function (pre-gen)
 - [ ] `report-intake` Edge Function
@@ -217,6 +230,7 @@ psql $SUPABASE_DB_URL < supabase/test_fixtures.sql
 See [`supabase/ENV_VARS.md`](./ENV_VARS.md) for comprehensive documentation.
 
 **Client-side** (safe to bundle in app):
+
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `EXPO_PUBLIC_AUTH_REDIRECT_SCHEME`
@@ -224,6 +238,7 @@ See [`supabase/ENV_VARS.md`](./ENV_VARS.md) for comprehensive documentation.
 - `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY`
 
 **Server-side** (Edge Functions only, NEVER expose to client):
+
 - `SUPABASE_PUBLISHABLE_KEYS`
 - `SUPABASE_SECRET_KEYS`
 - `JUDGE_API_KEY` (OpenAI/Anthropic/xAI for LLM judge)
@@ -280,18 +295,23 @@ supabase status
 ## Troubleshooting
 
 ### "Error: No linked project"
+
 Run `supabase link --project-ref your-project-id` to link local repo to remote.
 
 ### "Migration failed: relation already exists"
+
 Reset local DB: `supabase db reset`. For remote, manually drop conflicting tables or use `supabase db pull` to generate a baseline migration.
 
 ### "Edge Function timeout"
+
 Video generation can exceed default 60s timeout. Increase in Dashboard > Edge Functions > Settings or move to async job queue.
 
 ### "Storage bucket not found"
+
 Create buckets manually in Studio > Storage, or add bucket definitions to `config.toml` and restart.
 
 ### "RLS policy denying access"
+
 Check policies in Studio > Database > Policies. Ensure service-role key is used for server writes, not anon key.
 
 ## Resources
@@ -306,6 +326,7 @@ Check policies in Studio > Database > Policies. Ensure service-role key is used 
 ## Support
 
 For backend questions, see:
+
 - Implementation concept doc: `docs/prompt-wars-implementation-concept.md`
 - Migrations README: `supabase/migrations/README.md`
 - Edge Functions README: `supabase/functions/README.md`

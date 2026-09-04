@@ -87,7 +87,10 @@ Deno.serve(async (req) => {
       .from('reports')
       .select('id', { count: 'exact', head: true })
       .eq('reporter_profile_id', reporterProfile.id)
-      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+      .gte(
+        'created_at',
+        new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      );
 
     if ((recentReportsCount || 0) >= 5) {
       return errorResponse('Report rate limit exceeded (max 5 per 24h)', 429);
@@ -95,7 +98,7 @@ Deno.serve(async (req) => {
 
     // Determine reported_profile_id if not provided
     let targetProfileId = reported_profile_id;
-    
+
     if (!targetProfileId) {
       if (reported_type === 'profile') {
         targetProfileId = reported_id;
@@ -162,10 +165,13 @@ Deno.serve(async (req) => {
     }
 
     // Update abuse signals for reporter (track report count)
-    const { error: abuseError } = await supabase.rpc('increment_abuse_counter', {
-      p_profile_id: reporterProfile.id,
-      p_counter: 'reports_submitted_24h',
-    });
+    const { error: abuseError } = await supabase.rpc(
+      'increment_abuse_counter',
+      {
+        p_profile_id: reporterProfile.id,
+        p_counter: 'reports_submitted_24h',
+      },
+    );
 
     if (abuseError) {
       console.error('Failed to update abuse signals:', abuseError);
@@ -198,6 +204,9 @@ Deno.serve(async (req) => {
     return successResponse(response);
   } catch (error) {
     console.error('Report intake error:', error);
-    return errorResponse(error instanceof Error ? error.message : 'Internal error', 500);
+    return errorResponse(
+      error instanceof Error ? error.message : 'Internal error',
+      500,
+    );
   }
 });

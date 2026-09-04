@@ -45,20 +45,69 @@ interface FieldDef {
 }
 
 export const DRAFT_FIELDS: readonly FieldDef[] = [
-  { key: 'name', section: 'identity', column: 'name', label: 'Name', priceKey: 'rename' },
-  { key: 'archetype', section: 'identity', column: 'archetype', label: 'Archetype', priceKey: 'archetype' },
-  { key: 'battleCry', section: 'identity', column: 'battle_cry', label: 'Battle cry', priceKey: 'battle_cry' },
-  { key: 'signatureColor', section: 'identity', column: 'signature_color', label: 'Signature colour', priceKey: 'signature_color' },
+  {
+    key: 'name',
+    section: 'identity',
+    column: 'name',
+    label: 'Name',
+    priceKey: 'rename',
+  },
+  {
+    key: 'archetype',
+    section: 'identity',
+    column: 'archetype',
+    label: 'Archetype',
+    priceKey: 'archetype',
+  },
+  {
+    key: 'battleCry',
+    section: 'identity',
+    column: 'battle_cry',
+    label: 'Battle cry',
+    priceKey: 'battle_cry',
+  },
+  {
+    key: 'signatureColor',
+    section: 'identity',
+    column: 'signature_color',
+    label: 'Signature colour',
+    priceKey: 'signature_color',
+  },
 
   { key: 'artStyle', section: 'look', column: 'art_style', label: 'Art style' },
-  { key: 'portraitPromptRaw', section: 'look', column: 'portrait_prompt_raw', label: 'Description' },
-  { key: 'palette', section: 'look', column: 'palette_key', label: 'Outfit palette' },
+  {
+    key: 'portraitPromptRaw',
+    section: 'look',
+    column: 'portrait_prompt_raw',
+    label: 'Description',
+  },
+  {
+    key: 'palette',
+    section: 'look',
+    column: 'palette_key',
+    label: 'Outfit palette',
+  },
   { key: 'vibe', section: 'look', column: 'vibe', label: 'Vibe' },
-  { key: 'silhouette', section: 'look', column: 'silhouette', label: 'Silhouette' },
+  {
+    key: 'silhouette',
+    section: 'look',
+    column: 'silhouette',
+    label: 'Silhouette',
+  },
   { key: 'era', section: 'look', column: 'era', label: 'Era' },
-  { key: 'expression', section: 'look', column: 'expression', label: 'Expression' },
+  {
+    key: 'expression',
+    section: 'look',
+    column: 'expression',
+    label: 'Expression',
+  },
 
-  { key: 'signatureItemId', section: 'gear', column: 'signature_item_id', label: 'Signature item' },
+  {
+    key: 'signatureItemId',
+    section: 'gear',
+    column: 'signature_item_id',
+    label: 'Signature item',
+  },
 ];
 
 export interface DraftChange {
@@ -102,13 +151,23 @@ function displayValue(
     case 'palette':
       return TRAIT_LABELS.palette[value as PaletteKey] ?? value;
     case 'vibe':
-      return TRAIT_LABELS.vibe[value as keyof typeof TRAIT_LABELS.vibe] ?? value;
+      return (
+        TRAIT_LABELS.vibe[value as keyof typeof TRAIT_LABELS.vibe] ?? value
+      );
     case 'silhouette':
-      return TRAIT_LABELS.silhouette[value as keyof typeof TRAIT_LABELS.silhouette] ?? value;
+      return (
+        TRAIT_LABELS.silhouette[
+          value as keyof typeof TRAIT_LABELS.silhouette
+        ] ?? value
+      );
     case 'era':
       return TRAIT_LABELS.era[value as keyof typeof TRAIT_LABELS.era] ?? value;
     case 'expression':
-      return TRAIT_LABELS.expression[value as keyof typeof TRAIT_LABELS.expression] ?? value;
+      return (
+        TRAIT_LABELS.expression[
+          value as keyof typeof TRAIT_LABELS.expression
+        ] ?? value
+      );
     case 'signatureItemId':
       return itemName(value);
     case 'portraitPromptRaw':
@@ -146,7 +205,9 @@ export function computeDraft(input: ComputeDraftInput): DraftSummary {
 
   const changes: DraftChange[] = [];
   const dirtySections: Record<DraftSection, boolean> = {
-    identity: false, look: false, gear: false,
+    identity: false,
+    look: false,
+    gear: false,
   };
 
   for (const field of DRAFT_FIELDS) {
@@ -166,8 +227,9 @@ export function computeDraft(input: ComputeDraftInput): DraftSummary {
       label: field.label,
       to: displayValue(field.key, staged, itemName),
       locksFor: field.priceKey
-        ? (describeCooldownLength(pricing.prices[field.priceKey]?.cooldownSeconds ?? 0) ??
-           undefined)
+        ? (describeCooldownLength(
+            pricing.prices[field.priceKey]?.cooldownSeconds ?? 0,
+          ) ?? undefined)
         : undefined,
     });
   }
@@ -239,16 +301,32 @@ export function useCharacterEditDraft(
     for (const c of staged) {
       const v = values[c.key];
       switch (c.key) {
-        case 'artStyle': if (typeof v === 'string') payload.artStyle = v as ArtStyle; break;
-        case 'palette': if (typeof v === 'string') payload.palette = v as PaletteKey; break;
-        case 'vibe': if (typeof v === 'string') payload.vibe = v; break;
-        case 'silhouette': if (typeof v === 'string') payload.silhouette = v; break;
-        case 'era': if (typeof v === 'string') payload.era = v; break;
-        case 'expression': if (typeof v === 'string') payload.expression = v; break;
-        case 'signatureItemId': if (typeof v === 'string') payload.signatureItemId = v; break;
+        case 'artStyle':
+          if (typeof v === 'string') payload.artStyle = v as ArtStyle;
+          break;
+        case 'palette':
+          if (typeof v === 'string') payload.palette = v as PaletteKey;
+          break;
+        case 'vibe':
+          if (typeof v === 'string') payload.vibe = v;
+          break;
+        case 'silhouette':
+          if (typeof v === 'string') payload.silhouette = v;
+          break;
+        case 'era':
+          if (typeof v === 'string') payload.era = v;
+          break;
+        case 'expression':
+          if (typeof v === 'string') payload.expression = v;
+          break;
+        case 'signatureItemId':
+          if (typeof v === 'string') payload.signatureItemId = v;
+          break;
         // The one field whose null must survive: it is how a player returns
         // from "your own words" to the guided traits.
-        case 'portraitPromptRaw': payload.portraitPromptRaw = v ?? null; break;
+        case 'portraitPromptRaw':
+          payload.portraitPromptRaw = v ?? null;
+          break;
       }
     }
     return payload;

@@ -2,8 +2,20 @@
 // Mirrors purchase and subscription events into Supabase
 // Validates webhook signatures and enforces idempotency
 
-import { createServiceClient, corsHeaders, errorResponse, successResponse, generateIdempotencyKey } from '../_shared/utils.ts';
-import { buildSubscriptionLifecycleUpdate, isSubscriptionLifecycleEvent, creditsForProductId, platformForStore, isOneOffPurchaseEvent } from '../_shared/revenuecat-events.ts';
+import {
+  createServiceClient,
+  corsHeaders,
+  errorResponse,
+  successResponse,
+  generateIdempotencyKey,
+} from '../_shared/utils.ts';
+import {
+  buildSubscriptionLifecycleUpdate,
+  isSubscriptionLifecycleEvent,
+  creditsForProductId,
+  platformForStore,
+  isOneOffPurchaseEvent,
+} from '../_shared/revenuecat-events.ts';
 import { validateWebhookSignature } from './verify-signature.ts';
 
 interface RevenueCatEvent {
@@ -26,7 +38,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
-  
+
   try {
     const webhookSecret = Deno.env.get('REVENUECAT_WEBHOOK_SECRET');
 
@@ -61,7 +73,11 @@ Deno.serve(async (req) => {
     // received, so a JSON.parse -> JSON.stringify round-trip breaks valid
     // requests.
     const body = await req.text();
-    const isValid = await validateWebhookSignature(body, signature, webhookSecret);
+    const isValid = await validateWebhookSignature(
+      body,
+      signature,
+      webhookSecret,
+    );
 
     if (!isValid) {
       console.error('Invalid webhook signature');
@@ -71,27 +87,30 @@ Deno.serve(async (req) => {
     // Re-parse after signature check
     const webhookData: RevenueCatEvent = JSON.parse(body);
     return await processWebhookEvent(webhookData);
-
   } catch (error) {
     console.error('Webhook processing error:', error);
-    return errorResponse(error instanceof Error ? error.message : 'Internal error', 500);
+    return errorResponse(
+      error instanceof Error ? error.message : 'Internal error',
+      500,
+    );
   }
 });
-
 
 /**
  * Process webhook event with idempotency
  */
-async function processWebhookEvent(webhookData: RevenueCatEvent): Promise<Response> {
+async function processWebhookEvent(
+  webhookData: RevenueCatEvent,
+): Promise<Response> {
   const { event } = webhookData;
-  
+
   if (!event || !event.app_user_id) {
     return errorResponse('Invalid webhook payload');
   }
-  
+
   const supabase = createServiceClient();
   const profileId = event.app_user_id; // RevenueCat app_user_id = Supabase user ID
-  
+
   // Idempotency. The previous guard looked for a 'revenuecat_event_<id>' key in
   // wallet_transactions that nothing ever wrote, so it never matched -- leaving
   // RENEWAL, which resets monthly_*_allowance_used to 0 and has no idempotency
@@ -121,14 +140,14 @@ async function processWebhookEvent(webhookData: RevenueCatEvent): Promise<Respon
     console.log('Event already processed:', event.id);
     return successResponse({ processed: true, duplicate: true });
   }
-  
+
   // Validate profile exists
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('id')
     .eq('id', profileId)
     .maybeSingle();
-  
+
   if (profileError || !profile) {
     // Acknowledge rather than 404. RevenueCat retries on any non-2xx, and an
     // app_user_id that is not one of our profiles will never become one by
@@ -148,33 +167,43 @@ async function processWebhookEvent(webhookData: RevenueCatEvent): Promise<Respon
       profile_id: profileId,
     });
   }
-  
+
   // Handle subscription events
   if (event.type === 'INITIAL_PURCHASE' && event.product_id.includes('plus')) {
     return await handleSubscriptionActivation(supabase, event);
   }
-  
+
   if (event.type === 'RENEWAL' && event.product_id.includes('plus')) {
     return await handleSubscriptionRenewal(supabase, event);
   }
-  
+
   if (isSubscriptionLifecycleEvent(event.type)) {
     return await handleSubscriptionLifecycle(supabase, event, event.type);
   }
-  
+
   // Handle credit pack purchases
-  if (isOneOffPurchaseEvent(event.type) && event.product_id.startsWith('credits_')) {
+  if (
+    isOneOffPurchaseEvent(event.type) &&
+    event.product_id.startsWith('credits_')
+  ) {
     return await handleCreditPackPurchase(supabase, event);
   }
-  
+
   // Handle first-time-user offer (FTUO) bundle purchase
-  if (isOneOffPurchaseEvent(event.type) && event.product_id.startsWith('ftuo_')) {
+  if (
+    isOneOffPurchaseEvent(event.type) &&
+    event.product_id.startsWith('ftuo_')
+  ) {
     return await handleFirstTimeOfferPurchase(supabase, event);
   }
-  
+
   // Unknown event type - acknowledge but don't process
   console.log('Unknown event type:', event.type);
-  return successResponse({ processed: true, event_type: event.type, action: 'ignored' });
+  return successResponse({
+    processed: true,
+    event_type: event.type,
+    action: 'ignored',
+  });
 }
 
 /**
@@ -182,18 +211,17 @@ async function processWebhookEvent(webhookData: RevenueCatEvent): Promise<Respon
  */
 async function handleSubscriptionActivation(
   supabase: ReturnType<typeof createServiceClient>,
-  event: RevenueCatEvent['event']
+  event: RevenueCatEvent['event'],
 ): Promise<Response> {
-  const expiresAt = event.expiration_at_ms 
+  const expiresAt = event.expiration_at_ms
     ? new Date(event.expiration_at_ms).toISOString()
     : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // Default 30 days
-  
+
   // Map RevenueCat store to platform
   const platform = platformForStore(event.store);
-  
-  const { error: subError } = await supabase
-    .from('subscriptions')
-    .upsert({
+
+  const { error: subError } = await supabase.from('subscriptions').upsert(
+    {
       profile_id: event.app_user_id,
       revenuecat_subscription_id: event.transaction_id,
       product_id: event.product_id,
@@ -208,19 +236,20 @@ async function handleSubscriptionActivation(
       allowance_reset_at: expiresAt,
       starts_at: new Date().toISOString(),
       expires_at: expiresAt,
-    }, {
+    },
+    {
       onConflict: 'revenuecat_subscription_id',
-    });
-  
+    },
+  );
+
   if (subError) {
     console.error('Subscription upsert error:', subError);
     return errorResponse('Failed to process subscription', 500);
   }
-  
+
   // Create purchase record using upsert to handle duplicate webhooks
-  const { error: purchaseError } = await supabase
-    .from('purchases')
-    .upsert({
+  const { error: purchaseError } = await supabase.from('purchases').upsert(
+    {
       profile_id: event.app_user_id,
       revenuecat_transaction_id: event.transaction_id,
       product_id: event.product_id,
@@ -229,15 +258,17 @@ async function handleSubscriptionActivation(
       platform,
       credits_granted: 0,
       fulfilled_at: new Date().toISOString(),
-    }, {
+    },
+    {
       onConflict: 'revenuecat_transaction_id',
       ignoreDuplicates: true,
-    });
-  
+    },
+  );
+
   if (purchaseError) {
     console.error('Purchase record error:', purchaseError);
   }
-  
+
   return successResponse({ processed: true, type: 'subscription_activated' });
 }
 
@@ -246,12 +277,12 @@ async function handleSubscriptionActivation(
  */
 async function handleSubscriptionRenewal(
   supabase: ReturnType<typeof createServiceClient>,
-  event: RevenueCatEvent['event']
+  event: RevenueCatEvent['event'],
 ): Promise<Response> {
-  const expiresAt = event.expiration_at_ms 
+  const expiresAt = event.expiration_at_ms
     ? new Date(event.expiration_at_ms).toISOString()
     : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-  
+
   // Reset allowance on renewal
   const { error: subError } = await supabase
     .from('subscriptions')
@@ -265,12 +296,12 @@ async function handleSubscriptionRenewal(
       updated_at: new Date().toISOString(),
     })
     .eq('revenuecat_subscription_id', event.transaction_id);
-  
+
   if (subError) {
     console.error('Subscription renewal error:', subError);
     return errorResponse('Failed to process renewal', 500);
   }
-  
+
   return successResponse({ processed: true, type: 'subscription_renewed' });
 }
 
@@ -287,7 +318,7 @@ async function handleSubscriptionRenewal(
 async function handleSubscriptionLifecycle(
   supabase: ReturnType<typeof createServiceClient>,
   event: RevenueCatEvent['event'],
-  eventType: 'CANCELLATION' | 'UNCANCELLATION' | 'EXPIRATION'
+  eventType: 'CANCELLATION' | 'UNCANCELLATION' | 'EXPIRATION',
 ): Promise<Response> {
   const { error: subError } = await supabase
     .from('subscriptions')
@@ -307,7 +338,7 @@ async function handleSubscriptionLifecycle(
  */
 async function handleCreditPackPurchase(
   supabase: ReturnType<typeof createServiceClient>,
-  event: RevenueCatEvent['event']
+  event: RevenueCatEvent['event'],
 ): Promise<Response> {
   // Explicit map, not a regex over the product id. Deriving the payout from
   // digits in a store identifier means a renamed SKU silently changes what a
@@ -317,21 +348,24 @@ async function handleCreditPackPurchase(
     console.error('Unknown credit pack product_id:', event.product_id);
     return errorResponse('Invalid product_id', 400);
   }
-  
+
   // Map RevenueCat store to platform
   const platform = platformForStore(event.store);
-  
+
   // Check for existing purchase (duplicate webhook)
   const { data: existingPurchase } = await supabase
     .from('purchases')
     .select('id')
     .eq('revenuecat_transaction_id', event.transaction_id)
     .maybeSingle();
-  
+
   let purchaseId: string;
-  
+
   if (existingPurchase) {
-    console.log('Duplicate purchase webhook, idempotent grant:', event.transaction_id);
+    console.log(
+      'Duplicate purchase webhook, idempotent grant:',
+      event.transaction_id,
+    );
     purchaseId = existingPurchase.id;
   } else {
     // Create new purchase record
@@ -349,18 +383,21 @@ async function handleCreditPackPurchase(
       })
       .select('id')
       .single();
-    
+
     if (purchaseError || !newPurchase) {
       console.error('Purchase insert error:', purchaseError);
       return errorResponse('Failed to create purchase record', 500);
     }
-    
+
     purchaseId = newPurchase.id;
   }
-  
+
   // Grant credits using RPC with idempotency (handles duplicates gracefully)
-  const creditIdempotencyKey = generateIdempotencyKey(['credits_grant', event.transaction_id]);
-  
+  const creditIdempotencyKey = generateIdempotencyKey([
+    'credits_grant',
+    event.transaction_id,
+  ]);
+
   const { error: grantError } = await supabase.rpc('grant_credits', {
     p_profile_id: event.app_user_id,
     p_amount: creditAmount,
@@ -368,14 +405,14 @@ async function handleCreditPackPurchase(
     p_idempotency_key: creditIdempotencyKey,
     p_purchase_id: purchaseId,
   });
-  
+
   if (grantError) {
     console.error('Credit grant error:', grantError);
     return errorResponse('Failed to grant credits', 500);
   }
-  
-  return successResponse({ 
-    processed: true, 
+
+  return successResponse({
+    processed: true,
     type: 'credit_pack_purchased',
     credits_granted: creditAmount,
     duplicate: !!existingPurchase,
@@ -389,7 +426,7 @@ async function handleCreditPackPurchase(
  */
 async function handleFirstTimeOfferPurchase(
   supabase: ReturnType<typeof createServiceClient>,
-  event: RevenueCatEvent['event']
+  event: RevenueCatEvent['event'],
 ): Promise<Response> {
   const platform = platformForStore(event.store);
 
@@ -436,6 +473,9 @@ async function handleFirstTimeOfferPurchase(
     return errorResponse('Failed to fulfill offer', 500);
   }
 
-  return successResponse({ processed: true, type: 'ftuo_purchased', result: data });
+  return successResponse({
+    processed: true,
+    type: 'ftuo_purchased',
+    result: data,
+  });
 }
-

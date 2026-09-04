@@ -23,9 +23,9 @@ const REQUEST_TIMEOUT_MS = 30_000;
 
 /** Same table the judge prices from; suggestions run on the same models. */
 const MODEL_PRICING: Record<string, { inPerM: number; outPerM: number }> = {
-  'grok-4.3': { inPerM: 1.25, outPerM: 2.50 },
-  'grok-4.5': { inPerM: 2.00, outPerM: 6.00 },
-  'grok-4.6': { inPerM: 2.00, outPerM: 6.00 },
+  'grok-4.3': { inPerM: 1.25, outPerM: 2.5 },
+  'grok-4.5': { inPerM: 2.0, outPerM: 6.0 },
+  'grok-4.6': { inPerM: 2.0, outPerM: 6.0 },
 };
 
 export type MoveType = 'attack' | 'defense' | 'finisher';
@@ -126,10 +126,7 @@ const MOVE_GUIDANCE: Record<MoveType, string> = {
 };
 
 export function buildFighterBrief(f: FighterContext): string {
-  const lines: string[] = [
-    `Name: ${f.name}`,
-    `Archetype: ${f.archetype}`,
-  ];
+  const lines: string[] = [`Name: ${f.name}`, `Archetype: ${f.archetype}`];
   if (f.vibe) lines.push(`Vibe: ${f.vibe}`);
   if (f.silhouette) lines.push(`Build: ${f.silhouette}`);
   if (f.era) lines.push(`Era: ${f.era}`);
@@ -151,7 +148,7 @@ export function buildFighterBrief(f: FighterContext): string {
 export function buildSystemPrompt(): string {
   return [
     'You write prompt ideas for Prompt Wars, a 1v1 game where players write',
-    'a short prompt describing their fighter\'s move and an AI judge scores',
+    "a short prompt describing their fighter's move and an AI judge scores",
     'the writing on clarity, originality, specificity, theme fit, archetype',
     'fit and dramatic potential.',
     '',
@@ -159,7 +156,7 @@ export function buildSystemPrompt(): string {
     `exactly ${SUGGESTION_COUNT} DISTINCT prompt suggestions that player could submit.`,
     '',
     'Rules:',
-    '- Write in the player\'s voice, as a prompt they would submit. Do not',
+    "- Write in the player's voice, as a prompt they would submit. Do not",
     '  address the player, explain your reasoning, or use second person.',
     '- Each suggestion must be specific to THIS fighter: use their archetype,',
     '  build, era and signature item. A suggestion that would fit any fighter',
@@ -222,17 +219,25 @@ export function validateSuggestions(parsed: unknown): Suggestion[] {
   }
 
   return raw.map((item, i) => {
-    const title = typeof (item as Suggestion)?.title === 'string'
-      ? (item as Suggestion).title.trim()
-      : '';
-    const body = typeof (item as Suggestion)?.body === 'string'
-      ? (item as Suggestion).body.trim()
-      : '';
+    const title =
+      typeof (item as Suggestion)?.title === 'string'
+        ? (item as Suggestion).title.trim()
+        : '';
+    const body =
+      typeof (item as Suggestion)?.body === 'string'
+        ? (item as Suggestion).body.trim()
+        : '';
 
     if (!title) {
-      throw new SuggestionError('malformed_response', `suggestion ${i} has no title`);
+      throw new SuggestionError(
+        'malformed_response',
+        `suggestion ${i} has no title`,
+      );
     }
-    if (body.length < SUGGESTION_BODY_MIN || body.length > SUGGESTION_BODY_MAX) {
+    if (
+      body.length < SUGGESTION_BODY_MIN ||
+      body.length > SUGGESTION_BODY_MAX
+    ) {
       throw new SuggestionError(
         'malformed_response',
         `suggestion ${i} body length ${body.length} outside ` +
@@ -250,19 +255,25 @@ export function validateSuggestions(parsed: unknown): Suggestion[] {
 export async function generateSuggestions(
   req: SuggestionRequest,
 ): Promise<SuggestionResult> {
-  const apiKey = Deno.env.get('SUGGESTIONS_API_KEY') ||
+  const apiKey =
+    Deno.env.get('SUGGESTIONS_API_KEY') ||
     Deno.env.get('JUDGE_API_KEY') ||
-    Deno.env.get('XAI_API_KEY') || '';
+    Deno.env.get('XAI_API_KEY') ||
+    '';
   if (!apiKey) {
     throw new SuggestionError('not_configured', 'no xAI API key configured');
   }
 
-  const baseUrl = Deno.env.get('JUDGE_API_BASE_URL') ||
-    Deno.env.get('XAI_API_BASE_URL') || 'https://api.x.ai/v1';
+  const baseUrl =
+    Deno.env.get('JUDGE_API_BASE_URL') ||
+    Deno.env.get('XAI_API_BASE_URL') ||
+    'https://api.x.ai/v1';
   // Shares the judge's default model: same family, same strict-mode support,
   // and suggestions are a cheaper call than judging (one pass, short output).
-  const model = Deno.env.get('SUGGESTIONS_MODEL_ID') ||
-    Deno.env.get('JUDGE_MODEL_ID') || 'grok-4.3';
+  const model =
+    Deno.env.get('SUGGESTIONS_MODEL_ID') ||
+    Deno.env.get('JUDGE_MODEL_ID') ||
+    'grok-4.3';
 
   const startedAt = Date.now();
   let status = 0;
@@ -271,7 +282,7 @@ export async function generateSuggestions(
     const res = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

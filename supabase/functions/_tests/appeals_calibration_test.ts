@@ -22,15 +22,15 @@ Deno.test('resolve-appeal - maps judge winner to profile UUID', () => {
   const judgeWinner = 'p1';
   const mappedWinner = judgeWinner === 'p1' ? 'player-one-uuid' : null;
   assertEquals(mappedWinner, 'player-one-uuid');
-  
+
   const judgeWinnerNull = null;
   const mappedWinnerNull = judgeWinnerNull === 'p1' ? 'player-one-uuid' : null;
   assertEquals(mappedWinnerNull, null);
 });
 
 Deno.test('run-judge-calibration - default threshold is 0.90', () => {
-  const defaultThreshold = 0.90;
-  assertEquals(defaultThreshold, 0.90);
+  const defaultThreshold = 0.9;
+  assertEquals(defaultThreshold, 0.9);
 });
 
 Deno.test('run-judge-calibration - accuracy calculation', () => {
@@ -38,8 +38,8 @@ Deno.test('run-judge-calibration - accuracy calculation', () => {
   const correctCount = 9;
   const accuracy = correctCount / totalCount;
   assertEquals(accuracy, 0.9);
-  
-  const threshold = 0.90;
+
+  const threshold = 0.9;
   const status = accuracy >= threshold ? 'passed' : 'failed';
   assertEquals(status, 'passed');
 });
@@ -62,9 +62,11 @@ Deno.test('run-judge-calibration - per-item results structure', () => {
     player_two_score: 42.0,
     score_diff: 3.5,
   };
-  
+
   assertEquals(item.correct, true);
   assertEquals(item.expected_winner, item.actual_winner);
 });
 
-console.log('✓ resolve-appeal and run-judge-calibration tests defined (integration tests require env vars)');
+console.log(
+  '✓ resolve-appeal and run-judge-calibration tests defined (integration tests require env vars)',
+);

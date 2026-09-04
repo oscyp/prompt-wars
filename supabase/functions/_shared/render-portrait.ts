@@ -232,6 +232,8 @@ export async function renderOnePortrait(
         status: 'succeeded',
         provider: result.provider,
         provider_model: result.provider_model,
+        provider_cost_usd: result.provider_cost_usd ?? null,
+        provider_latency_ms: result.provider_latency_ms,
         result_portrait_id: portraitId,
         updated_at: new Date().toISOString(),
       })

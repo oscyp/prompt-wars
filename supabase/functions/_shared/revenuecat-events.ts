@@ -8,7 +8,7 @@ export type SubscriptionLifecycleEventType =
   | 'EXPIRATION';
 
 export function isSubscriptionLifecycleEvent(
-  eventType: string
+  eventType: string,
 ): eventType is SubscriptionLifecycleEventType {
   return (
     eventType === 'CANCELLATION' ||
@@ -39,7 +39,7 @@ export function isSubscriptionLifecycleEvent(
 export function buildSubscriptionLifecycleUpdate(
   eventType: SubscriptionLifecycleEventType,
   expirationAtMs: number | undefined,
-  nowIso: string = new Date().toISOString()
+  nowIso: string = new Date().toISOString(),
 ): Record<string, string> {
   const status =
     eventType === 'EXPIRATION'
@@ -129,5 +129,7 @@ export function platformForStore(store: string | undefined | null): string {
  * got nothing.
  */
 export function isOneOffPurchaseEvent(eventType: string): boolean {
-  return eventType === 'NON_RENEWING_PURCHASE' || eventType === 'INITIAL_PURCHASE';
+  return (
+    eventType === 'NON_RENEWING_PURCHASE' || eventType === 'INITIAL_PURCHASE'
+  );
 }

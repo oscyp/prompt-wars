@@ -411,6 +411,13 @@ export default function HomeScreen() {
       ).length,
     [sortedBattles, user?.id],
   );
+  const urgentBattle = useMemo(
+    () =>
+      sortedBattles.find(
+        (battle) => describeBattleRow(battle, user?.id).status.actionable,
+      ) ?? null,
+    [sortedBattles, user?.id],
+  );
 
   const primaryInk = inkFor(colors.primary);
   const heroAccent = accentForTheme(dailyTheme?.theme_text);
@@ -491,6 +498,45 @@ export default function HomeScreen() {
               onAction={() => void load(THEME_PART)}
             />
           </View>
+        ) : null}
+
+        {urgentBattle ? (
+          <Pressable
+            style={[
+              styles.urgentAction,
+              {
+                backgroundColor: colors.primary,
+                borderColor: colors.primary,
+              },
+              Elevation.md,
+            ]}
+            onPress={() => {
+              const route = battleRouteFor(urgentBattle, userId);
+              if (route) router.push(route);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Your turn. Resume battle${urgentBattle.theme ? `: ${urgentBattle.theme}` : ''}`}
+          >
+            <View style={styles.urgentCopy}>
+              <Text style={[styles.urgentEyebrow, { color: primaryInk }]}>
+                YOUR TURN
+              </Text>
+              <Text style={[styles.urgentTitle, { color: primaryInk }]}>
+                Continue your battle
+              </Text>
+              <Text
+                style={[styles.urgentSubtitle, { color: primaryInk }]}
+                numberOfLines={1}
+              >
+                {urgentBattle.theme ?? 'Choose your next move'}
+              </Text>
+            </View>
+            <Ionicons
+              name="arrow-forward-circle"
+              size={32}
+              color={primaryInk}
+            />
+          </Pressable>
         ) : null}
 
         {/* Daily theme hero poster — tap to battle on today's theme */}
@@ -902,6 +948,34 @@ const styles = StyleSheet.create({
   },
   bannerWrap: {
     marginBottom: Spacing.md,
+  },
+  urgentAction: {
+    minHeight: 96,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  urgentCopy: {
+    flex: 1,
+  },
+  urgentEyebrow: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  urgentTitle: {
+    fontSize: Typography.sizes.xl,
+    fontWeight: Typography.weights.bold,
+  },
+  urgentSubtitle: {
+    fontSize: Typography.sizes.sm,
+    marginTop: 2,
+    opacity: 0.82,
   },
   heroWrap: {
     borderRadius: BorderRadius.lg,

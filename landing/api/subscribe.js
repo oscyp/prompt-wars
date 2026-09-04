@@ -26,12 +26,18 @@ module.exports = async function handler(req, res) {
 
   let body = req.body;
   if (typeof body === 'string') {
-    try { body = JSON.parse(body); } catch (_) { body = {}; }
+    try {
+      body = JSON.parse(body);
+    } catch (_) {
+      body = {};
+    }
   }
   const email = body && typeof body.email === 'string' ? body.email.trim() : '';
 
   if (!EMAIL_RE.test(email)) {
-    return res.status(400).json({ error: 'Please enter a valid email address.' });
+    return res
+      .status(400)
+      .json({ error: 'Please enter a valid email address.' });
   }
 
   const apiKey = process.env.RESEND_API_KEY;
@@ -55,7 +61,9 @@ module.exports = async function handler(req, res) {
       const detail = await r.text();
       if (r.status !== 409 && !/already|exist/i.test(detail)) {
         console.error('subscribe: Resend responded', r.status, detail);
-        return res.status(502).json({ error: 'Could not subscribe right now. Please try again.' });
+        return res
+          .status(502)
+          .json({ error: 'Could not subscribe right now. Please try again.' });
       }
     }
 
@@ -68,7 +76,9 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error('subscribe: request failed', err);
-    return res.status(502).json({ error: 'Could not subscribe right now. Please try again.' });
+    return res
+      .status(502)
+      .json({ error: 'Could not subscribe right now. Please try again.' });
   }
 };
 
@@ -88,7 +98,11 @@ async function sendWelcomeEmail(apiKey, from, email) {
       }),
     });
     if (!r.ok) {
-      console.error('subscribe: welcome email failed', r.status, await r.text());
+      console.error(
+        'subscribe: welcome email failed',
+        r.status,
+        await r.text(),
+      );
     }
   } catch (err) {
     // Never let the welcome email take down the signup.

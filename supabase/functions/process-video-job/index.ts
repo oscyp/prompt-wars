@@ -9,18 +9,18 @@ import {
   getSupabaseSecretKey,
   hasSupabaseSecretAuthorization,
   successResponse,
-} from "../_shared/utils.ts";
-import { createVideoProvider } from "../_shared/providers.ts";
+} from '../_shared/utils.ts';
+import { createVideoProvider } from '../_shared/providers.ts';
 import {
   resolveCurrentPortrait,
   signPortraitPath,
-} from "../_shared/compose-reveal-payload.ts";
-import { VideoModerationProvider } from "../_shared/moderation.ts";
-import { notifyVideoReady } from "../_shared/push.ts";
+} from '../_shared/compose-reveal-payload.ts';
+import { VideoModerationProvider } from '../_shared/moderation.ts';
+import { notifyVideoReady } from '../_shared/push.ts';
 import {
   finalizeRoundUpgradeEntitlement,
   type RoundUpgradeSource,
-} from "../_shared/entitlement-gate.ts";
+} from '../_shared/entitlement-gate.ts';
 import {
   isPastHardTimeout,
   isRefundableTrigger,
@@ -29,7 +29,7 @@ import {
   TIER1_PER_ROUND_DURATION_S,
   TIER1_SINGLE_FORMAT_DURATION_S,
   VIDEO_REFERENCE_SIGNED_URL_TTL_SECONDS,
-} from "../_shared/video-constants.ts";
+} from '../_shared/video-constants.ts';
 
 interface ProcessVideoJobRequest {
   video_job_id?: string; // specific job
@@ -42,39 +42,40 @@ const MAX_RETRY_ATTEMPTS = TIER1_MAX_RETRY_ATTEMPTS;
 const HARD_TIMEOUT_SECONDS = TIER1_HARD_TIMEOUT_S;
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
   // Service-role only (server/scheduled execution)
-  const authHeader = req.headers.get("Authorization");
+  const authHeader = req.headers.get('Authorization');
 
-  if (
-    !hasSupabaseSecretAuthorization(authHeader, req.headers.get("apikey"))
-  ) {
-    return errorResponse("Service role required", 403);
+  if (!hasSupabaseSecretAuthorization(authHeader, req.headers.get('apikey'))) {
+    return errorResponse('Service role required', 403);
   }
 
   try {
-    const { video_job_id, batch_size }: ProcessVideoJobRequest = await req
-      .json();
+    const { video_job_id, batch_size }: ProcessVideoJobRequest =
+      await req.json();
     const supabase = createServiceClient();
     const videoProvider = createVideoProvider();
 
-    let jobsToProcess: Array<
-      { id: string; battle_id: string; status: string; attempt_count: number }
-    > = [];
+    let jobsToProcess: Array<{
+      id: string;
+      battle_id: string;
+      status: string;
+      attempt_count: number;
+    }> = [];
 
     if (video_job_id) {
       // Process specific job
       const { data: job, error: jobError } = await supabase
-        .from("video_jobs")
-        .select("*")
-        .eq("id", video_job_id)
+        .from('video_jobs')
+        .select('*')
+        .eq('id', video_job_id)
         .single();
 
       if (jobError || !job) {
-        return errorResponse("Video job not found");
+        return errorResponse('Video job not found');
       }
 
       jobsToProcess = [job];
@@ -84,16 +85,16 @@ Deno.serve(async (req) => {
       // The attempt cap only gates re-submission of queued jobs; submitted/processing
       // jobs must always be polled so the hard timeout can fire even on the final attempt.
       const { data: jobs, error: jobsError } = await supabase
-        .from("video_jobs")
-        .select("*")
+        .from('video_jobs')
+        .select('*')
         .or(
           `status.in.(submitted,processing),and(status.eq.queued,attempt_count.lt.${MAX_RETRY_ATTEMPTS})`,
         )
-        .order("created_at", { ascending: true })
+        .order('created_at', { ascending: true })
         .limit(limit);
 
       if (jobsError) {
-        return errorResponse("Failed to fetch video jobs");
+        return errorResponse('Failed to fetch video jobs');
       }
 
       jobsToProcess = jobs || [];
@@ -111,9 +112,9 @@ Deno.serve(async (req) => {
       jobs: results,
     });
   } catch (error) {
-    console.error("Process video job error:", error);
+    console.error('Process video job error:', error);
     return errorResponse(
-      error instanceof Error ? error.message : "Unknown error",
+      error instanceof Error ? error.message : 'Unknown error',
       500,
     );
   }
@@ -133,38 +134,40 @@ async function processVideoJob(
   try {
     // Fetch battle context with bot_persona for bot battles
     const { data: battle, error: battleError } = await supabase
-      .from("battles")
-      .select(`
+      .from('battles')
+      .select(
+        `
         *,
         player_one_character:characters!battles_player_one_character_id_fkey(*),
         player_two_character:characters!battles_player_two_character_id_fkey(*),
         bot_persona:bot_personas(*)
-      `)
-      .eq("id", job.battle_id)
+      `,
+      )
+      .eq('id', job.battle_id)
       .single();
 
     if (battleError || !battle) {
       await handleTerminalEntitlement(
         supabase,
         job,
-        "failed",
-        "battle_not_found",
+        'failed',
+        'battle_not_found',
       );
-      await failJob(supabase, job.id, "battle_not_found", "Battle not found");
-      return { job_id: job.id, status: "failed", error: "battle_not_found" };
+      await failJob(supabase, job.id, 'battle_not_found', 'Battle not found');
+      return { job_id: job.id, status: 'failed', error: 'battle_not_found' };
     }
 
     // Fetch only the prompts represented by this job. Without the round filter,
     // a completed Bo3 returns 4-6 locked prompt rows and final-round videos fail
     // the exact-two validation below.
     let promptQuery = supabase
-      .from("battle_prompts")
-      .select("*")
-      .eq("battle_id", job.battle_id)
-      .eq("is_locked", true);
+      .from('battle_prompts')
+      .select('*')
+      .eq('battle_id', job.battle_id)
+      .eq('is_locked', true);
     if ((job as any).battle_round_id) {
       promptQuery = promptQuery.eq(
-        "round_number",
+        'round_number',
         (job as any).round_number ?? 1,
       );
     }
@@ -180,60 +183,60 @@ async function processVideoJob(
         await handleTerminalEntitlement(
           supabase,
           job,
-          "failed",
-          "prompts_not_found",
+          'failed',
+          'prompts_not_found',
         );
         await failJob(
           supabase,
           job.id,
-          "prompts_not_found",
-          "Bot battle requires exactly one human prompt",
+          'prompts_not_found',
+          'Bot battle requires exactly one human prompt',
         );
-        return { job_id: job.id, status: "failed", error: "prompts_not_found" };
+        return { job_id: job.id, status: 'failed', error: 'prompts_not_found' };
       }
 
-      p1Prompt = scopedPrompts.find((p) =>
-        p.profile_id === battle.player_one_id
+      p1Prompt = scopedPrompts.find(
+        (p) => p.profile_id === battle.player_one_id,
       );
       if (!p1Prompt) {
         await handleTerminalEntitlement(
           supabase,
           job,
-          "failed",
-          "prompts_mismatch",
+          'failed',
+          'prompts_mismatch',
         );
         await failJob(
           supabase,
           job.id,
-          "prompts_mismatch",
-          "Human prompt not found",
+          'prompts_mismatch',
+          'Human prompt not found',
         );
-        return { job_id: job.id, status: "failed", error: "prompts_mismatch" };
+        return { job_id: job.id, status: 'failed', error: 'prompts_mismatch' };
       }
 
       // Generate bot prompt from bot_prompt_library
       const { data: botPrompts, error: botPromptError } = await supabase
-        .from("bot_prompt_library")
-        .select("*")
-        .eq("bot_persona_id", battle.bot_persona_id);
+        .from('bot_prompt_library')
+        .select('*')
+        .eq('bot_persona_id', battle.bot_persona_id);
 
       if (botPromptError || !botPrompts || botPrompts.length === 0) {
         await handleTerminalEntitlement(
           supabase,
           job,
-          "failed",
-          "bot_prompts_not_found",
+          'failed',
+          'bot_prompts_not_found',
         );
         await failJob(
           supabase,
           job.id,
-          "bot_prompts_not_found",
-          "Bot prompts not found for persona",
+          'bot_prompts_not_found',
+          'Bot prompts not found for persona',
         );
         return {
           job_id: job.id,
-          status: "failed",
-          error: "bot_prompts_not_found",
+          status: 'failed',
+          error: 'bot_prompts_not_found',
         };
       }
 
@@ -255,34 +258,34 @@ async function processVideoJob(
         await handleTerminalEntitlement(
           supabase,
           job,
-          "failed",
-          "prompts_not_found",
+          'failed',
+          'prompts_not_found',
         );
         await failJob(
           supabase,
           job.id,
-          "prompts_not_found",
-          "Prompts not found",
+          'prompts_not_found',
+          'Prompts not found',
         );
-        return { job_id: job.id, status: "failed", error: "prompts_not_found" };
+        return { job_id: job.id, status: 'failed', error: 'prompts_not_found' };
       }
 
-      p1Prompt = scopedPrompts.find((p) =>
-        p.profile_id === battle.player_one_id
+      p1Prompt = scopedPrompts.find(
+        (p) => p.profile_id === battle.player_one_id,
       );
-      p2Prompt = scopedPrompts.find((p) =>
-        p.profile_id === battle.player_two_id
+      p2Prompt = scopedPrompts.find(
+        (p) => p.profile_id === battle.player_two_id,
       );
 
       if (!p1Prompt || !p2Prompt) {
         await handleTerminalEntitlement(
           supabase,
           job,
-          "failed",
-          "prompts_mismatch",
+          'failed',
+          'prompts_mismatch',
         );
-        await failJob(supabase, job.id, "prompts_mismatch", "Prompts mismatch");
-        return { job_id: job.id, status: "failed", error: "prompts_mismatch" };
+        await failJob(supabase, job.id, 'prompts_mismatch', 'Prompts mismatch');
+        return { job_id: job.id, status: 'failed', error: 'prompts_mismatch' };
       }
     }
 
@@ -293,20 +296,20 @@ async function processVideoJob(
       }
       if (prompt.prompt_template_id) {
         const { data: template } = await supabase
-          .from("prompt_templates")
-          .select("body")
-          .eq("id", prompt.prompt_template_id)
+          .from('prompt_templates')
+          .select('body')
+          .eq('id', prompt.prompt_template_id)
           .single();
-        return template?.body || "";
+        return template?.body || '';
       }
-      return "";
+      return '';
     };
 
     const p1Text = await getPromptText(p1Prompt);
     const p2Text = await getPromptText(p2Prompt);
 
     // Submit or poll video generation
-    if (job.status === "queued") {
+    if (job.status === 'queued') {
       // Submit new video generation
       // Use bot_persona as player_two character metadata for bot battles
       const playerTwoCharacterName = battle.is_player_two_bot
@@ -338,7 +341,7 @@ async function processVideoJob(
               characterId,
               // The FIGHTER render deliberately: it is the full-body image, and
               // a head/bust avatar would give the model no body to animate.
-              "fighter",
+              'fighter',
             );
             if (!portrait?.image_path) return null;
             return await signPortraitPath(
@@ -351,7 +354,7 @@ async function processVideoJob(
         referenceImageUrls = signed.filter(Boolean) as string[];
       } catch (refErr) {
         console.error(
-          "Reference image resolution failed (continuing text-only):",
+          'Reference image resolution failed (continuing text-only):',
           refErr,
         );
         referenceImageUrls = [];
@@ -363,51 +366,51 @@ async function processVideoJob(
         playerOneArchetype: battle.player_one_character.archetype,
         playerOnePrompt: p1Text,
         playerOneMoveType: p1Prompt.move_type,
-        playerTwoCharacterName: playerTwoCharacterName || "Unknown",
-        playerTwoArchetype: playerTwoArchetype || "bot",
+        playerTwoCharacterName: playerTwoCharacterName || 'Unknown',
+        playerTwoArchetype: playerTwoArchetype || 'bot',
         playerTwoPrompt: p2Text,
         playerTwoMoveType: p2Prompt.move_type,
         // Provider prompts use blind p1/p2 labels, not database UUIDs.
         winnerId: battle.is_draw
           ? null
           : battle.winner_id === battle.player_one_id
-          ? "p1"
-          : "p2",
+            ? 'p1'
+            : 'p2',
         isDraw: battle.is_draw,
         theme: battle.theme,
         targetDurationSeconds: (job as any).battle_round_id
           ? TIER1_PER_ROUND_DURATION_S
           : TIER1_SINGLE_FORMAT_DURATION_S,
-        aspectRatio: "9:16",
+        aspectRatio: '9:16',
         referenceImageUrls,
         safetyConstraints: [
-          "no_real_person_likeness",
-          "no_violence",
-          "no_nsfw",
-          "silent_no_audio",
+          'no_real_person_likeness',
+          'no_violence',
+          'no_nsfw',
+          'silent_no_audio',
         ],
       });
 
       // Update job to submitted
       const { error: updateError } = await supabase
-        .from("video_jobs")
+        .from('video_jobs')
         .update({
-          status: "submitted",
+          status: 'submitted',
           provider_job_id: submission.providerJobId,
           provider_request_id: submission.providerRequestId,
           submitted_at: new Date().toISOString(),
           attempt_count: job.attempt_count + 1,
         })
-        .eq("id", job.id);
+        .eq('id', job.id);
 
       if (updateError) {
-        console.error("Failed to update job:", updateError);
+        console.error('Failed to update job:', updateError);
       }
 
-      return { job_id: job.id, status: "submitted" };
+      return { job_id: job.id, status: 'submitted' };
     }
 
-    if (job.status === "submitted" || job.status === "processing") {
+    if (job.status === 'submitted' || job.status === 'processing') {
       // Hard timeout (§8.6): a job stuck at the provider past HARD_TIMEOUT_SECONDS
       // is force-failed and refunded instead of being polled forever. Tier 0 stays
       // authoritative, so legacy battles return to result_ready like other failures.
@@ -416,24 +419,24 @@ async function processVideoJob(
         await handleTerminalEntitlement(
           supabase,
           job,
-          "failed",
-          "hard_timeout",
+          'failed',
+          'hard_timeout',
         );
         await failJob(
           supabase,
           job.id,
-          "hard_timeout",
+          'hard_timeout',
           `Video generation exceeded ${HARD_TIMEOUT_SECONDS}s hard timeout`,
         );
 
         if (!(job as any).battle_round_id) {
           await supabase
-            .from("battles")
-            .update({ status: "result_ready" })
-            .eq("id", job.battle_id);
+            .from('battles')
+            .update({ status: 'result_ready' })
+            .eq('id', job.battle_id);
         }
 
-        return { job_id: job.id, status: "failed", error: "hard_timeout" };
+        return { job_id: job.id, status: 'failed', error: 'hard_timeout' };
       }
 
       // Poll provider status
@@ -441,19 +444,19 @@ async function processVideoJob(
         await handleTerminalEntitlement(
           supabase,
           job,
-          "failed",
-          "missing_provider_job_id",
+          'failed',
+          'missing_provider_job_id',
         );
         await failJob(
           supabase,
           job.id,
-          "missing_provider_job_id",
-          "Provider job ID missing",
+          'missing_provider_job_id',
+          'Provider job ID missing',
         );
         return {
           job_id: job.id,
-          status: "failed",
-          error: "missing_provider_job_id",
+          status: 'failed',
+          error: 'missing_provider_job_id',
         };
       }
 
@@ -461,20 +464,20 @@ async function processVideoJob(
         job.provider_job_id,
       );
 
-      if (providerStatus.status === "processing") {
+      if (providerStatus.status === 'processing') {
         // Still processing, update timestamp
         await supabase
-          .from("video_jobs")
+          .from('video_jobs')
           .update({
-            status: "processing",
+            status: 'processing',
             updated_at: new Date().toISOString(),
           })
-          .eq("id", job.id);
+          .eq('id', job.id);
 
-        return { job_id: job.id, status: "processing" };
+        return { job_id: job.id, status: 'processing' };
       }
 
-      if (providerStatus.status === "succeeded" && providerStatus.videoUrl) {
+      if (providerStatus.status === 'succeeded' && providerStatus.videoUrl) {
         let videoUrl;
         try {
           videoUrl = await copyVideoToStorage(
@@ -484,29 +487,29 @@ async function processVideoJob(
             providerStatus.videoUrl,
           );
         } catch (storageError) {
-          console.error("Storage copy failed:", storageError);
+          console.error('Storage copy failed:', storageError);
           await handleTerminalEntitlement(
             supabase,
             job,
-            "failed",
-            "storage_failed",
+            'failed',
+            'storage_failed',
           );
           await failJob(
             supabase,
             job.id,
-            "storage_failed",
-            "Failed to copy video to storage",
+            'storage_failed',
+            'Failed to copy video to storage',
           );
           // §8.6: storage failure keeps the battle completed on Tier 0 and offers
           // a retry. Restore result_ready for legacy battles (per-round jobs don't
           // own battle.status); request-video-upgrade then allows a fresh attempt.
           if (!(job as any).battle_round_id) {
             await supabase
-              .from("battles")
-              .update({ status: "result_ready" })
-              .eq("id", job.battle_id);
+              .from('battles')
+              .update({ status: 'result_ready' })
+              .eq('id', job.battle_id);
           }
-          return { job_id: job.id, status: "failed", error: "storage_failed" };
+          return { job_id: job.id, status: 'failed', error: 'storage_failed' };
         }
 
         // Create or restore the private video row. A stable storage path plus
@@ -516,51 +519,51 @@ async function processVideoJob(
           video_job_id: job.id,
           battle_round_id: (job as any).battle_round_id ?? null,
           storage_path: videoUrl,
-          moderation_status: "pending", // requires post-gen moderation
+          moderation_status: 'pending', // requires post-gen moderation
           moderation_reason: null,
           moderated_at: null,
           moderation_provider: null,
           moderation_confidence: null,
-          visibility: "private",
+          visibility: 'private',
           is_ai_generated: true, // §22 disclosure travels with the asset row
         };
         const { data: existingVideo } = await supabase
-          .from("videos")
-          .select("id")
-          .eq("video_job_id", job.id)
+          .from('videos')
+          .select('id')
+          .eq('video_job_id', job.id)
           .maybeSingle();
         const videoWrite = existingVideo
           ? supabase
-            .from("videos")
-            .update(videoPayload)
-            .eq("id", existingVideo.id)
-          : supabase.from("videos").insert(videoPayload);
+              .from('videos')
+              .update(videoPayload)
+              .eq('id', existingVideo.id)
+          : supabase.from('videos').insert(videoPayload);
         const { data: videoRow, error: videoError } = await videoWrite
-          .select("id")
+          .select('id')
           .single();
 
         if (videoError || !videoRow) {
-          console.error("Failed to create video row:", videoError);
+          console.error('Failed to create video row:', videoError);
           await handleTerminalEntitlement(
             supabase,
             job,
-            "failed",
-            "storage_failed",
+            'failed',
+            'storage_failed',
           );
           await failJob(
             supabase,
             job.id,
-            "storage_failed",
-            "Failed to store video metadata",
+            'storage_failed',
+            'Failed to store video metadata',
           );
           // §8.6: keep Tier 0 visible and retryable (legacy only).
           if (!(job as any).battle_round_id) {
             await supabase
-              .from("battles")
-              .update({ status: "result_ready" })
-              .eq("id", job.battle_id);
+              .from('battles')
+              .update({ status: 'result_ready' })
+              .eq('id', job.battle_id);
           }
-          return { job_id: job.id, status: "failed", error: "storage_failed" };
+          return { job_id: job.id, status: 'failed', error: 'storage_failed' };
         }
 
         // Best-effort default caption insertion. Captions are nice-to-have for
@@ -568,7 +571,7 @@ async function processVideoJob(
         try {
           await insertDefaultCaptions(supabase, videoRow.id, battle);
         } catch (captionErr) {
-          console.error("Caption insertion failed (non-fatal):", captionErr);
+          console.error('Caption insertion failed (non-fatal):', captionErr);
         }
 
         // Invoke post-generation video moderation (blocking for refund logic)
@@ -583,82 +586,83 @@ async function processVideoJob(
 
           // Only an explicit approval may become playable. Rejected or
           // quarantined/flagged assets stay private and follow the refund path.
-          if (moderationResult.status !== "approved") {
-            const moderationErrorCode = moderationResult.status === "rejected"
-              ? "moderation_rejected"
-              : "moderation_not_approved";
+          if (moderationResult.status !== 'approved') {
+            const moderationErrorCode =
+              moderationResult.status === 'rejected'
+                ? 'moderation_rejected'
+                : 'moderation_not_approved';
             await handleTerminalEntitlement(
               supabase,
               job,
-              "moderation_failed",
+              'moderation_failed',
               moderationErrorCode,
             );
             await supabase
-              .from("video_jobs")
+              .from('video_jobs')
               .update({
-                status: "failed",
+                status: 'failed',
                 error_code: moderationErrorCode,
-                error_message: moderationResult.reason ||
-                  "Video did not pass moderation",
+                error_message:
+                  moderationResult.reason || 'Video did not pass moderation',
                 completed_at: new Date().toISOString(),
               })
-              .eq("id", job.id);
+              .eq('id', job.id);
 
             // Return battle to result_ready so Tier 0 remains visible (legacy only;
             // per-round jobs leave battle.status alone — Tier 0 is already on
             // battle_rounds.cinematic_asset_url and remains authoritative).
             if (!(job as any).battle_round_id) {
               await supabase
-                .from("battles")
-                .update({ status: "result_ready" })
-                .eq("id", job.battle_id);
+                .from('battles')
+                .update({ status: 'result_ready' })
+                .eq('id', job.battle_id);
             }
 
             return {
               job_id: job.id,
-              status: "failed",
+              status: 'failed',
               error: moderationErrorCode,
             };
           }
         } catch (modError) {
-          console.error("Video moderation failed:", modError);
+          console.error('Video moderation failed:', modError);
           // Fail closed: the stored object stays private and no playable URL is
           // exposed. Paid/grant jobs are reconciled by the normal refund path.
           await handleTerminalEntitlement(
             supabase,
             job,
-            "moderation_failed",
-            "moderation_unavailable",
+            'moderation_failed',
+            'moderation_unavailable',
           );
           await failJob(
             supabase,
             job.id,
-            "moderation_unavailable",
-            "Video moderation could not complete",
+            'moderation_unavailable',
+            'Video moderation could not complete',
           );
           return {
             job_id: job.id,
-            status: "failed",
-            error: "moderation_unavailable",
+            status: 'failed',
+            error: 'moderation_unavailable',
           };
         }
 
         // Mark job succeeded
         await supabase
-          .from("video_jobs")
+          .from('video_jobs')
           .update({
-            status: "succeeded",
+            status: 'succeeded',
             // Preserve the amount reserved at enqueue. Automatic/free and
             // subscriber jobs must never be rewritten as a credit spend.
             credits_charged: (job as any).credits_charged ?? 0,
             completed_at: new Date().toISOString(),
           })
-          .eq("id", job.id);
+          .eq('id', job.id);
 
         // Finalize entitlement on success (round-mode: subscriber decrement /
         // credit+grant confirm via finalize_round_upgrade; legacy success is a
         // no-op because spend was already finalized at job creation).
-        await handleTerminalEntitlement(supabase, job, "succeeded");
+        await handleTerminalEntitlement(supabase, job, 'succeeded');
 
         // Per-round write-back: surface the Tier 1 asset on battle_rounds so the
         // client's per-round subscription transitions from Tier 0 to Tier 1
@@ -666,70 +670,70 @@ async function processVideoJob(
         // jobs (the battle may still be resolving subsequent rounds).
         if ((job as any).battle_round_id) {
           await supabase
-            .from("battle_rounds")
+            .from('battle_rounds')
             .update({
               cinematic_asset_url: videoUrl,
               cinematic_tier: 1,
               cinematic_video_job_id: job.id,
               updated_at: new Date().toISOString(),
             })
-            .eq("id", (job as any).battle_round_id);
+            .eq('id', (job as any).battle_round_id);
         } else {
           // Legacy single-format / series-end behavior unchanged.
           await supabase
-            .from("battles")
-            .update({ status: "completed" })
-            .eq("id", job.battle_id);
+            .from('battles')
+            .update({ status: 'completed' })
+            .eq('id', job.battle_id);
         }
 
         // Cinematic upgrade is live: notify both human players (fire-and-forget).
         notifyVideoReady(supabase, job.battle_id);
 
-        return { job_id: job.id, status: "succeeded" };
+        return { job_id: job.id, status: 'succeeded' };
       }
 
-      if (providerStatus.status === "failed") {
+      if (providerStatus.status === 'failed') {
         // Provider failure, retry or refund
         if (job.attempt_count + 1 < MAX_RETRY_ATTEMPTS) {
           // Retry: reset to queued without refunding (only refund on terminal failure)
           await supabase
-            .from("video_jobs")
+            .from('video_jobs')
             .update({
-              status: "queued",
+              status: 'queued',
               attempt_count: job.attempt_count + 1,
               error_code: providerStatus.errorCode,
               error_message: providerStatus.errorMessage,
             })
-            .eq("id", job.id);
+            .eq('id', job.id);
 
-          return { job_id: job.id, status: "retry_queued" };
+          return { job_id: job.id, status: 'retry_queued' };
         } else {
           // Max retries, refund based on entitlement source and set battle back to result_ready
           await handleTerminalEntitlement(
             supabase,
             job,
-            "failed",
-            providerStatus.errorCode || "provider_failed",
+            'failed',
+            providerStatus.errorCode || 'provider_failed',
           );
           await failJob(
             supabase,
             job.id,
-            providerStatus.errorCode || "provider_failed",
-            providerStatus.errorMessage || "Provider failed",
+            providerStatus.errorCode || 'provider_failed',
+            providerStatus.errorMessage || 'Provider failed',
           );
 
           // Set battle status back to result_ready so Tier 0 result is visible
           // (legacy only — per-round jobs do not own battle.status).
           if (!(job as any).battle_round_id) {
             await supabase
-              .from("battles")
-              .update({ status: "result_ready" })
-              .eq("id", job.battle_id);
+              .from('battles')
+              .update({ status: 'result_ready' })
+              .eq('id', job.battle_id);
           }
 
           return {
             job_id: job.id,
-            status: "failed",
+            status: 'failed',
             error: providerStatus.errorCode,
           };
         }
@@ -742,16 +746,16 @@ async function processVideoJob(
     await handleTerminalEntitlement(
       supabase,
       job,
-      "failed",
-      "processing_error",
+      'failed',
+      'processing_error',
     );
     await failJob(
       supabase,
       job.id,
-      "processing_error",
-      error instanceof Error ? error.message : "Unknown error",
+      'processing_error',
+      error instanceof Error ? error.message : 'Unknown error',
     );
-    return { job_id: job.id, status: "failed", error: "processing_error" };
+    return { job_id: job.id, status: 'failed', error: 'processing_error' };
   }
 }
 
@@ -780,25 +784,25 @@ async function failJob(
   errorMessage: string,
 ): Promise<void> {
   const { data: failed } = await supabase
-    .from("video_jobs")
+    .from('video_jobs')
     .update({
-      status: "failed",
+      status: 'failed',
       error_code: errorCode,
       error_message: errorMessage,
       completed_at: new Date().toISOString(),
     })
-    .eq("id", jobId)
-    .select("battle_id, battle_round_id")
+    .eq('id', jobId)
+    .select('battle_id, battle_round_id')
     .maybeSingle();
 
   if (failed?.battle_id && !failed.battle_round_id) {
     const { error } = await supabase
-      .from("battles")
-      .update({ status: "result_ready" })
-      .eq("id", failed.battle_id)
-      .eq("status", "generating_video");
+      .from('battles')
+      .update({ status: 'result_ready' })
+      .eq('id', failed.battle_id)
+      .eq('status', 'generating_video');
     if (error) {
-      console.error("Failed to release battle after video failure:", error);
+      console.error('Failed to release battle after video failure:', error);
     }
   }
 }
@@ -830,18 +834,20 @@ async function insertDefaultCaptions(
   // Line 1 — headline summary.
   let line1Text: string | null = null;
   if (
-    tier0 && typeof tier0.summary === "string" &&
+    tier0 &&
+    typeof tier0.summary === 'string' &&
     tier0.summary.trim().length > 0
   ) {
     line1Text = tier0.summary.trim();
   } else if (battle?.is_draw) {
-    line1Text = "Draw";
+    line1Text = 'Draw';
   } else if (battle?.winner_id) {
-    const winnerName = battle.winner_id === battle.player_one_id
-      ? battle.player_one_character?.name
-      : battle.is_player_two_bot
-      ? battle.bot_persona?.name
-      : battle.player_two_character?.name;
+    const winnerName =
+      battle.winner_id === battle.player_one_id
+        ? battle.player_one_character?.name
+        : battle.is_player_two_bot
+          ? battle.bot_persona?.name
+          : battle.player_two_character?.name;
     if (winnerName) line1Text = `${winnerName} wins`;
   }
   if (line1Text) {
@@ -850,16 +856,18 @@ async function insertDefaultCaptions(
 
   // Line 2 — explanation snippet.
   if (
-    score && typeof score.explanation === "string" &&
+    score &&
+    typeof score.explanation === 'string' &&
     score.explanation.trim().length > 0
   ) {
     const raw = score.explanation.trim();
     // First sentence boundary or 140-char hard cap, whichever is shorter.
     const sentenceMatch = raw.match(/^.+?[.!?](?:\s|$)/);
     const firstSentence = sentenceMatch ? sentenceMatch[0].trim() : raw;
-    const line2Text = firstSentence.length > 140
-      ? firstSentence.slice(0, 140).trimEnd()
-      : firstSentence;
+    const line2Text =
+      firstSentence.length > 140
+        ? firstSentence.slice(0, 140).trimEnd()
+        : firstSentence;
     if (line2Text.length > 0) {
       lines.push({ start_ms: 3000, end_ms: 7000, text: line2Text });
     }
@@ -867,11 +875,12 @@ async function insertDefaultCaptions(
 
   // Line 3 — finisher attribution.
   if (battle?.winner_id) {
-    const winnerCharName = battle.winner_id === battle.player_one_id
-      ? battle.player_one_character?.name
-      : battle.is_player_two_bot
-      ? battle.bot_persona?.name
-      : battle.player_two_character?.name;
+    const winnerCharName =
+      battle.winner_id === battle.player_one_id
+        ? battle.player_one_character?.name
+        : battle.is_player_two_bot
+          ? battle.bot_persona?.name
+          : battle.player_two_character?.name;
     if (winnerCharName) {
       lines.push({
         start_ms: 7000,
@@ -885,21 +894,19 @@ async function insertDefaultCaptions(
     return;
   }
 
-  const locale = "en-US";
-  const { error } = await supabase
-    .from("video_captions")
-    .upsert(
-      {
-        video_id: videoId,
-        locale,
-        generator: "auto",
-        json_payload: { locale, lines },
-      },
-      { onConflict: "video_id,locale", ignoreDuplicates: true },
-    );
+  const locale = 'en-US';
+  const { error } = await supabase.from('video_captions').upsert(
+    {
+      video_id: videoId,
+      locale,
+      generator: 'auto',
+      json_payload: { locale, lines },
+    },
+    { onConflict: 'video_id,locale', ignoreDuplicates: true },
+  );
 
   if (error) {
-    console.error("video_captions upsert error (non-fatal):", error);
+    console.error('video_captions upsert error (non-fatal):', error);
   }
 }
 
@@ -917,18 +924,18 @@ function normalizeRoundSource(
   stored: string | null | undefined,
 ): RoundUpgradeSource | null {
   switch (stored) {
-    case "subscriber_full":
-    case "subscriber_round":
-    case "credit":
-    case "new_user_grant":
+    case 'subscriber_full':
+    case 'subscriber_round':
+    case 'credit':
+    case 'new_user_grant':
       return stored;
     // Defensive legacy aliases (in case older rows pre-date the gate landing).
-    case "subscription_allowance":
-      return "subscriber_round";
-    case "credits":
-      return "credit";
-    case "free_grant":
-      return "new_user_grant";
+    case 'subscription_allowance':
+      return 'subscriber_round';
+    case 'credits':
+      return 'credit';
+    case 'free_grant':
+      return 'new_user_grant';
     default:
       return null;
   }
@@ -952,7 +959,7 @@ function normalizeRoundSource(
 async function handleTerminalEntitlement(
   supabase: ReturnType<typeof createServiceClient>,
   job: any,
-  outcome: "succeeded" | "failed" | "moderation_failed",
+  outcome: 'succeeded' | 'failed' | 'moderation_failed',
   errorCode?: string,
 ): Promise<void> {
   // Round-mode path.
@@ -960,7 +967,7 @@ async function handleTerminalEntitlement(
     const source = normalizeRoundSource(job.entitlement_source);
     if (!source) {
       console.warn(
-        "handleTerminalEntitlement: unknown entitlement_source for round-mode job",
+        'handleTerminalEntitlement: unknown entitlement_source for round-mode job',
         {
           job_id: job.id,
           entitlement_source: job.entitlement_source,
@@ -969,7 +976,7 @@ async function handleTerminalEntitlement(
       return;
     }
     if (!job.requester_profile_id) {
-      console.warn("handleTerminalEntitlement: missing requester_profile_id", {
+      console.warn('handleTerminalEntitlement: missing requester_profile_id', {
         job_id: job.id,
       });
       return;
@@ -982,27 +989,27 @@ async function handleTerminalEntitlement(
           profile_id: job.requester_profile_id,
           battle_id: job.battle_id,
           round_number: job.round_number ?? 1,
-          is_full_battle: source === "subscriber_full",
+          is_full_battle: source === 'subscriber_full',
         },
         outcome,
         supabase as any,
       );
       // Mark refunded for terminal failure outcomes so the legacy path will
       // not double-process this row if invoked later.
-      if (outcome !== "succeeded") {
+      if (outcome !== 'succeeded') {
         await supabase
-          .from("video_jobs")
+          .from('video_jobs')
           .update({ refunded: true })
-          .eq("id", job.id);
+          .eq('id', job.id);
       }
     } catch (e) {
-      console.error("finalizeRoundUpgradeEntitlement threw:", e);
+      console.error('finalizeRoundUpgradeEntitlement threw:', e);
     }
     return;
   }
 
   // Legacy path: refunds only on failure, and only for refundable triggers.
-  if (outcome === "succeeded") return;
+  if (outcome === 'succeeded') return;
   if (!isRefundableTrigger(job.trigger)) {
     // Subscriber-auto / series-end-legacy / unset triggers: no refund.
     return;
@@ -1021,28 +1028,28 @@ async function refundVideoJobOnFailure(
 ): Promise<void> {
   // Fetch video job with entitlement details
   const { data: job } = await supabase
-    .from("video_jobs")
+    .from('video_jobs')
     .select(
-      "requester_profile_id, entitlement_source, credits_charged, spend_transaction_id, refunded",
+      'requester_profile_id, entitlement_source, credits_charged, spend_transaction_id, refunded',
     )
-    .eq("id", videoJobId)
+    .eq('id', videoJobId)
     .single();
 
   if (!job || job.refunded) {
-    console.log("Video job already refunded or not found:", videoJobId);
+    console.log('Video job already refunded or not found:', videoJobId);
     return;
   }
 
   if (!job.requester_profile_id || !job.entitlement_source) {
     console.warn(
-      "Video job missing requester or entitlement source, cannot refund:",
+      'Video job missing requester or entitlement source, cannot refund:',
       videoJobId,
     );
     // Mark as refunded to prevent retry loops
     await supabase
-      .from("video_jobs")
+      .from('video_jobs')
       .update({ refunded: true })
-      .eq("id", videoJobId);
+      .eq('id', videoJobId);
     return;
   }
 
@@ -1050,10 +1057,10 @@ async function refundVideoJobOnFailure(
 
   try {
     switch (job.entitlement_source) {
-      case "credits":
+      case 'credits':
         // Refund credits using grant_credits RPC
         if (job.credits_charged && job.credits_charged > 0) {
-          await supabase.rpc("grant_credits", {
+          await supabase.rpc('grant_credits', {
             p_profile_id: job.requester_profile_id,
             p_amount: job.credits_charged,
             p_reason: `video_generation_failed_refund_${errorCode}`,
@@ -1072,9 +1079,9 @@ async function refundVideoJobOnFailure(
         }
         break;
 
-      case "free_grant":
+      case 'free_grant':
         // Restore free tier reveal
-        await supabase.rpc("restore_free_tier1_reveal", {
+        await supabase.rpc('restore_free_tier1_reveal', {
           p_profile_id: job.requester_profile_id,
           p_video_job_id: videoJobId,
           p_idempotency_key: refundIdempotencyKey,
@@ -1084,9 +1091,9 @@ async function refundVideoJobOnFailure(
         );
         break;
 
-      case "subscription_allowance":
+      case 'subscription_allowance':
         // Restore subscription allowance
-        await supabase.rpc("restore_subscription_allowance", {
+        await supabase.rpc('restore_subscription_allowance', {
           p_profile_id: job.requester_profile_id,
           p_video_job_id: videoJobId,
           p_idempotency_key: refundIdempotencyKey,
@@ -1098,18 +1105,18 @@ async function refundVideoJobOnFailure(
 
       default:
         console.warn(
-          "Unknown entitlement source for refund:",
+          'Unknown entitlement source for refund:',
           job.entitlement_source,
         );
     }
 
     // Mark job as refunded
     await supabase
-      .from("video_jobs")
+      .from('video_jobs')
       .update({ refunded: true })
-      .eq("id", videoJobId);
+      .eq('id', videoJobId);
   } catch (error) {
-    console.error("Refund error for video job:", videoJobId, error);
+    console.error('Refund error for video job:', videoJobId, error);
     // Don't throw - we'll retry on next invocation
   }
 }
@@ -1124,28 +1131,28 @@ async function refundVideoJob(
 ): Promise<void> {
   // Fetch video job with entitlement details
   const { data: job } = await supabase
-    .from("video_jobs")
+    .from('video_jobs')
     .select(
-      "requester_profile_id, entitlement_source, credits_charged, spend_transaction_id, refunded",
+      'requester_profile_id, entitlement_source, credits_charged, spend_transaction_id, refunded',
     )
-    .eq("id", videoJobId)
+    .eq('id', videoJobId)
     .single();
 
   if (!job || job.refunded) {
-    console.log("Video job already refunded or not found:", videoJobId);
+    console.log('Video job already refunded or not found:', videoJobId);
     return;
   }
 
   if (!job.requester_profile_id || !job.entitlement_source) {
     console.warn(
-      "Video job missing requester or entitlement source, cannot refund:",
+      'Video job missing requester or entitlement source, cannot refund:',
       videoJobId,
     );
     // Mark as refunded to prevent retry loops
     await supabase
-      .from("video_jobs")
+      .from('video_jobs')
       .update({ refunded: true })
-      .eq("id", videoJobId);
+      .eq('id', videoJobId);
     return;
   }
 
@@ -1153,13 +1160,13 @@ async function refundVideoJob(
 
   try {
     switch (job.entitlement_source) {
-      case "credits":
+      case 'credits':
         // Refund credits using grant_credits RPC
         if (job.credits_charged && job.credits_charged > 0) {
-          await supabase.rpc("grant_credits", {
+          await supabase.rpc('grant_credits', {
             p_profile_id: job.requester_profile_id,
             p_amount: job.credits_charged,
-            p_reason: "video_generation_failed_refund",
+            p_reason: 'video_generation_failed_refund',
             p_idempotency_key: refundIdempotencyKey,
             p_battle_id: null,
             p_purchase_id: null,
@@ -1174,9 +1181,9 @@ async function refundVideoJob(
         }
         break;
 
-      case "free_grant":
+      case 'free_grant':
         // Restore free tier reveal
-        await supabase.rpc("restore_free_tier1_reveal", {
+        await supabase.rpc('restore_free_tier1_reveal', {
           p_profile_id: job.requester_profile_id,
           p_video_job_id: videoJobId,
           p_idempotency_key: refundIdempotencyKey,
@@ -1186,9 +1193,9 @@ async function refundVideoJob(
         );
         break;
 
-      case "subscription_allowance":
+      case 'subscription_allowance':
         // Restore subscription allowance
-        await supabase.rpc("restore_subscription_allowance", {
+        await supabase.rpc('restore_subscription_allowance', {
           p_profile_id: job.requester_profile_id,
           p_video_job_id: videoJobId,
           p_idempotency_key: refundIdempotencyKey,
@@ -1200,18 +1207,18 @@ async function refundVideoJob(
 
       default:
         console.warn(
-          "Unknown entitlement source for refund:",
+          'Unknown entitlement source for refund:',
           job.entitlement_source,
         );
     }
 
     // Mark job as refunded
     await supabase
-      .from("video_jobs")
+      .from('video_jobs')
       .update({ refunded: true })
-      .eq("id", videoJobId);
+      .eq('id', videoJobId);
   } catch (error) {
-    console.error("Refund error for video job:", videoJobId, error);
+    console.error('Refund error for video job:', videoJobId, error);
     // Don't throw - we'll retry on next process-video-job invocation
   }
 }
@@ -1236,9 +1243,9 @@ async function copyVideoToStorage(
 
   // Upload to Supabase Storage
   const { error: uploadError } = await supabase.storage
-    .from("battle-videos")
+    .from('battle-videos')
     .upload(storagePath, videoBlob, {
-      contentType: "video/mp4",
+      contentType: 'video/mp4',
       // Stable path per job makes retries idempotent after partial failures.
       upsert: true,
     });
@@ -1263,19 +1270,19 @@ async function moderateVideo(
   providerModerationSource?: string,
 ): Promise<{ status: string; reason?: string }> {
   // Call moderate-video Edge Function with service-role authority
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceKey = getSupabaseSecretKey();
 
   if (!supabaseUrl || !serviceKey) {
-    throw new Error("Missing Supabase environment variables");
+    throw new Error('Missing Supabase environment variables');
   }
 
   const moderateFunctionUrl = `${supabaseUrl}/functions/v1/moderate-video`;
 
   const response = await fetch(moderateFunctionUrl, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       apikey: serviceKey,
     },
     body: JSON.stringify({
@@ -1288,7 +1295,7 @@ async function moderateVideo(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("Moderate-video invocation failed:", errorText);
+    console.error('Moderate-video invocation failed:', errorText);
     throw new Error(`Moderate-video failed: ${response.status}`);
   }
 

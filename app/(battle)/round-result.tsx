@@ -36,6 +36,7 @@ import {
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import { useBattleExitGuard } from '@/hooks/useBattleExitGuard';
 import { useAuth } from '@/providers/AuthProvider';
+import { useBattleAudio } from '@/providers/BattleAudioProvider';
 import HPBar from '@/components/HPBar';
 import HeaderLeaveButton from '@/components/HeaderLeaveButton';
 import AnimatedCounter from '@/components/AnimatedCounter';
@@ -71,10 +72,13 @@ export default function RoundResultScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
+  const { stopMusic } = useBattleAudio();
   const { battleId, round } = useLocalSearchParams<{
     battleId: string;
     round?: string;
   }>();
+
+  useEffect(() => stopMusic(), [stopMusic]);
 
   const {
     battle,

@@ -45,7 +45,9 @@ export interface CosmeticsCatalog {
  * List the cosmetics catalog with ownership flags for the current player.
  */
 export async function listCosmetics(): Promise<CosmeticsCatalog | null> {
-  const { data, error } = await invokeFunctionResult('cosmetics', { action: 'list' });
+  const { data, error } = await invokeFunctionResult('cosmetics', {
+    action: 'list',
+  });
   if (error) {
     console.error('listCosmetics error:', error);
     return null;
@@ -57,10 +59,12 @@ export async function listCosmetics(): Promise<CosmeticsCatalog | null> {
  * Spend credits to purchase a 'credits' cosmetic. Server validates balance,
  * ownership, and purchasability.
  */
-export async function purchaseCosmetic(slug: string): Promise<
-  CosmeticsCatalog & { success: boolean; error?: string }
-> {
-  const { data, error } = await invokeFunctionResult<CosmeticsCatalog & { success: boolean; error?: string }>('cosmetics', { action: 'purchase', cosmetic_slug: slug });
+export async function purchaseCosmetic(
+  slug: string,
+): Promise<CosmeticsCatalog & { success: boolean; error?: string }> {
+  const { data, error } = await invokeFunctionResult<
+    CosmeticsCatalog & { success: boolean; error?: string }
+  >('cosmetics', { action: 'purchase', cosmetic_slug: slug });
   if (error) {
     return {
       success: false,
@@ -72,7 +76,14 @@ export async function purchaseCosmetic(slug: string): Promise<
   // `data` is nullable now that the call goes through the typed wrapper. It was
   // implicitly `any` before, so a null body silently became a "successful"
   // result object with undefined fields.
-  return data ?? { success: false, error: 'Empty response', items: [], owned_count: 0 };
+  return (
+    data ?? {
+      success: false,
+      error: 'Empty response',
+      items: [],
+      owned_count: 0,
+    }
+  );
 }
 
 /**
@@ -88,11 +99,11 @@ export async function equipCosmetic(
     error?: string;
     equipped?: string | null;
   }>('cosmetics', {
-      action: 'equip',
-      character_id: characterId,
-      cosmetic_type: cosmeticType,
-      cosmetic_slug: slug,
-    });
+    action: 'equip',
+    character_id: characterId,
+    cosmetic_type: cosmeticType,
+    cosmetic_slug: slug,
+  });
   if (error) {
     return { success: false, error: error.message };
   }
@@ -103,7 +114,9 @@ export async function equipCosmetic(
  * Grant all free / earned / subscription cosmetics the player now qualifies for.
  */
 export async function syncCosmetics(): Promise<CosmeticsCatalog | null> {
-  const { data, error } = await invokeFunctionResult('cosmetics', { action: 'sync' });
+  const { data, error } = await invokeFunctionResult('cosmetics', {
+    action: 'sync',
+  });
   if (error) {
     console.error('syncCosmetics error:', error);
     return null;
@@ -204,5 +217,7 @@ export function unlockedColorSwatches(
         hex: presentation.hex,
       };
     })
-    .filter((v): v is { value: string; label: string; hex: string } => v !== null);
+    .filter(
+      (v): v is { value: string; label: string; hex: string } => v !== null,
+    );
 }

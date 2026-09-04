@@ -19,6 +19,7 @@ export interface EditNotice {
 
 export interface MergeEditNoticesInput {
   battleLocked: boolean;
+  activeBattleCount: number;
   pricingVerified: boolean;
   /** The avatar leg failed or never ran for the current fighter render. */
   avatarPending: boolean;
@@ -26,21 +27,26 @@ export interface MergeEditNoticesInput {
   canRetryAvatar: boolean;
   onRetryPricing: () => void;
   onRetryAvatar: () => void;
+  onManageBattles: () => void;
 }
 
 export function mergeEditNotices(i: MergeEditNoticesInput): EditNotice | null {
   if (i.battleLocked && !i.pricingVerified) {
+    const count = Math.max(1, i.activeBattleCount);
     return {
       tone: 'warning',
-      text: "Editing is locked during a battle, and credit prices couldn't be checked.",
-      actionLabel: 'Retry',
-      onAction: i.onRetryPricing,
+      text: `View only — this fighter is in ${count} active ${count === 1 ? 'battle' : 'battles'}. Credit prices also couldn't be checked.`,
+      actionLabel: `Manage ${count} ${count === 1 ? 'battle' : 'battles'}`,
+      onAction: i.onManageBattles,
     };
   }
   if (i.battleLocked) {
+    const count = Math.max(1, i.activeBattleCount);
     return {
       tone: 'warning',
-      text: 'Editing is unavailable while this fighter is in an active battle.',
+      text: `View only — editing is locked while this fighter is in ${count} active ${count === 1 ? 'battle' : 'battles'}.`,
+      actionLabel: `Manage ${count} ${count === 1 ? 'battle' : 'battles'}`,
+      onAction: i.onManageBattles,
     };
   }
   if (!i.pricingVerified) {

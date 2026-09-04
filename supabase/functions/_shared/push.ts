@@ -41,7 +41,8 @@ interface ExpoTicket {
  * when deployed; falls back to a fire-and-forget promise locally/in tests.
  */
 export function runInBackground(task: Promise<unknown>): void {
-  const swallow = (err: unknown) => console.error('push background task error:', err);
+  const swallow = (err: unknown) =>
+    console.error('push background task error:', err);
   // @ts-ignore - EdgeRuntime is only defined in the deployed runtime.
   if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
     // @ts-ignore
@@ -104,7 +105,11 @@ export async function deliverPush(
     });
 
     if (!response.ok) {
-      console.error('Expo push send failed:', response.status, await response.text());
+      console.error(
+        'Expo push send failed:',
+        response.status,
+        await response.text(),
+      );
       return;
     }
 
@@ -146,7 +151,9 @@ export async function deliverPushToMany(
   payload: Omit<PushPayload, 'profileId'>,
 ): Promise<void> {
   const unique = [...new Set(profileIds.filter(Boolean))];
-  await Promise.all(unique.map((id) => deliverPush(supabase, { ...payload, profileId: id })));
+  await Promise.all(
+    unique.map((id) => deliverPush(supabase, { ...payload, profileId: id })),
+  );
 }
 
 interface BattlePlayers {
@@ -169,12 +176,16 @@ async function loadHumanParticipants(
 
   const ids: string[] = [];
   if (battle.player_one_id) ids.push(battle.player_one_id);
-  if (battle.player_two_id && !battle.is_player_two_bot) ids.push(battle.player_two_id);
+  if (battle.player_two_id && !battle.is_player_two_bot)
+    ids.push(battle.player_two_id);
   return ids;
 }
 
 /** result_ready (must-send): both human players. Fire-and-forget. */
-export function notifyBattleResult(supabase: SupabaseClient, battleId: string): void {
+export function notifyBattleResult(
+  supabase: SupabaseClient,
+  battleId: string,
+): void {
   runInBackground(
     (async () => {
       const recipients = await loadHumanParticipants(supabase, battleId);
@@ -196,9 +207,9 @@ export function notifyOpponentSubmitted(
 ): void {
   runInBackground(
     (async () => {
-      const recipients = (await loadHumanParticipants(supabase, battleId)).filter(
-        (id) => id !== submitterProfileId,
-      );
+      const recipients = (
+        await loadHumanParticipants(supabase, battleId)
+      ).filter((id) => id !== submitterProfileId);
       await deliverPushToMany(supabase, recipients, {
         category: 'opponent_submitted',
         title: 'Your move',
@@ -236,7 +247,10 @@ export function notifyRoundStarted(
 }
 
 /** video_ready: cinematic upgrade finished, notify both human players. */
-export function notifyVideoReady(supabase: SupabaseClient, battleId: string): void {
+export function notifyVideoReady(
+  supabase: SupabaseClient,
+  battleId: string,
+): void {
   runInBackground(
     (async () => {
       const recipients = await loadHumanParticipants(supabase, battleId);

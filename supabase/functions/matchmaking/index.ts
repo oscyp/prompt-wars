@@ -87,54 +87,14 @@ async function getRankedBattleCount(
     .or(`player_one_id.eq.${profileId},player_two_id.eq.${profileId}`);
 
   if (error) {
-    console.error('Failed to count ranked battles:', error);
+    logMatchmaking('ranked_count_failed', {
+      profile_id: profileId,
+      error_code: error.code,
+    });
     return 0;
   }
 
   return count ?? 0;
-}
-
-/**
- * Create a bot battle (for mode='bot' or first battle)
- */
-async function createBotBattle(
-  supabase: ReturnType<typeof createServiceClient>,
-  playerId: string,
-  characterId: string,
-  mode: BattleMode,
-): Promise<{ battle_id: string; theme: string }> {
-  // Select random active bot persona
-  const { data: botPersonas, error: botError } = await supabase
-    .from('bot_personas')
-    .select('id')
-    .eq('is_active', true);
-
-  if (botError || !botPersonas || botPersonas.length === 0) {
-    throw new Error('No active bot personas found');
-  }
-
-  const randomBot = botPersonas[Math.floor(Math.random() * botPersonas.length)];
-
-  const theme = pickTheme();
-
-  // Create battle with bot opponent
-  const { data: battleId, error: createError } = await supabase.rpc(
-    'create_bot_battle',
-    {
-      p_player_one_id: playerId,
-      p_character_id: characterId,
-      p_bot_persona_id: randomBot.id,
-      p_mode: mode,
-      p_theme: theme,
-    },
-  );
-
-  if (createError || !battleId) {
-    console.error('Failed to create bot battle:', createError);
-    throw new Error('Failed to create bot battle');
-  }
-
-  return { battle_id: battleId, theme };
 }
 
 /**
@@ -194,6 +154,50 @@ async function convertToBotBattle(
 interface MatchmakingRequest {
   character_id: string;
   mode?: BattleMode;
+  /** Client generated. Optional only while the previous app version ages out. */
+  request_id?: string;
+  /** Waiting screens resume this row instead of opening another search. */
+  resume_battle_id?: string;
+}
+
+interface ReplayBattle {
+  id: string;
+  status: string;
+  mode: BattleMode;
+  theme: string | null;
+  player_one_id: string;
+  player_two_id: string | null;
+  player_one_character_id: string;
+  player_two_character_id: string | null;
+  is_player_two_bot: boolean;
+  created_at?: string;
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function logMatchmaking(
+  event: string,
+  fields: Record<string, string | number | boolean | null | undefined>,
+) {
+  // IDs and machine states only: never prompts, email addresses, display names
+  // or raw provider/backend errors.
+  console.log(JSON.stringify({ event: `matchmaking.${event}`, ...fields }));
+}
+
+function replayPayload(battle: ReplayBattle, replayedRequest = true) {
+  const matched =
+    battle.status !== 'created' &&
+    battle.status !== 'canceled' &&
+    battle.status !== 'expired';
+  return {
+    battle_id: battle.id,
+    matched,
+    theme: battle.theme,
+    is_bot_battle: battle.is_player_two_bot,
+    replayed_request: replayedRequest,
+    message: matched ? undefined : 'Resuming your search...',
+  };
 }
 
 Deno.serve(async (req) => {
@@ -203,12 +207,27 @@ Deno.serve(async (req) => {
 
   try {
     const userId = await getAuthUserId(req);
-    const { character_id, mode = 'ranked' }: MatchmakingRequest =
-      await req.json();
+    const {
+      character_id,
+      mode = 'ranked',
+      request_id,
+      resume_battle_id,
+    }: MatchmakingRequest = await req.json();
 
     if (!character_id) {
       return errorResponse('character_id required');
     }
+
+    if (request_id && !UUID_RE.test(request_id)) {
+      return errorResponse('Invalid request_id');
+    }
+    if (resume_battle_id && !UUID_RE.test(resume_battle_id)) {
+      return errorResponse('Invalid resume_battle_id');
+    }
+
+    // Compatibility: the database/Edge rollout precedes the client. Old
+    // clients get a server request id; current clients always send their own.
+    const requestId = request_id ?? crypto.randomUUID();
 
     const supabase = createServiceClient();
 
@@ -224,6 +243,69 @@ Deno.serve(async (req) => {
       return errorResponse('Invalid character');
     }
 
+    let resumedBattle: ReplayBattle | null = null;
+    if (resume_battle_id) {
+      const { data } = await supabase
+        .from('battles')
+        .select(
+          'id, status, mode, theme, player_one_id, player_two_id, player_one_character_id, player_two_character_id, is_player_two_bot, created_at',
+        )
+        .eq('id', resume_battle_id)
+        .maybeSingle();
+      const candidate = data as ReplayBattle | null;
+      const ownsSlot =
+        candidate &&
+        ((candidate.player_one_id === userId &&
+          candidate.player_one_character_id === character_id) ||
+          (candidate.player_two_id === userId &&
+            candidate.player_two_character_id === character_id));
+      if (!candidate || !ownsSlot || candidate.mode !== mode) {
+        logMatchmaking('resume_rejected', {
+          profile_id: userId,
+          request_id: requestId,
+          battle_id: resume_battle_id,
+        });
+        return errorResponse('Battle cannot be resumed', 409);
+      }
+      resumedBattle = candidate;
+      if (candidate.status !== 'created') {
+        logMatchmaking('resume_terminal_or_matched', {
+          profile_id: userId,
+          request_id: requestId,
+          battle_id: candidate.id,
+          status: candidate.status,
+        });
+        return successResponse(replayPayload(candidate));
+      }
+    } else if (request_id) {
+      // A transport retry before navigation replays immediately. Waiting-screen
+      // retries send resume_battle_id and continue through fallback matching.
+      const { data: mapping } = await supabase
+        .from('matchmaking_requests')
+        .select('battle_id')
+        .eq('profile_id', userId)
+        .eq('request_id', requestId)
+        .maybeSingle();
+      if (mapping?.battle_id) {
+        const { data } = await supabase
+          .from('battles')
+          .select(
+            'id, status, mode, theme, player_one_id, player_two_id, player_one_character_id, player_two_character_id, is_player_two_bot',
+          )
+          .eq('id', mapping.battle_id)
+          .maybeSingle();
+        if (data) {
+          logMatchmaking('request_replayed', {
+            profile_id: userId,
+            request_id: requestId,
+            battle_id: data.id,
+            status: data.status,
+          });
+          return successResponse(replayPayload(data as ReplayBattle));
+        }
+      }
+    }
+
     // Get user profile for matchmaking
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -235,22 +317,34 @@ Deno.serve(async (req) => {
       return errorResponse('Profile not found');
     }
 
-    // §7.8 enforced rate limit: cap battles created/joined per hour and day.
-    const { data: rateCheck, error: rateErr } = await supabase.rpc(
-      'check_rate_limit',
-      { p_profile_id: userId, p_action: 'battle_create' },
-    );
-    if (rateErr) {
-      // Fail CLOSED -- see submit-prompt for the reasoning. An abuse burst is
-      // the case where this query is most likely to fail, so opening under
-      // error removed the cap exactly when it mattered.
-      console.error('check_rate_limit error (failing closed):', rateErr);
-      return errorResponse(
-        'Cannot verify rate limits right now. Please try again.',
-        503,
+    // §7.8 enforced rate limit: cap new battles created/joined per hour and
+    // day. A verified waiting-screen resume is not a new action and must keep
+    // working even if the player reaches a boundary while already queued.
+    if (!resumedBattle) {
+      const { data: rateCheck, error: rateErr } = await supabase.rpc(
+        'check_rate_limit',
+        { p_profile_id: userId, p_action: 'battle_create' },
       );
-    } else if (rateCheck && rateCheck.allowed === false) {
-      return errorResponse('Too many battles created. Try again later.', 429);
+      if (rateErr) {
+        // Fail CLOSED -- see submit-prompt for the reasoning. An abuse burst is
+        // the case where this query is most likely to fail, so opening under
+        // error removed the cap exactly when it mattered.
+        logMatchmaking('rate_limit_check_failed', {
+          profile_id: userId,
+          request_id: requestId,
+          error_code: rateErr.code,
+        });
+        return errorResponse(
+          'Cannot verify rate limits right now. Please try again.',
+          503,
+        );
+      } else if (rateCheck && rateCheck.allowed === false) {
+        logMatchmaking('rate_limited', {
+          profile_id: userId,
+          request_id: requestId,
+        });
+        return errorResponse('Too many battles created. Try again later.', 429);
+      }
     }
 
     // Newbie check is based on ranked battles, not total battles. Total battles
@@ -262,20 +356,49 @@ Deno.serve(async (req) => {
     // Explicit bot mode starts immediately. Ranked/unranked only fall back to
     // bots after queue timeout and after checking for human candidates.
     if (mode === 'bot') {
-      // Create bot battle immediately
-      const botBattle = await createBotBattle(
-        supabase,
-        userId,
-        character_id,
-        mode,
+      const { data: botPersonas, error: botError } = await supabase
+        .from('bot_personas')
+        .select('id')
+        .eq('is_active', true);
+      if (botError || !botPersonas?.length) {
+        return errorResponse('No active bot personas found', 503);
+      }
+      const randomBot =
+        botPersonas[Math.floor(Math.random() * botPersonas.length)];
+      const { data: createdRows, error: createError } = await supabase.rpc(
+        'create_matchmaking_battle',
+        {
+          p_player_one_id: userId,
+          p_character_id: character_id,
+          p_mode: mode,
+          p_request_id: requestId,
+          p_bot_persona_id: randomBot.id,
+          p_theme: pickTheme(),
+        },
       );
+      const created = Array.isArray(createdRows) ? createdRows[0] : createdRows;
+      if (createError || !created?.battle_id) {
+        logMatchmaking('bot_create_failed', {
+          profile_id: userId,
+          request_id: requestId,
+          error_code: createError?.code,
+        });
+        return errorResponse('Failed to create bot battle', 500);
+      }
       // Bo3 face-off writer (no-op for single-format bot battles).
-      await startFaceOff(supabase, botBattle.battle_id);
+      await startFaceOff(supabase, created.battle_id);
+      logMatchmaking('bot_ready', {
+        profile_id: userId,
+        request_id: requestId,
+        battle_id: created.battle_id,
+        replayed_request: Boolean(created.replayed_request),
+      });
       return successResponse({
-        battle_id: botBattle.battle_id,
+        battle_id: created.battle_id,
         matched: true,
-        theme: botBattle.theme,
+        theme: created.theme,
         is_bot_battle: true,
+        replayed_request: Boolean(created.replayed_request),
       });
     }
 
@@ -287,15 +410,25 @@ Deno.serve(async (req) => {
     // Do not convert it to a bot yet; first try to claim an eligible human
     // opponent. The previous order caused two waiting users to each convert
     // their own queued battle to a bot at the 60s retry mark.
-    const { data: existingBattle } = await supabase
-      .from('battles')
-      .select('id, created_at, mode, player_one_character_id')
-      .eq('player_one_id', userId)
-      .eq('status', 'created')
-      .eq('mode', mode)
-      .eq('player_one_character_id', character_id)
-      .gte('created_at', queueCutoffIso)
-      .maybeSingle();
+    const { data: queriedExistingBattle } = resumedBattle
+      ? { data: null }
+      : await supabase
+          .from('battles')
+          .select('id, created_at, mode, player_one_character_id')
+          .eq('player_one_id', userId)
+          .eq('status', 'created')
+          .eq('mode', mode)
+          .eq('player_one_character_id', character_id)
+          .gte('created_at', queueCutoffIso)
+          .maybeSingle();
+    const existingBattle = resumedBattle
+      ? {
+          id: resumedBattle.id,
+          created_at: resumedBattle.created_at ?? new Date().toISOString(),
+          mode: resumedBattle.mode,
+          player_one_character_id: resumedBattle.player_one_character_id,
+        }
+      : queriedExistingBattle;
 
     const findWaitingBattle = async (
       createdBefore?: string,
@@ -436,49 +569,81 @@ Deno.serve(async (req) => {
     if (matchedBattle) {
       const theme = pickTheme();
 
-      // Call match_battle function
+      // Claim + request mapping commit together, so a timeout after this RPC
+      // replays the matched battle instead of opening another queue row.
       const { data: didMatch, error: matchError } = await supabase.rpc(
-        'match_battle',
+        'match_battle_request',
         {
           p_battle_id: matchedBattle.id,
           p_player_two_id: userId,
           p_player_two_character_id: character_id,
           p_theme: theme,
+          p_request_id: requestId,
+          p_previous_battle_id: existingBattle?.id ?? null,
         },
       );
 
       if (matchError) {
-        console.error('Match error:', matchError);
+        logMatchmaking('human_match_failed', {
+          profile_id: userId,
+          request_id: requestId,
+          battle_id: matchedBattle.id,
+          error_code: matchError.code,
+        });
         return errorResponse('Failed to match battle');
       }
 
       if (didMatch === true) {
-        if (existingBattle) {
-          await supabase
-            .from('battles')
-            .update({ status: 'canceled' })
-            .eq('id', existingBattle.id)
-            .eq('status', 'created');
-        }
-
         // Bo3 face-off writer (no-op for single-format).
         await startFaceOff(supabase, matchedBattle.id);
+
+        logMatchmaking('human_matched', {
+          profile_id: userId,
+          request_id: requestId,
+          battle_id: matchedBattle.id,
+          canceled_queue_id: existingBattle?.id,
+        });
 
         return successResponse({
           battle_id: matchedBattle.id,
           matched: true,
           theme,
           is_bot_battle: false,
+          replayed_request: false,
         });
       }
 
-      console.warn(
-        'Candidate battle was no longer claimable:',
-        matchedBattle.id,
-      );
+      logMatchmaking('candidate_raced', {
+        profile_id: userId,
+        request_id: requestId,
+        battle_id: matchedBattle.id,
+      });
     }
 
     if (existingBattle) {
+      // Attach this request to the existing row before any fallback work. The
+      // atomic creator reuses the natural queue key and records the replay map.
+      const { error: mapError } = await supabase.rpc(
+        'create_matchmaking_battle',
+        {
+          p_player_one_id: userId,
+          p_character_id: character_id,
+          p_mode: mode,
+          p_request_id: requestId,
+          p_bot_persona_id: null,
+          p_theme: null,
+        },
+      );
+      if (mapError) {
+        logMatchmaking('queue_map_failed', {
+          profile_id: userId,
+          request_id: requestId,
+          battle_id: existingBattle.id,
+          error_code: mapError.code,
+        });
+        return errorResponse('Failed to resume battle', 500);
+      }
+
       const battleAge =
         Date.now() - new Date(existingBattle.created_at).getTime();
       const ageSeconds = battleAge / 1000;
@@ -497,6 +662,7 @@ Deno.serve(async (req) => {
             matched: false,
             theme: null,
             message: 'Opponent found. Waiting for their device to connect...',
+            replayed_request: true,
           });
         }
 
@@ -508,6 +674,7 @@ Deno.serve(async (req) => {
           theme: botBattle.theme,
           is_bot_battle: true,
           converted_from_queue: true,
+          replayed_request: true,
         });
       }
 
@@ -516,41 +683,54 @@ Deno.serve(async (req) => {
         matched: false,
         theme: null,
         message: `Searching for opponent... (${Math.max(1, Math.floor(BOT_FALLBACK_MS / 1000 - ageSeconds))}s remaining)`,
+        replayed_request: true,
       });
     }
 
-    // Create battle
-    const { data: battleId, error: createError } = await supabase.rpc(
-      'create_battle',
+    // Create or resume the one open queue row atomically.
+    const { data: createdRows, error: createError } = await supabase.rpc(
+      'create_matchmaking_battle',
       {
         p_player_one_id: userId,
         p_character_id: character_id,
         p_mode: mode,
-        p_friend_challenge_id: null,
+        p_request_id: requestId,
+        p_bot_persona_id: null,
+        p_theme: null,
       },
     );
+    const created = Array.isArray(createdRows) ? createdRows[0] : createdRows;
 
-    if (createError) {
-      console.error('Create battle error:', createError);
+    if (createError || !created?.battle_id) {
+      logMatchmaking('queue_create_failed', {
+        profile_id: userId,
+        request_id: requestId,
+        error_code: createError?.code,
+      });
       return errorResponse('Failed to create battle');
     }
 
+    logMatchmaking('queue_ready', {
+      profile_id: userId,
+      request_id: requestId,
+      battle_id: created.battle_id,
+      replayed_request: Boolean(created.replayed_request),
+    });
+
     return successResponse({
-      battle_id: battleId,
+      battle_id: created.battle_id,
       matched: false,
       theme: null, // Theme revealed on match
       message: 'Searching for opponent...',
+      replayed_request: Boolean(created.replayed_request),
     });
   } catch (error) {
-    console.error('Matchmaking error:', error);
-
     if (error instanceof Error && error.message === 'Unauthorized') {
       return errorResponse('Unauthorized', 401);
     }
-
-    return errorResponse(
-      error instanceof Error ? error.message : 'Internal error',
-      500,
-    );
+    const safeCode =
+      error instanceof SyntaxError ? 'invalid_json' : 'unhandled_exception';
+    logMatchmaking('failed', { error_code: safeCode });
+    return errorResponse('Matchmaking is temporarily unavailable', 500);
   }
 });

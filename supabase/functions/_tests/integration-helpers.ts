@@ -7,7 +7,10 @@
 // clean everything up by deleting the auth user (cascades to profile,
 // characters, battles, prompts, etc. via ON DELETE CASCADE).
 
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import {
+  createClient,
+  type SupabaseClient,
+} from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 // Loosely-typed client: integration tests touch many tables and the generated
 // schema types resolve table rows to `never` under Deno type-checking.
@@ -31,12 +34,13 @@ export async function createTestPlayer(
 ): Promise<TestPlayer> {
   const email = `it_${crypto.randomUUID()}@example.test`;
 
-  const { data: userData, error: userError } = await supabase.auth.admin.createUser({
-    email,
-    password: `Pw-${crypto.randomUUID()}`,
-    email_confirm: true,
-    user_metadata: { display_name: opts.displayName, age_confirmed: true },
-  });
+  const { data: userData, error: userError } =
+    await supabase.auth.admin.createUser({
+      email,
+      password: `Pw-${crypto.randomUUID()}`,
+      email_confirm: true,
+      user_metadata: { display_name: opts.displayName, age_confirmed: true },
+    });
 
   if (userError || !userData?.user) {
     throw userError ?? new Error('Failed to create test auth user');

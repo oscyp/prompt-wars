@@ -29,16 +29,20 @@ export interface ReportContentResult {
  * Calls report-intake Edge Function
  */
 export async function reportContent(
-  params: ReportContentParams
+  params: ReportContentParams,
 ): Promise<ReportContentResult> {
-  const { data, error } = await invokeFunctionResult<{ report_id: string; blocked: boolean; message: string }>('report-intake', {
-      reported_type: params.reportedType,
-      reported_id: params.reportedId,
-      reported_profile_id: params.reportedProfileId,
-      reason: params.reason,
-      description: params.description,
-      apply_block: params.applyBlock,
-    });
+  const { data, error } = await invokeFunctionResult<{
+    report_id: string;
+    blocked: boolean;
+    message: string;
+  }>('report-intake', {
+    reported_type: params.reportedType,
+    reported_id: params.reportedId,
+    reported_profile_id: params.reportedProfileId,
+    reason: params.reason,
+    description: params.description,
+    apply_block: params.applyBlock,
+  });
 
   if (error || !data) {
     // The wrapper returns data: null on failure; reading fields off it would
@@ -58,7 +62,9 @@ export async function reportContent(
  * Calls block-profile Edge Function
  */
 export async function blockUser(blockedProfileId: string): Promise<void> {
-  const { error } = await invokeFunctionResult('block-profile', { blocked_profile_id: blockedProfileId });
+  const { error } = await invokeFunctionResult('block-profile', {
+    blocked_profile_id: blockedProfileId,
+  });
 
   if (error) {
     throw new Error(error.message || 'Failed to block user');
@@ -70,7 +76,9 @@ export async function blockUser(blockedProfileId: string): Promise<void> {
  * Calls unblock-profile Edge Function
  */
 export async function unblockUser(blockedProfileId: string): Promise<void> {
-  const { error } = await invokeFunctionResult('unblock-profile', { blocked_profile_id: blockedProfileId });
+  const { error } = await invokeFunctionResult('unblock-profile', {
+    blocked_profile_id: blockedProfileId,
+  });
 
   if (error) {
     throw new Error(error.message || 'Failed to unblock user');
@@ -162,22 +170,24 @@ export interface AccountGuardResult {
 /**
  * Check account eligibility for FTUO or onboarding credits
  * Calls account-farm-guard Edge Function (server-owned)
- * 
+ *
  * DO NOT call this for every action - only for:
  * - Signup completion (action: 'signup')
  * - FTUO display (action: 'ftuo')
  * - Onboarding credit grant (action: 'onboarding_credits')
  */
 export async function checkAccountEligibility(
-  params: AccountGuardParams
+  params: AccountGuardParams,
 ): Promise<AccountGuardResult> {
-  const { data, error } = await invokeFunctionResult<AccountGuardResult & Record<string, never>>('account-farm-guard', {
-      action: params.action,
-      device_fingerprint: params.deviceFingerprint,
-      ip_address: params.ipAddress,
-      platform: params.platform,
-      device_attestation_token: params.deviceAttestationToken,
-    });
+  const { data, error } = await invokeFunctionResult<
+    AccountGuardResult & Record<string, never>
+  >('account-farm-guard', {
+    action: params.action,
+    device_fingerprint: params.deviceFingerprint,
+    ip_address: params.ipAddress,
+    platform: params.platform,
+    device_attestation_token: params.deviceAttestationToken,
+  });
 
   if (error || !data) {
     throw new Error(error?.message || 'Failed to check account eligibility');
@@ -228,8 +238,9 @@ export function getDeviceFingerprint(): string {
   const platform = Platform.OS;
   const platformVersion = Platform.Version;
   const deviceName = Constants.deviceName || 'unknown';
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
-  
+  const timezone =
+    Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
+
   // Get native build info if available
   const nativeBuildVersion = Application.nativeBuildVersion || 'unknown';
   const nativeAppVersion = Application.nativeApplicationVersion || 'unknown';

@@ -31,11 +31,7 @@ import {
   useCharacterEditDraft,
   type DraftKey,
 } from '@/hooks/useCharacterEditDraft';
-import {
-  describeEditError,
-  editErrorAction,
-  EditError,
-} from '@/utils/editErrors';
+import { describeEditError, EditError } from '@/utils/editErrors';
 import { fetchEditPricing, type EditPricing } from '@/utils/editCooldowns';
 import { formatCredits } from '@/utils/credits';
 import {
@@ -68,7 +64,6 @@ import {
   awaitAvatarJob,
   loadPortraitRef,
   listSignatureItemsCatalog,
-  createCustomSignatureItem,
   listPortraitHistory,
   restorePortrait,
   getPortraitFallbackUri,
@@ -82,7 +77,6 @@ import {
   ART_STYLE_LABELS,
   type PaletteKey,
   type ArtStyle,
-  type ItemClass,
   type Vibe,
   type Silhouette,
   type Era,
@@ -111,7 +105,6 @@ import {
   LookPanel,
   GearPanel,
   SaveBar,
-  CustomItemSheet,
 } from '@/components';
 import RenderRevealSheet, {
   type RevealAvatar,
@@ -212,7 +205,7 @@ export default function EditCharacterScreen() {
   const [avatarVersion, setAvatarVersion] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState<
-    'save' | 'render' | 'createItem' | 'restore' | 'retryAvatar' | null
+    'save' | 'render' | 'restore' | 'retryAvatar' | null
   >(null);
   const [toast, setToast] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<Category>('identity');
@@ -227,7 +220,6 @@ export default function EditCharacterScreen() {
   const [items, setItems] = useState<CatalogSignatureItem[]>([]);
   const [itemsLoading, setItemsLoading] = useState(true);
   const [itemsError, setItemsError] = useState<string | null>(null);
-  const [customOpen, setCustomOpen] = useState(false);
   const [archetypeOpen, setArchetypeOpen] = useState(false);
   // Signature colours the player has bought. Owning one unlocks the swatch; it
   // never applies itself (see IdentityPanel).
@@ -249,9 +241,12 @@ export default function EditCharacterScreen() {
     },
   });
 
-  const { locked: battleLocked, refresh: refreshLock } = useCharacterEditLock(
-    character?.id,
-  );
+  const {
+    locked: battleLocked,
+    activeBattleCount,
+    primaryBattleRoute,
+    refresh: refreshLock,
+  } = useCharacterEditLock(character?.id);
 
   const itemName = useCallback(
     (id: string) => items.find((i) => i.id === id)?.name ?? 'that item',
@@ -421,7 +416,6 @@ export default function EditCharacterScreen() {
 
   const renderCost = pricing.prices.render_look?.credits ?? 0;
   const randomCost = pricing.prices.random_character?.credits ?? 0;
-  const customCost = pricing.prices.custom_item_image?.credits ?? 0;
   const editingDisabled = battleLocked;
   const balance = creditsLoading ? null : credits;
   const canRetryAvatar = Boolean(pricing.prices.avatar_retry);
@@ -821,52 +815,6 @@ export default function EditCharacterScreen() {
     }
   }, [sheet, draft.changes, renderCost, randomCost, balance]);
 
-  const submitCustomItem = useCallback(
-    async (input: {
-      name: string;
-      description: string;
-      itemClass: ItemClass;
-    }) => {
-      setBusyKey('createItem');
-      try {
-        hapticImpact(ImpactFeedbackStyle.Heavy);
-        const item = await createCustomSignatureItem({
-          ...input,
-          generateIcon: true,
-        });
-        setCustomOpen(false);
-        await loadItems();
-        // Staged like any other choice; the save bar commits it.
-        draft.stage('signatureItemId', item.id);
-        await refreshCredits();
-        showToast(
-          `Item created · ${formatCredits(customCost, 'sentence')} spent`,
-        );
-      } catch (err) {
-        console.error('Failed to create custom signature item', { input, err });
-        hapticError();
-        const action = editErrorAction(err);
-        if (action) {
-          setCustomOpen(false);
-          setSheet({
-            kind: 'topUp',
-            price:
-              err instanceof EditError ? (err.price ?? customCost) : customCost,
-          });
-        } else {
-          const { title, message } = describeEditError(
-            err,
-            'Could not create item',
-          );
-          Alert.alert(title, message);
-        }
-      } finally {
-        setBusyKey(null);
-      }
-    },
-    [customCost, loadItems, draft, refreshCredits, showToast],
-  );
-
   const runRestore = useCallback(
     async (portraitId: string, fallbackAvatarId?: string | null) => {
       if (!character) return;
@@ -998,17 +946,22 @@ export default function EditCharacterScreen() {
 
   const notice = mergeEditNotices({
     battleLocked,
+    activeBattleCount,
     pricingVerified,
     avatarPending,
     canRetryAvatar,
     onRetryPricing: () => void loadPricing(character.id),
     onRetryAvatar: () => void runRetryAvatar(),
+    onManageBattles: () => router.push(primaryBattleRoute ?? '/(tabs)/battles'),
   });
   const statusLabel = compactStatusLabel({
     battleLocked,
     pricingVerified,
     avatarPending,
   });
+  const compactStatus = battleLocked
+    ? `View only · Manage ${Math.max(1, activeBattleCount)} ${activeBattleCount === 1 ? 'battle' : 'battles'}`
+    : statusLabel;
 
   const fighterHeight = computeFighterHeight({
     windowHeight: windowHeightRef.current,
@@ -1080,16 +1033,17 @@ export default function EditCharacterScreen() {
         equippedId={stagedItemId}
         loading={itemsLoading}
         error={itemsError}
-        customCost={customCost}
-        pricingVerified={pricingVerified}
-        busy={busyKey === 'createItem'}
         disabled={editingDisabled}
+        disabledReason={`View only while this fighter is in ${Math.max(1, activeBattleCount)} active ${activeBattleCount === 1 ? 'battle' : 'battles'}.`}
+        disabledActionLabel={`Manage ${Math.max(1, activeBattleCount)} ${activeBattleCount === 1 ? 'battle' : 'battles'}`}
+        onDisabledAction={() =>
+          router.push(primaryBattleRoute ?? '/(tabs)/battles')
+        }
         onRetry={() => {
           setItemsError(null);
           void loadItems();
         }}
         onEquip={(id) => draft.stage('signatureItemId', id)}
-        onCreateCustom={() => setCustomOpen(true)}
       />
     );
 
@@ -1179,13 +1133,15 @@ export default function EditCharacterScreen() {
             renderButton={renderButton}
             randomButton={randomButton}
             rendering={rendering}
-            statusLabel={statusLabel}
+            statusLabel={compactStatus}
             onStatusPress={
-              !pricingVerified
-                ? () => void loadPricing(character.id)
-                : avatarPending && canRetryAvatar
-                  ? () => void runRetryAvatar()
-                  : undefined
+              battleLocked
+                ? () => router.push(primaryBattleRoute ?? '/(tabs)/battles')
+                : !pricingVerified
+                  ? () => void loadPricing(character.id)
+                  : avatarPending && canRetryAvatar
+                    ? () => void runRetryAvatar()
+                    : undefined
             }
             onRender={onRenderPress}
             onRandom={onRandomPress}
@@ -1270,20 +1226,6 @@ export default function EditCharacterScreen() {
         disabled={editingDisabled}
         onStage={(id) => draft.stage('archetype', id)}
         onClose={() => setArchetypeOpen(false)}
-      />
-
-      <CustomItemSheet
-        visible={customOpen}
-        cost={customCost}
-        balance={balance}
-        pricingVerified={pricingVerified}
-        busy={busyKey === 'createItem'}
-        onClose={() => setCustomOpen(false)}
-        onSubmit={(input) => void submitCustomItem(input)}
-        onTopUp={() => {
-          setCustomOpen(false);
-          goToWallet();
-        }}
       />
 
       {toast && <Toast text={toast} />}

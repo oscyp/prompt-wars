@@ -16,9 +16,9 @@
 // idempotency guard is `WHERE id = ... AND status = 'resolving'` and it returns
 // FALSE against anything else, so the caller must have claimed it first.
 
-import { computeRatingDeltas } from "./glicko2.ts";
-import { composeRevealPayload } from "./compose-reveal-payload.ts";
-import { notifyBattleResult } from "./push.ts";
+import { computeRatingDeltas } from './glicko2.ts';
+import { composeRevealPayload } from './compose-reveal-payload.ts';
+import { notifyBattleResult } from './push.ts';
 
 // deno-lint-ignore no-explicit-any
 type ServiceClient = any;
@@ -76,7 +76,7 @@ export async function resolveForfeitBattle(
 ): Promise<boolean> {
   let ratingDeltaPayload: Record<string, unknown> | null = null;
 
-  if (args.mode === "ranked" && !args.isBot && !args.ratingGated) {
+  if (args.mode === 'ranked' && !args.isBot && !args.ratingGated) {
     const deltas = computeRatingDeltas(
       Number(args.winnerRating),
       Number(args.winnerRatingDeviation),
@@ -94,15 +94,15 @@ export async function resolveForfeitBattle(
   }
 
   const { data: resolved, error: resolveErr } = await supabase.rpc(
-    "resolve_battle",
+    'resolve_battle',
     {
       p_battle_id: args.battleId,
       p_winner_id: args.winnerId,
       p_is_draw: false,
       p_score_payload: args.scorePayload,
       p_rating_delta_payload: ratingDeltaPayload,
-      p_judge_prompt_version: "forfeit-v1",
-      p_judge_model_id: "forfeit",
+      p_judge_prompt_version: 'forfeit-v1',
+      p_judge_model_id: 'forfeit',
       p_judge_seed: 0,
     },
   );
@@ -121,12 +121,12 @@ export async function resolveForfeitBattle(
     // Guarded on result_ready exactly as battle-advance does, so a concurrent
     // promotion cannot be clobbered.
     const { error: promoteErr } = await supabase
-      .from("battles")
-      .update({ status: "completed", updated_at: new Date().toISOString() })
-      .eq("id", args.battleId)
-      .eq("status", "result_ready");
+      .from('battles')
+      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .eq('id', args.battleId)
+      .eq('status', 'result_ready');
     if (promoteErr) {
-      console.error("Forfeit promotion to completed failed:", promoteErr);
+      console.error('Forfeit promotion to completed failed:', promoteErr);
     }
   }
 
@@ -134,17 +134,17 @@ export async function resolveForfeitBattle(
   // same non-blocking contract as resolve-battle / battle-advance.
   try {
     const { error: rewardsError } = await supabase.rpc(
-      "apply_post_battle_rewards",
+      'apply_post_battle_rewards',
       { p_battle_id: args.battleId },
     );
     if (rewardsError) {
       console.error(
-        "apply_post_battle_rewards error (non-blocking):",
+        'apply_post_battle_rewards error (non-blocking):',
         rewardsError,
       );
     }
   } catch (rewardsErr) {
-    console.error("Post-battle rewards failed (non-blocking):", rewardsErr);
+    console.error('Post-battle rewards failed (non-blocking):', rewardsErr);
   }
 
   notifyBattleResult(supabase, args.battleId);
@@ -154,15 +154,18 @@ export async function resolveForfeitBattle(
       battleId: args.battleId,
     });
     const { error: revealError } = await supabase
-      .from("battles")
+      .from('battles')
       .update({ tier0_reveal_payload: revealPayload })
-      .eq("id", args.battleId);
+      .eq('id', args.battleId);
     if (revealError) {
-      console.error("Failed to store Tier 0 reveal (non-blocking):", revealError);
+      console.error(
+        'Failed to store Tier 0 reveal (non-blocking):',
+        revealError,
+      );
     }
   } catch (tier0Error) {
     console.error(
-      "Tier 0 reveal composition failed (non-blocking):",
+      'Tier 0 reveal composition failed (non-blocking):',
       tier0Error,
     );
   }

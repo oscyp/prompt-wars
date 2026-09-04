@@ -2,15 +2,15 @@
 import {
   createClient,
   SupabaseClient,
-} from "https://esm.sh/@supabase/supabase-js@2.39.3";
+} from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 /**
  * CORS headers for client requests
  */
 export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
 };
 
 function readKeyDictionaryValues(
@@ -23,7 +23,7 @@ function readKeyDictionaryValues(
     return [];
   }
 
-  if (!trimmedValue.startsWith("{")) {
+  if (!trimmedValue.startsWith('{')) {
     return [trimmedValue];
   }
 
@@ -33,20 +33,20 @@ function readKeyDictionaryValues(
 
     for (const key of preferredKeys) {
       const value = parsed[key];
-      if (typeof value === "string" && value.trim()) {
+      if (typeof value === 'string' && value.trim()) {
         values.push(value.trim());
       }
     }
 
     for (const value of Object.values(parsed)) {
-      if (typeof value === "string" && value.trim()) {
+      if (typeof value === 'string' && value.trim()) {
         values.push(value.trim());
       }
     }
 
     return [...new Set(values)];
   } catch (error) {
-    console.error("Invalid Supabase key dictionary JSON:", error);
+    console.error('Invalid Supabase key dictionary JSON:', error);
     return [];
   }
 }
@@ -55,27 +55,27 @@ function readKeyDictionaryValue(
   rawValue: string | undefined,
   preferredKeys: string[],
 ): string {
-  return readKeyDictionaryValues(rawValue, preferredKeys)[0] ?? "";
+  return readKeyDictionaryValues(rawValue, preferredKeys)[0] ?? '';
 }
 
 export function getSupabasePublishableKey(): string {
   return (
-    readKeyDictionaryValue(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS"), [
-      "default",
-      "publishable",
-      "anon",
-      "public",
+    readKeyDictionaryValue(Deno.env.get('SUPABASE_PUBLISHABLE_KEYS'), [
+      'default',
+      'publishable',
+      'anon',
+      'public',
     ]) ||
-    (Deno.env.get("SUPABASE_ANON_KEY") ?? "")
+    (Deno.env.get('SUPABASE_ANON_KEY') ?? '')
   );
 }
 
 export function getSupabasePublishableKeys(): string[] {
   const publishableKeys = readKeyDictionaryValues(
-    Deno.env.get("SUPABASE_PUBLISHABLE_KEYS"),
-    ["default", "publishable", "anon", "public"],
+    Deno.env.get('SUPABASE_PUBLISHABLE_KEYS'),
+    ['default', 'publishable', 'anon', 'public'],
   );
-  const legacyAnonKey = Deno.env.get("SUPABASE_ANON_KEY")?.trim();
+  const legacyAnonKey = Deno.env.get('SUPABASE_ANON_KEY')?.trim();
 
   return legacyAnonKey
     ? [...new Set([...publishableKeys, legacyAnonKey])]
@@ -84,22 +84,22 @@ export function getSupabasePublishableKeys(): string[] {
 
 export function getSupabaseSecretKey(): string {
   return (
-    readKeyDictionaryValue(Deno.env.get("SUPABASE_SECRET_KEYS"), [
-      "default",
-      "secret",
-      "service_role",
-      "service",
+    readKeyDictionaryValue(Deno.env.get('SUPABASE_SECRET_KEYS'), [
+      'default',
+      'secret',
+      'service_role',
+      'service',
     ]) ||
-    (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "")
+    (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
   );
 }
 
 export function getSupabaseSecretKeys(): string[] {
   const secretKeys = readKeyDictionaryValues(
-    Deno.env.get("SUPABASE_SECRET_KEYS"),
-    ["default", "secret", "service_role", "service"],
+    Deno.env.get('SUPABASE_SECRET_KEYS'),
+    ['default', 'secret', 'service_role', 'service'],
   );
-  const legacyKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim();
+  const legacyKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.trim();
 
   return legacyKey ? [...new Set([...secretKeys, legacyKey])] : secretKeys;
 }
@@ -109,12 +109,12 @@ export function hasSupabaseSecretAuthorization(
   apiKeyHeader?: string | null,
 ): boolean {
   const secretKeys = getSupabaseSecretKeys();
-  const bearerToken = authHeader?.replace(/^Bearer\s+/i, "").trim();
+  const bearerToken = authHeader?.replace(/^Bearer\s+/i, '').trim();
   const apiKey = apiKeyHeader?.trim();
 
   return Boolean(
     (bearerToken && secretKeys.includes(bearerToken)) ||
-      (apiKey && secretKeys.includes(apiKey)),
+    (apiKey && secretKeys.includes(apiKey)),
   );
 }
 
@@ -135,9 +135,9 @@ function describeBearerToken(
     present: true,
     bearer: true,
     length: bearerToken.length,
-    looksLikeJwt: bearerToken.split(".").length === 3,
-    looksLikePublishableKey: bearerToken.startsWith("sb_publishable_"),
-    looksLikeSecretKey: bearerToken.startsWith("sb_secret_"),
+    looksLikeJwt: bearerToken.split('.').length === 3,
+    looksLikePublishableKey: bearerToken.startsWith('sb_publishable_'),
+    looksLikeSecretKey: bearerToken.startsWith('sb_secret_'),
   };
 }
 
@@ -146,14 +146,14 @@ function logAuthDiagnostics(
   errorMessage?: string,
 ): void {
   const publishableKeys = readKeyDictionaryValues(
-    Deno.env.get("SUPABASE_PUBLISHABLE_KEYS"),
-    ["default", "publishable", "anon", "public"],
+    Deno.env.get('SUPABASE_PUBLISHABLE_KEYS'),
+    ['default', 'publishable', 'anon', 'public'],
   );
-  const legacyAnonKey = Deno.env.get("SUPABASE_ANON_KEY")?.trim();
+  const legacyAnonKey = Deno.env.get('SUPABASE_ANON_KEY')?.trim();
 
-  console.error("Auth diagnostics", {
+  console.error('Auth diagnostics', {
     error: errorMessage,
-    hasSupabaseUrl: Boolean(Deno.env.get("SUPABASE_URL")),
+    hasSupabaseUrl: Boolean(Deno.env.get('SUPABASE_URL')),
     publishableKeyCount: publishableKeys.length,
     hasLegacyAnonKey: Boolean(legacyAnonKey),
     selectedPublishableKeyLength: getSupabasePublishableKey().length,
@@ -165,11 +165,11 @@ function logAuthDiagnostics(
  * Create Supabase client with service role (server-owned operations)
  */
 export function createServiceClient(): SupabaseClient {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
   const supabaseServiceKey = getSupabaseSecretKey();
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error("Missing Supabase environment variables");
+    throw new Error('Missing Supabase environment variables');
   }
 
   return createClient(supabaseUrl, supabaseServiceKey, {
@@ -187,7 +187,7 @@ export function createUserClient(
   authHeader: string | null,
   requestApiKey?: string | null,
 ): SupabaseClient {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
   const allowedKeys = getSupabasePublishableKeys();
   const requestedKey = requestApiKey?.trim();
   const supabasePublishableKey =
@@ -196,13 +196,13 @@ export function createUserClient(
       : getSupabasePublishableKey();
 
   if (!supabaseUrl || !supabasePublishableKey) {
-    throw new Error("Missing Supabase environment variables");
+    throw new Error('Missing Supabase environment variables');
   }
 
   return createClient(supabaseUrl, supabasePublishableKey, {
     global: {
       headers: {
-        Authorization: authHeader ?? "",
+        Authorization: authHeader ?? '',
       },
     },
     auth: {
@@ -221,13 +221,13 @@ function getBearerToken(authHeader: string | null): string | null {
  * Get authenticated user ID from request
  */
 export async function getAuthUserId(req: Request): Promise<string> {
-  const authHeader = req.headers.get("Authorization");
+  const authHeader = req.headers.get('Authorization');
   const bearerToken = getBearerToken(authHeader);
-  const client = createUserClient(authHeader, req.headers.get("apikey"));
+  const client = createUserClient(authHeader, req.headers.get('apikey'));
 
   if (!bearerToken) {
-    logAuthDiagnostics(authHeader, "Missing bearer token");
-    throw new Error("Unauthorized");
+    logAuthDiagnostics(authHeader, 'Missing bearer token');
+    throw new Error('Unauthorized');
   }
 
   const {
@@ -237,7 +237,7 @@ export async function getAuthUserId(req: Request): Promise<string> {
 
   if (error || !user) {
     logAuthDiagnostics(authHeader, error?.message);
-    throw new Error("Unauthorized");
+    throw new Error('Unauthorized');
   }
 
   return user.id;
@@ -261,7 +261,7 @@ export function errorResponse(
 ): Response {
   return new Response(JSON.stringify({ error: message, ...extra }), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
 
@@ -271,7 +271,7 @@ export function errorResponse(
 export function successResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
 
@@ -279,5 +279,5 @@ export function successResponse(data: unknown, status = 200): Response {
  * Generate idempotency key for transactions
  */
 export function generateIdempotencyKey(parts: string[]): string {
-  return parts.join("_");
+  return parts.join('_');
 }

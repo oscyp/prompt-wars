@@ -246,7 +246,10 @@ export async function invokeFunctionResult<T>(
   body: Record<string, unknown> = {},
 ): Promise<{ data: T | null; error: { message: string } | null }> {
   try {
-    return { data: await invokeAuthenticatedFunction<T>(functionName, body), error: null };
+    return {
+      data: await invokeAuthenticatedFunction<T>(functionName, body),
+      error: null,
+    };
   } catch (err) {
     return {
       data: null,

@@ -6,20 +6,20 @@
 // charge reaches anything the judge can see — are pure functions over data.
 
 export const LEAVABLE_STATUSES = [
-  "created",
-  "matched",
-  "waiting_for_prompts",
+  'created',
+  'matched',
+  'waiting_for_prompts',
 ] as const;
 
 export const TERMINAL_BATTLE_STATUSES = [
-  "completed",
-  "expired",
-  "canceled",
-  "moderation_failed",
-  "generation_failed",
+  'completed',
+  'expired',
+  'canceled',
+  'moderation_failed',
+  'generation_failed',
 ] as const;
 
-export type LeaveOutcome = "cancel" | "forfeit";
+export type LeaveOutcome = 'cancel' | 'forfeit';
 
 export interface LeaveContext {
   mode: string;
@@ -35,10 +35,10 @@ export interface LeaveContext {
  * ever matched into — is simply canceled, with no winner and no stats.
  */
 export function leaveOutcomeFor(ctx: LeaveContext): LeaveOutcome {
-  if (ctx.mode !== "ranked") return "cancel";
-  if (ctx.isPlayerTwoBot) return "cancel";
-  if (!ctx.playerTwoId) return "cancel";
-  return "forfeit";
+  if (ctx.mode !== 'ranked') return 'cancel';
+  if (ctx.isPlayerTwoBot) return 'cancel';
+  if (!ctx.playerTwoId) return 'cancel';
+  return 'forfeit';
 }
 
 export interface LeaveScorePayloadArgs {
@@ -72,14 +72,14 @@ export function buildLeaveScorePayload(
   args: LeaveScorePayloadArgs,
 ): Record<string, unknown> {
   const payload: Record<string, unknown> = {
-    resolution: "forfeit",
-    reason: "player_left",
+    resolution: 'forfeit',
+    reason: 'player_left',
     forfeited_profile_id: args.leaverId,
-    explanation: "Win by forfeit — your opponent left the battle.",
+    explanation: 'Win by forfeit — your opponent left the battle.',
   };
 
-  if (args.format === "bo3") {
-    payload.format = "bo3";
+  if (args.format === 'bo3') {
+    payload.format = 'bo3';
     payload.rounds_won = {
       player_one: args.playerOneRoundsWon ?? 0,
       player_two: args.playerTwoRoundsWon ?? 0,

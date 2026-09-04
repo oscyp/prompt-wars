@@ -24,7 +24,7 @@ import {
   SEARCHING_MESSAGE,
   type MatchmakingErrorCopy,
 } from '@/utils/prebattleCopy';
-import { startMatchmaking, hasOpponent } from '@/utils/battles';
+import { startMatchmaking, hasOpponent, leaveBattle } from '@/utils/battles';
 import { supabase } from '@/utils/supabase';
 import { hapticSuccess } from '@/utils/haptics';
 import { loadPortraitRef } from '@/utils/characters';
@@ -37,6 +37,8 @@ import { ARENA_TIPS } from '@/utils/arenaTips';
 import { useAuth } from '@/providers/AuthProvider';
 import FighterEntrance from '@/components/FighterEntrance';
 import ArenaTips from '@/components/ArenaTips';
+import { generateIdempotencyKey } from '@/utils/characters';
+import { useBattleAudio } from '@/providers/BattleAudioProvider';
 
 type Status = 'finding' | 'matched' | 'error';
 
@@ -66,6 +68,7 @@ export default function MatchmakingScreen() {
   const colors = useThemedColors();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
+  const battleAudio = useBattleAudio();
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const { mode: rawMode } = useLocalSearchParams<{ mode?: string }>();
@@ -79,6 +82,14 @@ export default function MatchmakingScreen() {
   const [fighter, setFighter] = useState<EntranceFighter>(NEUTRAL_FIGHTER);
   // One offset per visit so the tips do not always open on the same line.
   const tipSeed = useRef(Math.floor(Math.random() * ARENA_TIPS.length)).current;
+  // One id per visit/action. Error retries reuse it; remounting from a fresh
+  // mode selection intentionally creates a new action id.
+  const requestIdRef = useRef(generateIdempotencyKey());
+  const requestInFlightRef = useRef(false);
+  const cancelRequestedRef = useRef(false);
+  const cancelInFlightRef = useRef(false);
+  const createdBattleIdRef = useRef<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // The 1 s "Match found" beat before routing. Held in a ref so unmounting
   // (the player backed out) can cancel it -- a replace that fires after the
@@ -144,12 +155,63 @@ export default function MatchmakingScreen() {
     AccessibilityInfo.announceForAccessibility(text);
   }, []);
 
+  const cancelCreatedBattle = useCallback(
+    async (battleId: string) => {
+      if (cancelInFlightRef.current) return;
+      cancelInFlightRef.current = true;
+      if (navTimerRef.current) {
+        clearTimeout(navTimerRef.current);
+        navTimerRef.current = null;
+      }
+      const result = await leaveBattle(battleId);
+      if (result.success) {
+        router.replace('/(tabs)/home');
+        return;
+      }
+      cancelInFlightRef.current = false;
+      setIsCancelling(false);
+      Alert.alert(
+        'Could not cancel search',
+        result.error ?? 'Open the battle and try again.',
+      );
+      router.replace(
+        `/(battle)/waiting?battleId=${battleId}&requestId=${requestIdRef.current}`,
+      );
+    },
+    [router],
+  );
+
+  const confirmCancelSearch = useCallback(() => {
+    if (cancelRequestedRef.current) return;
+    Alert.alert(
+      'Cancel search?',
+      'This ends the search. If an opponent connects first, the server will apply the normal leave rules.',
+      [
+        { text: 'Keep searching', style: 'cancel' },
+        {
+          text: 'Cancel search',
+          style: 'destructive',
+          onPress: () => {
+            cancelRequestedRef.current = true;
+            setIsCancelling(true);
+            announce('Canceling search');
+            if (createdBattleIdRef.current) {
+              void cancelCreatedBattle(createdBattleIdRef.current);
+            }
+          },
+        },
+      ],
+    );
+  }, [announce, cancelCreatedBattle]);
+
   const findMatch = useCallback(async () => {
+    if (requestInFlightRef.current) return;
     if (!user) {
       Alert.alert('Signed out', 'Sign in to start a battle.');
       router.back();
       return;
     }
+    requestInFlightRef.current = true;
 
     setStatus('finding');
     setErrorCopy(null);
@@ -174,10 +236,17 @@ export default function MatchmakingScreen() {
         throw new Error(NO_ACTIVE_CHARACTER);
       }
 
-      const result = await startMatchmaking(character.id, mode);
+      const result = await startMatchmaking(character.id, mode, {
+        requestId: requestIdRef.current,
+      });
 
       if (!result.battle_id) {
         throw new Error(result.message || 'Matchmaking failed');
+      }
+      createdBattleIdRef.current = result.battle_id;
+      if (cancelRequestedRef.current) {
+        await cancelCreatedBattle(result.battle_id);
+        return;
       }
 
       const { data: battleRow } = await supabase
@@ -196,6 +265,7 @@ export default function MatchmakingScreen() {
         setStatus('matched');
         setMessage(found);
         hapticSuccess();
+        battleAudio.playSound('matchFound');
         announce(`Match found. ${found}`);
       }
 
@@ -205,9 +275,12 @@ export default function MatchmakingScreen() {
           router.replace(`/(battle)/face-off?battleId=${result.battle_id}`);
           return;
         }
-        router.replace(`/(battle)/waiting?battleId=${result.battle_id}`);
+        router.replace(
+          `/(battle)/waiting?battleId=${result.battle_id}&requestId=${requestIdRef.current}`,
+        );
       }, 1000);
     } catch (err) {
+      requestInFlightRef.current = false;
       console.error('Matchmaking error:', err);
       const copy = matchmakingErrorCopy(
         err instanceof Error ? err.message : null,
@@ -217,7 +290,7 @@ export default function MatchmakingScreen() {
       setMessage(copy.message);
       announce(`${copy.title}. ${copy.message}`);
     }
-  }, [mode, router, user, announce]);
+  }, [mode, router, user, announce, battleAudio, cancelCreatedBattle]);
 
   // `attempt` is the Try-again trigger; findMatch itself only changes with
   // the mode or the session.
@@ -313,7 +386,24 @@ export default function MatchmakingScreen() {
         ) : null}
 
         {status === 'finding' ? (
-          <ArenaTips seed={tipSeed} reduceMotion={reduceMotion} />
+          <>
+            <ArenaTips seed={tipSeed} reduceMotion={reduceMotion} />
+            <Pressable
+              style={({ pressed }) => [
+                styles.cancelSearchButton,
+                { opacity: pressed || isCancelling ? 0.65 : 1 },
+              ]}
+              onPress={confirmCancelSearch}
+              disabled={isCancelling}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel search"
+              accessibilityState={{ disabled: isCancelling }}
+            >
+              <Text style={styles.cancelSearchText}>
+                {isCancelling ? 'Canceling…' : 'Cancel search'}
+              </Text>
+            </Pressable>
+          </>
         ) : null}
       </View>
     </ImageBackground>
@@ -395,5 +485,19 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
     color: '#FFFFFF',
+  },
+  cancelSearchButton: {
+    minHeight: 44,
+    minWidth: 160,
+    marginTop: Spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  cancelSearchText: {
+    color: '#FFFFFF',
+    fontSize: Typography.sizes.base,
+    fontWeight: Typography.weights.semibold,
+    textDecorationLine: 'underline',
   },
 });

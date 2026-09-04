@@ -7,14 +7,27 @@ export interface DevGenerateVideoResult {
   error?: string;
 }
 
-export async function devGenerateVideo(battleId: string): Promise<DevGenerateVideoResult> {
+export async function devGenerateVideo(
+  battleId: string,
+): Promise<DevGenerateVideoResult> {
   try {
-    const { data, error } = await invokeFunctionResult<DevGenerateVideoResult>('dev-generate-video', { battle_id: battleId });
+    const { data, error } = await invokeFunctionResult<DevGenerateVideoResult>(
+      'dev-generate-video',
+      { battle_id: battleId },
+    );
     if (error) {
-      return { success: false, error: error.message || 'Function invoke failed' };
+      return {
+        success: false,
+        error: error.message || 'Function invoke failed',
+      };
     }
     if (data?.error) {
-      return { success: false, error: data.error, video_job_id: data.video_job_id, status: data.status };
+      return {
+        success: false,
+        error: data.error,
+        video_job_id: data.video_job_id,
+        status: data.status,
+      };
     }
     return {
       success: true,
@@ -22,6 +35,9 @@ export async function devGenerateVideo(battleId: string): Promise<DevGenerateVid
       status: data?.status,
     };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    };
   }
 }

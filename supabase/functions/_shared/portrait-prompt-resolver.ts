@@ -1,7 +1,12 @@
 // Pure prompt-resolver for character portraits and item icons.
 // No network calls. Safe to unit-test under Deno.
 
-export type Archetype = 'strategist' | 'trickster' | 'titan' | 'mystic' | 'engineer';
+export type Archetype =
+  | 'strategist'
+  | 'trickster'
+  | 'titan'
+  | 'mystic'
+  | 'engineer';
 
 export type ArtStyle =
   | 'painterly'
@@ -146,8 +151,7 @@ const ART_STYLE_SCAFFOLDS: Record<ArtStyle, string> = {
     'Inked western comic-book full-body character illustration, bold black outlines, halftone shading with Ben-Day dot accents, saturated flats, entire figure visible head to toe including feet, dynamic standing full-figure pose, no crop, hero card composition.',
   pixel:
     'Retro pixel-art full-body character sprite, hand-placed pixels, dithered shading, limited 16-color palette, entire figure visible head to toe including feet, standing full-figure pose, no crop, clean solid background, hero card composition.',
-  oil:
-    'Classical oil-painting full-length character portrait, visible textured brushwork, rich chiaroscuro lighting, muted earthy palette, entire figure visible head to toe including feet, standing full-figure pose, no crop, gallery-style composition.',
+  oil: 'Classical oil-painting full-length character portrait, visible textured brushwork, rich chiaroscuro lighting, muted earthy palette, entire figure visible head to toe including feet, standing full-figure pose, no crop, gallery-style composition.',
   lowpoly:
     'Stylized low-poly 3D full-body character render, faceted geometric shading, soft studio HDR lighting, matte finish, entire figure visible head to toe including feet, standing full-figure pose, no crop, hero card composition.',
   darkfantasy:
@@ -174,8 +178,7 @@ const ART_STYLE_AVATAR_SCAFFOLDS: Record<ArtStyle, string> = {
     'Inked western comic-book character portrait, head-and-shoulders bust framing, bold black outlines, halftone shading with Ben-Day dot accents, face centered and clearly visible, profile-avatar composition.',
   pixel:
     'Retro pixel-art character portrait, head-and-shoulders bust framing, hand-placed pixels, dithered shading, limited 16-color palette, face centered and clearly visible, clean solid background, profile-avatar composition.',
-  oil:
-    'Classical oil-painting character portrait, head-and-shoulders bust framing, visible textured brushwork, rich chiaroscuro lighting, muted earthy palette, face centered and clearly visible, gallery-style composition.',
+  oil: 'Classical oil-painting character portrait, head-and-shoulders bust framing, visible textured brushwork, rich chiaroscuro lighting, muted earthy palette, face centered and clearly visible, gallery-style composition.',
   lowpoly:
     'Stylized low-poly 3D character portrait, head-and-shoulders bust framing, faceted geometric shading, soft studio HDR lighting, matte finish, face centered and clearly visible, profile-avatar composition.',
   darkfantasy:
@@ -204,7 +207,10 @@ const NEGATIVE_CLAUSES =
 // Helpers
 // ---------------------------------------------------------------------------
 
-function lookupPhrase(table: Record<string, string>, key?: string): string | null {
+function lookupPhrase(
+  table: Record<string, string>,
+  key?: string,
+): string | null {
   if (!key) return null;
   const norm = key.trim().toLowerCase();
   if (!norm) return null;
@@ -283,7 +289,8 @@ function capPromptWithTail(body: string, tail: string): string {
 // ---------------------------------------------------------------------------
 
 export function resolvePortraitPrompt(input: PortraitPromptInput): string {
-  const archetypeHint = ARCHETYPE_HINTS[input.archetype] ?? 'distinctive presence';
+  const archetypeHint =
+    ARCHETYPE_HINTS[input.archetype] ?? 'distinctive presence';
   const colorPhrase = describeSignatureColor(input.signature_color);
 
   let subject: string;
@@ -304,9 +311,10 @@ export function resolvePortraitPrompt(input: PortraitPromptInput): string {
     if (palette) parts.push(`color story of ${palette}`);
     if (era) parts.push(era);
 
-    subject = parts.length > 0
-      ? `a stylized champion with ${parts.join(', ')}`
-      : `a stylized ${input.archetype} champion`;
+    subject =
+      parts.length > 0
+        ? `a stylized champion with ${parts.join(', ')}`
+        : `a stylized ${input.archetype} champion`;
   }
 
   const signatureItem =

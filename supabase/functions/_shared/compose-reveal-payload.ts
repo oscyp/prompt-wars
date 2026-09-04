@@ -228,7 +228,9 @@ export async function composeRevealPayload(
 
   // Character metadata sources.
   const p1Char = battle.player_one_character ?? null;
-  const p2Char = isBot ? (battle.bot_persona ?? null) : (battle.player_two_character ?? null);
+  const p2Char = isBot
+    ? (battle.bot_persona ?? null)
+    : (battle.player_two_character ?? null);
 
   // Round-scoped locked prompts (for move types + excerpts).
   const promptsQuery = supabase
@@ -244,7 +246,7 @@ export async function composeRevealPayload(
     prompts.find((p) => p.profile_id === battle.player_one_id) ?? null;
   const p2Prompt = isBot
     ? null
-    : prompts.find((p) => p.profile_id === battle.player_two_id) ?? null;
+    : (prompts.find((p) => p.profile_id === battle.player_two_id) ?? null);
 
   // Outcome: per-round frozen result wins over battle aggregate when present.
   const winnerId: string | null = round
@@ -267,16 +269,23 @@ export async function composeRevealPayload(
 
   const p1Rubric = readRubric(scoreSrc.player_one_normalized_scores);
   const p2Rubric = readRubric(scoreSrc.player_two_normalized_scores);
-  const judgeWhy = typeof scoreSrc.explanation === 'string' ? scoreSrc.explanation : '';
+  const judgeWhy =
+    typeof scoreSrc.explanation === 'string' ? scoreSrc.explanation : '';
 
   // Per-round modifiers (single-format has none -> null).
-  const p1MoveMod = round ? numOrNull(round.move_type_modifier_player_one) : null;
-  const p2MoveMod = round ? numOrNull(round.move_type_modifier_player_two) : null;
+  const p1MoveMod = round
+    ? numOrNull(round.move_type_modifier_player_one)
+    : null;
+  const p2MoveMod = round
+    ? numOrNull(round.move_type_modifier_player_two)
+    : null;
   const p1StatMod = round ? numOrNull(round.stat_modifier_player_one) : null;
   const p2StatMod = round ? numOrNull(round.stat_modifier_player_two) : null;
 
-  const p1Color = (p1Char?.signature_color as string | undefined) ?? DEFAULT_P1_COLOR;
-  const p2Color = (p2Char?.signature_color as string | undefined) ?? DEFAULT_P2_COLOR;
+  const p1Color =
+    (p1Char?.signature_color as string | undefined) ?? DEFAULT_P1_COLOR;
+  const p2Color =
+    (p2Char?.signature_color as string | undefined) ?? DEFAULT_P2_COLOR;
 
   // Mint signed portrait URLs (humans only; bots -> gradient fallback).
   const [p1Portrait, p2Portrait, p1Excerpt, p2Excerpt] = await Promise.all([
@@ -304,14 +313,19 @@ export async function composeRevealPayload(
   };
 
   const playerTwo: RevealPlayer = {
-    profile_id: isBot ? null : ((battle.player_two_id as string | null) ?? null),
-    character_name: (p2Char?.name as string | undefined) ?? (isBot ? 'Rival Bot' : 'Player Two'),
+    profile_id: isBot
+      ? null
+      : ((battle.player_two_id as string | null) ?? null),
+    character_name:
+      (p2Char?.name as string | undefined) ??
+      (isBot ? 'Rival Bot' : 'Player Two'),
     archetype: (p2Char?.archetype as string | undefined) ?? 'titan',
     signature_color: p2Color,
     // Bots own no cosmetics; a bot row has no cosmetic_config at all.
     cosmetics: isBot
       ? null
-      : ((p2Char?.cosmetic_config as Record<string, string> | undefined) ?? null),
+      : ((p2Char?.cosmetic_config as Record<string, string> | undefined) ??
+        null),
     battle_cry: (p2Char?.battle_cry as string | undefined) ?? '',
     portrait: p2Portrait,
     move_type: p2MoveType,
@@ -363,7 +377,9 @@ export async function composeRevealPayload(
     winner_color: displayPlayer.signature_color,
     music_track_id: motionPoster.musicStingId,
     music_track_url: null,
-    move_sting_id: isDraw ? 'move_sting_draw' : `move_sting_${displayPlayer.move_type}`,
+    move_sting_id: isDraw
+      ? 'move_sting_draw'
+      : `move_sting_${displayPlayer.move_type}`,
     move_sting_url: null,
     battle_cry_voice: {
       voice_preset: battleCry.voicePreset,
@@ -439,7 +455,10 @@ export async function writeRoundRevealPayload(
         );
         return;
       }
-      console.error('Durable per-round reveal write failed (non-blocking):', error);
+      console.error(
+        'Durable per-round reveal write failed (non-blocking):',
+        error,
+      );
     }
   } catch (err) {
     console.warn('Durable per-round reveal write threw (non-blocking):', err);
@@ -587,7 +606,10 @@ async function resolveExcerpt(
   return excerpt(text);
 }
 
-function excerpt(text: string | null | undefined, max = PROMPT_EXCERPT_MAX): string | null {
+function excerpt(
+  text: string | null | undefined,
+  max = PROMPT_EXCERPT_MAX,
+): string | null {
   if (!text) return null;
   const trimmed = text.trim();
   if (!trimmed) return null;
@@ -625,7 +647,9 @@ function readRubric(src: unknown): RevealRubricScores {
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  return value && typeof value === 'object'
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function numOrNull(value: unknown): number | null {
@@ -672,7 +696,8 @@ function shade(hex: string, amount: number): string {
   const m = /^#?([0-9a-fA-F]{6})$/.exec((hex ?? '').trim());
   if (!m) return DEFAULT_P1_COLOR;
   const int = parseInt(m[1], 16);
-  const clamp = (c: number) => Math.max(0, Math.min(255, Math.round(c + amount * 255)));
+  const clamp = (c: number) =>
+    Math.max(0, Math.min(255, Math.round(c + amount * 255)));
   const r = clamp((int >> 16) & 0xff);
   const g = clamp((int >> 8) & 0xff);
   const b = clamp(int & 0xff);

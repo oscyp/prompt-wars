@@ -81,7 +81,9 @@ export async function assertNoActiveBattleForCharacter(
 
   if (error) throw new Error(`battle lookup failed: ${error.message}`);
   if (data && data.length > 0) {
-    throw new ActiveBattleError(`character is in an active battle (${data[0].status})`);
+    throw new ActiveBattleError(
+      `character is in an active battle (${data[0].status})`,
+    );
   }
 }
 
@@ -121,6 +123,8 @@ export const PLACEHOLDER_BATTLE_CRY = '\u2026';
  * real, so the placeholder is forgeable. finalized_at is written only by
  * service-role code and a trigger refuses to clear it once set.
  */
-export function isDraftCharacter(finalizedAt: string | null | undefined): boolean {
+export function isDraftCharacter(
+  finalizedAt: string | null | undefined,
+): boolean {
   return finalizedAt === null || finalizedAt === undefined;
 }

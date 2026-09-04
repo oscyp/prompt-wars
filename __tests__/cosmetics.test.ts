@@ -37,13 +37,17 @@ const CATALOGUE: { slug: string; type: string }[] = [
 
 describe('presentation registry coverage', () => {
   it('has an entry for every catalogue slug', () => {
-    const missing = CATALOGUE.filter((c) => !COSMETIC_PRESENTATION[c.slug as CosmeticSlug]);
+    const missing = CATALOGUE.filter(
+      (c) => !COSMETIC_PRESENTATION[c.slug as CosmeticSlug],
+    );
     expect(missing.map((c) => c.slug)).toEqual([]);
   });
 
   it('has no entry for a slug that cannot occur', () => {
     const known = new Set(CATALOGUE.map((c) => c.slug));
-    expect(Object.keys(COSMETIC_PRESENTATION).filter((s) => !known.has(s))).toEqual([]);
+    expect(
+      Object.keys(COSMETIC_PRESENTATION).filter((s) => !known.has(s)),
+    ).toEqual([]);
   });
 
   it('gives every entry the kind its catalogue type implies', () => {
@@ -58,7 +62,11 @@ describe('presentation registry coverage', () => {
     // sold. The Edge Function enforces the same list.
     expect(RENDERABLE_COSMETIC_TYPES).not.toContain('reveal_style');
     expect([...RENDERABLE_COSMETIC_TYPES].sort()).toEqual([
-      'avatar_effect', 'badge', 'color', 'frame', 'title',
+      'avatar_effect',
+      'badge',
+      'color',
+      'frame',
+      'title',
     ]);
   });
 
@@ -87,7 +95,9 @@ describe('resolveEquippedCosmetics', () => {
 
   it('degrades to null on a slug the registry does not know', () => {
     // A catalogue row shipped ahead of client support must not crash a battle.
-    expect(resolveEquippedCosmetics({ frame: 'from_the_future' }).frame).toBeNull();
+    expect(
+      resolveEquippedCosmetics({ frame: 'from_the_future' }).frame,
+    ).toBeNull();
   });
 
   it('refuses a slug filed under the wrong type', () => {
@@ -130,7 +140,9 @@ describe('unlockedColorSwatches', () => {
   });
 
   it('returns nothing when the player owns no colours', () => {
-    expect(unlockedColorSwatches([item('neon_frame', 'frame', true)])).toEqual([]);
+    expect(unlockedColorSwatches([item('neon_frame', 'frame', true)])).toEqual(
+      [],
+    );
   });
 });
 

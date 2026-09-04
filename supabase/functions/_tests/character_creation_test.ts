@@ -1,7 +1,10 @@
 // Tests for character-creation shared helpers.
 // Pure helpers only; Edge Function HTTP behavior is covered by integration tests.
 
-import { assertEquals, assertNotEquals } from 'https://deno.land/std@0.208.0/assert/mod.ts';
+import {
+  assertEquals,
+  assertNotEquals,
+} from 'https://deno.land/std@0.208.0/assert/mod.ts';
 import { randomPortraitSeed } from '../_shared/character-creation.ts';
 
 Deno.test('randomPortraitSeed returns a 32-bit unsigned integer', () => {

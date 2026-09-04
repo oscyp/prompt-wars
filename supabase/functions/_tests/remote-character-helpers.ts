@@ -1,4 +1,7 @@
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import {
+  createClient,
+  type SupabaseClient,
+} from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import {
   assert,
   assertEquals,
@@ -67,7 +70,10 @@ export function skipUnlessRemoteEnabled(): RemoteTestConfig | null {
     return null;
   }
 
-  assert(config.supabaseUrl, 'SUPABASE_URL is required for remote function tests');
+  assert(
+    config.supabaseUrl,
+    'SUPABASE_URL is required for remote function tests',
+  );
   assert(
     config.publishableKey,
     'SUPABASE_PUBLISHABLE_KEY or SUPABASE_ANON_KEY is required for remote function tests',
@@ -121,7 +127,10 @@ export async function createTestUser(
   const { data: sessionData, error: signInError } =
     await userClient.auth.signInWithPassword({ email, password });
   assertEquals(signInError, null, `signIn failed: ${signInError?.message}`);
-  assertExists(sessionData.session?.access_token, 'signIn did not return an access token');
+  assertExists(
+    sessionData.session?.access_token,
+    'signIn did not return an access token',
+  );
 
   await waitForProfile(admin, createdUser.user.id);
 
@@ -170,11 +179,21 @@ export async function createTestCharacter(
   };
 }
 
-export async function cleanupFixture(fixture?: Partial<TestUserFixture>): Promise<void> {
+export async function cleanupFixture(
+  fixture?: Partial<TestUserFixture>,
+): Promise<void> {
   if (!fixture?.profileId || !fixture.admin) return;
 
-  await removeStoragePrefix(fixture.admin, 'character-portraits', fixture.profileId);
-  await removeStoragePrefix(fixture.admin, 'signature-items-custom', fixture.profileId);
+  await removeStoragePrefix(
+    fixture.admin,
+    'character-portraits',
+    fixture.profileId,
+  );
+  await removeStoragePrefix(
+    fixture.admin,
+    'signature-items-custom',
+    fixture.profileId,
+  );
   await fixture.admin.auth.admin.deleteUser(fixture.profileId);
 }
 
@@ -247,7 +266,9 @@ export async function invokeFunction<T>(
 
 export function assertOk<T>(result: FunctionResult<T>): T {
   if (result.status < 200 || result.status >= 300) {
-    throw new Error(`Expected 2xx response, got ${result.status}: ${result.bodyText}`);
+    throw new Error(
+      `Expected 2xx response, got ${result.status}: ${result.bodyText}`,
+    );
   }
 
   const envelope = result.body as FunctionEnvelope<T>;
@@ -255,7 +276,10 @@ export function assertOk<T>(result: FunctionResult<T>): T {
   if (envelope.ok !== true) {
     throw new Error(`Expected ok envelope: ${result.bodyText}`);
   }
-  assertExists(envelope.data, `Expected data in ok envelope: ${result.bodyText}`);
+  assertExists(
+    envelope.data,
+    `Expected data in ok envelope: ${result.bodyText}`,
+  );
   return envelope.data;
 }
 
@@ -264,13 +288,25 @@ export function assertFunctionError(
   status: number,
   code: string,
 ): void {
-  assertEquals(result.status, status, `Expected HTTP ${status}: ${result.bodyText}`);
+  assertEquals(
+    result.status,
+    status,
+    `Expected HTTP ${status}: ${result.bodyText}`,
+  );
   const envelope = result.body as FunctionEnvelope<unknown>;
-  assertEquals(envelope?.ok, false, `Expected error envelope: ${result.bodyText}`);
+  assertEquals(
+    envelope?.ok,
+    false,
+    `Expected error envelope: ${result.bodyText}`,
+  );
   if (envelope.ok !== false) {
     throw new Error(`Expected error envelope: ${result.bodyText}`);
   }
-  assertEquals(envelope.error?.code, code, `Expected error code ${code}: ${result.bodyText}`);
+  assertEquals(
+    envelope.error?.code,
+    code,
+    `Expected error code ${code}: ${result.bodyText}`,
+  );
 }
 
 export async function createActiveBattle(
@@ -295,7 +331,9 @@ export async function createActiveBattle(
   return battleId;
 }
 
-export async function cancelNonFinalBattles(fixture: TestCharacterFixture): Promise<void> {
+export async function cancelNonFinalBattles(
+  fixture: TestCharacterFixture,
+): Promise<void> {
   await fixture.admin
     .from('battles')
     .update({ status: 'canceled', updated_at: new Date().toISOString() })
@@ -305,7 +343,9 @@ export async function cancelNonFinalBattles(fixture: TestCharacterFixture): Prom
     .not('status', 'in', `(${FINAL_BATTLE_STATUSES.join(',')})`);
 }
 
-export async function getCreditBalance(fixture: TestUserFixture): Promise<number> {
+export async function getCreditBalance(
+  fixture: TestUserFixture,
+): Promise<number> {
   const { data, error } = await fixture.admin
     .from('entitlements')
     .select('credits_balance')
@@ -361,10 +401,19 @@ function readServiceKey(): string {
   if (!raw.startsWith('{')) return raw;
 
   const parsed = JSON.parse(raw) as Record<string, string>;
-  return parsed.default || parsed.secret || parsed.service_role || Object.values(parsed)[0] || '';
+  return (
+    parsed.default ||
+    parsed.secret ||
+    parsed.service_role ||
+    Object.values(parsed)[0] ||
+    ''
+  );
 }
 
-async function waitForProfile(admin: SupabaseClient, profileId: string): Promise<void> {
+async function waitForProfile(
+  admin: SupabaseClient,
+  profileId: string,
+): Promise<void> {
   const started = Date.now();
   while (Date.now() - started < 10_000) {
     const { data, error } = await admin
@@ -385,7 +434,9 @@ async function removeStoragePrefix(
   bucket: string,
   prefix: string,
 ): Promise<void> {
-  const { data } = await admin.storage.from(bucket).list(prefix, { limit: 100 });
+  const { data } = await admin.storage
+    .from(bucket)
+    .list(prefix, { limit: 100 });
   if (!data?.length) return;
 
   const paths = data.map((entry) => `${prefix}/${entry.name}`);

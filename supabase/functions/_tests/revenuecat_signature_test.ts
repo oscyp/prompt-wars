@@ -15,13 +15,27 @@ import { validateWebhookSignature } from '../revenuecat-webhook/verify-signature
 const SECRET = 'test-signing-secret';
 const BODY = JSON.stringify({ event: { id: 'evt_1', type: 'RENEWAL' } });
 
-async function signAs(ts: string, body: string, secret: string): Promise<string> {
+async function signAs(
+  ts: string,
+  body: string,
+  secret: string,
+): Promise<string> {
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
-    'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
   );
-  const mac = await crypto.subtle.sign('HMAC', key, enc.encode(`${ts}.${body}`));
-  return [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const mac = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    enc.encode(`${ts}.${body}`),
+  );
+  return [...new Uint8Array(mac)]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 const nowTs = () => Math.floor(Date.now() / 1000).toString();
@@ -41,7 +55,9 @@ Deno.test('rejects a signature made with the wrong secret', async () => {
 Deno.test('rejects a tampered body', async () => {
   const t = nowTs();
   const header = `t=${t},v1=${await signAs(t, BODY, SECRET)}`;
-  const tampered = JSON.stringify({ event: { id: 'evt_1', type: 'INITIAL_PURCHASE' } });
+  const tampered = JSON.stringify({
+    event: { id: 'evt_1', type: 'INITIAL_PURCHASE' },
+  });
   assertEquals(await validateWebhookSignature(tampered, header, SECRET), false);
 });
 
@@ -62,7 +78,18 @@ Deno.test('rejects the old bare-hex header format', async () => {
 });
 
 Deno.test('rejects malformed headers without throwing', async () => {
-  for (const header of ['', 't=,v1=', 'v1=abc', 't=notanumber,v1=abcd', 't=1,v1=zzzz', 't=1,v1=abc']) {
-    assertEquals(await validateWebhookSignature(BODY, header, SECRET), false, header);
+  for (const header of [
+    '',
+    't=,v1=',
+    'v1=abc',
+    't=notanumber,v1=abcd',
+    't=1,v1=zzzz',
+    't=1,v1=abc',
+  ]) {
+    assertEquals(
+      await validateWebhookSignature(BODY, header, SECRET),
+      false,
+      header,
+    );
   }
 });

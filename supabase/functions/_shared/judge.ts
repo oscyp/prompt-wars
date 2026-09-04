@@ -22,13 +22,23 @@ export function validateJudgeResponse(response: unknown): JudgeResponse {
   }
 
   // Validate score objects
-  const validateScores = (scores: unknown, label: string): JudgeRubricScores => {
+  const validateScores = (
+    scores: unknown,
+    label: string,
+  ): JudgeRubricScores => {
     if (!scores || typeof scores !== 'object') {
       throw new Error(`${label} must be an object`);
     }
 
     const s = scores as Record<string, unknown>;
-    const required = ['clarity', 'originality', 'specificity', 'theme_fit', 'archetype_fit', 'dramatic_potential'];
+    const required = [
+      'clarity',
+      'originality',
+      'specificity',
+      'theme_fit',
+      'archetype_fit',
+      'dramatic_potential',
+    ];
 
     for (const field of required) {
       if (typeof s[field] !== 'number') {
@@ -50,11 +60,23 @@ export function validateJudgeResponse(response: unknown): JudgeResponse {
     };
   };
 
-  const playerOneScores = validateScores(resp.playerOneScores, 'playerOneScores');
-  const playerTwoScores = validateScores(resp.playerTwoScores, 'playerTwoScores');
+  const playerOneScores = validateScores(
+    resp.playerOneScores,
+    'playerOneScores',
+  );
+  const playerTwoScores = validateScores(
+    resp.playerTwoScores,
+    'playerTwoScores',
+  );
 
-  if (typeof resp.explanation !== 'string' || resp.explanation.length < 10 || resp.explanation.length > 2000) {
-    throw new Error('Explanation must be a string between 10 and 2000 characters');
+  if (
+    typeof resp.explanation !== 'string' ||
+    resp.explanation.length < 10 ||
+    resp.explanation.length > 2000
+  ) {
+    throw new Error(
+      'Explanation must be a string between 10 and 2000 characters',
+    );
   }
 
   return {
@@ -62,7 +84,9 @@ export function validateJudgeResponse(response: unknown): JudgeResponse {
     playerTwoScores,
     explanation: resp.explanation,
     modelId: (resp as { modelId?: string }).modelId || 'unknown',
-    promptVersion: (resp as { promptVersion?: string }).promptVersion || JUDGE_PROMPT_VERSION,
+    promptVersion:
+      (resp as { promptVersion?: string }).promptVersion ||
+      JUDGE_PROMPT_VERSION,
   };
 }
 
@@ -90,7 +114,7 @@ export const RATING_QUALITY_FLOOR = 18;
 /** True when BOTH prompts fall below the quality floor (§7.8: no rating change). */
 export function isBelowQualityFloor(
   playerOneNormalized: JudgeRubricScores,
-  playerTwoNormalized: JudgeRubricScores
+  playerTwoNormalized: JudgeRubricScores,
 ): boolean {
   return (
     aggregateScore(playerOneNormalized) < RATING_QUALITY_FLOOR &&
@@ -103,14 +127,14 @@ export function isBelowQualityFloor(
  */
 export function normalizeScores(
   rawScores: JudgeRubricScores,
-  wordCount: number
+  wordCount: number,
 ): JudgeRubricScores {
   // Soft target: 80-400 chars ~= 15-80 words
   // Penalty starts above 100 words
   const penalty = wordCount > 100 ? Math.min(0.15, (wordCount - 100) / 500) : 0;
-  
+
   const normalize = (score: number) => Math.max(0, score * (1 - penalty));
-  
+
   return {
     clarity: normalize(rawScores.clarity),
     originality: normalize(rawScores.originality),
@@ -149,7 +173,7 @@ export const MOVE_TYPE_POINTS_LOSE = -0.6;
 /** Signed aggregate-point adjustment for a move-type matchup. */
 export function moveTypePoints(
   playerMoveType: MoveType,
-  opponentMoveType: MoveType
+  opponentMoveType: MoveType,
 ): number {
   // Rock-paper-scissors: attack > finisher, defense > attack, finisher > defense
   if (
@@ -175,11 +199,11 @@ export function moveTypePoints(
 export function applyMoveTypeModifier(
   normalizedScore: number,
   playerMoveType: MoveType,
-  opponentMoveType: MoveType
+  opponentMoveType: MoveType,
 ): number {
   return Math.max(
     0,
-    normalizedScore + moveTypePoints(playerMoveType, opponentMoveType)
+    normalizedScore + moveTypePoints(playerMoveType, opponentMoveType),
   );
 }
 
@@ -196,7 +220,7 @@ export async function runJudgePipeline(
   wordCountOne: number,
   wordCountTwo: number,
   theme: string | null,
-  promptVersion = JUDGE_PROMPT_VERSION
+  promptVersion = JUDGE_PROMPT_VERSION,
 ): Promise<JudgeRunResult> {
   const DRAW_EPSILON = 3.0; // Aggregate difference threshold for draw
 
@@ -217,7 +241,7 @@ export async function runJudgePipeline(
     total_cost_usd: anyCostReported ? totalCostUsd : undefined,
     provider_calls: providerCalls,
   });
-  
+
   // First run with frozen prompt version
   const run1Raw = await provider.judge({
     promptOne,
@@ -229,18 +253,26 @@ export async function runJudgePipeline(
     promptVersion,
   });
   accrue(run1Raw);
-  
+
   // Validate JSON schema
   const run1 = validateJudgeResponse(run1Raw);
-  
+
   // Normalize both players
   const run1NormOne = normalizeScores(run1.playerOneScores, wordCountOne);
   const run1NormTwo = normalizeScores(run1.playerTwoScores, wordCountTwo);
-  
+
   // Apply move type modifiers
-  const run1ScoreOne = applyMoveTypeModifier(aggregateScore(run1NormOne), moveTypeOne, moveTypeTwo);
-  const run1ScoreTwo = applyMoveTypeModifier(aggregateScore(run1NormTwo), moveTypeTwo, moveTypeOne);
-  
+  const run1ScoreOne = applyMoveTypeModifier(
+    aggregateScore(run1NormOne),
+    moveTypeOne,
+    moveTypeTwo,
+  );
+  const run1ScoreTwo = applyMoveTypeModifier(
+    aggregateScore(run1NormTwo),
+    moveTypeTwo,
+    moveTypeOne,
+  );
+
   // Second run with different seed
   const run2Raw = await provider.judge({
     promptOne,
@@ -252,17 +284,27 @@ export async function runJudgePipeline(
     promptVersion,
   });
   accrue(run2Raw);
-  
+
   const run2 = validateJudgeResponse(run2Raw);
   const run2NormOne = normalizeScores(run2.playerOneScores, wordCountOne);
   const run2NormTwo = normalizeScores(run2.playerTwoScores, wordCountTwo);
-  const run2ScoreOne = applyMoveTypeModifier(aggregateScore(run2NormOne), moveTypeOne, moveTypeTwo);
-  const run2ScoreTwo = applyMoveTypeModifier(aggregateScore(run2NormTwo), moveTypeTwo, moveTypeOne);
-  
+  const run2ScoreOne = applyMoveTypeModifier(
+    aggregateScore(run2NormOne),
+    moveTypeOne,
+    moveTypeTwo,
+  );
+  const run2ScoreTwo = applyMoveTypeModifier(
+    aggregateScore(run2NormTwo),
+    moveTypeTwo,
+    moveTypeOne,
+  );
+
   // Check agreement
-  const run1Winner = run1ScoreOne > run1ScoreTwo ? 1 : run1ScoreTwo > run1ScoreOne ? 2 : 0;
-  const run2Winner = run2ScoreOne > run2ScoreTwo ? 1 : run2ScoreTwo > run2ScoreOne ? 2 : 0;
-  
+  const run1Winner =
+    run1ScoreOne > run1ScoreTwo ? 1 : run1ScoreTwo > run1ScoreOne ? 2 : 0;
+  const run2Winner =
+    run2ScoreOne > run2ScoreTwo ? 1 : run2ScoreTwo > run2ScoreOne ? 2 : 0;
+
   // If disagree, run tiebreaker
   if (run1Winner !== run2Winner && run1Winner !== 0 && run2Winner !== 0) {
     const run3Raw = await provider.judge({
@@ -275,35 +317,47 @@ export async function runJudgePipeline(
       promptVersion,
     });
     accrue(run3Raw);
-    
+
     const run3 = validateJudgeResponse(run3Raw);
     const run3NormOne = normalizeScores(run3.playerOneScores, wordCountOne);
     const run3NormTwo = normalizeScores(run3.playerTwoScores, wordCountTwo);
-    const finalScoreOne = applyMoveTypeModifier(aggregateScore(run3NormOne), moveTypeOne, moveTypeTwo);
-    const finalScoreTwo = applyMoveTypeModifier(aggregateScore(run3NormTwo), moveTypeTwo, moveTypeOne);
-    
+    const finalScoreOne = applyMoveTypeModifier(
+      aggregateScore(run3NormOne),
+      moveTypeOne,
+      moveTypeTwo,
+    );
+    const finalScoreTwo = applyMoveTypeModifier(
+      aggregateScore(run3NormTwo),
+      moveTypeTwo,
+      moveTypeOne,
+    );
+
     const diff = Math.abs(finalScoreOne - finalScoreTwo);
     const isDraw = diff < DRAW_EPSILON;
-    
+
     return {
       player_one_raw_scores: run3.playerOneScores,
       player_two_raw_scores: run3.playerTwoScores,
       player_one_normalized_scores: run3NormOne,
       player_two_normalized_scores: run3NormTwo,
-      winner_profile_id: isDraw ? null : finalScoreOne > finalScoreTwo ? 'p1' : 'p2',
+      winner_profile_id: isDraw
+        ? null
+        : finalScoreOne > finalScoreTwo
+          ? 'p1'
+          : 'p2',
       is_draw: isDraw,
       explanation: run3.explanation,
       aggregate_score_diff: Math.abs(finalScoreOne - finalScoreTwo),
       ...costFields(),
     };
   }
-  
+
   // Runs agree, use average
   const avgScoreOne = (run1ScoreOne + run2ScoreOne) / 2;
   const avgScoreTwo = (run1ScoreTwo + run2ScoreTwo) / 2;
   const diff = Math.abs(avgScoreOne - avgScoreTwo);
   const isDraw = diff < DRAW_EPSILON;
-  
+
   // Return run1 scores as representative
   return {
     player_one_raw_scores: run1.playerOneScores,

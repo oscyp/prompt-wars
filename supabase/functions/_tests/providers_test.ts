@@ -1,7 +1,10 @@
 // AI Provider Tests
 // Tests for judge, image, video, and TTS providers
 
-import { assertEquals, assertExists } from 'https://deno.land/std@0.208.0/assert/mod.ts';
+import {
+  assertEquals,
+  assertExists,
+} from 'https://deno.land/std@0.208.0/assert/mod.ts';
 import {
   MockJudgeProvider,
   MockImageProvider,
@@ -83,29 +86,32 @@ Deno.test('MockJudgeProvider - deterministic with same seed', async () => {
   assertEquals(response1.playerTwoScores, response2.playerTwoScores);
 });
 
-Deno.test('MockImageProvider - returns Tier 0 composition metadata', async () => {
-  const provider = new MockImageProvider();
+Deno.test(
+  'MockImageProvider - returns Tier 0 composition metadata',
+  async () => {
+    const provider = new MockImageProvider();
 
-  const response = await provider.generateMotionPoster({
-    battleId: 'test-battle-123',
-    winnerCharacterName: 'Alice',
-    winnerArchetype: 'strategist',
-    winnerSignatureColor: '#FF5733',
-    loserCharacterName: 'Bob',
-    loserArchetype: 'titan',
-    moveTypeWinner: 'defense',
-    moveTypeLoser: 'attack',
-    isDraw: false,
-  });
+    const response = await provider.generateMotionPoster({
+      battleId: 'test-battle-123',
+      winnerCharacterName: 'Alice',
+      winnerArchetype: 'strategist',
+      winnerSignatureColor: '#FF5733',
+      loserCharacterName: 'Bob',
+      loserArchetype: 'titan',
+      moveTypeWinner: 'defense',
+      moveTypeLoser: 'attack',
+      isDraw: false,
+    });
 
-  assertExists(response);
-  assertEquals(response.compositionType, 'motion_poster');
-  assertEquals(response.animationPreset, 'defense_counter_3s'); // defense wins
-  assertEquals(response.musicStingId, 'music_tactical_victory'); // strategist
-  assertExists(response.metadata);
-  assertEquals(response.metadata.winnerArchetype, 'strategist');
-  assertEquals(response.metadata.winnerColor, '#FF5733');
-});
+    assertExists(response);
+    assertEquals(response.compositionType, 'motion_poster');
+    assertEquals(response.animationPreset, 'defense_counter_3s'); // defense wins
+    assertEquals(response.musicStingId, 'music_tactical_victory'); // strategist
+    assertExists(response.metadata);
+    assertEquals(response.metadata.winnerArchetype, 'strategist');
+    assertEquals(response.metadata.winnerColor, '#FF5733');
+  },
+);
 
 Deno.test('MockImageProvider - handles draw outcome', async () => {
   const provider = new MockImageProvider();
@@ -163,26 +169,29 @@ Deno.test('MockVideoProvider - polls video status', async () => {
   assertExists(status.videoUrl);
 });
 
-Deno.test('xAI video status preserves post-generation moderation verdict', () => {
-  const approved = mapXAIVideoStatus({
-    status: 'done',
-    video: {
-      url: 'https://vidgen.x.ai/example.mp4',
-      respect_moderation: true,
-    },
-  });
-  const rejected = mapXAIVideoStatus({
-    status: 'done',
-    video: {
-      url: 'https://vidgen.x.ai/example.mp4',
-      respect_moderation: false,
-    },
-  });
+Deno.test(
+  'xAI video status preserves post-generation moderation verdict',
+  () => {
+    const approved = mapXAIVideoStatus({
+      status: 'done',
+      video: {
+        url: 'https://vidgen.x.ai/example.mp4',
+        respect_moderation: true,
+      },
+    });
+    const rejected = mapXAIVideoStatus({
+      status: 'done',
+      video: {
+        url: 'https://vidgen.x.ai/example.mp4',
+        respect_moderation: false,
+      },
+    });
 
-  assertEquals(approved.moderationApproved, true);
-  assertEquals(approved.moderationProvider, 'xai_generation');
-  assertEquals(rejected.moderationApproved, false);
-});
+    assertEquals(approved.moderationApproved, true);
+    assertEquals(approved.moderationProvider, 'xai_generation');
+    assertEquals(rejected.moderationApproved, false);
+  },
+);
 
 Deno.test('MockTtsProvider - generates battle cry metadata', async () => {
   const provider = new MockTtsProvider();
@@ -295,48 +304,69 @@ async function captureVideoRequestBody(
   }
 }
 
-Deno.test('XAIVideoProvider - no references sends base model, no image key', async () => {
-  const body = await captureVideoRequestBody(
-    { XAI_API_KEY: 'k', XAI_VIDEO_REFERENCE_ENABLED: 'true' },
-    [],
-  );
+Deno.test(
+  'XAIVideoProvider - no references sends base model, no image key',
+  async () => {
+    const body = await captureVideoRequestBody(
+      { XAI_API_KEY: 'k', XAI_VIDEO_REFERENCE_ENABLED: 'true' },
+      [],
+    );
 
-  assertEquals(body.model, 'grok-imagine-video');
-  // Absent, not empty: an empty array could be read by the provider as
-  // "reference-to-video with nothing to reference".
-  assertEquals('reference_image_urls' in body, false);
-});
+    assertEquals(body.model, 'grok-imagine-video');
+    // Absent, not empty: an empty array could be read by the provider as
+    // "reference-to-video with nothing to reference".
+    assertEquals('reference_image_urls' in body, false);
+  },
+);
 
-Deno.test('XAIVideoProvider - references bump the model and are sent', async () => {
-  const body = await captureVideoRequestBody(
-    { XAI_API_KEY: 'k', XAI_VIDEO_REFERENCE_ENABLED: 'true' },
-    ['https://example.test/a.png?token=x', 'https://example.test/b.png?token=y'],
-  );
+Deno.test(
+  'XAIVideoProvider - references bump the model and are sent',
+  async () => {
+    const body = await captureVideoRequestBody(
+      { XAI_API_KEY: 'k', XAI_VIDEO_REFERENCE_ENABLED: 'true' },
+      [
+        'https://example.test/a.png?token=x',
+        'https://example.test/b.png?token=y',
+      ],
+    );
 
-  assertEquals(body.model, 'grok-imagine-video-1.5');
-  assertEquals(body.reference_image_urls.length, 2);
-  assertEquals(body.reference_image_urls[0], 'https://example.test/a.png?token=x');
-});
+    assertEquals(body.model, 'grok-imagine-video-1.5');
+    assertEquals(body.reference_image_urls.length, 2);
+    assertEquals(
+      body.reference_image_urls[0],
+      'https://example.test/a.png?token=x',
+    );
+  },
+);
 
-Deno.test('XAIVideoProvider - references truncate to the 7-image cap', async () => {
-  const nine = Array.from({ length: 9 }, (_, i) => `https://example.test/${i}.png`);
-  const body = await captureVideoRequestBody(
-    { XAI_API_KEY: 'k', XAI_VIDEO_REFERENCE_ENABLED: 'true' },
-    nine,
-  );
+Deno.test(
+  'XAIVideoProvider - references truncate to the 7-image cap',
+  async () => {
+    const nine = Array.from(
+      { length: 9 },
+      (_, i) => `https://example.test/${i}.png`,
+    );
+    const body = await captureVideoRequestBody(
+      { XAI_API_KEY: 'k', XAI_VIDEO_REFERENCE_ENABLED: 'true' },
+      nine,
+    );
 
-  assertEquals(body.reference_image_urls.length, 7);
-  assertEquals(body.reference_image_urls[6], 'https://example.test/6.png');
-});
+    assertEquals(body.reference_image_urls.length, 7);
+    assertEquals(body.reference_image_urls[6], 'https://example.test/6.png');
+  },
+);
 
-Deno.test('XAIVideoProvider - flag off ignores references entirely', async () => {
-  // The default state. Until the flag is turned on, passing references must
-  // change nothing at all — same model, same body as before this feature.
-  const body = await captureVideoRequestBody(
-    { XAI_API_KEY: 'k', XAI_VIDEO_REFERENCE_ENABLED: undefined },
-    ['https://example.test/a.png'],
-  );
+Deno.test(
+  'XAIVideoProvider - flag off ignores references entirely',
+  async () => {
+    // The default state. Until the flag is turned on, passing references must
+    // change nothing at all — same model, same body as before this feature.
+    const body = await captureVideoRequestBody(
+      { XAI_API_KEY: 'k', XAI_VIDEO_REFERENCE_ENABLED: undefined },
+      ['https://example.test/a.png'],
+    );
 
-  assertEquals(body.model, 'grok-imagine-video');
-  assertEquals('reference_image_urls' in body, false);
-});
+    assertEquals(body.model, 'grok-imagine-video');
+    assertEquals('reference_image_urls' in body, false);
+  },
+);

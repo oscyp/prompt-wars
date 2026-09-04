@@ -20,17 +20,56 @@ export type LookField =
   | 'expression'
   | 'signature_item_id';
 
-export const VIBE = ['heroic', 'sinister', 'mischievous', 'stoic', 'unhinged', 'regal'];
-export const SILHOUETTE = [
-  'lean_duelist', 'heavy_bruiser', 'slim_trickster',
-  'armored_knight', 'robed_mystic', 'sharp_tactician',
+export const VIBE = [
+  'heroic',
+  'sinister',
+  'mischievous',
+  'stoic',
+  'unhinged',
+  'regal',
 ];
-export const ERA = ['ancient', 'industrial', 'modern', 'cyberpunk', 'far_future'];
-export const EXPRESSION = ['smirk', 'glare', 'calm', 'roar', 'smile', 'thousand_yard'];
-export const PALETTE = ['ember', 'ocean', 'neon', 'bone', 'forest', 'royal', 'ash', 'gold'];
+export const SILHOUETTE = [
+  'lean_duelist',
+  'heavy_bruiser',
+  'slim_trickster',
+  'armored_knight',
+  'robed_mystic',
+  'sharp_tactician',
+];
+export const ERA = [
+  'ancient',
+  'industrial',
+  'modern',
+  'cyberpunk',
+  'far_future',
+];
+export const EXPRESSION = [
+  'smirk',
+  'glare',
+  'calm',
+  'roar',
+  'smile',
+  'thousand_yard',
+];
+export const PALETTE = [
+  'ember',
+  'ocean',
+  'neon',
+  'bone',
+  'forest',
+  'royal',
+  'ash',
+  'gold',
+];
 export const ART_STYLE = [
-  'painterly', 'anime', 'comic', 'pixel',
-  'oil', 'lowpoly', 'darkfantasy', 'vaporwave',
+  'painterly',
+  'anime',
+  'comic',
+  'pixel',
+  'oil',
+  'lowpoly',
+  'darkfantasy',
+  'vaporwave',
 ];
 
 /** Longest accepted custom portrait description, matching the column CHECK. */
@@ -58,8 +97,11 @@ export const LOOK_FIELDS: readonly LookFieldDef[] = [
   { field: 'signature_item_id', logKind: 'signature_item' },
 ];
 
-function oneOf(allowed: string[], raw: unknown, label: string):
-  { value: string } | { reason: string } {
+function oneOf(
+  allowed: string[],
+  raw: unknown,
+  label: string,
+): { value: string } | { reason: string } {
   const v = typeof raw === 'string' ? raw : '';
   if (!allowed.includes(v)) return { reason: `invalid ${label}` };
   return { value: v };
@@ -77,18 +119,26 @@ export function validateLookField(
   raw: unknown,
 ): { value: string | null } | { reason: string } {
   switch (field) {
-    case 'art_style': return oneOf(ART_STYLE, raw, 'art_style');
-    case 'palette_key': return oneOf(PALETTE, raw, 'palette_key');
-    case 'vibe': return oneOf(VIBE, raw, 'vibe');
-    case 'silhouette': return oneOf(SILHOUETTE, raw, 'silhouette');
-    case 'era': return oneOf(ERA, raw, 'era');
-    case 'expression': return oneOf(EXPRESSION, raw, 'expression');
+    case 'art_style':
+      return oneOf(ART_STYLE, raw, 'art_style');
+    case 'palette_key':
+      return oneOf(PALETTE, raw, 'palette_key');
+    case 'vibe':
+      return oneOf(VIBE, raw, 'vibe');
+    case 'silhouette':
+      return oneOf(SILHOUETTE, raw, 'silhouette');
+    case 'era':
+      return oneOf(ERA, raw, 'era');
+    case 'expression':
+      return oneOf(EXPRESSION, raw, 'expression');
     case 'portrait_prompt_raw': {
       if (raw === null || raw === '') return { value: null };
       const p = typeof raw === 'string' ? raw.trim() : '';
       if (p.length === 0) return { value: null };
       if (p.length > PROMPT_MAX) {
-        return { reason: `portrait_prompt_raw must be at most ${PROMPT_MAX} chars` };
+        return {
+          reason: `portrait_prompt_raw must be at most ${PROMPT_MAX} chars`,
+        };
       }
       return { value: p };
     }
@@ -130,7 +180,10 @@ export function planLookBatch(
   // is keyed on `in` rather than on the value being non-null.
   const present = LOOK_FIELDS.filter((f) => f.field in payload);
   if (present.length === 0) {
-    return { ok: false, reason: 'look payload must contain at least one field' };
+    return {
+      ok: false,
+      reason: 'look payload must contain at least one field',
+    };
   }
 
   const update: Record<string, unknown> = {};
@@ -152,7 +205,8 @@ export function planLookBatch(
 
 /** Randomises every trait. Backs the paid `random_character` action. */
 export function randomLookTraits(): Record<string, string> {
-  const pick = (list: string[]) => list[Math.floor(Math.random() * list.length)];
+  const pick = (list: string[]) =>
+    list[Math.floor(Math.random() * list.length)];
   return {
     vibe: pick(VIBE),
     silhouette: pick(SILHOUETTE),

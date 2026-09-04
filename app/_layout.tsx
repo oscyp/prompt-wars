@@ -13,9 +13,8 @@ import {
 } from '@/providers/AuthProvider';
 import { RevenueCatProvider } from '@/providers/RevenueCatProvider';
 import { supabase } from '@/utils/supabase';
-import { loadAccessibilityPreferences } from '@/utils/accessibilitySettings';
-import { loadThemePreference } from '@/utils/themeSettings';
 import { useEffectiveColorScheme } from '@/hooks/useThemedColors';
+import { loadAudioPreferences } from '@/utils/audioSettings';
 import {
   addNotificationResponseListener,
   handleInitialNotification,
@@ -170,11 +169,9 @@ export default function RootLayout() {
     // Add custom fonts here if needed
   });
 
-  // Hydrate persisted preferences before the first reveal so motion and theme
-  // honor the user's saved choices from the very first frame.
+  // Hydrate battle-audio preferences before the first reveal.
   useEffect(() => {
-    loadAccessibilityPreferences();
-    loadThemePreference();
+    void loadAudioPreferences();
   }, []);
 
   if (!fontsLoaded) {

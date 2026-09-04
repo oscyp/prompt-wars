@@ -42,6 +42,14 @@ module.exports = ({ config: _config }) => {
       'expo-apple-authentication',
       'expo-sharing',
       'expo-video',
+      [
+        'expo-audio',
+        {
+          microphonePermission: false,
+          recordAudioAndroid: false,
+          enableBackgroundPlayback: false,
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,

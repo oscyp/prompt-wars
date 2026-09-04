@@ -83,25 +83,4 @@ describe('ItemGrid', () => {
     expect(onSelect).toHaveBeenCalledWith('wrench');
     expect(hapticSelection).toHaveBeenCalledTimes(1);
   });
-
-  it('shows the Create tile only when a handler is supplied', () => {
-    const onCreateCustom = jest.fn();
-    const withTile = render(
-      <ItemGrid
-        items={ITEMS}
-        selectedId="coin"
-        onSelect={jest.fn()}
-        onCreateCustom={onCreateCustom}
-      />,
-    );
-    fireEvent.press(withTile.getByLabelText('Create your own signature item'));
-    expect(onCreateCustom).toHaveBeenCalledTimes(1);
-
-    const withoutTile = render(
-      <ItemGrid items={ITEMS} selectedId="coin" onSelect={jest.fn()} />,
-    );
-    expect(
-      withoutTile.queryByLabelText('Create your own signature item'),
-    ).toBeNull();
-  });
 });

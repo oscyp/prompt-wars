@@ -72,8 +72,9 @@ Deno.serve(async (req) => {
 
     return successResponse({
       deleted: true,
-      already_deleted: (scrubbed as { already_deleted?: boolean } | null)
-        ?.already_deleted ?? false,
+      already_deleted:
+        (scrubbed as { already_deleted?: boolean } | null)?.already_deleted ??
+        false,
       message: 'Your account and personal data have been deleted.',
     });
   } catch (error) {

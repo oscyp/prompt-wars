@@ -44,7 +44,10 @@ function leaveBody(result: { body: unknown }): LeaveResponse {
 }
 
 /** Wallet rows written by a leave, for the given battle. */
-async function leaveTransactions(fixture: TestCharacterFixture, battleId: string) {
+async function leaveTransactions(
+  fixture: TestCharacterFixture,
+  battleId: string,
+) {
   const { data, error } = await fixture.admin
     .from('wallet_transactions')
     .select('id, amount, reason, idempotency_key')
@@ -107,71 +110,77 @@ Deno.test('remote leave-battle: free before this player locks', async () => {
   }
 });
 
-Deno.test('remote leave-battle: charges exactly once after locking', async () => {
-  const config = skipUnlessRemoteEnabled();
-  if (!config) return;
+Deno.test(
+  'remote leave-battle: charges exactly once after locking',
+  async () => {
+    const config = skipUnlessRemoteEnabled();
+    if (!config) return;
 
-  let fixture: TestCharacterFixture | undefined;
-  try {
-    fixture = await createTestCharacter(config, 'leave-paid');
-    await grantCredits(fixture, 10);
-    const battleId = await createActiveBattle(fixture);
-    await lockPrompt(fixture, battleId);
+    let fixture: TestCharacterFixture | undefined;
+    try {
+      fixture = await createTestCharacter(config, 'leave-paid');
+      await grantCredits(fixture, 10);
+      const battleId = await createActiveBattle(fixture);
+      await lockPrompt(fixture, battleId);
 
-    const before = await getCreditBalance(fixture);
-    const result = await invokeFunction<LeaveResponse>(
-      config,
-      fixture.accessToken,
-      'leave-battle',
-      { battle_id: battleId },
-    );
+      const before = await getCreditBalance(fixture);
+      const result = await invokeFunction<LeaveResponse>(
+        config,
+        fixture.accessToken,
+        'leave-battle',
+        { battle_id: battleId },
+      );
 
-    assertEquals(result.status, 200, result.bodyText);
-    assertEquals(await getCreditBalance(fixture), before - LEAVE_PRICE);
+      assertEquals(result.status, 200, result.bodyText);
+      assertEquals(await getCreditBalance(fixture), before - LEAVE_PRICE);
 
-    const txs = await leaveTransactions(fixture, battleId);
-    assertEquals(txs.length, 1);
-    assertEquals(Number(txs[0].amount), -LEAVE_PRICE);
-    assertEquals(
-      txs[0].idempotency_key,
-      `leave_battle_${battleId}_${fixture.profileId}`,
-    );
-  } finally {
-    await cleanupFixture(fixture);
-  }
-});
+      const txs = await leaveTransactions(fixture, battleId);
+      assertEquals(txs.length, 1);
+      assertEquals(Number(txs[0].amount), -LEAVE_PRICE);
+      assertEquals(
+        txs[0].idempotency_key,
+        `leave_battle_${battleId}_${fixture.profileId}`,
+      );
+    } finally {
+      await cleanupFixture(fixture);
+    }
+  },
+);
 
-Deno.test('remote leave-battle: a second call does not charge again', async () => {
-  const config = skipUnlessRemoteEnabled();
-  if (!config) return;
+Deno.test(
+  'remote leave-battle: a second call does not charge again',
+  async () => {
+    const config = skipUnlessRemoteEnabled();
+    if (!config) return;
 
-  // The money test. Two taps landing on one battle must cost one toll.
-  let fixture: TestCharacterFixture | undefined;
-  try {
-    fixture = await createTestCharacter(config, 'leave-double');
-    await grantCredits(fixture, 10);
-    const battleId = await createActiveBattle(fixture);
-    await lockPrompt(fixture, battleId);
+    // The money test. Two taps landing on one battle must cost one toll.
+    let fixture: TestCharacterFixture | undefined;
+    try {
+      fixture = await createTestCharacter(config, 'leave-double');
+      await grantCredits(fixture, 10);
+      const battleId = await createActiveBattle(fixture);
+      await lockPrompt(fixture, battleId);
 
-    const before = await getCreditBalance(fixture);
-    await invokeFunction(config, fixture.accessToken, 'leave-battle', {
-      battle_id: battleId,
-    });
-    const second = await invokeFunction<LeaveResponse>(
-      config,
-      fixture.accessToken,
-      'leave-battle',
-      { battle_id: battleId },
-    );
+      const before = await getCreditBalance(fixture);
+      await invokeFunction(config, fixture.accessToken, 'leave-battle', {
+        battle_id: battleId,
+      });
+      const second = await invokeFunction<LeaveResponse>(
+        config,
+        fixture.accessToken,
+        'leave-battle',
+        { battle_id: battleId },
+      );
 
-    assertEquals(second.status, 200, second.bodyText);
-    assertEquals(leaveBody(second).action, 'already_terminal');
-    assertEquals(await getCreditBalance(fixture), before - LEAVE_PRICE);
-    assertEquals((await leaveTransactions(fixture, battleId)).length, 1);
-  } finally {
-    await cleanupFixture(fixture);
-  }
-});
+      assertEquals(second.status, 200, second.bodyText);
+      assertEquals(leaveBody(second).action, 'already_terminal');
+      assertEquals(await getCreditBalance(fixture), before - LEAVE_PRICE);
+      assertEquals((await leaveTransactions(fixture, battleId)).length, 1);
+    } finally {
+      await cleanupFixture(fixture);
+    }
+  },
+);
 
 Deno.test('remote leave-battle: a blocked exit leaves no trace', async () => {
   const config = skipUnlessRemoteEnabled();

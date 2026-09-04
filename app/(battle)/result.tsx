@@ -47,6 +47,7 @@ import { orientSeriesScore } from '@/components/SeriesScoreIndicator';
 import { shareResultCard, shareBattleVideo } from '@/utils/share';
 import { invokeAuthenticatedFunction, supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
+import { useBattleAudio } from '@/providers/BattleAudioProvider';
 import { BattleRound, RewardSummary } from '@/types/battle';
 import {
   revealModelFrom,
@@ -104,7 +105,10 @@ export default function ResultScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
+  const { stopMusic } = useBattleAudio();
   const { battleId } = useLocalSearchParams<{ battleId: string }>();
+
+  useEffect(() => stopMusic(), [stopMusic]);
 
   const { battle, videoJob, refetch, format, series_score, rounds } =
     useRealtimeBattle(battleId || null);

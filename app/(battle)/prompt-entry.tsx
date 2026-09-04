@@ -76,6 +76,7 @@ import VersusStrip from '@/components/VersusStrip';
 import PortraitViewer from '@/components/PortraitViewer';
 import HeaderLeaveButton from '@/components/HeaderLeaveButton';
 import InlineBanner from '@/components/InlineBanner';
+import { useBattleAudio } from '@/providers/BattleAudioProvider';
 
 // Lock-in ceremony: press-and-hold duration before the submit fires.
 const HOLD_DURATION_MS = 600;
@@ -188,6 +189,7 @@ export default function PromptEntryScreen() {
     hp_max,
     isSubscribed,
   } = useRealtimeBattle(battleId || null);
+  const battleAudio = useBattleAudio(rtBattle?.theme ?? battle?.theme);
 
   const roundNumber = round ? Number(round) : current_round;
 
@@ -621,6 +623,7 @@ export default function PromptEntryScreen() {
 
       if (result.success) {
         // Optimistic transition; no Alert interstitial.
+        battleAudio.playSound('promptLocked');
         router.replace(waitingHref);
         return;
       }

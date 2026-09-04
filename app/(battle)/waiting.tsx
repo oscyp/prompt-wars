@@ -30,7 +30,7 @@ import {
   Elevation,
   NumericFontVariant,
 } from '@/constants/DesignTokens';
-import { UiArt } from '@/constants/UiArt';
+import { presentationForTheme } from '@/constants/ThemeArt';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import { useLeaveBattle } from '@/hooks/useLeaveBattle';
 import { useAuth } from '@/providers/AuthProvider';
@@ -39,6 +39,8 @@ import {
   startMatchmaking,
   hasOpponent,
   BattleMode,
+  canLeaveBattleStatus,
+  leaveActionLabel,
 } from '@/utils/battles';
 import { supabase } from '@/utils/supabase';
 import { hapticSuccess } from '@/utils/haptics';
@@ -60,15 +62,21 @@ import {
   BOT_READY,
   type WaitingHeroCopy,
 } from '@/utils/prebattleCopy';
+import { generateIdempotencyKey } from '@/utils/characters';
+import { useBattleAudio } from '@/providers/BattleAudioProvider';
 
 export default function WaitingScreen() {
   const colors = useThemedColors();
   const router = useRouter();
   const { user } = useAuth();
-  const { battleId, round } = useLocalSearchParams<{
+  const { battleId, round, requestId } = useLocalSearchParams<{
     battleId: string;
     round?: string;
+    requestId?: string;
   }>();
+  const matchmakingRequestId = useRef(
+    requestId || generateIdempotencyKey(),
+  ).current;
 
   const {
     battle,
@@ -82,6 +90,8 @@ export default function WaitingScreen() {
   const roundNumber = resolveRoundParam(round, current_round);
   const isBo3 = format === 'bo3';
   const isBot = Boolean(battle?.is_player_two_bot);
+  useBattleAudio(battle?.theme);
+  const arenaPresentation = presentationForTheme(battle?.theme);
   const isPlayerOne =
     Boolean(battle) && Boolean(user) && battle!.player_one_id === user!.id;
 
@@ -262,6 +272,10 @@ export default function WaitingScreen() {
           const result = await startMatchmaking(
             battle.player_one_character_id,
             battle.mode as BattleMode,
+            {
+              requestId: matchmakingRequestId,
+              resumeBattleId: battleId,
+            },
           );
 
           if (result.matched) {
@@ -269,7 +283,7 @@ export default function WaitingScreen() {
             if (!routed) {
               if (result.battle_id !== battleId) {
                 router.replace(
-                  `/(battle)/waiting?battleId=${result.battle_id}`,
+                  `/(battle)/waiting?battleId=${result.battle_id}&requestId=${matchmakingRequestId}`,
                 );
               } else {
                 setRetryNonce((n) => n + 1);
@@ -279,7 +293,9 @@ export default function WaitingScreen() {
             setQueueNote(sanitizeServerMessage(result.message));
             // If backend returned a different battle_id while unmatched, replace waiting screen
             if (result.battle_id !== battleId) {
-              router.replace(`/(battle)/waiting?battleId=${result.battle_id}`);
+              router.replace(
+                `/(battle)/waiting?battleId=${result.battle_id}&requestId=${matchmakingRequestId}`,
+              );
             } else {
               setRetryNonce((n) => n + 1);
             }
@@ -292,7 +308,15 @@ export default function WaitingScreen() {
         }
       }, delay);
     }
-  }, [battle, user, battleId, router, retryNonce, routeMatchedBattle]);
+  }, [
+    battle,
+    user,
+    battleId,
+    router,
+    retryNonce,
+    routeMatchedBattle,
+    matchmakingRequestId,
+  ]);
 
   // Terminal without a result, in either format. The Bo3 branch below had no
   // handler at all, so a canceled series left the player on a spinner.
@@ -461,10 +485,21 @@ export default function WaitingScreen() {
   }, [battle, hero.title, hero.subtitle]);
 
   const opponentRowLabel = isBot ? BOT_READY : "Opponent's prompt submitted";
+  const canLeave = canLeaveBattleStatus(battle?.status);
+  const leaveLabel = leaveActionLabel({
+    status: battle?.status,
+    mode: (battle?.mode ?? 'ranked') as BattleMode,
+    isBot,
+    hasOpponent: opponentReady,
+  });
+  const isFinishing =
+    battle?.status === 'resolving' ||
+    battle?.status === 'result_ready' ||
+    battle?.status === 'generating_video';
 
   return (
     <ImageBackground
-      source={UiArt.arenaBackdrop}
+      source={arenaPresentation.backdrop}
       style={styles.container}
       resizeMode="cover"
     >
@@ -640,10 +675,10 @@ export default function WaitingScreen() {
         <TouchableOpacity
           style={styles.homeButton}
           onPress={() => router.replace('/(tabs)/home')}
-          accessibilityLabel="Return to home"
+          accessibilityLabel="Return to Arena"
           accessibilityRole="button"
         >
-          <Text style={styles.homeButtonText}>Return to Home</Text>
+          <Text style={styles.homeButtonText}>Return to Arena</Text>
         </TouchableOpacity>
 
         {notifGranted === null ? null : (
@@ -652,16 +687,24 @@ export default function WaitingScreen() {
           </Text>
         )}
 
-        <TouchableOpacity
-          style={styles.leaveLink}
-          onPress={() => leave.confirmLeave()}
-          disabled={leave.isLeaving}
-          accessibilityLabel="Leave battle"
-          accessibilityRole="button"
-          accessibilityState={{ disabled: leave.isLeaving }}
-        >
-          <Text style={styles.leaveLinkText}>Leave battle</Text>
-        </TouchableOpacity>
+        {canLeave ? (
+          <TouchableOpacity
+            style={styles.leaveLink}
+            onPress={() => leave.confirmLeave()}
+            disabled={leave.isLeaving}
+            accessibilityLabel={leaveLabel}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: leave.isLeaving }}
+          >
+            <Text style={styles.leaveLinkText}>
+              {leave.isLeaving ? 'Leaving…' : leaveLabel}
+            </Text>
+          </TouchableOpacity>
+        ) : isFinishing ? (
+          <Text style={styles.hint}>
+            This battle is finishing now, so it can no longer be left.
+          </Text>
+        ) : null}
       </ScrollView>
 
       <PortraitViewer

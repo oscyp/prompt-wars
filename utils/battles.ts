@@ -11,6 +11,7 @@ import {
 } from './supabase';
 import { formatCredits } from './credits';
 import type { BattleFormat } from '@/types/battle';
+import { generateIdempotencyKey } from './characters';
 
 export type BattleStatus =
   | 'created'
@@ -42,6 +43,29 @@ export const FINAL_BATTLE_STATUSES: readonly BattleStatus[] = [
   'generation_failed',
 ];
 
+export const LEAVABLE_BATTLE_STATUSES: readonly BattleStatus[] = [
+  'created',
+  'matched',
+  'waiting_for_prompts',
+];
+
+export function canLeaveBattleStatus(status?: string | null): boolean {
+  return LEAVABLE_BATTLE_STATUSES.includes(status as BattleStatus);
+}
+
+export function leaveActionLabel(args: {
+  status?: string | null;
+  mode: BattleMode;
+  isBot: boolean;
+  hasOpponent: boolean;
+}): 'Cancel search' | 'Leave' | 'Forfeit' {
+  if (args.status === 'created' && !args.hasOpponent) return 'Cancel search';
+  if (args.mode === 'ranked' && !args.isBot && args.hasOpponent) {
+    return 'Forfeit';
+  }
+  return 'Leave';
+}
+
 export type BattleMode =
   | 'ranked'
   | 'unranked'
@@ -58,6 +82,15 @@ export interface MatchmakingResult {
   opponent_name?: string;
   is_bot_battle?: boolean;
   converted_from_queue?: boolean;
+  /** True when the server returned the battle already assigned to this action. */
+  replayed_request?: boolean;
+}
+
+export interface MatchmakingRequestOptions {
+  /** Reuse this value for every network retry of one explicit player action. */
+  requestId?: string;
+  /** Waiting screens provide the row they are already presenting. */
+  resumeBattleId?: string;
 }
 
 export interface SubmitPromptResult {
@@ -171,6 +204,7 @@ export function leaveDialogCopy(args: LeaveDialogArgs): LeaveDialogCopy {
 export async function startMatchmaking(
   characterId: string,
   mode: BattleMode = 'ranked',
+  options: MatchmakingRequestOptions = {},
 ): Promise<MatchmakingResult> {
   try {
     const data = await invokeAuthenticatedFunction<MatchmakingResult>(
@@ -178,6 +212,8 @@ export async function startMatchmaking(
       {
         character_id: characterId,
         mode,
+        request_id: options.requestId ?? generateIdempotencyKey(),
+        resume_battle_id: options.resumeBattleId,
       },
     );
 
@@ -189,6 +225,7 @@ export async function startMatchmaking(
       opponent_name: data.opponent_name,
       is_bot_battle: data.is_bot_battle,
       converted_from_queue: data.converted_from_queue,
+      replayed_request: data.replayed_request,
     };
   } catch (err) {
     throw new Error(err instanceof Error ? err.message : 'Matchmaking error');

@@ -30,6 +30,9 @@ export interface PortraitGenerationInput {
 export interface PortraitGenerationResult {
   provider: 'xai' | 'openai' | 'fallback';
   provider_model: string;
+  /** Billable amount from the deployment's provider contract, when configured. */
+  provider_cost_usd?: number;
+  provider_latency_ms: number;
   image_bytes: Uint8Array;
   content_type: 'image/png' | 'image/webp' | 'image/jpeg';
   resolved_prompt: string;
@@ -133,7 +136,9 @@ interface RoutingArgs {
   size: '1024x1024' | '1024x1536';
 }
 
-async function generateWithRouting(args: RoutingArgs): Promise<PortraitGenerationResult> {
+async function generateWithRouting(
+  args: RoutingArgs,
+): Promise<PortraitGenerationResult> {
   if (isFallbackMode()) {
     return fallbackResult(args.resolvedPrompt);
   }
@@ -181,6 +186,7 @@ function fallbackResult(resolvedPrompt: string): PortraitGenerationResult {
   return {
     provider: 'fallback',
     provider_model: 'deterministic-stub',
+    provider_latency_ms: 0,
     image_bytes: FALLBACK_PNG_BYTES,
     content_type: 'image/png',
     resolved_prompt: resolvedPrompt,
@@ -194,7 +200,10 @@ function fallbackResult(resolvedPrompt: string): PortraitGenerationResult {
 async function callXai(args: RoutingArgs): Promise<PortraitGenerationResult> {
   const apiKey = safeEnv('XAI_API_KEY');
   if (!apiKey) {
-    throw new ImageProviderError('missing_api_key', 'XAI_API_KEY not configured');
+    throw new ImageProviderError(
+      'missing_api_key',
+      'XAI_API_KEY not configured',
+    );
   }
 
   const started = Date.now();
@@ -225,36 +234,53 @@ async function callXai(args: RoutingArgs): Promise<PortraitGenerationResult> {
     if (!res.ok) {
       const bodyText = await safeReadText(res);
       if (isSafetyRefusal(res.status, bodyText)) {
-        throw new SafetyRefusedError('xai', 'xAI refused generation due to safety policy');
+        throw new SafetyRefusedError(
+          'xai',
+          'xAI refused generation due to safety policy',
+        );
       }
       if (res.status >= 500) {
         throw new ImageProviderError('server_error', `xAI ${res.status}`);
       }
-      throw new ImageProviderError('client_error', `xAI ${res.status}: ${truncate(bodyText, 200)}`);
+      throw new ImageProviderError(
+        'client_error',
+        `xAI ${res.status}: ${truncate(bodyText, 200)}`,
+      );
     }
 
     const data = await res.json();
     const b64 = data?.data?.[0]?.b64_json;
     if (!b64) {
-      throw new ImageProviderError('malformed_response', 'xAI response missing b64_json');
+      throw new ImageProviderError(
+        'malformed_response',
+        'xAI response missing b64_json',
+      );
     }
     const bytes = decodeBase64(b64);
 
     return {
       provider: 'xai',
       provider_model: XAI_MODEL,
+      provider_cost_usd: configuredImageCost('xai', args.size),
+      provider_latency_ms: Date.now() - started,
       image_bytes: bytes,
       content_type: detectImageContentType(bytes),
       resolved_prompt: args.resolvedPrompt,
     };
   } catch (err) {
-    if (err instanceof SafetyRefusedError || err instanceof ImageProviderError) {
+    if (
+      err instanceof SafetyRefusedError ||
+      err instanceof ImageProviderError
+    ) {
       logCall('xai', started, status, err.code ?? 'error');
       throw err;
     }
     const code = isAbortError(err) ? 'timeout' : 'network';
     logCall('xai', started, status, code);
-    throw new ImageProviderError(code, err instanceof Error ? err.message : 'xAI network error');
+    throw new ImageProviderError(
+      code,
+      err instanceof Error ? err.message : 'xAI network error',
+    );
   } finally {
     if (status >= 200 && status < 300) {
       logCall('xai', started, status, 'ok');
@@ -266,10 +292,15 @@ async function callXai(args: RoutingArgs): Promise<PortraitGenerationResult> {
 // OpenAI
 // ---------------------------------------------------------------------------
 
-async function callOpenAi(args: RoutingArgs): Promise<PortraitGenerationResult> {
+async function callOpenAi(
+  args: RoutingArgs,
+): Promise<PortraitGenerationResult> {
   const apiKey = safeEnv('OPENAI_API_KEY');
   if (!apiKey) {
-    throw new ImageProviderError('missing_api_key', 'OPENAI_API_KEY not configured');
+    throw new ImageProviderError(
+      'missing_api_key',
+      'OPENAI_API_KEY not configured',
+    );
   }
 
   const started = Date.now();
@@ -294,7 +325,10 @@ async function callOpenAi(args: RoutingArgs): Promise<PortraitGenerationResult> 
     if (!res.ok) {
       const bodyText = await safeReadText(res);
       if (isSafetyRefusal(res.status, bodyText)) {
-        throw new SafetyRefusedError('openai', 'OpenAI refused generation due to safety policy');
+        throw new SafetyRefusedError(
+          'openai',
+          'OpenAI refused generation due to safety policy',
+        );
       }
       if (res.status >= 500) {
         throw new ImageProviderError('server_error', `OpenAI ${res.status}`);
@@ -308,25 +342,36 @@ async function callOpenAi(args: RoutingArgs): Promise<PortraitGenerationResult> 
     const data = await res.json();
     const b64 = data?.data?.[0]?.b64_json;
     if (!b64) {
-      throw new ImageProviderError('malformed_response', 'OpenAI response missing b64_json');
+      throw new ImageProviderError(
+        'malformed_response',
+        'OpenAI response missing b64_json',
+      );
     }
     const bytes = decodeBase64(b64);
 
     return {
       provider: 'openai',
       provider_model: OPENAI_MODEL,
+      provider_cost_usd: configuredImageCost('openai', args.size),
+      provider_latency_ms: Date.now() - started,
       image_bytes: bytes,
       content_type: detectImageContentType(bytes),
       resolved_prompt: args.resolvedPrompt,
     };
   } catch (err) {
-    if (err instanceof SafetyRefusedError || err instanceof ImageProviderError) {
+    if (
+      err instanceof SafetyRefusedError ||
+      err instanceof ImageProviderError
+    ) {
       logCall('openai', started, status, err.code ?? 'error');
       throw err;
     }
     const code = isAbortError(err) ? 'timeout' : 'network';
     logCall('openai', started, status, code);
-    throw new ImageProviderError(code, err instanceof Error ? err.message : 'OpenAI network error');
+    throw new ImageProviderError(
+      code,
+      err instanceof Error ? err.message : 'OpenAI network error',
+    );
   } finally {
     if (status >= 200 && status < 300) {
       logCall('openai', started, status, 'ok');
@@ -345,12 +390,23 @@ function xaiAspectRatio(size: RoutingArgs['size']): '1:1' | '2:3' {
 
 function safeEnv(key: string): string | undefined {
   try {
-    return (globalThis as { Deno?: { env: { get(k: string): string | undefined } } }).Deno?.env.get(
-      key,
-    );
+    return (
+      globalThis as { Deno?: { env: { get(k: string): string | undefined } } }
+    ).Deno?.env.get(key);
   } catch {
     return undefined;
   }
+}
+
+function configuredImageCost(
+  provider: 'xai' | 'openai',
+  size: RoutingArgs['size'],
+): number | undefined {
+  const suffix = size === '1024x1536' ? 'PORTRAIT' : 'SQUARE';
+  const raw = safeEnv(`${provider.toUpperCase()}_IMAGE_COST_USD_${suffix}`);
+  if (!raw) return undefined;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
 async function safeReadText(res: Response): Promise<string> {
@@ -405,7 +461,12 @@ function detectImageContentType(
     return 'image/png';
   }
   // JPEG: FF D8 FF
-  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+  if (
+    bytes.length >= 3 &&
+    bytes[0] === 0xff &&
+    bytes[1] === 0xd8 &&
+    bytes[2] === 0xff
+  ) {
     return 'image/jpeg';
   }
   // WEBP: "RIFF" .... "WEBP"

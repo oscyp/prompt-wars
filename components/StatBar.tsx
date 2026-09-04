@@ -14,7 +14,12 @@ export interface StatBarProps {
  * Simple stat bar with label, numeric value and segmented fill. Uses both
  * color and numeric value so screen readers and color-blind users get parity.
  */
-export default function StatBar({ label, value, max = 10, color }: StatBarProps) {
+export default function StatBar({
+  label,
+  value,
+  max = 10,
+  color,
+}: StatBarProps) {
   const colors = useThemedColors();
   const safeMax = Math.max(1, max);
   const clamped = Math.max(0, Math.min(value, safeMax));
@@ -29,10 +34,7 @@ export default function StatBar({ label, value, max = 10, color }: StatBarProps)
       accessibilityValue={{ min: 0, max: safeMax, now: clamped }}
     >
       <View style={styles.row}>
-        <Text
-          style={[styles.label, { color: colors.text }]}
-          numberOfLines={1}
-        >
+        <Text style={[styles.label, { color: colors.text }]} numberOfLines={1}>
           {label}
         </Text>
         <Text style={[styles.value, { color: colors.textSecondary }]}>

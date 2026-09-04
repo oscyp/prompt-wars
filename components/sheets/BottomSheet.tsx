@@ -123,7 +123,11 @@ export default function BottomSheet({
       ) : null}
       {subtitle ? (
         <Text
-          style={[styles.subtitle, accessibleText, { color: colors.textSecondary }]}
+          style={[
+            styles.subtitle,
+            accessibleText,
+            { color: colors.textSecondary },
+          ]}
         >
           {subtitle}
         </Text>

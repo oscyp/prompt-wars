@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useRef } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   View,
   Text,
@@ -56,9 +62,15 @@ export default function BattleModeSheet({
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
   const translateY = useRef(new Animated.Value(320)).current;
+  const selectingRef = useRef(false);
+  const [selecting, setSelecting] = useState(false);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      selectingRef.current = false;
+      setSelecting(false);
+      return;
+    }
     if (reduceMotion) {
       translateY.setValue(0);
       return;
@@ -72,6 +84,11 @@ export default function BattleModeSheet({
   }, [visible, reduceMotion, translateY]);
 
   const selectMode = (mode: BattleMode) => {
+    // A ref closes the same-frame gap before React applies disabled. This tap
+    // is the explicit matchmaking action; it must produce one route only.
+    if (selectingRef.current) return;
+    selectingRef.current = true;
+    setSelecting(true);
     onClose();
     router.push(`/(battle)/matchmaking?mode=${mode}`);
   };
@@ -138,7 +155,12 @@ export default function BattleModeSheet({
         </View>
         <View style={styles.modes}>
           {BATTLE_MODES.map((info) => (
-            <ModeCard key={info.mode} info={info} onPress={selectMode} />
+            <ModeCard
+              key={info.mode}
+              info={info}
+              onPress={selectMode}
+              disabled={selecting}
+            />
           ))}
         </View>
       </Animated.View>

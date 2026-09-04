@@ -41,6 +41,7 @@ import MoveTypeSelector from '@/components/MoveTypeSelector';
 import VersusStrip from '@/components/VersusStrip';
 import PortraitViewer from '@/components/PortraitViewer';
 import HeaderLeaveButton from '@/components/HeaderLeaveButton';
+import { useBattleAudio } from '@/providers/BattleAudioProvider';
 
 // Battle- and round-level states in which picking a move is pointless: the
 // server has moved on, so the screen must too. Waiting knows where to go next.
@@ -100,6 +101,7 @@ export default function MoveSelectScreen() {
     hp,
     hp_max,
   } = useRealtimeBattle(battleId || null);
+  const battleAudio = useBattleAudio(rtBattle?.theme ?? battle?.theme);
 
   const roundNumber = round ? Number(round) : current_round;
 
@@ -429,7 +431,10 @@ export default function MoveSelectScreen() {
 
           <MoveTypeSelector
             value={moveType}
-            onChange={setMoveType}
+            onChange={(next) => {
+              setMoveType(next);
+              battleAudio.playSound('moveSelected');
+            }}
             suggestedCounter={suggestedCounter}
           />
 

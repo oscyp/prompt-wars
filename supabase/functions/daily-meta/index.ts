@@ -163,7 +163,9 @@ Deno.serve(async (req) => {
     // --- Default: full daily sync -----------------------------------------
     // Keep "today" stocked with quests, assign them to the player, auto-claim
     // the login reward, and grant any newly-earned cosmetics. All idempotent.
-    const { error: rolloverError } = await supabase.rpc('rollover_daily_quests');
+    const { error: rolloverError } = await supabase.rpc(
+      'rollover_daily_quests',
+    );
     if (rolloverError) {
       console.error('rollover_daily_quests failed (non-fatal):', rolloverError);
     }
@@ -188,7 +190,10 @@ Deno.serve(async (req) => {
       { p_profile_id: userId },
     );
     if (cosmeticError) {
-      console.error('sync_unlocked_cosmetics error (non-fatal):', cosmeticError);
+      console.error(
+        'sync_unlocked_cosmetics error (non-fatal):',
+        cosmeticError,
+      );
     }
 
     const state = await loadState(supabase, userId);

@@ -11,11 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/utils/supabase';
-import {
-  leaveBattle,
-  leaveDialogCopy,
-  type BattleMode,
-} from '@/utils/battles';
+import { leaveBattle, leaveDialogCopy, type BattleMode } from '@/utils/battles';
 import type { PromptUpdate } from '@/hooks/useRealtimeBattle';
 import type { BattleFormat } from '@/types/battle';
 import { insufficientCreditsMessage } from '@/utils/credits';
@@ -34,8 +30,10 @@ export interface UseLeaveBattleArgs {
   format: BattleFormat;
   mode: BattleMode;
   isBot: boolean;
-  prompts: PromptUpdate[];
+  prompts?: PromptUpdate[];
   myProfileId: string | null | undefined;
+  /** List rows know lock state from battle/round timestamps without prompts. */
+  hasLockedPrompt?: boolean;
 }
 
 export function useLeaveBattle(
@@ -53,10 +51,14 @@ export function useLeaveBattle(
   // Whether THIS player has committed. Derived from what useRealtimeBattle
   // already streams -- no extra query, no extra subscription -- so the dialog
   // flips from free to paid the instant the lock lands.
-  const iHaveLocked = Boolean(
-    args.myProfileId &&
-      args.prompts.some((p) => p.profile_id === args.myProfileId && p.is_locked),
-  );
+  const iHaveLocked =
+    args.hasLockedPrompt ??
+    Boolean(
+      args.myProfileId &&
+      args.prompts?.some(
+        (p) => p.profile_id === args.myProfileId && p.is_locked,
+      ),
+    );
 
   useEffect(() => {
     let cancelled = false;

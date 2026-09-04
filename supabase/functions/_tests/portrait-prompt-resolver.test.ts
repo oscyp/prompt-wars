@@ -1,7 +1,10 @@
 // Deno tests for the portrait prompt resolver.
 // Run with: deno test supabase/functions/_tests/portrait-prompt-resolver.test.ts
 
-import { assert, assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
+import {
+  assert,
+  assertEquals,
+} from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import {
   resolvePortraitPrompt,
   resolveItemIconPrompt,
@@ -37,9 +40,18 @@ Deno.test('resolver composes from each trait phrase when no prompt_raw', () => {
     seed: 7,
   });
   assert(out.includes('sinister grin'), `missing vibe phrase: ${out}`);
-  assert(out.includes('armored knight stance'), `missing silhouette phrase: ${out}`);
-  assert(out.includes('ember reds and oranges'), `missing palette phrase: ${out}`);
-  assert(out.includes('industrial steam-era setting'), `missing era phrase: ${out}`);
+  assert(
+    out.includes('armored knight stance'),
+    `missing silhouette phrase: ${out}`,
+  );
+  assert(
+    out.includes('ember reds and oranges'),
+    `missing palette phrase: ${out}`,
+  );
+  assert(
+    out.includes('industrial steam-era setting'),
+    `missing era phrase: ${out}`,
+  );
   assert(out.includes('fierce glare'), `missing expression phrase: ${out}`);
 });
 
@@ -80,7 +92,8 @@ Deno.test('resolver caps output at 800 chars even with maximal input', () => {
     },
     archetype: 'titan',
     signature_color: '#7733FF',
-    signature_item_fragment: 'wielding a brass fountain pen the size of a sword '.repeat(20),
+    signature_item_fragment:
+      'wielding a brass fountain pen the size of a sword '.repeat(20),
     seed: 999,
   });
   assert(
@@ -89,85 +102,136 @@ Deno.test('resolver caps output at 800 chars even with maximal input', () => {
   );
 });
 
-Deno.test('seed appears in output and color appears as descriptor (not raw hex)', () => {
-  const out = resolvePortraitPrompt({
-    prompt_raw: 'a stoic samurai',
-    archetype: 'strategist',
-    signature_color: '#A12FCC',
-    seed: 12345,
-  });
-  assert(out.includes('12345'), `seed missing from output: ${out}`);
-  assert(!out.includes('#A12FCC'), `raw hex leaked into prompt: ${out}`);
-  assert(!out.toLowerCase().includes('a12fcc'), `raw hex value leaked into prompt: ${out}`);
-  // Should contain a color descriptor word.
-  const lower = out.toLowerCase();
+Deno.test(
+  'seed appears in output and color appears as descriptor (not raw hex)',
+  () => {
+    const out = resolvePortraitPrompt({
+      prompt_raw: 'a stoic samurai',
+      archetype: 'strategist',
+      signature_color: '#A12FCC',
+      seed: 12345,
+    });
+    assert(out.includes('12345'), `seed missing from output: ${out}`);
+    assert(!out.includes('#A12FCC'), `raw hex leaked into prompt: ${out}`);
+    assert(
+      !out.toLowerCase().includes('a12fcc'),
+      `raw hex value leaked into prompt: ${out}`,
+    );
+    // Should contain a color descriptor word.
+    const lower = out.toLowerCase();
+    assert(
+      lower.includes('purple') ||
+        lower.includes('magenta') ||
+        lower.includes('pink') ||
+        lower.includes('signature accent'),
+      `color descriptor missing: ${out}`,
+    );
+  },
+);
+
+Deno.test('describeSignatureColor buckets hues into named families', () => {
+  assertEquals(
+    describeSignatureColor('#000000'),
+    'a near-black signature accent',
+  );
+  assertEquals(
+    describeSignatureColor('#FFFFFF'),
+    'a near-white signature accent',
+  );
+  assert(describeSignatureColor('#FF0000').includes('crimson red'));
   assert(
-    lower.includes('purple') ||
-      lower.includes('magenta') ||
-      lower.includes('pink') ||
-      lower.includes('signature accent'),
-    `color descriptor missing: ${out}`,
+    describeSignatureColor('#00B5FF').includes('cyan') ||
+      describeSignatureColor('#00B5FF').includes('blue'),
+  );
+  assertEquals(
+    describeSignatureColor('not-a-hex'),
+    'a distinctive signature color',
   );
 });
 
-Deno.test('describeSignatureColor buckets hues into named families', () => {
-  assertEquals(describeSignatureColor('#000000'), 'a near-black signature accent');
-  assertEquals(describeSignatureColor('#FFFFFF'), 'a near-white signature accent');
-  assert(describeSignatureColor('#FF0000').includes('crimson red'));
-  assert(describeSignatureColor('#00B5FF').includes('cyan') || describeSignatureColor('#00B5FF').includes('blue'));
-  assertEquals(describeSignatureColor('not-a-hex'), 'a distinctive signature color');
-});
-
-Deno.test('item icon resolver produces icon-styled prompt with negatives and seed', () => {
-  const out = resolveItemIconPrompt({
-    name: 'Brass Fountain Pen',
-    description: 'an oversized pen with sharpened nib',
-    item_class: 'weaponized_mundane',
-    seed: 555,
-  });
-  assert(out.toLowerCase().includes('icon'), `missing icon style cue: ${out}`);
-  assert(out.includes('Brass Fountain Pen'), `missing item name: ${out}`);
-  assert(out.includes('555'), `missing seed: ${out}`);
-  assert(out.includes('No real people'), 'missing negatives');
-  assert(out.length <= __internal.MAX_PROMPT_CHARS);
-});
-
-Deno.test('signature_item_fragment is included as a mandatory, prominent detail', () => {
-  const out = resolvePortraitPrompt({
-    archetype: 'engineer',
-    signature_color: '#33AA66',
-    signature_item_fragment: 'wielding a brass fountain pen',
-    seed: 11,
-  });
-  assert(out.includes('brass fountain pen'), `signature item missing: ${out}`);
-  assert(out.includes('Signature item, required'), `item not marked required: ${out}`);
-  assert(out.includes('prominently holds or wears'), `item not made prominent: ${out}`);
-  assert(out.includes('clearly visible'), `item visibility clause missing: ${out}`);
-});
-
-Deno.test('fighter kind: every art style demands full-body framing, head to feet, uncropped', () => {
-  for (const style of Object.keys(__internal.ART_STYLE_SCAFFOLDS)) {
-    const out = resolvePortraitPrompt({
-      archetype: 'titan',
-      signature_color: '#FF3300',
-      seed: 3,
-      // deno-lint-ignore no-explicit-any
-      art_style: style as any,
+Deno.test(
+  'item icon resolver produces icon-styled prompt with negatives and seed',
+  () => {
+    const out = resolveItemIconPrompt({
+      name: 'Brass Fountain Pen',
+      description: 'an oversized pen with sharpened nib',
+      item_class: 'weaponized_mundane',
+      seed: 555,
     });
-    const lower = out.toLowerCase();
     assert(
-      lower.includes('full-body') || lower.includes('full-length'),
-      `style ${style} missing full-body framing: ${out}`,
+      out.toLowerCase().includes('icon'),
+      `missing icon style cue: ${out}`,
     );
-    assert(lower.includes('head to toe'), `style ${style} missing head-to-toe: ${out}`);
-    assert(lower.includes('feet'), `style ${style} missing feet mention: ${out}`);
-    assert(lower.includes('no crop'), `style ${style} missing no-crop clause: ${out}`);
+    assert(out.includes('Brass Fountain Pen'), `missing item name: ${out}`);
+    assert(out.includes('555'), `missing seed: ${out}`);
+    assert(out.includes('No real people'), 'missing negatives');
+    assert(out.length <= __internal.MAX_PROMPT_CHARS);
+  },
+);
+
+Deno.test(
+  'signature_item_fragment is included as a mandatory, prominent detail',
+  () => {
+    const out = resolvePortraitPrompt({
+      archetype: 'engineer',
+      signature_color: '#33AA66',
+      signature_item_fragment: 'wielding a brass fountain pen',
+      seed: 11,
+    });
     assert(
-      !lower.includes('head-and-shoulders') && !lower.includes('bust'),
-      `style ${style} still crops to bust: ${out}`,
+      out.includes('brass fountain pen'),
+      `signature item missing: ${out}`,
     );
-  }
-});
+    assert(
+      out.includes('Signature item, required'),
+      `item not marked required: ${out}`,
+    );
+    assert(
+      out.includes('prominently holds or wears'),
+      `item not made prominent: ${out}`,
+    );
+    assert(
+      out.includes('clearly visible'),
+      `item visibility clause missing: ${out}`,
+    );
+  },
+);
+
+Deno.test(
+  'fighter kind: every art style demands full-body framing, head to feet, uncropped',
+  () => {
+    for (const style of Object.keys(__internal.ART_STYLE_SCAFFOLDS)) {
+      const out = resolvePortraitPrompt({
+        archetype: 'titan',
+        signature_color: '#FF3300',
+        seed: 3,
+        // deno-lint-ignore no-explicit-any
+        art_style: style as any,
+      });
+      const lower = out.toLowerCase();
+      assert(
+        lower.includes('full-body') || lower.includes('full-length'),
+        `style ${style} missing full-body framing: ${out}`,
+      );
+      assert(
+        lower.includes('head to toe'),
+        `style ${style} missing head-to-toe: ${out}`,
+      );
+      assert(
+        lower.includes('feet'),
+        `style ${style} missing feet mention: ${out}`,
+      );
+      assert(
+        lower.includes('no crop'),
+        `style ${style} missing no-crop clause: ${out}`,
+      );
+      assert(
+        !lower.includes('head-and-shoulders') && !lower.includes('bust'),
+        `style ${style} still crops to bust: ${out}`,
+      );
+    }
+  },
+);
 
 Deno.test('style lock reiterates the medium near the end of the prompt', () => {
   const out = resolvePortraitPrompt({
@@ -176,9 +240,14 @@ Deno.test('style lock reiterates the medium near the end of the prompt', () => {
     seed: 8,
     art_style: 'vaporwave',
   });
-  const lockIdx = out.indexOf('Style lock: render strictly in neon synthwave style');
+  const lockIdx = out.indexOf(
+    'Style lock: render strictly in neon synthwave style',
+  );
   assert(lockIdx >= 0, `style lock missing: ${out}`);
-  assert(lockIdx > out.indexOf('Subject:'), 'style lock should come after the subject');
+  assert(
+    lockIdx > out.indexOf('Subject:'),
+    'style lock should come after the subject',
+  );
 });
 
 Deno.test('safety constraints survive truncation of over-long prompts', () => {
@@ -191,34 +260,45 @@ Deno.test('safety constraints survive truncation of over-long prompts', () => {
   });
   assert(out.length <= __internal.MAX_PROMPT_CHARS, `over cap: ${out.length}`);
   assert(out.includes('No real people'), `negatives truncated away: ${out}`);
-  assert(out.includes('watermark'), `watermark negative truncated away: ${out}`);
+  assert(
+    out.includes('watermark'),
+    `watermark negative truncated away: ${out}`,
+  );
 });
 
-Deno.test('art_style swaps the scaffold and keyword for each known style', () => {
-  const cases: Array<[Parameters<typeof resolvePortraitPrompt>[0]['art_style'], string]> = [
-    ['painterly', 'painterly'],
-    ['anime', 'cel-shaded anime'],
-    ['comic', 'comic-book'],
-    ['pixel', 'pixel-art'],
-    ['oil', 'oil-painting'],
-    ['lowpoly', 'low-poly'],
-    ['darkfantasy', 'dark-fantasy'],
-    ['vaporwave', 'synthwave'],
-  ];
-  for (const [style, keyword] of cases) {
-    const out = resolvePortraitPrompt({
-      archetype: 'strategist',
-      signature_color: '#A12FCC',
-      seed: 1,
-      art_style: style,
-    });
-    assert(
-      out.toLowerCase().includes(keyword),
-      `style ${style} should include '${keyword}': ${out}`,
-    );
-    assert(out.length <= __internal.MAX_PROMPT_CHARS, `style ${style} exceeded cap`);
-  }
-});
+Deno.test(
+  'art_style swaps the scaffold and keyword for each known style',
+  () => {
+    const cases: Array<
+      [Parameters<typeof resolvePortraitPrompt>[0]['art_style'], string]
+    > = [
+      ['painterly', 'painterly'],
+      ['anime', 'cel-shaded anime'],
+      ['comic', 'comic-book'],
+      ['pixel', 'pixel-art'],
+      ['oil', 'oil-painting'],
+      ['lowpoly', 'low-poly'],
+      ['darkfantasy', 'dark-fantasy'],
+      ['vaporwave', 'synthwave'],
+    ];
+    for (const [style, keyword] of cases) {
+      const out = resolvePortraitPrompt({
+        archetype: 'strategist',
+        signature_color: '#A12FCC',
+        seed: 1,
+        art_style: style,
+      });
+      assert(
+        out.toLowerCase().includes(keyword),
+        `style ${style} should include '${keyword}': ${out}`,
+      );
+      assert(
+        out.length <= __internal.MAX_PROMPT_CHARS,
+        `style ${style} exceeded cap`,
+      );
+    }
+  },
+);
 
 Deno.test('art_style defaults to painterly when omitted or unknown', () => {
   const omitted = resolvePortraitPrompt({
@@ -226,7 +306,10 @@ Deno.test('art_style defaults to painterly when omitted or unknown', () => {
     signature_color: '#112233',
     seed: 1,
   });
-  assert(omitted.toLowerCase().includes('painterly'), 'omitted art_style should default to painterly');
+  assert(
+    omitted.toLowerCase().includes('painterly'),
+    'omitted art_style should default to painterly',
+  );
 
   const unknown = resolvePortraitPrompt({
     archetype: 'mystic',
@@ -235,39 +318,48 @@ Deno.test('art_style defaults to painterly when omitted or unknown', () => {
     // deno-lint-ignore no-explicit-any
     art_style: 'bogus' as any,
   });
-  assert(unknown.toLowerCase().includes('painterly'), 'unknown art_style should default to painterly');
+  assert(
+    unknown.toLowerCase().includes('painterly'),
+    'unknown art_style should default to painterly',
+  );
 });
-
 
 // The avatar kind is the mirror image: it must NOT contain the full-body
 // language, and must contain the bust framing. These two tests together are
 // what stops a future edit from collapsing the two kinds back into one prompt.
-Deno.test('avatar kind: every art style demands head-and-shoulders bust framing', () => {
-  for (const style of Object.keys(__internal.ART_STYLE_SCAFFOLDS)) {
-    const out = resolvePortraitPrompt({
-      archetype: 'titan',
-      signature_color: '#FF3300',
-      seed: 3,
-      // deno-lint-ignore no-explicit-any
-      art_style: style as any,
-      kind: 'avatar',
-    });
-    const lower = out.toLowerCase();
-    assert(
-      lower.includes('head-and-shoulders'),
-      `style ${style} missing bust framing: ${out}`,
-    );
-    assert(lower.includes('face'), `style ${style} missing face clause: ${out}`);
-    assert(
-      !lower.includes('head to toe') && !lower.includes('full figure head to feet'),
-      `style ${style} still asks for a full body: ${out}`,
-    );
-    assert(
-      !lower.includes('no crop'),
-      `style ${style} keeps the no-crop clause, which fights bust framing: ${out}`,
-    );
-  }
-});
+Deno.test(
+  'avatar kind: every art style demands head-and-shoulders bust framing',
+  () => {
+    for (const style of Object.keys(__internal.ART_STYLE_SCAFFOLDS)) {
+      const out = resolvePortraitPrompt({
+        archetype: 'titan',
+        signature_color: '#FF3300',
+        seed: 3,
+        // deno-lint-ignore no-explicit-any
+        art_style: style as any,
+        kind: 'avatar',
+      });
+      const lower = out.toLowerCase();
+      assert(
+        lower.includes('head-and-shoulders'),
+        `style ${style} missing bust framing: ${out}`,
+      );
+      assert(
+        lower.includes('face'),
+        `style ${style} missing face clause: ${out}`,
+      );
+      assert(
+        !lower.includes('head to toe') &&
+          !lower.includes('full figure head to feet'),
+        `style ${style} still asks for a full body: ${out}`,
+      );
+      assert(
+        !lower.includes('no crop'),
+        `style ${style} keeps the no-crop clause, which fights bust framing: ${out}`,
+      );
+    }
+  },
+);
 
 Deno.test('avatar kind softens the signature-item clause', () => {
   // A bust crop cannot show something held at waist height; demanding it be
@@ -332,7 +424,11 @@ import {
   EXPRESSION_PHRASES,
 } from '../_shared/portrait-prompt-resolver.ts';
 import {
-  VIBE, SILHOUETTE, ERA, EXPRESSION, PALETTE,
+  VIBE,
+  SILHOUETTE,
+  ERA,
+  EXPRESSION,
+  PALETTE,
 } from '../_shared/look-edit.ts';
 
 const COVERAGE: [string, string[], Record<string, string>][] = [
@@ -346,33 +442,47 @@ const COVERAGE: [string, string[], Record<string, string>][] = [
 for (const [label, values, phrases] of COVERAGE) {
   Deno.test(`phrases - every ${label} value has one`, () => {
     const missing = values.filter((v) => !phrases[v]);
-    assertEquals(missing, [], `${label} values with no phrase: ${missing.join(', ')}`);
+    assertEquals(
+      missing,
+      [],
+      `${label} values with no phrase: ${missing.join(', ')}`,
+    );
   });
 
-  Deno.test(`phrases - no ${label} phrase is keyed on a value that cannot occur`, () => {
-    const orphans = Object.keys(phrases).filter((k) => !values.includes(k));
-    assertEquals(orphans, [], `${label} phrases for unknown values: ${orphans.join(', ')}`);
-  });
+  Deno.test(
+    `phrases - no ${label} phrase is keyed on a value that cannot occur`,
+    () => {
+      const orphans = Object.keys(phrases).filter((k) => !values.includes(k));
+      assertEquals(
+        orphans,
+        [],
+        `${label} phrases for unknown values: ${orphans.join(', ')}`,
+      );
+    },
+  );
 }
 
-Deno.test('phrases - no trait reaches the prompt as a raw snake_case token', () => {
-  const prompt = resolvePortraitPrompt({
-    traits: {
-      vibe: 'mischievous',
-      silhouette: 'lean_duelist',
-      palette: 'ash',
-      era: 'far_future',
-      expression: 'thousand_yard',
-    },
-    archetype: 'trickster',
-    signature_color: '#8B5CF6',
-    seed: 42,
-  });
-  for (const token of ['lean_duelist', 'far_future', 'thousand_yard']) {
-    assertEquals(prompt.includes(token), false, `prompt leaked "${token}"`);
-  }
-  assertEquals(prompt.includes('lean duelist build'), true);
-  assertEquals(prompt.includes('far-future sci-fi setting'), true);
-  assertEquals(prompt.includes('thousand-yard stare'), true);
-  assertEquals(prompt.includes('ashen grays'), true);
-});
+Deno.test(
+  'phrases - no trait reaches the prompt as a raw snake_case token',
+  () => {
+    const prompt = resolvePortraitPrompt({
+      traits: {
+        vibe: 'mischievous',
+        silhouette: 'lean_duelist',
+        palette: 'ash',
+        era: 'far_future',
+        expression: 'thousand_yard',
+      },
+      archetype: 'trickster',
+      signature_color: '#8B5CF6',
+      seed: 42,
+    });
+    for (const token of ['lean_duelist', 'far_future', 'thousand_yard']) {
+      assertEquals(prompt.includes(token), false, `prompt leaked "${token}"`);
+    }
+    assertEquals(prompt.includes('lean duelist build'), true);
+    assertEquals(prompt.includes('far-future sci-fi setting'), true);
+    assertEquals(prompt.includes('thousand-yard stare'), true);
+    assertEquals(prompt.includes('ashen grays'), true);
+  },
+);

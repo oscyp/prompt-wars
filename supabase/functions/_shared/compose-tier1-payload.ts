@@ -105,7 +105,10 @@ export interface Tier1PerRoundPayload {
  * round (i.e. before this round's win is applied).
  */
 export function deriveShotIntent(
-  round: Pick<BattleRoundRow, 'is_ko' | 'is_draw' | 'score_gap' | 'round_winner_id'>,
+  round: Pick<
+    BattleRoundRow,
+    'is_ko' | 'is_draw' | 'score_gap' | 'round_winner_id'
+  >,
   seriesBefore: { player_one: number; player_two: number },
   winnerIsPlayerOne: boolean,
 ): ShotIntent {
@@ -152,8 +155,18 @@ export interface ComposeArgs {
  *
  * Throws if the round is not in a result_ready state — pay-to-win guardrail.
  */
-export function composeTier1PerRoundPayload(args: ComposeArgs): Tier1PerRoundPayload {
-  const { battle, round, playerOne, playerTwo, playerOnePrompt, playerTwoPrompt, safety } = args;
+export function composeTier1PerRoundPayload(
+  args: ComposeArgs,
+): Tier1PerRoundPayload {
+  const {
+    battle,
+    round,
+    playerOne,
+    playerTwo,
+    playerOnePrompt,
+    playerTwoPrompt,
+    safety,
+  } = args;
 
   if (round.status !== 'result_ready') {
     throw new Error(
@@ -163,7 +176,8 @@ export function composeTier1PerRoundPayload(args: ComposeArgs): Tier1PerRoundPay
 
   // Series score BEFORE this round = current totals minus this round's contribution.
   const winnerIsP1 = round.round_winner_id === battle.player_one_id;
-  const winnerIsP2 = !!battle.player_two_id && round.round_winner_id === battle.player_two_id;
+  const winnerIsP2 =
+    !!battle.player_two_id && round.round_winner_id === battle.player_two_id;
 
   const seriesAfter = {
     player_one: battle.player_one_rounds_won,
@@ -178,20 +192,20 @@ export function composeTier1PerRoundPayload(args: ComposeArgs): Tier1PerRoundPay
   const winnerArchetype = winnerIsP1
     ? playerOne.archetype
     : winnerIsP2
-    ? playerTwo.archetype
-    : 'neutral';
+      ? playerTwo.archetype
+      : 'neutral';
 
   const damage = winnerIsP1
     ? round.player_two_damage
     : winnerIsP2
-    ? round.player_one_damage
-    : 0;
+      ? round.player_one_damage
+      : 0;
 
   const loserUserId = round.is_draw
     ? null
     : winnerIsP1
-    ? battle.player_two_id
-    : battle.player_one_id;
+      ? battle.player_two_id
+      : battle.player_one_id;
 
   return {
     battle_id: battle.id,
@@ -227,7 +241,9 @@ export function composeTier1PerRoundPayload(args: ComposeArgs): Tier1PerRoundPay
  * Stable canonical-JSON SHA256 of the payload for `input_payload_hash`
  * retry idempotency.
  */
-export async function hashTier1Payload(payload: Tier1PerRoundPayload): Promise<string> {
+export async function hashTier1Payload(
+  payload: Tier1PerRoundPayload,
+): Promise<string> {
   const canonical = JSON.stringify(payload, Object.keys(payload).sort());
   const bytes = new TextEncoder().encode(canonical);
   const digest = await crypto.subtle.digest('SHA-256', bytes);

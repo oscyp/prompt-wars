@@ -12,7 +12,9 @@ describe('accessibilitySettings', () => {
   afterEach(() => {
     // Reset to defaults so tests don't leak module-scope state into each other.
     (
-      Object.keys(DEFAULT_ACCESSIBILITY_PREFERENCES) as (keyof typeof DEFAULT_ACCESSIBILITY_PREFERENCES)[]
+      Object.keys(
+        DEFAULT_ACCESSIBILITY_PREFERENCES,
+      ) as (keyof typeof DEFAULT_ACCESSIBILITY_PREFERENCES)[]
     ).forEach((key) => {
       setAccessibilityPreference(key, DEFAULT_ACCESSIBILITY_PREFERENCES[key]);
     });
@@ -73,7 +75,9 @@ describe('accessibilitySettings', () => {
 
     expect(result.dyslexiaFont).toBe(true);
     // Unspecified keys fall back to defaults.
-    expect(result.dynamicType).toBe(DEFAULT_ACCESSIBILITY_PREFERENCES.dynamicType);
+    expect(result.dynamicType).toBe(
+      DEFAULT_ACCESSIBILITY_PREFERENCES.dynamicType,
+    );
     expect(getAccessibilityPreferences().dyslexiaFont).toBe(true);
   });
 

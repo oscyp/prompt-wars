@@ -16,36 +16,36 @@ export function assertNoMonetizationDataInScoring(
   inputs: Record<string, unknown>,
 ): void {
   const banned = [
-    "subscription",
-    "subscriber",
-    "is_subscriber",
-    "tier",
-    "plus",
-    "cosmetic",
-    "cosmetic_unlocks",
-    "purchase",
-    "purchase_id",
-    "product_id",
-    "credit",
-    "credits",
-    "credits_balance",
-    "credits_charged",
-    "allowance",
-    "allowance_remaining",
-    "grant",
-    "free_grant",
-    "new_user_grant",
-    "reservation",
-    "reservation_id",
-    "entitlement",
-    "entitlement_source",
-    "revenuecat",
-    "wallet_transaction",
+    'subscription',
+    'subscriber',
+    'is_subscriber',
+    'tier',
+    'plus',
+    'cosmetic',
+    'cosmetic_unlocks',
+    'purchase',
+    'purchase_id',
+    'product_id',
+    'credit',
+    'credits',
+    'credits_balance',
+    'credits_charged',
+    'allowance',
+    'allowance_remaining',
+    'grant',
+    'free_grant',
+    'new_user_grant',
+    'reservation',
+    'reservation_id',
+    'entitlement',
+    'entitlement_source',
+    'revenuecat',
+    'wallet_transaction',
   ];
   const seen = new Set<string>();
   const walk = (v: unknown): void => {
     if (v === null || v === undefined) return;
-    if (typeof v !== "object") return;
+    if (typeof v !== 'object') return;
     if (seen.has(v as unknown as string)) return;
     seen.add(v as unknown as string);
     for (const k of Object.keys(v as Record<string, unknown>)) {

@@ -47,7 +47,12 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createServiceClient();
-    await deliverPushToMany(supabase, recipients, { category, title, body, data });
+    await deliverPushToMany(supabase, recipients, {
+      category,
+      title,
+      body,
+      data,
+    });
 
     return successResponse({ success: true, recipients: recipients.length });
   } catch (error) {

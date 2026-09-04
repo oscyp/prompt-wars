@@ -22,7 +22,10 @@ import {
   successResponse,
 } from '../_shared/utils.ts';
 import { getEditPrice } from '../_shared/character-creation.ts';
-import { buildLeaveScorePayload, leaveIdempotencyKey } from '../_shared/leave-battle.ts';
+import {
+  buildLeaveScorePayload,
+  leaveIdempotencyKey,
+} from '../_shared/leave-battle.ts';
 import { resolveForfeitBattle } from '../_shared/resolve-forfeit.ts';
 
 interface LeaveBattleRequest {
@@ -58,6 +61,15 @@ interface LeaveClaim {
 }
 
 const PRICE_KIND = 'leave_battle';
+
+function logLeave(
+  event: string,
+  fields: Record<string, string | number | boolean | null | undefined>,
+) {
+  // Correlation fields only. Never include prompts, emails, provider payloads,
+  // wallet metadata or raw database errors.
+  console.log(JSON.stringify({ event: `leave_battle.${event}`, ...fields }));
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -97,13 +109,23 @@ Deno.serve(async (req) => {
     );
 
     if (claimErr) {
-      console.error('claim_leave_battle failed:', claimErr);
+      logLeave('claim_failed', {
+        battle_id,
+        profile_id: userId,
+        error_code: claimErr.code,
+      });
       return errorResponse('Could not leave the battle', 500);
     }
 
     const claim = (claimRaw ?? {}) as LeaveClaim;
 
     if (!claim.success) {
+      logLeave('rejected', {
+        battle_id,
+        profile_id: userId,
+        reason: claim.error,
+        previous_status: claim.previous_status,
+      });
       switch (claim.error) {
         case 'battle_not_found':
           return errorResponse('Battle not found', 404);
@@ -114,19 +136,19 @@ Deno.serve(async (req) => {
         case 'insufficient_credits': {
           const bal = claim.balance ?? 0;
           const want = claim.price ?? credits;
-          return errorResponse(
-            'Not enough credits to leave this battle',
-            402,
-            {
-              code: 'insufficient_credits',
-              price: want,
-              balance: bal,
-              shortfall: Math.max(0, want - bal),
-            },
-          );
+          return errorResponse('Not enough credits to leave this battle', 402, {
+            code: 'insufficient_credits',
+            price: want,
+            balance: bal,
+            shortfall: Math.max(0, want - bal),
+          });
         }
         default:
-          console.error('claim_leave_battle rejected:', claim.error);
+          logLeave('claim_rejected_unknown', {
+            battle_id,
+            profile_id: userId,
+            reason: claim.error ?? 'unknown',
+          });
           return errorResponse('Could not leave the battle', 500);
       }
     }
@@ -134,6 +156,13 @@ Deno.serve(async (req) => {
     const charged = claim.charged ?? 0;
 
     if (claim.action === 'already_terminal' || claim.action === 'canceled') {
+      logLeave('completed', {
+        battle_id,
+        profile_id: userId,
+        action: claim.action,
+        credits_charged: charged,
+        replayed: Boolean(claim.replayed),
+      });
       return successResponse({
         success: true,
         action: claim.action,
@@ -167,7 +196,11 @@ Deno.serve(async (req) => {
         // Fail open, same reasoning as battle-advance: withholding rating from
         // an honest player because a query failed is worse than one extra
         // rated battle between a pair we merely suspect.
-        console.error('ranked_rating_is_diverse failed:', diverseErr);
+        logLeave('diversity_check_failed', {
+          battle_id,
+          profile_id: userId,
+          error_code: diverseErr.code,
+        });
       } else {
         ratingGated = diverse === false;
       }
@@ -207,7 +240,18 @@ Deno.serve(async (req) => {
         // Something else resolved the battle between the claim and here. The
         // player still got what they asked for, but they should not pay for an
         // exit somebody else performed.
-        await refundLeave(supabase, userId, charged, claim.transaction_id, battle_id);
+        await refundLeave(
+          supabase,
+          userId,
+          charged,
+          claim.transaction_id,
+          battle_id,
+        );
+        logLeave('already_terminal', {
+          battle_id,
+          profile_id: userId,
+          credits_charged: 0,
+        });
         return successResponse({
           success: true,
           action: 'already_terminal',
@@ -215,16 +259,33 @@ Deno.serve(async (req) => {
         });
       }
     } catch (resolveErr) {
-      console.error('Forfeit resolution failed:', resolveErr);
+      logLeave('resolve_failed', {
+        battle_id,
+        profile_id: userId,
+        error_type: resolveErr instanceof Error ? resolveErr.name : 'unknown',
+      });
       // Give the money back AND put the battle back, in that order: the battle
       // is the thing the player would notice losing, and restoring it cannot
       // fail for lack of credits. Left in 'resolving' it would be unplayable
       // and unleavable.
-      await refundLeave(supabase, userId, charged, claim.transaction_id, battle_id);
+      await refundLeave(
+        supabase,
+        userId,
+        charged,
+        claim.transaction_id,
+        battle_id,
+      );
       await restoreBattle(supabase, battle_id, claim);
       return errorResponse('Could not leave the battle', 500);
     }
 
+    logLeave('completed', {
+      battle_id,
+      profile_id: userId,
+      action: 'forfeited',
+      credits_charged: charged,
+      replayed: Boolean(claim.replayed),
+    });
     return successResponse({
       success: true,
       action: 'forfeited',
@@ -232,11 +293,10 @@ Deno.serve(async (req) => {
       credits_charged: charged,
     });
   } catch (error) {
-    console.error('leave-battle error:', error);
-    return errorResponse(
-      error instanceof Error ? error.message : 'Failed to leave battle',
-      500,
-    );
+    logLeave('failed', {
+      error_type: error instanceof SyntaxError ? 'invalid_json' : 'unhandled',
+    });
+    return errorResponse('Could not leave the battle', 500);
   }
 });
 
@@ -266,7 +326,13 @@ async function refundLeave(
     p_metadata: { feature: 'leave_battle' },
   });
   if (error) {
-    console.error('CREDIT REFUND FAILED', { userId, credits, walletTxId, error });
+    logLeave('refund_failed', {
+      battle_id: battleId,
+      profile_id: userId,
+      transaction_id: walletTxId,
+      credits,
+      error_code: error.code,
+    });
   }
 }
 
@@ -288,7 +354,10 @@ async function restoreBattle(
     .eq('id', battleId)
     .eq('status', 'resolving');
   if (error) {
-    console.error('BATTLE RESTORE FAILED', { battleId, error });
+    logLeave('battle_restore_failed', {
+      battle_id: battleId,
+      error_code: error.code,
+    });
     return;
   }
 
@@ -300,7 +369,10 @@ async function restoreBattle(
       .eq('round_number', claim.current_round)
       .eq('status', 'canceled');
     if (roundErr) {
-      console.error('ROUND RESTORE FAILED', { battleId, error: roundErr });
+      logLeave('round_restore_failed', {
+        battle_id: battleId,
+        error_code: roundErr.code,
+      });
     }
   }
 }

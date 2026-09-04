@@ -1,10 +1,5 @@
 import React, { createContext, useContext, useSyncExternalStore } from 'react';
-import { useColorScheme as useRNColorScheme } from 'react-native';
 import { Colors, ColorStyle } from '@/constants/Colors';
-import {
-  getThemePreference,
-  subscribeThemePreference,
-} from '@/utils/themeSettings';
 import {
   getAccessibilityPreferences,
   subscribeAccessibility,
@@ -14,12 +9,9 @@ import {
 export type ThemeColors = { [K in keyof typeof Colors.light]: string };
 
 /**
- * High-contrast palette variants (Settings → Accessibility → High Contrast
- * Mode, concept §22a). Same shape as `Colors`, with text/background contrast
- * pushed toward pure black/white, stronger borders, and darker (light) /
- * lighter (dark) accents so every accent color meets WCAG AA against its
- * background. Centralized here — `useThemedColors` is the single point where
- * theme colors are resolved, so every screen picks this up automatically.
+ * High-contrast palette variants retained for accessibility infrastructure.
+ * Same shape as `Colors`, with text/background contrast pushed toward pure
+ * black/white and stronger borders.
  */
 export const HighContrastColors: Record<ColorStyle, ThemeColors> = {
   light: {
@@ -103,28 +95,17 @@ export function ForcedColorSchemeProvider({
 }
 
 /**
- * Resolve the effective color scheme ("Cinematic Arena" is dark-first):
- * 1. a forced scheme from an ancestor `ForcedColorSchemeProvider` wins,
- * 2. then the persisted Settings → Appearance preference (default `dark`),
- * 3. `system` preference follows the OS, falling back to dark.
+ * Resolve the effective color scheme. Prompt Wars ships one app theme: dark.
+ * A forced scheme remains available for self-contained previews, although all
+ * current callers also request dark.
  */
 export function useEffectiveColorScheme(): ColorStyle {
   const forced = useContext(ForcedColorSchemeContext);
-  const preference = useSyncExternalStore(
-    subscribeThemePreference,
-    getThemePreference,
-    getThemePreference,
-  );
-  const system = useRNColorScheme();
-  if (forced) return forced;
-  if (preference === 'system') return (system ?? 'dark') as ColorStyle;
-  return preference;
+  return forced ?? 'dark';
 }
 
 /**
- * Reactively read the persisted "High Contrast Mode" preference (Settings →
- * Accessibility). `subscribeAccessibility` re-runs the snapshot whenever any
- * accessibility toggle flips, so screens re-render the instant it changes.
+ * Reactively read the internal high-contrast preference.
  */
 function useHighContrast(): boolean {
   return useSyncExternalStore(
@@ -135,10 +116,7 @@ function useHighContrast(): boolean {
 }
 
 /**
- * Hook to get current theme colors for the effective scheme. Returns the
- * high-contrast palette variant when the user has enabled High Contrast Mode.
- * This is the single point where theme colors are resolved, so wiring it here
- * makes the toggle take effect app-wide (every screen reads through this hook).
+ * Hook to get current theme colors for the effective scheme.
  */
 export function useThemedColors(): ThemeColors {
   const scheme = useEffectiveColorScheme();

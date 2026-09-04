@@ -106,9 +106,7 @@ export async function startFaceOff(
 
   const { data: charactersRaw, error: charErr } = await supabase
     .from('characters')
-    .select(
-      'id, stat_strength, stat_stamina, stat_agility, stat_focus',
-    )
+    .select('id, stat_strength, stat_stamina, stat_agility, stat_focus')
     .in('id', charIds);
 
   if (charErr || !charactersRaw) {
@@ -126,19 +124,19 @@ export async function startFaceOff(
     return { applied: false, reason: 'player_one_character_not_found' };
   }
   const p2: CharacterStats = battle.player_two_character_id
-    ? byId.get(battle.player_two_character_id) ?? {
-      stat_strength: 5,
-      stat_stamina: 5,
-      stat_agility: 5,
-      stat_focus: 5,
-    }
+    ? (byId.get(battle.player_two_character_id) ?? {
+        stat_strength: 5,
+        stat_stamina: 5,
+        stat_agility: 5,
+        stat_focus: 5,
+      })
     : {
-      // Bot opponent: neutral stats.
-      stat_strength: 5,
-      stat_stamina: 5,
-      stat_agility: 5,
-      stat_focus: 5,
-    };
+        // Bot opponent: neutral stats.
+        stat_strength: 5,
+        stat_stamina: 5,
+        stat_agility: 5,
+        stat_focus: 5,
+      };
 
   const nowIso = new Date().toISOString();
   const p1HpMax = hpMaxFromStamina(p1.stat_stamina);
@@ -175,17 +173,15 @@ export async function startFaceOff(
   }
 
   // 3. Insert round-1 row (idempotent on the UNIQUE(battle_id, round_number)).
-  const { error: roundErr } = await supabase
-    .from('battle_rounds')
-    .upsert(
-      {
-        battle_id: battleId,
-        round_number: 1,
-        status: 'waiting_for_prompts',
-        lock_in_deadline: deadlineIso,
-      },
-      { onConflict: 'battle_id,round_number', ignoreDuplicates: true },
-    );
+  const { error: roundErr } = await supabase.from('battle_rounds').upsert(
+    {
+      battle_id: battleId,
+      round_number: 1,
+      status: 'waiting_for_prompts',
+      lock_in_deadline: deadlineIso,
+    },
+    { onConflict: 'battle_id,round_number', ignoreDuplicates: true },
+  );
 
   if (roundErr) {
     console.error('start-face-off: round insert failed', roundErr);

@@ -27,6 +27,9 @@ export interface ItemDetailSheetProps {
   busy?: boolean;
   /** Editing is blocked (battle lock); Choose is disabled but details show. */
   disabled?: boolean;
+  disabledReason?: string;
+  disabledActionLabel?: string;
+  onDisabledAction?: () => void;
   onChoose: (id: string) => void;
   onClose: () => void;
 }
@@ -46,12 +49,16 @@ export default function ItemDetailSheet({
   equipped,
   busy = false,
   disabled = false,
+  disabledReason,
+  disabledActionLabel,
+  onDisabledAction,
   onChoose,
   onClose,
 }: ItemDetailSheetProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
   const canChoose = !equipped && !busy && !disabled;
+  const canResolveDisabled = disabled && !equipped && Boolean(onDisabledAction);
 
   return (
     <BottomSheet
@@ -117,22 +124,27 @@ export default function ItemDetailSheet({
           <TouchableOpacity
             onPress={() => {
               if (canChoose) onChoose(item.id);
+              else if (canResolveDisabled) onDisabledAction?.();
             }}
-            disabled={!canChoose}
+            disabled={!canChoose && !canResolveDisabled}
             accessibilityRole="button"
             accessibilityLabel={equipped ? undefined : `Choose ${item.name}`}
-            accessibilityState={{ disabled: !canChoose }}
+            accessibilityState={{ disabled: !canChoose && !canResolveDisabled }}
             style={[
               s.primaryBtn,
               { backgroundColor: colors.primary },
-              !canChoose && s.btnDisabled,
+              !canChoose && !canResolveDisabled && s.btnDisabled,
             ]}
           >
             {busy ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={s.primaryBtnText}>
-                {equipped ? 'Equipped' : 'Choose this item'}
+                {equipped
+                  ? 'Equipped'
+                  : canResolveDisabled
+                    ? (disabledActionLabel ?? 'Manage battles')
+                    : 'Choose this item'}
               </Text>
             )}
           </TouchableOpacity>
@@ -145,7 +157,9 @@ export default function ItemDetailSheet({
               { color: colors.textTertiary },
             ]}
           >
-            Applied when you save.
+            {disabled && !equipped
+              ? (disabledReason ?? 'Editing is locked during an active battle.')
+              : 'Applied when you save.'}
           </Text>
         </View>
       ) : null}

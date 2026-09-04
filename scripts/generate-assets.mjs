@@ -88,7 +88,9 @@ async function generateImage(apiKey, prompt, aspectRatio) {
         }
         if (!res.ok) {
           const text = await res.text();
-          lastErr = new Error(`HTTP ${res.status} from ${model}: ${text.slice(0, 400)}`);
+          lastErr = new Error(
+            `HTTP ${res.status} from ${model}: ${text.slice(0, 400)}`,
+          );
           if (res.status === 429 || res.status >= 500) {
             await sleep(1500 * attempt);
             continue; // retry same model
@@ -100,7 +102,9 @@ async function generateImage(apiKey, prompt, aspectRatio) {
         const parts = json?.candidates?.[0]?.content?.parts ?? [];
         const imgPart = parts.find((p) => p.inlineData?.data);
         if (!imgPart) {
-          const reason = json?.promptFeedback?.blockReason || JSON.stringify(json).slice(0, 300);
+          const reason =
+            json?.promptFeedback?.blockReason ||
+            JSON.stringify(json).slice(0, 300);
           throw new Error(`No image in response (${reason})`);
         }
         return Buffer.from(imgPart.inlineData.data, 'base64');
@@ -223,8 +227,14 @@ const TASKS = [
     async save(buf) {
       const iconPath = path.join(IMAGES_DIR, 'icon.png');
       const faviconPath = path.join(IMAGES_DIR, 'favicon.png');
-      await sharp(buf).resize(1024, 1024, { fit: 'cover' }).png().toFile(iconPath);
-      await sharp(buf).resize(48, 48, { fit: 'cover' }).png().toFile(faviconPath);
+      await sharp(buf)
+        .resize(1024, 1024, { fit: 'cover' })
+        .png()
+        .toFile(iconPath);
+      await sharp(buf)
+        .resize(48, 48, { fit: 'cover' })
+        .png()
+        .toFile(faviconPath);
       return [iconPath, faviconPath];
     },
   },
@@ -255,7 +265,10 @@ const TASKS = [
     async save(buf) {
       const out = path.join(IMAGES_DIR, 'splash-screen.png');
       await sharp(buf)
-        .resize(1284, 2778, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 1 } })
+        .resize(1284, 2778, {
+          fit: 'contain',
+          background: { r: 0, g: 0, b: 0, alpha: 1 },
+        })
         .png()
         .toFile(out);
       return [out];
@@ -410,7 +423,8 @@ const TASKS = [
 function selectTasks(filter) {
   if (!filter) return TASKS;
   return TASKS.filter(
-    (t) => t.id === filter || t.group === filter || t.id.startsWith(`${filter}:`),
+    (t) =>
+      t.id === filter || t.group === filter || t.id.startsWith(`${filter}:`),
   );
 }
 
@@ -441,7 +455,9 @@ async function main() {
     try {
       const buf = await generateImage(apiKey, task.prompt, task.aspect);
       const written = await task.save(buf);
-      console.log(`done → ${written.map((p) => path.relative(ROOT, p)).join(', ')}`);
+      console.log(
+        `done → ${written.map((p) => path.relative(ROOT, p)).join(', ')}`,
+      );
       ok += 1;
     } catch (err) {
       console.log(`FAILED: ${err.message}`);

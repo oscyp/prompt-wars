@@ -16,11 +16,11 @@ import {
   getSupabaseSecretKey,
   hasSupabaseSecretAuthorization,
   successResponse,
-} from "../_shared/utils.ts";
-import { computeRatingDeltas } from "../_shared/glicko2.ts";
-import { composeRevealPayload } from "../_shared/compose-reveal-payload.ts";
-import { notifyBattleResult } from "../_shared/push.ts";
-import { resolveForfeitBattle } from "../_shared/resolve-forfeit.ts";
+} from '../_shared/utils.ts';
+import { computeRatingDeltas } from '../_shared/glicko2.ts';
+import { composeRevealPayload } from '../_shared/compose-reveal-payload.ts';
+import { notifyBattleResult } from '../_shared/push.ts';
+import { resolveForfeitBattle } from '../_shared/resolve-forfeit.ts';
 
 interface ForfeitClaimRow {
   battle_id: string;
@@ -36,8 +36,8 @@ interface ForfeitClaimRow {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
   // Service-role only. This function forfeits battles and moves ratings, and
@@ -47,32 +47,54 @@ Deno.serve(async (req) => {
   // was untrue for this one.
   if (
     !hasSupabaseSecretAuthorization(
-      req.headers.get("Authorization"),
-      req.headers.get("apikey"),
+      req.headers.get('Authorization'),
+      req.headers.get('apikey'),
     )
   ) {
-    return errorResponse("Service role required", 403);
+    return errorResponse('Service role required', 403);
   }
 
   try {
     const supabase = createServiceClient();
 
+    // Matchmaking rows are intentionally short-lived. The client retries at
+    // 60s for bot fallback; if it disappears, the minute worker closes the row
+    // at the five-minute queue boundary so it cannot strand the fighter lock.
+    let staleQueuesCanceled = 0;
+    const { data: staleCount, error: staleQueueError } = await supabase.rpc(
+      'cancel_stale_matchmaking_battles',
+      { p_stale_minutes: 5 },
+    );
+    if (staleQueueError) {
+      console.error('Stale matchmaking cleanup failed:', staleQueueError.code);
+    } else {
+      staleQueuesCanceled = Number(staleCount ?? 0);
+      if (staleQueuesCanceled > 0) {
+        console.log(
+          JSON.stringify({
+            event: 'matchmaking.stale_queues_canceled',
+            count: staleQueuesCanceled,
+          }),
+        );
+      }
+    }
+
     // ---- Single-format path (unchanged) ----
     const { data: expiredCount, error: singleErr } = await supabase.rpc(
-      "expire_timed_out_battles",
+      'expire_timed_out_battles',
     );
     if (singleErr) {
-      console.error("Single-format expire error:", singleErr);
+      console.error('Single-format expire error:', singleErr);
     }
 
     // ---- Single-format forfeit path (§7.5 auto-forfeit on expire) ----
     let singleForfeited = 0;
 
     const { data: forfeitRows, error: forfeitErr } = await supabase.rpc(
-      "claim_forfeit_timeout_battles",
+      'claim_forfeit_timeout_battles',
     );
     if (forfeitErr) {
-      console.error("Forfeit claim error:", forfeitErr);
+      console.error('Forfeit claim error:', forfeitErr);
     }
 
     for (const row of (forfeitRows ?? []) as ForfeitClaimRow[]) {
@@ -95,11 +117,11 @@ Deno.serve(async (req) => {
     let deadLettered = 0;
     try {
       const { data: reclaimedRounds, error: reclaimErr } = await supabase.rpc(
-        "reclaim_stuck_rounds",
+        'reclaim_stuck_rounds',
         { p_stale_minutes: 10, p_max_attempts: 3 },
       );
       if (reclaimErr) {
-        console.error("reclaim_stuck_rounds failed:", reclaimErr);
+        console.error('reclaim_stuck_rounds failed:', reclaimErr);
       } else {
         for (const r of (reclaimedRounds ?? []) as {
           battle_id: string;
@@ -114,17 +136,17 @@ Deno.serve(async (req) => {
           // Hand it straight back to the resolver rather than waiting for the
           // next tick.
           try {
-            await invokeFn("round-resolve", {
+            await invokeFn('round-resolve', {
               battle_id: r.battle_id,
               round_number: r.round_number,
             });
           } catch (err) {
-            console.error("Re-drive of reclaimed round failed:", err);
+            console.error('Re-drive of reclaimed round failed:', err);
           }
         }
       }
     } catch (err) {
-      console.error("reclaim sweep threw:", err);
+      console.error('reclaim sweep threw:', err);
     }
 
     // ---- Bo3 path: per-round deadlines ----
@@ -132,7 +154,7 @@ Deno.serve(async (req) => {
     let bo3Expired = 0;
 
     const { data: timedOutRounds } = await supabase
-      .from("battle_rounds")
+      .from('battle_rounds')
       .select(
         `
         id, battle_id, round_number, status,
@@ -142,27 +164,28 @@ Deno.serve(async (req) => {
                       is_player_two_bot, status)
       `,
       )
-      .eq("status", "waiting_for_prompts")
+      .eq('status', 'waiting_for_prompts')
       // ...and the PARENT battle must still be live. The join already selected
       // battles.status without ever filtering on it, so a battle that ended by
       // some other route -- a forfeit, a leave, a manual resolve -- kept its
       // open round in this sweep and got handed back to round-resolve long
       // after it was over.
-      .eq("battles.status", "waiting_for_prompts")
-      .lt("lock_in_deadline", new Date().toISOString())
+      .eq('battles.status', 'waiting_for_prompts')
+      .lt('lock_in_deadline', new Date().toISOString())
       // Bounded: this ran unbounded with no ordering, so a backlog would have
       // grown the per-minute sweep without limit. Oldest deadline first so
       // nothing starves; the next tick picks up the remainder.
-      .order("lock_in_deadline", { ascending: true })
+      .order('lock_in_deadline', { ascending: true })
       .limit(100);
 
     for (const row of timedOutRounds ?? []) {
       // Supabase typings render an embedded relation as an array; coerce to the
       // single row we know we get back from a !inner join on PK.
       const battlesField = (row as unknown as { battles: unknown }).battles;
-      const b =
-        (Array.isArray(battlesField) ? battlesField[0] : battlesField) as
-          | {
+      const b = (
+        Array.isArray(battlesField) ? battlesField[0] : battlesField
+      ) as
+        | {
             format: string;
             mode: string;
             player_one_id: string;
@@ -170,8 +193,8 @@ Deno.serve(async (req) => {
             player_one_rounds_won: number | null;
             player_two_rounds_won: number | null;
           }
-          | undefined;
-      if (!b || b.format !== "bo3") continue;
+        | undefined;
+      if (!b || b.format !== 'bo3') continue;
 
       const p1Locked = !!row.player_one_locked_at;
       const p2Locked = !!row.player_two_locked_at;
@@ -198,26 +221,26 @@ Deno.serve(async (req) => {
             });
             bo3Forfeited += 1;
           } catch (err) {
-            console.error("Failed to award series on double no-show:", err);
+            console.error('Failed to award series on double no-show:', err);
           }
           continue;
         }
 
         // Level series → expire round and battle.
         await supabase
-          .from("battle_rounds")
+          .from('battle_rounds')
           .update({
-            status: "expired",
+            status: 'expired',
             resolved_at: new Date().toISOString(),
           })
-          .eq("id", row.id);
+          .eq('id', row.id);
         await supabase
-          .from("battles")
+          .from('battles')
           .update({
-            status: "expired",
+            status: 'expired',
             updated_at: new Date().toISOString(),
           })
-          .eq("id", row.battle_id);
+          .eq('id', row.battle_id);
         bo3Expired += 1;
         continue;
       }
@@ -225,14 +248,14 @@ Deno.serve(async (req) => {
       // One side locked → forfeit the other side via round-resolve.
       const forfeitId = p1Locked ? b.player_two_id : b.player_one_id;
       try {
-        await invokeFn("round-resolve", {
+        await invokeFn('round-resolve', {
           battle_id: row.battle_id,
           round_number: row.round_number,
           forfeit_profile_id: forfeitId,
         });
         bo3Forfeited += 1;
       } catch (err) {
-        console.error("Failed to invoke round-resolve for forfeit:", err);
+        console.error('Failed to invoke round-resolve for forfeit:', err);
       }
     }
 
@@ -240,17 +263,18 @@ Deno.serve(async (req) => {
       reclaimed_rounds: reclaimed,
       dead_lettered_rounds: deadLettered,
       success: true,
+      stale_queues_canceled: staleQueuesCanceled,
       expired_count: expiredCount ?? 0,
       single_forfeited: singleForfeited,
       bo3_forfeited: bo3Forfeited,
       bo3_expired: bo3Expired,
     });
   } catch (error) {
-    console.error("Expire battles error:", error);
+    console.error('Expire battles error:', error);
     return successResponse(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Internal error",
+        error: error instanceof Error ? error.message : 'Internal error',
       },
       500,
     );
@@ -288,17 +312,17 @@ async function awardSeriesOnDoubleNoShow(
 ): Promise<void> {
   // Close the abandoned round first so it does not get swept again next tick.
   await supabase
-    .from("battle_rounds")
-    .update({ status: "expired", resolved_at: new Date().toISOString() })
-    .eq("id", args.roundId);
+    .from('battle_rounds')
+    .update({ status: 'expired', resolved_at: new Date().toISOString() })
+    .eq('id', args.roundId);
 
   let ratingDeltaPayload: Record<string, unknown> | null = null;
 
-  if (args.mode === "ranked") {
+  if (args.mode === 'ranked') {
     const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, rating, rating_deviation, rating_volatility")
-      .in("id", [args.winnerId, args.loserId]);
+      .from('profiles')
+      .select('id, rating, rating_deviation, rating_volatility')
+      .in('id', [args.winnerId, args.loserId]);
 
     const winner = profiles?.find((p) => p.id === args.winnerId);
     const loser = profiles?.find((p) => p.id === args.loserId);
@@ -321,21 +345,21 @@ async function awardSeriesOnDoubleNoShow(
     }
   }
 
-  const { error } = await supabase.rpc("resolve_battle", {
+  const { error } = await supabase.rpc('resolve_battle', {
     p_battle_id: args.battleId,
     p_winner_id: args.winnerId,
     p_is_draw: false,
     p_score_payload: {
-      resolution: "series_abandoned",
-      reason: "double_no_show",
+      resolution: 'series_abandoned',
+      reason: 'double_no_show',
       rounds_won: args.roundsWon,
       explanation:
-        "Neither player locked in before the deadline. The series was awarded " +
-        "to the player leading on rounds won.",
+        'Neither player locked in before the deadline. The series was awarded ' +
+        'to the player leading on rounds won.',
     },
     p_rating_delta_payload: ratingDeltaPayload,
-    p_judge_prompt_version: "forfeit-v1",
-    p_judge_model_id: "forfeit",
+    p_judge_prompt_version: 'forfeit-v1',
+    p_judge_model_id: 'forfeit',
     p_judge_seed: 0,
   });
 
@@ -344,11 +368,11 @@ async function awardSeriesOnDoubleNoShow(
   }
 
   try {
-    await supabase.rpc("apply_post_battle_rewards", {
+    await supabase.rpc('apply_post_battle_rewards', {
       p_battle_id: args.battleId,
     });
   } catch (err) {
-    console.error("apply_post_battle_rewards failed (non-blocking):", err);
+    console.error('apply_post_battle_rewards failed (non-blocking):', err);
   }
 
   notifyBattleResult(supabase, args.battleId);
@@ -374,11 +398,11 @@ async function resolveForfeit(
     loserRatingDeviation: Number(row.loser_rating_deviation),
     loserRatingVolatility: Number(row.loser_rating_volatility),
     scorePayload: {
-      resolution: "forfeit",
-      reason: "opponent_timeout",
+      resolution: 'forfeit',
+      reason: 'opponent_timeout',
       forfeited_profile_id: row.loser_id,
       explanation:
-        "Win by forfeit — the opponent did not lock in a prompt before the deadline.",
+        'Win by forfeit — the opponent did not lock in a prompt before the deadline.',
     },
   });
 }
@@ -387,15 +411,15 @@ async function invokeFn(
   fn: string,
   body: Record<string, unknown>,
 ): Promise<void> {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const secretKey = getSupabaseSecretKey();
   if (!supabaseUrl || !secretKey) {
-    throw new Error("Missing Supabase environment variables");
+    throw new Error('Missing Supabase environment variables');
   }
   const res = await fetch(`${supabaseUrl}/functions/v1/${fn}`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       apikey: secretKey,
     },
     body: JSON.stringify(body),

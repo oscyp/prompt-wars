@@ -1,7 +1,10 @@
 // Enhanced Judge Pipeline Tests
 // Tests JSON schema validation, length normalization, move matchup, and full pipeline
 
-import { assertEquals, assertExists } from 'https://deno.land/std@0.208.0/assert/mod.ts';
+import {
+  assertEquals,
+  assertExists,
+} from 'https://deno.land/std@0.208.0/assert/mod.ts';
 import {
   validateJudgeResponse,
   aggregateScore,
@@ -38,7 +41,10 @@ Deno.test('validateJudgeResponse - accepts valid response', () => {
   const validated = validateJudgeResponse(validResponse);
   assertExists(validated);
   assertEquals(validated.playerOneScores.clarity, 8.5);
-  assertEquals(validated.explanation, 'Player one had superior clarity and specificity.');
+  assertEquals(
+    validated.explanation,
+    'Player one had superior clarity and specificity.',
+  );
 });
 
 Deno.test('validateJudgeResponse - rejects invalid scores', () => {
@@ -181,33 +187,36 @@ Deno.test('applyMoveTypeModifier - losing matchup applies penalty', () => {
   assertEquals(modifiedScore, baseScore - 0.6);
 });
 
-Deno.test('runJudgePipeline - returns valid result with double-run', async () => {
-  const provider = new MockJudgeProvider();
+Deno.test(
+  'runJudgePipeline - returns valid result with double-run',
+  async () => {
+    const provider = new MockJudgeProvider();
 
-  const result = await runJudgePipeline(
-    provider,
-    'This is a well-crafted strategic prompt with detail and clarity.',
-    'Short prompt.',
-    'defense',
-    'attack',
-    10, // word count
-    2,  // word count
-    'Epic battle theme',
-    JUDGE_PROMPT_VERSION
-  );
+    const result = await runJudgePipeline(
+      provider,
+      'This is a well-crafted strategic prompt with detail and clarity.',
+      'Short prompt.',
+      'defense',
+      'attack',
+      10, // word count
+      2, // word count
+      'Epic battle theme',
+      JUDGE_PROMPT_VERSION,
+    );
 
-  assertExists(result);
-  assertExists(result.player_one_raw_scores);
-  assertExists(result.player_two_raw_scores);
-  assertExists(result.player_one_normalized_scores);
-  assertExists(result.player_two_normalized_scores);
-  assertExists(result.explanation);
-  assertEquals(typeof result.aggregate_score_diff, 'number');
-  assertEquals(typeof result.is_draw, 'boolean');
+    assertExists(result);
+    assertExists(result.player_one_raw_scores);
+    assertExists(result.player_two_raw_scores);
+    assertExists(result.player_one_normalized_scores);
+    assertExists(result.player_two_normalized_scores);
+    assertExists(result.explanation);
+    assertEquals(typeof result.aggregate_score_diff, 'number');
+    assertEquals(typeof result.is_draw, 'boolean');
 
-  // Winner should be p1 or p2 or null (draw)
-  assertEquals(['p1', 'p2', null].includes(result.winner_profile_id), true);
-});
+    // Winner should be p1 or p2 or null (draw)
+    assertEquals(['p1', 'p2', null].includes(result.winner_profile_id), true);
+  },
+);
 
 Deno.test('runJudgePipeline - applies move type modifier', async () => {
   const provider = new MockJudgeProvider();
@@ -218,11 +227,11 @@ Deno.test('runJudgePipeline - applies move type modifier', async () => {
     'Player one defense prompt.',
     'Player two attack prompt.',
     'defense', // player one
-    'attack',  // player two
+    'attack', // player two
     5,
     5,
     'Theme',
-    JUDGE_PROMPT_VERSION
+    JUDGE_PROMPT_VERSION,
   );
 
   assertExists(result);
@@ -233,26 +242,29 @@ Deno.test('runJudgePipeline - applies move type modifier', async () => {
   assertEquals(['p1', 'p2', null].includes(result.winner_profile_id), true);
 });
 
-Deno.test('runJudgePipeline - detects draw with small score difference', async () => {
-  const provider = new MockJudgeProvider();
+Deno.test(
+  'runJudgePipeline - detects draw with small score difference',
+  async () => {
+    const provider = new MockJudgeProvider();
 
-  // Use identical prompts to likely trigger draw
-  const result = await runJudgePipeline(
-    provider,
-    'Identical prompt text here.',
-    'Identical prompt text here.',
-    'attack',
-    'attack',
-    4,
-    4,
-    'Theme',
-    JUDGE_PROMPT_VERSION
-  );
+    // Use identical prompts to likely trigger draw
+    const result = await runJudgePipeline(
+      provider,
+      'Identical prompt text here.',
+      'Identical prompt text here.',
+      'attack',
+      'attack',
+      4,
+      4,
+      'Theme',
+      JUDGE_PROMPT_VERSION,
+    );
 
-  // With identical prompts and move types, likely draw (but depends on seed randomness)
-  assertExists(result);
-  assertEquals(typeof result.is_draw, 'boolean');
-});
+    // With identical prompts and move types, likely draw (but depends on seed randomness)
+    assertExists(result);
+    assertEquals(typeof result.is_draw, 'boolean');
+  },
+);
 
 Deno.test('runJudgePipeline - applies length normalization', async () => {
   const provider = new MockJudgeProvider();
@@ -260,16 +272,16 @@ Deno.test('runJudgePipeline - applies length normalization', async () => {
   const result = await runJudgePipeline(
     provider,
     'This is a very long prompt with many words to trigger length normalization penalty. ' +
-    'It keeps going and going to exceed the optimal word count threshold so that the ' +
-    'scores are penalized for verbosity rather than rewarded for length alone. ' +
-    'More words here to make it even longer and ensure the penalty kicks in properly.',
+      'It keeps going and going to exceed the optimal word count threshold so that the ' +
+      'scores are penalized for verbosity rather than rewarded for length alone. ' +
+      'More words here to make it even longer and ensure the penalty kicks in properly.',
     'Short.',
     'attack',
     'attack',
     50, // long word count
-    1,  // short word count
+    1, // short word count
     'Theme',
-    JUDGE_PROMPT_VERSION
+    JUDGE_PROMPT_VERSION,
   );
 
   assertExists(result);

@@ -36,7 +36,8 @@ Deno.serve(async (req) => {
 
   try {
     const userId = await getAuthUserId(req);
-    const { prompt_text, battle_prompt_id, context }: ModeratePromptRequest = await req.json();
+    const { prompt_text, battle_prompt_id, context }: ModeratePromptRequest =
+      await req.json();
 
     if (!prompt_text) {
       return errorResponse('prompt_text required');
@@ -79,16 +80,22 @@ Deno.serve(async (req) => {
         .eq('id', battle_prompt_id);
 
       if (updateError) {
-        console.error('Failed to update battle_prompt moderation_status:', updateError);
+        console.error(
+          'Failed to update battle_prompt moderation_status:',
+          updateError,
+        );
       }
     }
 
     // Update abuse signals for the user
     if (context?.profile_id) {
-      const { error: abuseError } = await supabase.rpc('increment_abuse_counter', {
-        p_profile_id: context.profile_id,
-        p_counter: 'prompts_submitted_24h',
-      });
+      const { error: abuseError } = await supabase.rpc(
+        'increment_abuse_counter',
+        {
+          p_profile_id: context.profile_id,
+          p_counter: 'prompts_submitted_24h',
+        },
+      );
 
       if (abuseError) {
         console.error('Failed to update abuse signals:', abuseError);
@@ -113,6 +120,9 @@ Deno.serve(async (req) => {
     return successResponse(response);
   } catch (error) {
     console.error('Moderate prompt error:', error);
-    return errorResponse(error instanceof Error ? error.message : 'Internal error', 500);
+    return errorResponse(
+      error instanceof Error ? error.message : 'Internal error',
+      500,
+    );
   }
 });

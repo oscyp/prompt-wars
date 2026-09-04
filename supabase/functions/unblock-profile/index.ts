@@ -43,6 +43,9 @@ Deno.serve(async (req) => {
     return successResponse({ message: 'Profile unblocked successfully' });
   } catch (error) {
     console.error('Unblock profile error:', error);
-    return errorResponse(error instanceof Error ? error.message : 'Internal error', 500);
+    return errorResponse(
+      error instanceof Error ? error.message : 'Internal error',
+      500,
+    );
   }
 });

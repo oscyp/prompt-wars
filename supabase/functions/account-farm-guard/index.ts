@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
       if (ipGeoKey) {
         try {
           const geoResponse = await fetch(
-            `https://api.ipgeolocation.io/ipgeo?apiKey=${ipGeoKey}&ip=${signals.signup_ip_address}`
+            `https://api.ipgeolocation.io/ipgeo?apiKey=${ipGeoKey}&ip=${signals.signup_ip_address}`,
           );
           if (geoResponse.ok) {
             const geoData = await geoResponse.json();
@@ -125,9 +125,12 @@ Deno.serve(async (req) => {
     }
 
     if (signals?.signup_device_fingerprint) {
-      const { data: velocityData } = await supabase.rpc('device_signup_velocity', {
-        p_device_fingerprint: signals.signup_device_fingerprint,
-      });
+      const { data: velocityData } = await supabase.rpc(
+        'device_signup_velocity',
+        {
+          p_device_fingerprint: signals.signup_device_fingerprint,
+        },
+      );
       deviceVelocity = velocityData || 0;
     }
 
@@ -160,7 +163,10 @@ Deno.serve(async (req) => {
       eligible = false;
       reason = 'Device velocity limit exceeded';
       flagged = true;
-    } else if (ipVelocity >= IP_VELOCITY_FLAG_THRESHOLD || deviceVelocity >= 2) {
+    } else if (
+      ipVelocity >= IP_VELOCITY_FLAG_THRESHOLD ||
+      deviceVelocity >= 2
+    ) {
       flagged = true;
       reason = 'Elevated velocity signals';
     }
@@ -169,7 +175,7 @@ Deno.serve(async (req) => {
     if (device_attestation_token && platform && eligible) {
       const attestationValid = await verifyDeviceAttestation(
         device_attestation_token,
-        platform
+        platform,
       );
 
       if (!attestationValid) {
@@ -226,7 +232,10 @@ Deno.serve(async (req) => {
     return successResponse(response);
   } catch (error) {
     console.error('Account guard error:', error);
-    return errorResponse(error instanceof Error ? error.message : 'Internal error', 500);
+    return errorResponse(
+      error instanceof Error ? error.message : 'Internal error',
+      500,
+    );
   }
 });
 
@@ -236,7 +245,7 @@ Deno.serve(async (req) => {
  */
 async function verifyDeviceAttestation(
   token: string,
-  platform: string
+  platform: string,
 ): Promise<boolean> {
   // iOS DeviceCheck
   if (platform === 'ios') {

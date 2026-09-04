@@ -1,5 +1,5 @@
 /**
- * Per-theme visual variety for the daily-theme hero surfaces.
+ * Per-theme visual and audio variety for battle and daily-theme surfaces.
  *
  * Daily themes are free-text `daily_themes` rows (one per date), not a fixed
  * catalog, so we can't bundle one poster per theme. Instead we derive a
@@ -7,15 +7,12 @@
  * different days read differently — with zero runtime generation
  * (docs/DESIGN_LANGUAGE.md principle 6).
  *
- * `posterForTheme` resolves to the single bundled `UiArt.themePoster` today.
- * Once mood variants are generated (`node scripts/generate-assets.mjs --only ui`
- * → `assets/images/ui/theme-poster-NN.jpg`) add their `require`s to
- * `THEME_POSTERS` and per-theme art variety turns on with no caller changes.
- * Metro resolves `require` statically, so only files that actually exist may be
- * listed here.
+ * Six mood packs ship as static assets. Metro resolves `require` statically,
+ * so all mappings stay client-only and no arena identifier enters battle data.
  */
 import { ImageSourcePropType } from 'react-native';
 import { UiArt } from './UiArt';
+import type { ArenaPresentation } from '@/types/arena';
 
 /**
  * Curated on-brand accent palette (electric, cinematic — mirrors the BRAND
@@ -33,12 +30,51 @@ export const THEME_ACCENTS = [
   '#14B8A6', // teal
 ] as const;
 
-/**
- * Bundled daily-theme poster variants, picked deterministically per theme.
- * Only the base poster ships today; append generated `theme-poster-NN.jpg`
- * requires here to enable art variety (see file header).
- */
-const THEME_POSTERS: ImageSourcePropType[] = [UiArt.themePoster];
+/** Bundled mood packs, picked deterministically per free-text theme. */
+export const ARENA_PRESENTATIONS: readonly ArenaPresentation[] = [
+  {
+    id: 'neon-nexus',
+    backdrop: require('../assets/images/arenas/neon-nexus.jpg'),
+    poster: require('../assets/images/arenas/neon-nexus.jpg'),
+    accent: '#22D3EE',
+    ambientLoop: require('../assets/audio/battle/neon-nexus.wav'),
+  },
+  {
+    id: 'storm-citadel',
+    backdrop: require('../assets/images/arenas/storm-citadel.jpg'),
+    poster: require('../assets/images/arenas/storm-citadel.jpg'),
+    accent: '#6366F1',
+    ambientLoop: require('../assets/audio/battle/storm-citadel.wav'),
+  },
+  {
+    id: 'ember-forge',
+    backdrop: require('../assets/images/arenas/ember-forge.jpg'),
+    poster: require('../assets/images/arenas/ember-forge.jpg'),
+    accent: '#F59E0B',
+    ambientLoop: require('../assets/audio/battle/ember-forge.wav'),
+  },
+  {
+    id: 'astral-temple',
+    backdrop: require('../assets/images/arenas/astral-temple.jpg'),
+    poster: require('../assets/images/arenas/astral-temple.jpg'),
+    accent: '#D946EF',
+    ambientLoop: require('../assets/audio/battle/astral-temple.wav'),
+  },
+  {
+    id: 'verdant-reactor',
+    backdrop: require('../assets/images/arenas/verdant-reactor.jpg'),
+    poster: require('../assets/images/arenas/verdant-reactor.jpg'),
+    accent: '#10B981',
+    ambientLoop: require('../assets/audio/battle/verdant-reactor.wav'),
+  },
+  {
+    id: 'frozen-void',
+    backdrop: require('../assets/images/arenas/frozen-void.jpg'),
+    poster: require('../assets/images/arenas/frozen-void.jpg'),
+    accent: '#38BDF8',
+    ambientLoop: require('../assets/audio/battle/frozen-void.wav'),
+  },
+] as const;
 
 /**
  * Stable 32-bit FNV-1a hash so the same theme text always maps to the same
@@ -55,12 +91,19 @@ function hashTheme(text: string): number {
 
 /** Deterministic on-brand accent color for a theme (stable, never null). */
 export function accentForTheme(themeText?: string | null): string {
-  if (!themeText) return THEME_ACCENTS[0];
-  return THEME_ACCENTS[hashTheme(themeText) % THEME_ACCENTS.length];
+  return presentationForTheme(themeText).accent;
 }
 
 /** Deterministic bundled poster for a theme; falls back to the base poster. */
 export function posterForTheme(themeText?: string | null): ImageSourcePropType {
-  if (!themeText || THEME_POSTERS.length === 0) return UiArt.themePoster;
-  return THEME_POSTERS[hashTheme(themeText) % THEME_POSTERS.length];
+  if (!themeText) return UiArt.themePoster;
+  return presentationForTheme(themeText).poster;
+}
+
+/** Complete deterministic presentation selected from the battle's free text. */
+export function presentationForTheme(
+  themeText?: string | null,
+): ArenaPresentation {
+  if (!themeText) return ARENA_PRESENTATIONS[0];
+  return ARENA_PRESENTATIONS[hashTheme(themeText) % ARENA_PRESENTATIONS.length];
 }

@@ -8,12 +8,12 @@ import {
   errorResponse,
   hasSupabaseSecretAuthorization,
   successResponse,
-} from "../_shared/utils.ts";
+} from '../_shared/utils.ts';
 import {
   VideoModerationProvider,
   type VideoModerationResult,
-} from "../_shared/moderation.ts";
-import { ModerationStatus } from "../_shared/types.ts";
+} from '../_shared/moderation.ts';
+import { ModerationStatus } from '../_shared/types.ts';
 
 interface ModerateVideoRequest {
   video_id: string;
@@ -30,18 +30,18 @@ interface ModerateVideoResponse {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     // Service-role only (called by video generation pipeline, not client)
-    const authHeader = req.headers.get("Authorization");
+    const authHeader = req.headers.get('Authorization');
 
     if (
-      !hasSupabaseSecretAuthorization(authHeader, req.headers.get("apikey"))
+      !hasSupabaseSecretAuthorization(authHeader, req.headers.get('apikey'))
     ) {
-      return errorResponse("Service role required", 403);
+      return errorResponse('Service role required', 403);
     }
 
     const {
@@ -52,51 +52,51 @@ Deno.serve(async (req) => {
     }: ModerateVideoRequest = await req.json();
 
     if (!video_id || !battle_id) {
-      return errorResponse("video_id and battle_id required");
+      return errorResponse('video_id and battle_id required');
     }
 
     const supabase = createServiceClient();
 
     // Fetch video
     const { data: video, error: videoError } = await supabase
-      .from("videos")
-      .select("storage_path, battle_id, moderation_status")
-      .eq("id", video_id)
+      .from('videos')
+      .select('storage_path, battle_id, moderation_status')
+      .eq('id', video_id)
       .single();
 
     if (videoError || !video) {
-      return errorResponse("Video not found", 404);
+      return errorResponse('Video not found', 404);
     }
 
-    if (video.moderation_status !== "pending") {
-      return errorResponse("Video already moderated", 400);
+    if (video.moderation_status !== 'pending') {
+      return errorResponse('Video already moderated', 400);
     }
 
     let result: VideoModerationResult;
     if (
-      provider_moderation_source === "xai_generation" &&
-      typeof provider_moderation_approved === "boolean"
+      provider_moderation_source === 'xai_generation' &&
+      typeof provider_moderation_approved === 'boolean'
     ) {
       // xAI returns `respect_moderation` only after generation finishes. Treat
       // that server-to-server verdict as the post-gen moderation result and
       // retain it in the same auditable event/status fields as other providers.
       result = {
-        status: provider_moderation_approved ? "approved" : "rejected",
+        status: provider_moderation_approved ? 'approved' : 'rejected',
         reason: provider_moderation_approved
-          ? "Passed xAI post-generation moderation"
-          : "Rejected by xAI post-generation moderation",
+          ? 'Passed xAI post-generation moderation'
+          : 'Rejected by xAI post-generation moderation',
         confidence: 1,
-        provider: "xai_generation",
+        provider: 'xai_generation',
       };
     } else {
       // Get a signed URL for a separately configured moderation provider.
       const { data: signedUrlData } = await supabase.storage
-        .from("battle-videos")
+        .from('battle-videos')
         .createSignedUrl(video.storage_path, 3600);
 
       if (!signedUrlData?.signedUrl) {
         return errorResponse(
-          "Failed to generate video URL for moderation",
+          'Failed to generate video URL for moderation',
           500,
         );
       }
@@ -107,29 +107,29 @@ Deno.serve(async (req) => {
 
     // Record moderation event
     const { data: moderationEvent, error: eventError } = await supabase
-      .from("moderation_events")
+      .from('moderation_events')
       .insert({
-        target_type: "video",
+        target_type: 'video',
         target_id: video_id,
         action: result.status,
         reason: result.reason,
-        moderator_notes: result.flaggedCategories?.join(", "),
+        moderator_notes: result.flaggedCategories?.join(', '),
         automated: true,
         provider: result.provider,
         provider_request_id: result.providerRequestId,
         confidence_score: result.confidence,
         flagged_categories: result.flaggedCategories,
       })
-      .select("id")
+      .select('id')
       .single();
 
     if (eventError) {
-      console.error("Failed to record moderation event:", eventError);
+      console.error('Failed to record moderation event:', eventError);
     }
 
     // Update video moderation status
     const { error: updateError } = await supabase
-      .from("videos")
+      .from('videos')
       .update({
         moderation_status: result.status,
         moderation_reason: result.reason,
@@ -137,32 +137,32 @@ Deno.serve(async (req) => {
         moderation_provider: result.provider,
         moderation_confidence: result.confidence,
       })
-      .eq("id", video_id);
+      .eq('id', video_id);
 
     if (updateError) {
-      console.error("Failed to update video moderation_status:", updateError);
-      return errorResponse("Failed to update video", 500);
+      console.error('Failed to update video moderation_status:', updateError);
+      return errorResponse('Failed to update video', 500);
     }
 
     // If rejected, trigger source-aware refund
-    const shouldRefund = result.status === "rejected";
+    const shouldRefund = result.status === 'rejected';
 
     if (shouldRefund) {
       // Fetch video_job to refund based on entitlement source
       // Use video_job_id from videos table, not battle_id query
       const { data: video } = await supabase
-        .from("videos")
-        .select("video_job_id")
-        .eq("id", video_id)
+        .from('videos')
+        .select('video_job_id')
+        .eq('id', video_id)
         .single();
 
       if (video?.video_job_id) {
         const { data: videoJob } = await supabase
-          .from("video_jobs")
+          .from('video_jobs')
           .select(
-            "id, requester_profile_id, entitlement_source, credits_charged, spend_transaction_id, refunded",
+            'id, requester_profile_id, entitlement_source, credits_charged, spend_transaction_id, refunded',
           )
-          .eq("id", video.video_job_id)
+          .eq('id', video.video_job_id)
           .single();
 
         if (videoJob && !videoJob.refunded) {
@@ -175,15 +175,15 @@ Deno.serve(async (req) => {
     const response: ModerateVideoResponse = {
       status: result.status,
       reason: result.reason,
-      moderation_event_id: moderationEvent?.id || "",
+      moderation_event_id: moderationEvent?.id || '',
       should_refund: shouldRefund,
     };
 
     return successResponse(response);
   } catch (error) {
-    console.error("Moderate video error:", error);
+    console.error('Moderate video error:', error);
     return errorResponse(
-      error instanceof Error ? error.message : "Internal error",
+      error instanceof Error ? error.message : 'Internal error',
       500,
     );
   }
@@ -205,20 +205,20 @@ async function refundVideoJob(
   },
 ): Promise<void> {
   if (job.refunded) {
-    console.log("Video job already refunded:", job.id);
+    console.log('Video job already refunded:', job.id);
     return;
   }
 
   if (!job.requester_profile_id || !job.entitlement_source) {
     console.warn(
-      "Video job missing requester or entitlement source, cannot refund:",
+      'Video job missing requester or entitlement source, cannot refund:',
       job.id,
     );
     // Mark as refunded to prevent retry loops
     await supabase
-      .from("video_jobs")
+      .from('video_jobs')
       .update({ refunded: true })
-      .eq("id", job.id);
+      .eq('id', job.id);
     return;
   }
 
@@ -226,13 +226,13 @@ async function refundVideoJob(
 
   try {
     switch (job.entitlement_source) {
-      case "credits":
+      case 'credits':
         // Refund credits using grant_credits RPC
         if (job.credits_charged && job.credits_charged > 0) {
-          await supabase.rpc("grant_credits", {
+          await supabase.rpc('grant_credits', {
             p_profile_id: job.requester_profile_id,
             p_amount: job.credits_charged,
-            p_reason: "video_moderation_refund",
+            p_reason: 'video_moderation_refund',
             p_idempotency_key: refundIdempotencyKey,
             p_battle_id: null,
             p_purchase_id: null,
@@ -247,9 +247,9 @@ async function refundVideoJob(
         }
         break;
 
-      case "free_grant":
+      case 'free_grant':
         // Restore free tier reveal
-        await supabase.rpc("restore_free_tier1_reveal", {
+        await supabase.rpc('restore_free_tier1_reveal', {
           p_profile_id: job.requester_profile_id,
           p_video_job_id: job.id,
           p_idempotency_key: refundIdempotencyKey,
@@ -259,9 +259,9 @@ async function refundVideoJob(
         );
         break;
 
-      case "subscription_allowance":
+      case 'subscription_allowance':
         // Restore subscription allowance
-        await supabase.rpc("restore_subscription_allowance", {
+        await supabase.rpc('restore_subscription_allowance', {
           p_profile_id: job.requester_profile_id,
           p_video_job_id: job.id,
           p_idempotency_key: refundIdempotencyKey,
@@ -273,18 +273,18 @@ async function refundVideoJob(
 
       default:
         console.warn(
-          "Unknown entitlement source for refund:",
+          'Unknown entitlement source for refund:',
           job.entitlement_source,
         );
     }
 
     // Mark job as refunded
     await supabase
-      .from("video_jobs")
+      .from('video_jobs')
       .update({ refunded: true })
-      .eq("id", job.id);
+      .eq('id', job.id);
   } catch (error) {
-    console.error("Refund error for video job:", job.id, error);
+    console.error('Refund error for video job:', job.id, error);
     // Don't throw - we'll retry on next moderation invocation
   }
 }

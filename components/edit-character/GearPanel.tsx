@@ -11,7 +11,6 @@ import {
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { TRAIT_LABELS } from '@/constants/CharacterTraits';
-import { formatCredits } from '@/utils/credits';
 
 import type { CatalogSignatureItem } from '@/utils/characters';
 import ItemGrid from '../ItemGrid';
@@ -28,25 +27,21 @@ export interface GearPanelProps {
   equippedId: string;
   loading: boolean;
   error: string | null;
-  customCost: number;
-  /** False when live prices are unknown; creating an item is paid, so it waits. */
-  pricingVerified?: boolean;
   busy?: boolean;
   disabled?: boolean;
+  disabledReason?: string;
+  disabledActionLabel?: string;
+  onDisabledAction?: () => void;
   onRetry: () => void;
   onEquip: (id: string) => void;
-  onCreateCustom: () => void;
 }
 
 /**
- * Equipped item first, then the player's own items, then the shared catalogue.
+ * Equipped item first, followed by the predefined shared catalogue.
  *
- * The old order put a 15-item slice of the shared catalogue at the top with no
- * indication that more existed, the player's own creations below it, and no
- * way to see what the equipped item even was beyond a highlighted tile. Tiles
- * showed an icon and a truncated name, so class and description -- the parts
- * that say what an item does to your render -- were invisible until after it
- * was equipped.
+ * Custom signature items remain in storage for backwards compatibility, but
+ * are intentionally filtered out of this beta surface. Only curated items can
+ * be browsed or equipped here.
  *
  * Tapping a tile opens `ItemDetailSheet` rather than inserting a preview card
  * at the top of the panel: that card usually landed off-screen, above the grid
@@ -62,13 +57,13 @@ export default function GearPanel({
   equippedId,
   loading,
   error,
-  customCost,
-  pricingVerified = true,
   busy = false,
   disabled = false,
+  disabledReason,
+  disabledActionLabel,
+  onDisabledAction,
   onRetry,
   onEquip,
-  onCreateCustom,
 }: GearPanelProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
@@ -76,18 +71,20 @@ export default function GearPanel({
   const [showAll, setShowAll] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
 
-  const equipped = items.find((i) => i.id === equippedId) ?? null;
-  const custom = items.filter((i) => i.isCustom);
+  const predefinedItems = useMemo(
+    () => items.filter((item) => !item.isCustom),
+    [items],
+  );
   const catalog = useMemo(() => {
-    const base = items.filter((i) => !i.isCustom);
     const q = query.trim().toLowerCase();
-    if (!q) return base;
-    return base.filter(
+    if (!q) return predefinedItems;
+    return predefinedItems.filter(
       (i) =>
         i.name.toLowerCase().includes(q) ||
         i.description.toLowerCase().includes(q),
     );
-  }, [items, query]);
+  }, [predefinedItems, query]);
+  const equipped = predefinedItems.find((i) => i.id === equippedId) ?? null;
 
   // Searching is itself a request to see everything that matches.
   const searching = query.trim().length > 0;
@@ -95,7 +92,7 @@ export default function GearPanel({
     showAll || searching ? catalog : catalog.slice(0, CATALOG_PREVIEW);
   const hiddenCount = catalog.length - visibleCatalog.length;
 
-  const preview = items.find((i) => i.id === previewId) ?? null;
+  const preview = predefinedItems.find((i) => i.id === previewId) ?? null;
 
   const openPreview = (id: string) => {
     if (busy) return;
@@ -154,30 +151,10 @@ export default function GearPanel({
                 { color: colors.textSecondary },
               ]}
             >
-              Loading…
+              Choose a catalogue item below.
             </Text>
           )}
         </View>
-
-        <Text style={[s.sectionLabel, { color: colors.textTertiary }]}>
-          Your items
-        </Text>
-        {custom.length === 0 ? (
-          <Text
-            style={[s.hint, accessibleText, { color: colors.textSecondary }]}
-          >
-            {`You haven't made one yet. Creating an item costs ${formatCredits(customCost, 'sentence')}.`}
-          </Text>
-        ) : null}
-        <ItemGrid
-          items={custom}
-          selectedId={equippedId}
-          previewId={previewId}
-          onSelect={openPreview}
-          onCreateCustom={
-            disabled || !pricingVerified ? undefined : onCreateCustom
-          }
-        />
 
         <Text style={[s.sectionLabel, { color: colors.textTertiary }]}>
           Catalogue
@@ -229,6 +206,9 @@ export default function GearPanel({
         equipped={preview?.id === equippedId}
         busy={busy}
         disabled={disabled}
+        disabledReason={disabledReason}
+        disabledActionLabel={disabledActionLabel}
+        onDisabledAction={onDisabledAction}
         onChoose={(id) => {
           onEquip(id);
           setPreviewId(null);

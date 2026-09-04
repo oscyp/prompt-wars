@@ -1,4 +1,4 @@
-import { createServiceClient, getSupabaseSecretKey } from "./utils.ts";
+import { createServiceClient, getSupabaseSecretKey } from './utils.ts';
 
 export const AUTO_VIDEO_DAILY_PER_PROFILE = 1;
 export const AUTO_VIDEO_GLOBAL_DAILY_CAP = 100;
@@ -23,13 +23,13 @@ export async function enqueueAutoBattleVideo(
 ): Promise<void> {
   const task = enqueue(target).catch((error) => {
     console.error(
-      "Automatic battle video enqueue failed (non-blocking):",
+      'Automatic battle video enqueue failed (non-blocking):',
       error,
     );
   });
 
   // @ts-ignore EdgeRuntime is provided by Supabase in production.
-  if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+  if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
     // @ts-ignore EdgeRuntime is provided by Supabase in production.
     EdgeRuntime.waitUntil(task);
     return;
@@ -50,7 +50,7 @@ async function enqueue(target: AutoVideoTarget): Promise<void> {
   const supabase = createServiceClient();
   const requestHash = await sha256(
     JSON.stringify({
-      policy: "daily-auto-v1",
+      policy: 'daily-auto-v1',
       battle_id: target.battleId,
       battle_round_id: target.battleRoundId ?? null,
       round_number: target.roundNumber ?? null,
@@ -58,7 +58,7 @@ async function enqueue(target: AutoVideoTarget): Promise<void> {
   );
 
   const { data: videoJobId, error } = await supabase.rpc(
-    "enqueue_auto_battle_video",
+    'enqueue_auto_battle_video',
     {
       p_battle_id: target.battleId,
       p_battle_round_id: target.battleRoundId ?? null,
@@ -76,7 +76,7 @@ async function enqueue(target: AutoVideoTarget): Promise<void> {
 }
 
 async function invokeVideoWorker(videoJobId: string): Promise<void> {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const secretKey = getSupabaseSecretKey();
   if (!supabaseUrl || !secretKey) return;
 
@@ -84,9 +84,9 @@ async function invokeVideoWorker(videoJobId: string): Promise<void> {
     const response = await fetch(
       `${supabaseUrl}/functions/v1/process-video-job`,
       {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
           apikey: secretKey,
         },
         body: JSON.stringify({ video_job_id: videoJobId }),
@@ -94,19 +94,19 @@ async function invokeVideoWorker(videoJobId: string): Promise<void> {
     );
     if (!response.ok) {
       console.error(
-        "Immediate video worker kick failed:",
+        'Immediate video worker kick failed:',
         await response.text(),
       );
     }
   } catch (error) {
-    console.error("Immediate video worker kick threw:", error);
+    console.error('Immediate video worker kick threw:', error);
   }
 }
 
 async function sha256(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
 }

@@ -89,7 +89,9 @@ async function generateImage(apiKey, prompt, aspectRatio) {
         }
         if (!res.ok) {
           const text = await res.text();
-          lastErr = new Error(`HTTP ${res.status} from ${model}: ${text.slice(0, 400)}`);
+          lastErr = new Error(
+            `HTTP ${res.status} from ${model}: ${text.slice(0, 400)}`,
+          );
           if (res.status === 429 || res.status >= 500) {
             await sleep(1500 * attempt);
             continue; // retry same model
@@ -102,7 +104,8 @@ async function generateImage(apiKey, prompt, aspectRatio) {
         const imgPart = parts.find((p) => p.inlineData?.data);
         if (!imgPart) {
           const reason =
-            json?.promptFeedback?.blockReason || JSON.stringify(json).slice(0, 300);
+            json?.promptFeedback?.blockReason ||
+            JSON.stringify(json).slice(0, 300);
           throw new Error(`No image in response (${reason})`);
         }
         return Buffer.from(imgPart.inlineData.data, 'base64');
@@ -179,7 +182,9 @@ async function main() {
   const apiKey = await loadApiKey();
   await fs.mkdir(OUT_DIR, { recursive: true });
 
-  console.log(`Generating ${items.length} signature icon(s) with Nano Banana...\n`);
+  console.log(
+    `Generating ${items.length} signature icon(s) with Nano Banana...\n`,
+  );
   let ok = 0;
   for (const [slug, subject] of items) {
     process.stdout.write(`• ${slug} ... `);
@@ -199,7 +204,9 @@ async function main() {
       console.log(`FAILED: ${err.message}`);
     }
   }
-  console.log(`\n${ok}/${items.length} icons generated in ${path.relative(ROOT, OUT_DIR)}/`);
+  console.log(
+    `\n${ok}/${items.length} icons generated in ${path.relative(ROOT, OUT_DIR)}/`,
+  );
   if (ok < items.length) process.exit(1);
 }
 
