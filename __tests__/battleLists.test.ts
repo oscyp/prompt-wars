@@ -3,6 +3,7 @@ import {
   iHaveLockedIn,
   describeBattleRow,
   sortBattlesForList,
+  arenaBattlePriority,
   battleRouteFor,
   statusToneColor,
   groupBattlesForList,
@@ -264,6 +265,38 @@ describe('sortBattlesForList', () => {
     ];
     sortBattlesForList(rows, ME);
     expect(rows.map((b) => b.id)).toEqual(['x', 'y']);
+  });
+});
+
+describe('arenaBattlePriority', () => {
+  it('promotes exactly one urgent battle and removes its duplicate row', () => {
+    const rows = [
+      battle({ id: 'waiting', player_one_locked_at: 'x' }),
+      battle({ id: 'new-turn', created_at: '2026-09-02T10:00:00Z' }),
+      battle({ id: 'old-turn', created_at: '2026-09-01T10:00:00Z' }),
+    ];
+
+    const priority = arenaBattlePriority(rows, ME);
+    expect(priority.primary?.id).toBe('new-turn');
+    expect(priority.remaining.map((row) => row.id)).toEqual([
+      'old-turn',
+      'waiting',
+    ]);
+  });
+
+  it('keeps every row when the daily-theme action should remain primary', () => {
+    const rows = [
+      battle({ id: 'old', player_one_locked_at: 'x' }),
+      battle({
+        id: 'new',
+        player_one_locked_at: 'x',
+        created_at: '2026-09-02T10:00:00Z',
+      }),
+    ];
+
+    const priority = arenaBattlePriority(rows, ME);
+    expect(priority.primary).toBeNull();
+    expect(priority.remaining.map((row) => row.id)).toEqual(['new', 'old']);
   });
 });
 

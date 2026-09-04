@@ -9,7 +9,7 @@ module.exports = ({ config: _config }) => {
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'promptwars',
-    userInterfaceStyle: 'automatic',
+    userInterfaceStyle: 'dark',
     splash: {
       image: './assets/images/splash-screen.png',
       resizeMode: 'contain',

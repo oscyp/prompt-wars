@@ -206,6 +206,34 @@ export function sortBattlesForList<T extends BattleListRow>(
     .map((entry) => entry.row);
 }
 
+export interface ArenaBattlePriority<T extends BattleListRow = BattleListRow> {
+  /** The single battle promoted to Arena's primary action. */
+  primary: T | null;
+  /** Every other live battle, in normal list priority order. */
+  remaining: T[];
+}
+
+/**
+ * Promote one actionable battle on Arena without repeating the same row in
+ * the list below it. When nothing needs the player, all rows remain visible
+ * and the daily-theme battle action stays primary.
+ */
+export function arenaBattlePriority<T extends BattleListRow>(
+  rows: readonly T[],
+  myProfileId: string | null | undefined,
+): ArenaBattlePriority<T> {
+  const sorted = sortBattlesForList(rows, myProfileId);
+  const primaryIndex = sorted.findIndex(
+    (row) => describeBattleRow(row, myProfileId).status.actionable,
+  );
+  if (primaryIndex < 0) return { primary: null, remaining: sorted };
+
+  return {
+    primary: sorted[primaryIndex],
+    remaining: sorted.filter((_, index) => index !== primaryIndex),
+  };
+}
+
 /**
  * Where tapping a row goes, or `null` when there is nowhere useful to go
  * (timed-out and cancelled battles have no result to show).

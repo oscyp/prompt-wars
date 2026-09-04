@@ -113,8 +113,39 @@ describe('GearPanel', () => {
   });
 
   it('spells the catalogue the way the heading does', () => {
-    const { getByPlaceholderText, getByLabelText } = renderPanel();
+    const items = Array.from({ length: 8 }, (_, index) => ({
+      ...WRENCH,
+      id: `item-${index}`,
+      name: `Item ${index}`,
+    }));
+    const { getByText, getByPlaceholderText, getByLabelText } = renderPanel({
+      items,
+      equippedId: 'item-0',
+    });
+
+    fireEvent.press(getByText('Browse all 8 items'));
     expect(getByPlaceholderText('Search the catalogue')).toBeTruthy();
     expect(getByLabelText('Search the item catalogue')).toBeTruthy();
+  });
+
+  it('shows two catalogue rows before asking the player to browse all', () => {
+    const items = Array.from({ length: 8 }, (_, index) => ({
+      ...WRENCH,
+      id: `item-${index}`,
+      name: `Item ${index}`,
+    }));
+    const {
+      getByText,
+      getByLabelText,
+      queryByLabelText,
+      queryByPlaceholderText,
+    } = renderPanel({ items, equippedId: 'item-0' });
+
+    expect(getByLabelText('Signature item: Item 5, Tool')).toBeTruthy();
+    expect(queryByLabelText('Signature item: Item 6, Tool')).toBeNull();
+    expect(queryByPlaceholderText('Search the catalogue')).toBeNull();
+
+    fireEvent.press(getByText('Browse all 8 items'));
+    expect(getByLabelText('Signature item: Item 7, Tool')).toBeTruthy();
   });
 });

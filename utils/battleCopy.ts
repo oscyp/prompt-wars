@@ -229,6 +229,47 @@ export interface BattleStatusView {
   tone: 'primary' | 'neutral' | 'success' | 'warning' | 'error';
 }
 
+export interface ArenaPrimaryActionCopy {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  accessibilityLabel: string;
+}
+
+/**
+ * Copy for the one battle Arena promotes above everything else. Actionable
+ * result states share the same visual treatment as a turn, but must never be
+ * announced as if the player still needs to submit a prompt.
+ */
+export function arenaPrimaryActionCopy(
+  statusLabel: BattleStatusView['label'],
+  theme?: string | null,
+): ArenaPrimaryActionCopy {
+  const themeSuffix = theme ? `: ${theme}` : '';
+  if (statusLabel === 'Your turn') {
+    return {
+      eyebrow: 'YOUR TURN',
+      title: 'Continue your battle',
+      subtitle: theme ?? 'Choose your next move',
+      accessibilityLabel: `Your turn. Continue battle${themeSuffix}`,
+    };
+  }
+  if (statusLabel === 'Cinematic on the way') {
+    return {
+      eyebrow: 'BATTLE RESULT',
+      title: 'View your result',
+      subtitle: theme ? `${theme} · Cinematic on the way` : statusLabel,
+      accessibilityLabel: `Cinematic on the way. View battle result${themeSuffix}`,
+    };
+  }
+  return {
+    eyebrow: statusLabel.toUpperCase(),
+    title: 'Reveal your battle',
+    subtitle: theme ?? 'See who won',
+    accessibilityLabel: `${statusLabel}. Reveal battle${themeSuffix}`,
+  };
+}
+
 /**
  * A battle's status as a list row should say it.
  *

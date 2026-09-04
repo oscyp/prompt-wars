@@ -18,8 +18,8 @@ import InlineBanner from '../InlineBanner';
 import ItemDetailSheet from './ItemDetailSheet';
 import { editStyles as s } from './styles';
 
-/** How many catalog tiles show before "Browse all". */
-const CATALOG_PREVIEW = 15;
+/** Two rows are enough to offer a choice without turning Gear into a wall. */
+const CATALOG_PREVIEW = 6;
 
 export interface GearPanelProps {
   items: CatalogSignatureItem[];
@@ -157,19 +157,21 @@ export default function GearPanel({
         </View>
 
         <Text style={[s.sectionLabel, { color: colors.textTertiary }]}>
-          Catalogue
+          Choose another
         </Text>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search the catalogue"
-          placeholderTextColor={colors.textTertiary}
-          style={[
-            s.input,
-            { backgroundColor: colors.card, color: colors.text },
-          ]}
-          accessibilityLabel="Search the item catalogue"
-        />
+        {showAll ? (
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search the catalogue"
+            placeholderTextColor={colors.textTertiary}
+            style={[
+              s.input,
+              { backgroundColor: colors.card, color: colors.text },
+            ]}
+            accessibilityLabel="Search the item catalogue"
+          />
+        ) : null}
         {visibleCatalog.length === 0 ? (
           <Text
             style={[s.hint, accessibleText, { color: colors.textSecondary }]}

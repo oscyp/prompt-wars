@@ -37,7 +37,7 @@ import { archetypeIllustrationUri } from '@/constants/ArchetypeAvatars';
 import { getDailyTheme } from '@/utils/battles';
 import {
   getActiveBattles,
-  sortBattlesForList,
+  arenaBattlePriority,
   describeBattleRow,
   battleRouteFor,
   statusToneColor,
@@ -62,6 +62,7 @@ import {
   seasonEndsLabel,
   type SeasonRankView,
 } from '@/utils/profileView';
+import { arenaPrimaryActionCopy } from '@/utils/battleCopy';
 import { standingLabel, standingRankValue } from '@/utils/rankingsView';
 import { resolveSignatureHex } from '@/utils/characters';
 import { getWalletBalance, type WalletBalance } from '@/utils/monetization';
@@ -400,23 +401,24 @@ export default function HomeScreen() {
   const quests = meta?.quests ?? [];
   const completedQuests = quests.filter((q) => q.completed).length;
 
-  const sortedBattles = useMemo(
-    () => sortBattlesForList(activeBattles, user?.id),
+  const arenaBattles = useMemo(
+    () => arenaBattlePriority(activeBattles, user?.id),
     [activeBattles, user?.id],
   );
-  const yourTurnCount = useMemo(
+  const urgentBattle = arenaBattles.primary;
+  const otherBattles = arenaBattles.remaining;
+  const urgentCopy = urgentBattle
+    ? arenaPrimaryActionCopy(
+        describeBattleRow(urgentBattle, user?.id).status.label,
+        urgentBattle.theme,
+      )
+    : null;
+  const otherYourTurnCount = useMemo(
     () =>
-      sortedBattles.filter(
+      otherBattles.filter(
         (b) => describeBattleRow(b, user?.id).status.label === 'Your turn',
       ).length,
-    [sortedBattles, user?.id],
-  );
-  const urgentBattle = useMemo(
-    () =>
-      sortedBattles.find(
-        (battle) => describeBattleRow(battle, user?.id).status.actionable,
-      ) ?? null,
-    [sortedBattles, user?.id],
+    [otherBattles, user?.id],
   );
 
   const primaryInk = inkFor(colors.primary);
@@ -500,7 +502,7 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
-        {urgentBattle ? (
+        {urgentBattle && urgentCopy ? (
           <Pressable
             style={[
               styles.urgentAction,
@@ -515,20 +517,20 @@ export default function HomeScreen() {
               if (route) router.push(route);
             }}
             accessibilityRole="button"
-            accessibilityLabel={`Your turn. Resume battle${urgentBattle.theme ? `: ${urgentBattle.theme}` : ''}`}
+            accessibilityLabel={urgentCopy.accessibilityLabel}
           >
             <View style={styles.urgentCopy}>
               <Text style={[styles.urgentEyebrow, { color: primaryInk }]}>
-                YOUR TURN
+                {urgentCopy.eyebrow}
               </Text>
               <Text style={[styles.urgentTitle, { color: primaryInk }]}>
-                Continue your battle
+                {urgentCopy.title}
               </Text>
               <Text
                 style={[styles.urgentSubtitle, { color: primaryInk }]}
                 numberOfLines={1}
               >
-                {urgentBattle.theme ?? 'Choose your next move'}
+                {urgentCopy.subtitle}
               </Text>
             </View>
             <Ionicons
@@ -539,7 +541,7 @@ export default function HomeScreen() {
           </Pressable>
         ) : null}
 
-        {/* Daily theme hero poster — tap to battle on today's theme */}
+        {/* Daily theme hero poster — the primary action when no turn is urgent. */}
         <Pressable
           style={[styles.heroWrap, Elevation.md]}
           onPress={openBattleSheet}
@@ -556,12 +558,9 @@ export default function HomeScreen() {
             imageStyle={styles.heroImage}
             resizeMode="cover"
           >
-            {/* Deterministic per-theme accent wash under the dark scrim: shifts the
-                poster hue per daily theme while the scrim on top preserves AA. */}
             <View
               style={[styles.heroAccent, { backgroundColor: heroAccent }]}
             />
-            {/* Scrim guarantees AA for the overlay text on the illustration. */}
             <View style={styles.heroScrim} />
             <View style={styles.heroContent}>
               <View
@@ -583,8 +582,8 @@ export default function HomeScreen() {
           </ImageBackground>
         </Pressable>
 
-        {/* Active battles first: the rows where it is the player's turn are
-            the most actionable thing on the screen (audit A2). */}
+        {/* The promoted urgent battle is intentionally omitted here. Empty
+            state needs no second Start button: the theme poster already is it. */}
         {errors.battles ? (
           <View style={styles.bannerWrap}>
             <InlineBanner
@@ -594,11 +593,11 @@ export default function HomeScreen() {
               onAction={() => void load(BATTLES_PART)}
             />
           </View>
-        ) : (
+        ) : otherBattles.length > 0 ? (
           <SectionCard
-            title="Active Battles"
+            title={urgentBattle ? 'Other Battles' : 'Active Battles'}
             trailing={
-              yourTurnCount > 0 ? (
+              otherYourTurnCount > 0 ? (
                 <Text
                   style={[
                     styles.countPill,
@@ -606,159 +605,133 @@ export default function HomeScreen() {
                     { backgroundColor: colors.primary, color: primaryInk },
                   ]}
                 >
-                  {yourTurnCount} your turn
+                  {otherYourTurnCount} your turn
                 </Text>
               ) : undefined
             }
           >
-            {sortedBattles.length === 0 ? (
-              <View style={styles.emptyBlock}>
-                <Text
-                  style={[
-                    styles.emptyText,
-                    accessibleText,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  No battles in progress
-                </Text>
+            {otherBattles.map((battle, index) => {
+              const view = describeBattleRow(battle, userId);
+              const route = battleRouteFor(battle, userId);
+              const toneColor = statusToneColor(view.status.tone, colors);
+              const identity = opponentIdentityFor(
+                battle,
+                userId,
+                publicPlayers,
+              );
+              const name = identity.name ?? view.opponentName;
+              // Bots keep the neutral illustration and a plain ring.
+              const art =
+                archetypeIllustrationUri(
+                  identity.isBot ? null : identity.archetype,
+                ) ?? '';
+              const ring =
+                !identity.isBot && identity.signatureColor
+                  ? resolveSignatureHex(identity.signatureColor)
+                  : colors.border;
+              const progress = roundProgressFor(battle, userId);
+              const isLast = index === otherBattles.length - 1;
+              const label = [
+                `${view.status.label}.`,
+                `Battle against ${name}.`,
+                progress ? roundProgressSpoken(progress) : null,
+              ]
+                .filter(Boolean)
+                .join(' ');
+              return (
                 <TouchableOpacity
-                  style={[styles.emptyCta, { borderColor: colors.primary }]}
-                  onPress={openBattleSheet}
+                  key={battle.id}
+                  style={[
+                    styles.battleItem,
+                    { borderBottomColor: colors.borderLight },
+                    isLast && styles.lastItem,
+                  ]}
+                  onPress={() => {
+                    if (route) router.push(route);
+                  }}
+                  disabled={!route}
                   accessibilityRole="button"
-                  accessibilityLabel="Start a battle"
+                  accessibilityLabel={label}
+                  accessibilityState={{ disabled: !route }}
                 >
-                  <Text
-                    style={[styles.emptyCtaText, { color: colors.primary }]}
-                  >
-                    Start a battle
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              sortedBattles.map((battle, index) => {
-                const view = describeBattleRow(battle, userId);
-                const route = battleRouteFor(battle, userId);
-                const toneColor = statusToneColor(view.status.tone, colors);
-                const identity = opponentIdentityFor(
-                  battle,
-                  userId,
-                  publicPlayers,
-                );
-                const name = identity.name ?? view.opponentName;
-                // Bots keep the neutral illustration and a plain ring.
-                const art =
-                  archetypeIllustrationUri(
-                    identity.isBot ? null : identity.archetype,
-                  ) ?? '';
-                const ring =
-                  !identity.isBot && identity.signatureColor
-                    ? resolveSignatureHex(identity.signatureColor)
-                    : colors.border;
-                const progress = roundProgressFor(battle, userId);
-                const isLast = index === sortedBattles.length - 1;
-                const label = [
-                  `${view.status.label}.`,
-                  `Battle against ${name}.`,
-                  progress ? roundProgressSpoken(progress) : null,
-                ]
-                  .filter(Boolean)
-                  .join(' ');
-                return (
-                  <TouchableOpacity
-                    key={battle.id}
-                    style={[
-                      styles.battleItem,
-                      { borderBottomColor: colors.borderLight },
-                      isLast && styles.lastItem,
-                    ]}
-                    onPress={() => {
-                      if (route) router.push(route);
-                    }}
-                    disabled={!route}
-                    accessibilityRole="button"
-                    accessibilityLabel={label}
-                    accessibilityState={{ disabled: !route }}
-                  >
-                    <PortraitPreview
-                      uri={art}
-                      variant="circle"
-                      size={40}
-                      accentColor={ring}
-                      accessibilityLabel={`${name}'s archetype`}
-                    />
-                    <View style={styles.battleInfo}>
+                  <PortraitPreview
+                    uri={art}
+                    variant="circle"
+                    size={40}
+                    accentColor={ring}
+                    accessibilityLabel={`${name}'s archetype`}
+                  />
+                  <View style={styles.battleInfo}>
+                    <Text
+                      style={[
+                        styles.battleOpponent,
+                        accessibleText,
+                        { color: colors.text },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      vs {name}
+                    </Text>
+                    {progress ? (
                       <Text
                         style={[
-                          styles.battleOpponent,
-                          accessibleText,
-                          { color: colors.text },
+                          styles.battleProgress,
+                          NumericFontVariant,
+                          { color: colors.textSecondary },
                         ]}
                         numberOfLines={1}
                       >
-                        vs {name}
+                        {roundProgressText(progress)}
                       </Text>
-                      {progress ? (
+                    ) : null}
+                    <View style={styles.battleStatusRow}>
+                      {/* Shape + colour: the dot marks "needs you" for colour-blind players. */}
+                      {view.status.actionable ? (
+                        <View
+                          style={[
+                            styles.statusDot,
+                            { backgroundColor: toneColor },
+                          ]}
+                        />
+                      ) : null}
+                      <Text
+                        style={[
+                          styles.battleStatus,
+                          accessibleText,
+                          {
+                            color: toneColor,
+                            fontWeight: view.status.actionable
+                              ? Typography.weights.semibold
+                              : Typography.weights.regular,
+                          },
+                        ]}
+                      >
+                        {view.status.label}
+                      </Text>
+                      {battle.theme ? (
                         <Text
                           style={[
-                            styles.battleProgress,
-                            NumericFontVariant,
-                            { color: colors.textSecondary },
+                            styles.battleTheme,
+                            { color: colors.textTertiary },
                           ]}
                           numberOfLines={1}
                         >
-                          {roundProgressText(progress)}
+                          {' '}
+                          · {battle.theme}
                         </Text>
                       ) : null}
-                      <View style={styles.battleStatusRow}>
-                        {/* Shape + colour: the dot marks "needs you" for colour-blind players. */}
-                        {view.status.actionable ? (
-                          <View
-                            style={[
-                              styles.statusDot,
-                              { backgroundColor: toneColor },
-                            ]}
-                          />
-                        ) : null}
-                        <Text
-                          style={[
-                            styles.battleStatus,
-                            accessibleText,
-                            {
-                              color: toneColor,
-                              fontWeight: view.status.actionable
-                                ? Typography.weights.semibold
-                                : Typography.weights.regular,
-                            },
-                          ]}
-                        >
-                          {view.status.label}
-                        </Text>
-                        {battle.theme ? (
-                          <Text
-                            style={[
-                              styles.battleTheme,
-                              { color: colors.textTertiary },
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {' '}
-                            · {battle.theme}
-                          </Text>
-                        ) : null}
-                      </View>
                     </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={16}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                );
-              })
-            )}
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={16}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              );
+            })}
           </SectionCard>
-        )}
+        ) : null}
 
         {errors.meta ? (
           <View style={styles.bannerWrap}>
@@ -1049,24 +1022,8 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     overflow: 'hidden',
   },
-  emptyBlock: {
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-  },
   emptyText: {
     fontSize: Typography.sizes.base,
-  },
-  emptyCta: {
-    minHeight: 44,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyCtaText: {
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
   },
   battleItem: {
     flexDirection: 'row',

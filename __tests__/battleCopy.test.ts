@@ -6,6 +6,7 @@ import {
   roundOutcomeCopy,
   seriesHeadline,
   ratingDeltaLabel,
+  arenaPrimaryActionCopy,
 } from '@/utils/battleCopy';
 import { classifySuggestionFailure, hasOpponent } from '@/utils/battles';
 import { orientSeriesScore } from '@/components/SeriesScoreIndicator';
@@ -31,6 +32,34 @@ describe('moveLabel', () => {
     expect(moveLabel('attack')).toBe('Attack');
     expect(moveLabel('finisher')).toBe('Finisher');
     expect(moveLabel(null)).toBe('');
+  });
+});
+
+describe('arenaPrimaryActionCopy', () => {
+  it('uses turn language only when the player must act', () => {
+    expect(arenaPrimaryActionCopy('Your turn', 'Moon duel')).toEqual({
+      eyebrow: 'YOUR TURN',
+      title: 'Continue your battle',
+      subtitle: 'Moon duel',
+      accessibilityLabel: 'Your turn. Continue battle: Moon duel',
+    });
+  });
+
+  it('labels ready and generating results without asking for another turn', () => {
+    expect(arenaPrimaryActionCopy('Result ready', 'Moon duel')).toMatchObject({
+      eyebrow: 'RESULT READY',
+      title: 'Reveal your battle',
+      accessibilityLabel: 'Result ready. Reveal battle: Moon duel',
+    });
+    expect(arenaPrimaryActionCopy('Cinematic on the way', 'Moon duel')).toEqual(
+      {
+        eyebrow: 'BATTLE RESULT',
+        title: 'View your result',
+        subtitle: 'Moon duel · Cinematic on the way',
+        accessibilityLabel:
+          'Cinematic on the way. View battle result: Moon duel',
+      },
+    );
   });
 });
 
