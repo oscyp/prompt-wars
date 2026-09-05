@@ -26,6 +26,7 @@ import { ImpactFeedbackStyle } from 'expo-haptics';
 import Animated, {
   cancelAnimation,
   Easing,
+  FadeIn,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -39,6 +40,7 @@ import {
   BorderRadius,
   Layout,
   Ink,
+  Motion,
   NumericFontVariant,
 } from '@/constants/DesignTokens';
 import {
@@ -76,6 +78,7 @@ import VersusStrip from '@/components/VersusStrip';
 import PortraitViewer from '@/components/PortraitViewer';
 import HeaderLeaveButton from '@/components/HeaderLeaveButton';
 import InlineBanner from '@/components/InlineBanner';
+import PromptPreparationState from '@/components/prompt-preparation-state';
 import { useBattleAudio } from '@/providers/BattleAudioProvider';
 
 // Lock-in ceremony: press-and-hold duration before the submit fires.
@@ -1069,43 +1072,16 @@ export default function PromptEntryScreen() {
                   </Text>
                 </View>
 
-                {suggestionsLoading ? (
-                  <View
-                    style={[
-                      styles.suggestionCard,
-                      styles.suggestionLoadingCard,
-                      { backgroundColor: colors.card },
-                    ]}
-                    accessibilityLiveRegion="polite"
-                    accessibilityLabel={
-                      suggestionsGenerating
-                        ? 'Writing ideas for your fighter. This takes a few seconds.'
-                        : 'Loading ideas'
-                    }
-                  >
-                    <ActivityIndicator color={colors.primary} />
-                    {suggestionsGenerating ? (
-                      <>
-                        <Text
-                          style={[
-                            styles.suggestionLoadingTitle,
-                            { color: colors.text },
-                          ]}
-                        >
-                          Writing ideas for {myChar?.name ?? 'your fighter'}…
-                        </Text>
-                        <Text
-                          style={[
-                            styles.suggestionLoadingHint,
-                            { color: colors.textTertiary },
-                          ]}
-                        >
-                          This takes a few seconds — each idea is written for
-                          this fighter, this move and this theme.
-                        </Text>
-                      </>
-                    ) : null}
-                  </View>
+                {suggestionsLoading && moveType ? (
+                  <PromptPreparationState
+                    fighterName={myChar?.name ?? 'your fighter'}
+                    moveType={moveType}
+                    generating={suggestionsGenerating}
+                    onWriteOwn={() => {
+                      hapticSelection();
+                      setIsCustom(true);
+                    }}
+                  />
                 ) : null}
 
                 {!suggestionsLoading && suggestionsError ? (
@@ -1217,8 +1193,15 @@ export default function PromptEntryScreen() {
                       /* The card is content, not a target: two explicit
                          buttons below it, each a full 44pt row, replace the
                          old card-tap + nested "Use and edit" link. */
-                      <View
+                      <Animated.View
                         key={`${index}-${suggestion.title}`}
+                        entering={
+                          reduceMotion
+                            ? undefined
+                            : FadeIn.duration(Motion.durations.base).delay(
+                                index * 50,
+                              )
+                        }
                         style={[
                           styles.suggestionCard,
                           {
@@ -1316,7 +1299,7 @@ export default function PromptEntryScreen() {
                             </Text>
                           </TouchableOpacity>
                         </View>
-                      </View>
+                      </Animated.View>
                     );
                   })}
 
@@ -1750,20 +1733,6 @@ const styles = StyleSheet.create({
   suggestionActionText: {
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
-  },
-  suggestionLoadingCard: {
-    alignItems: 'center',
-    gap: Spacing.xs,
-    paddingVertical: Spacing.lg,
-  },
-  suggestionLoadingTitle: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold,
-    textAlign: 'center',
-  },
-  suggestionLoadingHint: {
-    fontSize: Typography.sizes.xs,
-    textAlign: 'center',
   },
   suggestionError: {
     fontSize: Typography.sizes.xs,
