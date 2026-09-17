@@ -1,6 +1,12 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameText } from '@/components/game';
+
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -43,7 +49,7 @@ export interface OptionGridProps {
 }
 
 /**
- * The one trait control: a two-column grid of option cards.
+ * The one trait control: two columns at standard text sizes, one at large sizes.
  *
  * Replaces two controls that disagreed with each other. Onboarding picked
  * traits from horizontal chip rows that hid options off-screen and stood
@@ -66,16 +72,19 @@ export default function OptionGrid({
 }: OptionGridProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
+  const { width, fontScale } = useWindowDimensions();
+  const largeText = width < 390 || fontScale > 1.15;
 
   return (
     <View>
       {title ? (
-        <Text
+        <GameText
+          variant="title"
           accessibilityRole="header"
           style={[styles.title, accessibleText, { color: colors.text }]}
         >
           {title}
-        </Text>
+        </GameText>
       ) : null}
       <View
         accessibilityRole="radiogroup"
@@ -98,10 +107,11 @@ export default function OptionGrid({
               accessibilityState={{ selected, checked: selected, disabled }}
               style={[
                 styles.card,
+                largeText && styles.fullWidthCard,
                 {
                   borderColor: selected ? colors.primary : colors.border,
                   backgroundColor: selected
-                    ? colors.backgroundTertiary
+                    ? colors.selectedSurface
                     : 'transparent',
                 },
               ]}
@@ -112,8 +122,8 @@ export default function OptionGrid({
                     style={[styles.swatch, { backgroundColor: option.swatch }]}
                   />
                 ) : null}
-                <Text
-                  numberOfLines={2}
+                <GameText
+                  variant="label"
                   style={[
                     styles.label,
                     accessibleText,
@@ -126,9 +136,9 @@ export default function OptionGrid({
                   ]}
                 >
                   {option.label}
-                </Text>
+                </GameText>
                 {/* Slot always reserved so labels do not shift on selection. */}
-                <Ionicons
+                <GameSymbol
                   name="checkmark-circle"
                   size={18}
                   color={colors.primary}
@@ -136,7 +146,8 @@ export default function OptionGrid({
                 />
               </View>
               {option.description ? (
-                <Text
+                <GameText
+                  variant="caption"
                   style={[
                     styles.description,
                     accessibleText,
@@ -144,7 +155,7 @@ export default function OptionGrid({
                   ]}
                 >
                   {option.description}
-                </Text>
+                </GameText>
               ) : null}
             </TouchableOpacity>
           );
@@ -170,11 +181,12 @@ const styles = StyleSheet.create({
     width: '48%',
     minHeight: Layout.buttonHeight,
     borderWidth: 2,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.sm,
     justifyContent: 'center',
   },
+  fullWidthCard: { width: '100%' },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -191,7 +203,7 @@ const styles = StyleSheet.create({
   },
   description: {
     marginTop: 2,
-    fontSize: Typography.sizes.xs,
-    lineHeight: 16,
+    fontSize: Typography.sizes.sm,
+    lineHeight: 21,
   },
 });

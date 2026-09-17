@@ -1,13 +1,15 @@
+import type { SheetFocusRef } from '@/hooks/useSheetReturnFocus';
+import { GameText } from '@/components/game';
+import { inkFor } from '@/utils/contrast';
 import React from 'react';
 import {
   View,
-  Text,
   Pressable,
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -28,6 +30,7 @@ export interface CharacterHeroProps {
   /** The class chip (`ArchetypeChip`), rendered under the name. */
   archetypeChip?: React.ReactNode;
   portraitUri: string;
+  avatarUri?: string;
   accentColor: string;
   busy?: boolean;
   hasPortrait: boolean;
@@ -46,13 +49,13 @@ export interface CharacterHeroProps {
   statusLabel?: string | null;
   /** Makes the status line tappable (the pricing Retry case). */
   onStatusPress?: () => void;
-  onRender: () => void;
-  onRandom: () => void;
-  onOpenViewer: () => void;
+  onRender: (opener: SheetFocusRef) => void;
+  onRandom: (opener: SheetFocusRef) => void;
+  onOpenViewer: (opener: SheetFocusRef) => void;
 }
 
 const THUMB = 64;
-const DICE = 44;
+const DICE = 48;
 
 /**
  * The compact Stage: the character in one row, with the paid actions.
@@ -66,6 +69,7 @@ export default function CharacterHero({
   subtitle,
   archetypeChip,
   portraitUri,
+  avatarUri,
   accentColor,
   busy = false,
   hasPortrait,
@@ -81,6 +85,9 @@ export default function CharacterHero({
   onRandom,
   onOpenViewer,
 }: CharacterHeroProps) {
+  const renderRef = React.useRef<View>(null);
+  const randomRef = React.useRef<View>(null);
+  const portraitRef = React.useRef<View>(null);
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
 
@@ -91,7 +98,8 @@ export default function CharacterHero({
   return (
     <View style={styles.wrap}>
       <Pressable
-        onPress={onOpenViewer}
+        ref={portraitRef}
+        onPress={() => onOpenViewer(portraitRef)}
         disabled={!hasPortrait}
         accessibilityRole="button"
         accessibilityLabel={`View ${name}'s portrait full screen`}
@@ -99,8 +107,8 @@ export default function CharacterHero({
         style={styles.thumb}
       >
         <PortraitPreview
-          uri={portraitUri}
-          variant="fullBody"
+          uri={avatarUri ?? ''}
+          variant="circle"
           size={THUMB}
           loading={busy}
           accentColor={accentColor}
@@ -108,41 +116,41 @@ export default function CharacterHero({
         />
         {hasPortrait ? (
           <View style={styles.expandPill} pointerEvents="none">
-            <Ionicons name="expand-outline" size={11} color="#FFFFFF" />
+            <GameSymbol name="expand-outline" size={11} color="#FFFFFF" />
           </View>
         ) : null}
       </Pressable>
 
       <View style={styles.meta}>
-        <Text
+        <GameText
+          variant="fighter"
           style={[styles.name, accessibleText, { color: colors.text }]}
-          numberOfLines={1}
         >
           {name}
-        </Text>
+        </GameText>
         {archetypeChip ? (
           <View style={styles.chipRow}>{archetypeChip}</View>
         ) : null}
-        <Text
+        <GameText
+          variant="caption"
           style={[
             styles.subtitle,
             accessibleText,
             { color: colors.textSecondary },
           ]}
-          numberOfLines={2}
         >
           {subtitle}
-        </Text>
+        </GameText>
 
         {changedLine ? (
           <View style={styles.staleRow}>
-            <Ionicons name="sync-outline" size={13} color={colors.warning} />
-            <Text
+            <GameSymbol name="sync-outline" size={13} color={colors.warning} />
+            <GameText
+              variant="body"
               style={[styles.stale, accessibleText, { color: colors.warning }]}
-              numberOfLines={2}
             >
               {changedLine}
-            </Text>
+            </GameText>
           </View>
         ) : null}
 
@@ -154,27 +162,28 @@ export default function CharacterHero({
             accessibilityLabel={statusLabel}
             style={styles.statusLine}
           >
-            <Ionicons
+            <GameSymbol
               name="information-circle-outline"
               size={13}
               color={onStatusPress ? colors.link : colors.textSecondary}
             />
-            <Text
+            <GameText
+              variant="body"
               style={[
                 styles.statusText,
                 accessibleText,
                 { color: onStatusPress ? colors.link : colors.textSecondary },
               ]}
-              numberOfLines={1}
             >
               {statusLabel}
-            </Text>
+            </GameText>
           </Pressable>
         ) : null}
 
         <View style={styles.actions}>
           <TouchableOpacity
-            onPress={onRender}
+            ref={renderRef}
+            onPress={() => onRender(renderRef)}
             disabled={renderDisabled}
             accessibilityRole="button"
             accessibilityLabel={renderButton.accessibilityLabel}
@@ -186,28 +195,37 @@ export default function CharacterHero({
             ]}
           >
             {rendering ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={inkFor(colors.primary)} />
             ) : (
               <>
-                <Text
-                  style={[styles.renderText, accessibleText]}
-                  numberOfLines={1}
+                <GameText
+                  variant="body"
+                  style={[
+                    styles.renderText,
+                    accessibleText,
+                    { color: inkFor(colors.primary) },
+                  ]}
                 >
                   {renderButton.label}
-                </Text>
+                </GameText>
                 {renderButton.caption ? (
-                  <Text
-                    style={[styles.renderCaption, accessibleText]}
-                    numberOfLines={1}
+                  <GameText
+                    variant="caption"
+                    style={[
+                      styles.renderCaption,
+                      accessibleText,
+                      { color: inkFor(colors.primary) },
+                    ]}
                   >
                     {renderButton.caption}
-                  </Text>
+                  </GameText>
                 ) : null}
               </>
             )}
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={onRandom}
+            ref={randomRef}
+            onPress={() => onRandom(randomRef)}
             disabled={randomDisabled}
             accessibilityRole="button"
             accessibilityLabel={randomButton.accessibilityLabel}
@@ -221,7 +239,7 @@ export default function CharacterHero({
               randomDisabled && styles.disabled,
             ]}
           >
-            <Ionicons name="dice-outline" size={20} color={colors.text} />
+            <GameSymbol name="dice-outline" size={20} color={colors.text} />
           </TouchableOpacity>
         </View>
       </View>
@@ -278,18 +296,18 @@ const styles = StyleSheet.create({
   },
   stale: {
     flex: 1,
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
   statusLine: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    minHeight: 44,
+    minHeight: 48,
   },
   statusText: {
     flex: 1,
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
   actions: {
@@ -308,13 +326,13 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   renderText: {
-    color: '#FFFFFF',
+    textAlign: 'center',
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
   renderCaption: {
-    color: 'rgba(255,255,255,0.78)',
-    fontSize: Typography.sizes.xs,
+    textAlign: 'center',
+    fontSize: Typography.sizes.sm,
     marginTop: 1,
   },
   diceBtn: {

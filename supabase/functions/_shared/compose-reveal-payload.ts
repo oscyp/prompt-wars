@@ -183,7 +183,7 @@ export async function composeRevealPayload(
     .from('battles')
     .select(
       `
-      id, status, format, mode, theme,
+      id, status, format, mode, theme, identity_snapshot,
       player_one_id, player_two_id, is_player_two_bot, bot_persona_id,
       winner_id, is_draw, score_payload,
       judge_prompt_version, judge_model_id,
@@ -227,10 +227,13 @@ export async function composeRevealPayload(
     args.roundNumber ?? (round ? numOrNull(round.round_number) : null);
 
   // Character metadata sources.
-  const p1Char = battle.player_one_character ?? null;
-  const p2Char = isBot
-    ? (battle.bot_persona ?? null)
-    : (battle.player_two_character ?? null);
+  const p1Char =
+    battle.identity_snapshot?.player_one ?? battle.player_one_character ?? null;
+  const p2Char =
+    battle.identity_snapshot?.player_two ??
+    (isBot
+      ? (battle.bot_persona ?? null)
+      : (battle.player_two_character ?? null));
 
   // Round-scoped locked prompts (for move types + excerpts).
   const promptsQuery = supabase
@@ -485,7 +488,10 @@ async function loadSignedPortrait(
   };
 
   const characterId = character?.id as string | undefined;
-  const portrait = await resolveCurrentPortrait(supabase, characterId);
+  const portrait =
+    character && 'fighter' in character
+      ? (character.fighter as CurrentPortrait | null)
+      : await resolveCurrentPortrait(supabase, characterId);
   if (!portrait) return fallback;
 
   const [signedUrl, thumbSignedUrl] = await Promise.all([

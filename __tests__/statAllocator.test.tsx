@@ -3,6 +3,8 @@ import { render, fireEvent } from '@testing-library/react-native';
 import StatAllocator from '@/components/StatAllocator';
 import { ARCHETYPE_STAT_PRESETS, BALANCED_STATS } from '@/utils/statAllocation';
 
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
+
 jest.mock('@/utils/haptics', () => ({ hapticSelection: jest.fn() }));
 
 describe('StatAllocator', () => {
@@ -62,10 +64,31 @@ describe('StatAllocator', () => {
     );
     const row = getByLabelText('Agility, 5 out of 10');
     expect(row.props.accessibilityRole).toBe('adjustable');
-    expect(row.props.accessibilityHint).toMatch(/tiebreak/i);
+    expect(row.props.accessibilityHint).toMatch(/reduces incoming damage/i);
     fireEvent(row, 'accessibilityAction', {
       nativeEvent: { actionName: 'increment' },
     });
     expect(onChange).toHaveBeenCalledWith({ ...freed, agility: 6 });
+  });
+});
+
+it('keeps earned points available and omits twenty-point presets for a progressed fighter', () => {
+  const onChange = jest.fn();
+  const screen = render(
+    <StatAllocator
+      value={{ strength: 5, stamina: 6, agility: 6, focus: 6 }}
+      pointTotal={24}
+      onChange={onChange}
+      accentColor="#ff0000"
+    />,
+  );
+  expect(screen.getByText('1 point left')).toBeTruthy();
+  expect(screen.queryByLabelText('Balanced')).toBeNull();
+  fireEvent.press(screen.getByLabelText('Increase Strength'));
+  expect(onChange).toHaveBeenCalledWith({
+    strength: 6,
+    stamina: 6,
+    agility: 6,
+    focus: 6,
   });
 });

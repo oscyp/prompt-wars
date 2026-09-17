@@ -530,3 +530,62 @@ Deno.test(
     });
   },
 );
+
+Deno.test(
+  'frozen identity and art survive later character edits and missing current portraits',
+  async () => {
+    const snapshot = {
+      id: 'c1',
+      name: 'Original fighter',
+      archetype: 'mystic',
+      signature_color: '#123456',
+      cosmetic_config: { frame: 'old' },
+      avatar: { image_path: 'frozen/avatar.png' },
+      fighter: { image_path: 'frozen/fighter.png' },
+    };
+    const result = await resolveBattlePortraits(
+      createMockSupabase({
+        battle: humanBattle({
+          identity_snapshot: {
+            player_one: snapshot,
+            player_two: {
+              ...snapshot,
+              id: 'c2',
+              name: 'Original rival',
+              avatar: null,
+              fighter: null,
+            },
+          },
+        }),
+      }),
+      { battleId: 'battle-1', callerUserId: 'u1' },
+    );
+    assertEquals(result.kind, 'ok');
+    if (result.kind === 'ok') {
+      assertEquals(result.payload.player_one.name, 'Original fighter');
+      assertEquals(
+        result.payload.player_one.portrait_url,
+        'https://signed.test/frozen/avatar.png?token=abc',
+      );
+      assertEquals(
+        result.payload.player_one.fighter_url,
+        'https://signed.test/frozen/fighter.png?token=abc',
+      );
+      assertEquals(result.payload.player_two.portrait_url, null);
+    }
+  },
+);
+Deno.test(
+  'frozen snapshot never bypasses participant authorization',
+  async () => {
+    const result = await resolveBattlePortraits(
+      createMockSupabase({
+        battle: humanBattle({
+          identity_snapshot: { player_one: { id: 'private' } },
+        }),
+      }),
+      { battleId: 'battle-1', callerUserId: 'outsider' },
+    );
+    assertEquals(result.kind, 'forbidden');
+  },
+);

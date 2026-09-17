@@ -1,8 +1,13 @@
 // AI Judge utilities for battle resolution
 // Implements LLM-as-judge with rubric, length normalization, calibration, and JSON schema validation
 
-import { MoveType, JudgeRubricScores, JudgeRunResult } from './types.ts';
-import { AiJudgeProvider, JudgeRequest, JudgeResponse } from './providers.ts';
+import {
+  MoveType,
+  JudgeRubricScores,
+  JudgeRunResult,
+  JudgeCallProvenance,
+} from './types.ts';
+import { AiJudgeProvider, JudgeResponse } from './providers.ts';
 
 export const JUDGE_PROMPT_VERSION = 'v1.0.0-mvp';
 
@@ -41,7 +46,7 @@ export function validateJudgeResponse(response: unknown): JudgeResponse {
     ];
 
     for (const field of required) {
-      if (typeof s[field] !== 'number') {
+      if (typeof s[field] !== 'number' || !Number.isFinite(s[field])) {
         throw new Error(`${label}.${field} must be a number`);
       }
       const val = s[field] as number;
@@ -222,153 +227,97 @@ export async function runJudgePipeline(
   theme: string | null,
   promptVersion = JUDGE_PROMPT_VERSION,
 ): Promise<JudgeRunResult> {
-  const DRAW_EPSILON = 3.0; // Aggregate difference threshold for draw
-
-  // Accumulated across every provider call this pipeline makes (2, or 3 when
-  // the first two disagree). Recorded per-run so judge_runs shows what the
-  // round actually cost rather than a per-call figure someone has to multiply.
-  let totalCostUsd = 0;
-  let providerCalls = 0;
-  let anyCostReported = false;
-  const accrue = (r: JudgeResponse): void => {
-    providerCalls += 1;
-    if (typeof r.costUsd === 'number') {
-      totalCostUsd += r.costUsd;
-      anyCostReported = true;
-    }
-  };
-  const costFields = () => ({
-    total_cost_usd: anyCostReported ? totalCostUsd : undefined,
-    provider_calls: providerCalls,
-  });
-
-  // First run with frozen prompt version
-  const run1Raw = await provider.judge({
-    promptOne,
-    promptTwo,
-    moveTypeOne,
-    moveTypeTwo,
-    theme,
-    seed: Math.floor(Math.random() * 10000),
-    promptVersion,
-  });
-  accrue(run1Raw);
-
-  // Validate JSON schema
-  const run1 = validateJudgeResponse(run1Raw);
-
-  // Normalize both players
-  const run1NormOne = normalizeScores(run1.playerOneScores, wordCountOne);
-  const run1NormTwo = normalizeScores(run1.playerTwoScores, wordCountTwo);
-
-  // Apply move type modifiers
-  const run1ScoreOne = applyMoveTypeModifier(
-    aggregateScore(run1NormOne),
-    moveTypeOne,
-    moveTypeTwo,
-  );
-  const run1ScoreTwo = applyMoveTypeModifier(
-    aggregateScore(run1NormTwo),
-    moveTypeTwo,
-    moveTypeOne,
-  );
-
-  // Second run with different seed
-  const run2Raw = await provider.judge({
-    promptOne,
-    promptTwo,
-    moveTypeOne,
-    moveTypeTwo,
-    theme,
-    seed: Math.floor(Math.random() * 10000),
-    promptVersion,
-  });
-  accrue(run2Raw);
-
-  const run2 = validateJudgeResponse(run2Raw);
-  const run2NormOne = normalizeScores(run2.playerOneScores, wordCountOne);
-  const run2NormTwo = normalizeScores(run2.playerTwoScores, wordCountTwo);
-  const run2ScoreOne = applyMoveTypeModifier(
-    aggregateScore(run2NormOne),
-    moveTypeOne,
-    moveTypeTwo,
-  );
-  const run2ScoreTwo = applyMoveTypeModifier(
-    aggregateScore(run2NormTwo),
-    moveTypeTwo,
-    moveTypeOne,
-  );
-
-  // Check agreement
-  const run1Winner =
-    run1ScoreOne > run1ScoreTwo ? 1 : run1ScoreTwo > run1ScoreOne ? 2 : 0;
-  const run2Winner =
-    run2ScoreOne > run2ScoreTwo ? 1 : run2ScoreTwo > run2ScoreOne ? 2 : 0;
-
-  // If disagree, run tiebreaker
-  if (run1Winner !== run2Winner && run1Winner !== 0 && run2Winner !== 0) {
-    const run3Raw = await provider.judge({
+  const calls: JudgeCallProvenance[] = [];
+  const run = async () => {
+    const seed = Math.floor(Math.random() * 2147483647);
+    const raw = await provider.judge({
       promptOne,
       promptTwo,
       moveTypeOne,
       moveTypeTwo,
       theme,
-      seed: Math.floor(Math.random() * 10000),
+      seed,
       promptVersion,
     });
-    accrue(run3Raw);
-
-    const run3 = validateJudgeResponse(run3Raw);
-    const run3NormOne = normalizeScores(run3.playerOneScores, wordCountOne);
-    const run3NormTwo = normalizeScores(run3.playerTwoScores, wordCountTwo);
-    const finalScoreOne = applyMoveTypeModifier(
-      aggregateScore(run3NormOne),
+    const response = validateJudgeResponse(raw);
+    const one = normalizeScores(response.playerOneScores, wordCountOne);
+    const two = normalizeScores(response.playerTwoScores, wordCountTwo);
+    calls.push({
+      response_id: raw.responseId,
+      model_id: response.modelId,
+      prompt_version: response.promptVersion,
+      seed,
+      fallback: raw.fallback === true || response.modelId.startsWith('mock'),
+      player_one_raw_scores: response.playerOneScores,
+      player_two_raw_scores: response.playerTwoScores,
+      player_one_normalized_scores: one,
+      player_two_normalized_scores: two,
+      explanation: response.explanation,
+      cost_usd: raw.costUsd,
+    });
+    const scoreOne = applyMoveTypeModifier(
+      aggregateScore(one),
       moveTypeOne,
       moveTypeTwo,
     );
-    const finalScoreTwo = applyMoveTypeModifier(
-      aggregateScore(run3NormTwo),
+    const scoreTwo = applyMoveTypeModifier(
+      aggregateScore(two),
       moveTypeTwo,
       moveTypeOne,
     );
-
-    const diff = Math.abs(finalScoreOne - finalScoreTwo);
-    const isDraw = diff < DRAW_EPSILON;
-
-    return {
-      player_one_raw_scores: run3.playerOneScores,
-      player_two_raw_scores: run3.playerTwoScores,
-      player_one_normalized_scores: run3NormOne,
-      player_two_normalized_scores: run3NormTwo,
-      winner_profile_id: isDraw
-        ? null
-        : finalScoreOne > finalScoreTwo
-          ? 'p1'
-          : 'p2',
-      is_draw: isDraw,
-      explanation: run3.explanation,
-      aggregate_score_diff: Math.abs(finalScoreOne - finalScoreTwo),
-      ...costFields(),
-    };
-  }
-
-  // Runs agree, use average
-  const avgScoreOne = (run1ScoreOne + run2ScoreOne) / 2;
-  const avgScoreTwo = (run1ScoreTwo + run2ScoreTwo) / 2;
-  const diff = Math.abs(avgScoreOne - avgScoreTwo);
-  const isDraw = diff < DRAW_EPSILON;
-
-  // Return run1 scores as representative
+    return { response, one, two, winner: Math.sign(scoreOne - scoreTwo) };
+  };
+  const first = await run();
+  const second = await run();
+  const disagreement =
+    first.winner !== second.winner && first.winner !== 0 && second.winner !== 0;
+  const third = disagreement ? await run() : null;
+  const average = (
+    one: JudgeRubricScores,
+    two: JudgeRubricScores,
+  ): JudgeRubricScores =>
+    Object.fromEntries(
+      Object.keys(one).map((k) => [
+        k,
+        (one[k as keyof JudgeRubricScores] +
+          two[k as keyof JudgeRubricScores]) /
+          2,
+      ]),
+    ) as unknown as JudgeRubricScores;
+  const one = third?.one ?? average(first.one, second.one);
+  const two = third?.two ?? average(first.two, second.two);
+  const scoreOne = applyMoveTypeModifier(
+    aggregateScore(one),
+    moveTypeOne,
+    moveTypeTwo,
+  );
+  const scoreTwo = applyMoveTypeModifier(
+    aggregateScore(two),
+    moveTypeTwo,
+    moveTypeOne,
+  );
+  const diff = Math.abs(scoreOne - scoreTwo);
+  const isDraw = diff < 3;
   return {
-    player_one_raw_scores: run1.playerOneScores,
-    player_two_raw_scores: run1.playerTwoScores,
-    player_one_normalized_scores: run1NormOne,
-    player_two_normalized_scores: run1NormTwo,
-    winner_profile_id: isDraw ? null : avgScoreOne > avgScoreTwo ? 'p1' : 'p2',
+    player_one_raw_scores:
+      third?.response.playerOneScores ??
+      average(first.response.playerOneScores, second.response.playerOneScores),
+    player_two_raw_scores:
+      third?.response.playerTwoScores ??
+      average(first.response.playerTwoScores, second.response.playerTwoScores),
+    player_one_normalized_scores: one,
+    player_two_normalized_scores: two,
+    winner_profile_id: isDraw ? null : scoreOne > scoreTwo ? 'p1' : 'p2',
     is_draw: isDraw,
-    explanation: run1.explanation,
+    explanation: (third ?? first).response.explanation,
     aggregate_score_diff: diff,
-    ...costFields(),
+    calls,
+    aggregation: third ? 'third_run' : 'mean_agreeing',
+    mock_assisted: calls.some((c) => c.fallback),
+    total_cost_usd: calls.some((c) => c.cost_usd !== undefined)
+      ? calls.reduce((sum, c) => sum + (c.cost_usd ?? 0), 0)
+      : undefined,
+    provider_calls: calls.length,
   };
 }
 

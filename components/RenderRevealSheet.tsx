@@ -1,22 +1,17 @@
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
 import React, { useEffect, useRef } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  Animated,
-  StyleSheet,
-  useWindowDimensions,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import BottomSheet from '@/components/sheets/BottomSheet';
+import { GameText as Text, GameButton } from '@/components/game';
+import { View, Animated, StyleSheet, useWindowDimensions } from 'react-native';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
-import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { formatCredits } from '@/utils/credits';
 import { hapticSuccess } from '@/utils/haptics';
 import { avatarPendingCopy } from '@/utils/editDialogCopy';
 import PortraitPreview from './PortraitPreview';
+import type { FramePresentation } from '@/constants/Cosmetics';
 import InlineBanner from './InlineBanner';
 
 export type RevealAvatar =
@@ -28,9 +23,11 @@ export type RevealAvatar =
 
 export interface RenderRevealSheetProps {
   visible: boolean;
+  returnFocusRef?: React.RefObject<View | null>;
   characterName: string;
   accentColor: string;
   fighterUri: string | null;
+  frame?: FramePresentation | null;
   avatar: RevealAvatar;
   mode: 'render' | 'random';
   creditsSpent: number;
@@ -45,6 +42,8 @@ export interface RenderRevealSheetProps {
   onRetryAvatar: () => void;
   /** Expired signed URL; the caller re-signs. */
   onImageError?: () => void;
+  mediaError?: boolean;
+  onRetryMedia?: () => void;
 }
 
 const AVATAR_SIZE = 96;
@@ -62,9 +61,11 @@ const FULL_BODY_ASPECT = 1.5;
  */
 export default function RenderRevealSheet({
   visible,
+  returnFocusRef,
   characterName,
   accentColor,
   fighterUri,
+  frame,
   avatar,
   mode,
   creditsSpent,
@@ -76,9 +77,11 @@ export default function RenderRevealSheet({
   onRestorePrevious,
   onRetryAvatar,
   onImageError,
+  mediaError = false,
+  onRetryMedia,
 }: RenderRevealSheetProps) {
-  const colors = useThemedColors();
-  const reduceMotion = useReducedMotion();
+  const active = useBattlePresentationActive();
+  const reduceMotion = useReducedMotion() || !active;
   const accessibleText = useAccessibleTextStyle();
   const { width, height } = useWindowDimensions();
 
@@ -96,7 +99,13 @@ export default function RenderRevealSheet({
       playedRef.current = false;
       return;
     }
-    if (playedRef.current) return;
+    if (!active || playedRef.current) {
+      fighterY.setValue(0);
+      fighterScale.setValue(1);
+      avatarScale.setValue(1);
+      avatarOpacity.setValue(1);
+      return;
+    }
     playedRef.current = true;
 
     if (reduceMotion) {
@@ -112,7 +121,7 @@ export default function RenderRevealSheet({
     fighterScale.setValue(0.92);
     avatarScale.setValue(0.6);
     avatarOpacity.setValue(0);
-    Animated.parallel([
+    const entrance = Animated.parallel([
       Animated.spring(fighterY, {
         toValue: 0,
         friction: 7,
@@ -125,9 +134,13 @@ export default function RenderRevealSheet({
         tension: 90,
         useNativeDriver: true,
       }),
-    ]).start(() => {
+    ]);
+    let canceled = false;
+    let avatarEntrance: Animated.CompositeAnimation | null = null;
+    entrance.start(({ finished } = { finished: true }) => {
+      if (canceled || !finished) return;
       hapticSuccess();
-      Animated.parallel([
+      avatarEntrance = Animated.parallel([
         Animated.spring(avatarScale, {
           toValue: 1,
           friction: 5,
@@ -139,9 +152,16 @@ export default function RenderRevealSheet({
           duration: 200,
           useNativeDriver: true,
         }),
-      ]).start();
+      ]);
+      avatarEntrance.start();
     });
+    return () => {
+      canceled = true;
+      entrance.stop();
+      avatarEntrance?.stop();
+    };
   }, [
+    active,
     visible,
     reduceMotion,
     fighterY,
@@ -168,164 +188,143 @@ export default function RenderRevealSheet({
   }${spent}`;
 
   return (
-    <Modal
+    <BottomSheet
+      returnFocusRef={returnFocusRef}
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onKeep}
+      onClose={onKeep}
+      dismissDisabled={restoring}
+      closeAccessibilityLabel="Keep the new look and close"
+      footer={
+        <View style={{ gap: 12 }}>
+          {mediaError && (
+            <>
+              <Text>Drawing complete. The artwork could not load.</Text>
+              <GameButton
+                label="Retry loading artwork"
+                tone="secondary"
+                onPress={onRetryMedia}
+                disabled={!onRetryMedia}
+              />
+            </>
+          )}
+          <GameButton label="Keep" onPress={onKeep} disabled={restoring} />
+          <GameButton
+            label={restoring ? 'Restoring…' : 'Restore previous · Free'}
+            accessibilityLabel="Restore previous, free"
+            onPress={onRestorePrevious}
+            disabled={!canRestorePrevious}
+            busy={restoring}
+            tone="secondary"
+          />
+        </View>
+      }
     >
-      <View style={styles.backdrop} accessibilityViewIsModal>
-        <TouchableOpacity
-          style={StyleSheet.absoluteFill}
-          onPress={onKeep}
-          accessibilityRole="button"
-          accessibilityLabel="Keep the new look and close"
-        />
-        <View pointerEvents="box-none" style={styles.content}>
-          <Text
-            accessibilityRole="header"
-            style={[styles.heading, accessibleText]}
+      <View style={styles.content}>
+        <Text
+          variant="display"
+          accessibilityRole="header"
+          style={[styles.heading, accessibleText]}
+        >
+          {mode === 'random' ? 'Your new character' : 'Your new look'}
+        </Text>
+
+        <View style={{ width: frameW + AVATAR_SIZE / 2 }}>
+          <Animated.View
+            style={{
+              transform: [{ translateY: fighterY }, { scale: fighterScale }],
+            }}
           >
-            {mode === 'random' ? 'Your new character' : 'Your new look'}
-          </Text>
+            {fighterUri ? (
+              <PortraitPreview
+                uri={fighterUri}
+                onImageError={onImageError}
+                variant="fullBody"
+                size={frameW}
+                accentColor={accentColor}
+                frame={frame}
+                accessibilityLabel={`${characterName}, new portrait`}
+              />
+            ) : (
+              <View
+                style={[
+                  styles.missing,
+                  {
+                    width: frameW,
+                    height: Math.round(frameW * FULL_BODY_ASPECT),
+                    borderColor: accentColor,
+                  },
+                ]}
+              >
+                <GameSymbol name="image-outline" size={40} color="#FFFFFF" />
+              </View>
+            )}
+          </Animated.View>
 
-          <View style={{ width: frameW + AVATAR_SIZE / 2 }}>
-            <Animated.View
-              style={{
-                transform: [{ translateY: fighterY }, { scale: fighterScale }],
-              }}
-            >
-              {fighterUri ? (
-                <PortraitPreview
-                  uri={fighterUri}
-                  variant="fullBody"
-                  size={frameW}
-                  accentColor={accentColor}
-                  accessibilityLabel={`${characterName}, new portrait`}
+          <Animated.View
+            style={[
+              styles.avatarSlot,
+              { transform: [{ scale: avatarScale }], opacity: avatarOpacity },
+            ]}
+            accessible
+            accessibilityLabel={
+              effectiveAvatar.status === 'ready'
+                ? `${characterName}, new avatar`
+                : effectiveAvatar.status === 'pending'
+                  ? 'Avatar still drawing'
+                  : 'Avatar did not render'
+            }
+          >
+            {effectiveAvatar.status === 'ready' ? (
+              <PortraitPreview
+                uri={effectiveAvatar.uri}
+                onImageError={onImageError}
+                variant="circle"
+                size={AVATAR_SIZE}
+                accentColor={accentColor}
+                frame={frame}
+                accessibilityLabel={undefined}
+              />
+            ) : effectiveAvatar.status === 'pending' ? (
+              <PortraitPreview
+                uri={fighterUri ?? ''}
+                variant="circle"
+                size={AVATAR_SIZE}
+                accentColor={accentColor}
+                frame={frame}
+                loading
+                accessibilityLabel={undefined}
+              />
+            ) : (
+              <View style={[styles.avatarFailed, { borderColor: accentColor }]}>
+                <GameSymbol
+                  name="alert-circle-outline"
+                  size={32}
+                  color="#FFFFFF"
                 />
-              ) : (
-                <View
-                  style={[
-                    styles.missing,
-                    {
-                      width: frameW,
-                      height: Math.round(frameW * FULL_BODY_ASPECT),
-                      borderColor: accentColor,
-                    },
-                  ]}
-                >
-                  <Ionicons name="image-outline" size={40} color="#FFFFFF" />
-                </View>
-              )}
-            </Animated.View>
+              </View>
+            )}
+          </Animated.View>
+        </View>
 
-            <Animated.View
-              style={[
-                styles.avatarSlot,
-                { transform: [{ scale: avatarScale }], opacity: avatarOpacity },
-              ]}
-              accessible
-              accessibilityLabel={
-                effectiveAvatar.status === 'ready'
-                  ? `${characterName}, new avatar`
-                  : effectiveAvatar.status === 'pending'
-                    ? 'Avatar still drawing'
-                    : 'Avatar did not render'
-              }
-            >
-              {effectiveAvatar.status === 'ready' ? (
-                <PortraitPreview
-                  uri={effectiveAvatar.uri}
-                  variant="circle"
-                  size={AVATAR_SIZE}
-                  accentColor={accentColor}
-                  accessibilityLabel={undefined}
-                />
-              ) : effectiveAvatar.status === 'pending' ? (
-                <PortraitPreview
-                  uri={fighterUri ?? ''}
-                  variant="circle"
-                  size={AVATAR_SIZE}
-                  accentColor={accentColor}
-                  loading
-                  accessibilityLabel={undefined}
-                />
-              ) : (
-                <View
-                  style={[styles.avatarFailed, { borderColor: accentColor }]}
-                >
-                  <Ionicons
-                    name="alert-circle-outline"
-                    size={32}
-                    color="#FFFFFF"
-                  />
-                </View>
-              )}
-            </Animated.View>
-          </View>
-
-          {/* No AI-generated pill: the in-app disclosure was removed as a
+        {/* No AI-generated pill: the in-app disclosure was removed as a
               product decision (commit 042c59a). Restore here first if store
               review asks for it. */}
-          <View style={styles.captionRow}>
-            <Text style={[styles.caption, accessibleText]} numberOfLines={2}>
-              {caption}
-            </Text>
-          </View>
-
-          {effectiveAvatar.status === 'failed' ? (
-            <View style={styles.banner}>
-              <InlineBanner
-                tone="warning"
-                text={pendingCopy.text}
-                actionLabel={
-                  canRetryAvatar ? pendingCopy.actionLabel : undefined
-                }
-                onAction={canRetryAvatar ? onRetryAvatar : undefined}
-              />
-            </View>
-          ) : null}
-
-          <View style={styles.actions}>
-            <TouchableOpacity
-              onPress={onKeep}
-              disabled={restoring}
-              accessibilityRole="button"
-              accessibilityLabel="Keep"
-              accessibilityState={{ disabled: restoring }}
-              style={[
-                styles.keep,
-                {
-                  backgroundColor: colors.primary,
-                  opacity: restoring ? 0.6 : 1,
-                },
-              ]}
-            >
-              <Text style={styles.keepText}>Keep</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={onRestorePrevious}
-              disabled={!canRestorePrevious || restoring}
-              accessibilityRole="button"
-              accessibilityLabel="Restore previous, free"
-              accessibilityState={{
-                disabled: !canRestorePrevious || restoring,
-                busy: restoring,
-              }}
-              style={[
-                styles.restore,
-                (!canRestorePrevious || restoring) && styles.disabled,
-              ]}
-            >
-              <Text style={styles.restoreText}>
-                {restoring ? 'Restoring…' : 'Restore previous · Free'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+        <View style={styles.captionRow}>
+          <Text style={[styles.caption, accessibleText]}>{caption}</Text>
         </View>
-        {onImageError ? null : null}
+
+        {effectiveAvatar.status === 'failed' ? (
+          <View style={styles.banner}>
+            <InlineBanner
+              tone="warning"
+              text={pendingCopy.text}
+              actionLabel={canRetryAvatar ? pendingCopy.actionLabel : undefined}
+              onAction={canRetryAvatar ? onRetryAvatar : undefined}
+            />
+          </View>
+        ) : null}
       </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 

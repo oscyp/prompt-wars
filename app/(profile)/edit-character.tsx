@@ -1,26 +1,47 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import {
+  EditorPreview,
+  EditorTabs,
+  EditorFooter,
+} from '@/components/edit-character/EditorChrome';
+import BottomSheet from '@/components/sheets/BottomSheet';
+import FighterCard from '@/components/game/FighterCard';
+import { GameIcon } from '@/components/game/icons/GameIcon';
+import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
+import {
+  useSheetReturnFocus,
+  type SheetFocusRef,
+} from '@/hooks/useSheetReturnFocus';
+import { GameButton } from '@/components/game';
+import { GameText } from '@/components/game';
+import { loadEquippedSignatureItem } from '@/utils/equippedSignatureItem';
+import { usePortraitOperationRecovery } from '@/hooks/usePortraitOperationRecovery';
+import { useInitialPortraitRecovery } from '@/hooks/useInitialPortraitRecovery';
+import CharacterRespec from '@/components/CharacterRespec';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
   useWindowDimensions,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Pressable,
+  AppState,
+  TextInput,
+  findNodeHandle,
+  Image,
 } from 'react-native';
-import Animated, {
-  useAnimatedScrollHandler,
-  useSharedValue,
-} from 'react-native-reanimated';
-import { useRouter, useNavigation, Stack } from 'expo-router';
+import {
+  useRouter,
+  useNavigation,
+  Stack,
+  useLocalSearchParams,
+  useFocusEffect,
+} from 'expo-router';
 import { usePreventRemove } from '@react-navigation/native';
-import { useHeaderHeight } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ImpactFeedbackStyle } from 'expo-haptics';
 import { useAuth } from '@/providers/AuthProvider';
@@ -29,7 +50,9 @@ import { useCredits } from '@/hooks/useCredits';
 import { useCharacterEditLock } from '@/hooks/useCharacterEditLock';
 import {
   useCharacterEditDraft,
+  DRAFT_FIELDS,
   type DraftKey,
+  type DraftSection,
 } from '@/hooks/useCharacterEditDraft';
 import { describeEditError, EditError } from '@/utils/editErrors';
 import { fetchEditPricing, type EditPricing } from '@/utils/editCooldowns';
@@ -39,12 +62,8 @@ import {
   renderConfirmCopy,
   randomConfirmCopy,
   topUpCopy,
-  discardDraftCopy,
   renderButtonCopy,
   randomButtonCopy,
-  renderingCaption,
-  RENDER_EXPECTED_DURATION,
-  type RenderPhase,
   type SheetCopy,
 } from '@/utils/editDialogCopy';
 import { changedSinceRender } from '@/utils/lookDiff';
@@ -55,11 +74,11 @@ import {
   hapticError,
 } from '@/utils/haptics';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { archetypeIllustrationUri } from '@/constants/ArchetypeAvatars';
 import { supabase } from '@/utils/supabase';
 import {
   editCharacter,
   generatePortrait,
-  renderLook,
   retryAvatar,
   awaitAvatarJob,
   loadPortraitRef,
@@ -74,7 +93,6 @@ import {
   type PortraitPromptSnapshot,
 } from '@/utils/characters';
 import {
-  ART_STYLE_LABELS,
   type PaletteKey,
   type ArtStyle,
   type Vibe,
@@ -91,52 +109,18 @@ import {
 } from '@/utils/cosmetics';
 import type { ColorSwatchOption } from '@/components/ColorSwatchGrid';
 import {
-  SegmentedCategoryBar,
-  PortraitViewer,
   Toast,
   CreditChip,
   ConfirmSheet,
-  CharacterHero,
-  StageExpanded,
-  CollapsingStage,
-  ArchetypeChip,
-  ArchetypeSheet,
   IdentityPanel,
   LookPanel,
   GearPanel,
-  SaveBar,
 } from '@/components';
 import RenderRevealSheet, {
   type RevealAvatar,
 } from '@/components/RenderRevealSheet';
-import {
-  mergeEditNotices,
-  compactStatusLabel,
-} from '@/components/edit-character/editNotices';
-import {
-  fighterHeight as computeFighterHeight,
-  estimateMetrics,
-  type StageMetrics,
-} from '@/components/edit-character/stageMath';
-
-type Category = 'identity' | 'look' | 'gear';
-
-const CATEGORIES: {
-  key: Category;
-  label: string;
-  icon: 'person-outline' | 'color-palette-outline' | 'cube-outline';
-}[] = [
-  // "Fighter", not "Identity": who you are in battle (name, class, cry,
-  // colour). "Identity" read as account settings.
-  { key: 'identity', label: 'Fighter', icon: 'person-outline' },
-  { key: 'look', label: 'Look', icon: 'color-palette-outline' },
-  { key: 'gear', label: 'Gear', icon: 'cube-outline' },
-];
-
+type Category = DraftSection;
 const EMPTY_PRICING: EditPricing = { prices: {}, cooldownMs: {} };
-
-/** SaveBar's height without the safe-area inset (SaveBar.tsx padding + row). */
-const SAVE_BAR_BASE_HEIGHT = 76;
 
 interface CharacterRow {
   id: string;
@@ -158,10 +142,12 @@ interface CharacterRow {
   appearance_version: number | null;
   last_edited_at: string | null;
   cosmetic_config: CosmeticConfig | null;
+  starter_asset_key: string | null;
+  draft_portrait_renders: number;
 }
 
 const CHARACTER_COLUMNS =
-  'id,name,archetype,battle_cry,signature_color,signature_item_id,portrait_id,avatar_portrait_id,portrait_seed,vibe,silhouette,palette_key,era,expression,art_style,portrait_prompt_raw,appearance_version,last_edited_at,cosmetic_config';
+  'id,name,archetype,battle_cry,signature_color,signature_item_id,portrait_id,avatar_portrait_id,portrait_seed,vibe,silhouette,palette_key,era,expression,art_style,portrait_prompt_raw,appearance_version,last_edited_at,cosmetic_config,starter_asset_key,draft_portrait_renders';
 
 type SheetState =
   | null
@@ -180,11 +166,15 @@ interface RevealState {
 }
 
 export default function EditCharacterScreen() {
+  const { user } = useAuth();
+  return <CharacterEditor key={user?.id ?? 'signed-out'} />;
+}
+function CharacterEditor() {
   const router = useRouter();
   const navigation = useNavigation();
   const colors = useThemedColors();
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
+  const params = useLocalSearchParams<{ section?: string; focus?: string }>();
   const { user } = useAuth();
   const {
     credits,
@@ -192,9 +182,45 @@ export default function EditCharacterScreen() {
     refresh: refreshCredits,
   } = useCredits();
 
-  // Captured once: Android's `resize` keyboard mode shrinks the window while
-  // typing, and the fighter must not resize under the player's thumb.
-  const windowHeightRef = useRef(useWindowDimensions().height);
+  const window = useWindowDimensions();
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollPosition = useRef(0);
+  const [footerHeight, setFooterHeight] = useState(0);
+  const panelOffset = useRef(0);
+  const colorOffset = useRef<number | null>(null);
+  const colorFocused = useRef(false);
+  const entryApplied = useRef<string | null>(null);
+  const currentAccount = useRef(user?.id);
+  currentAccount.current = user?.id;
+  useEffect(
+    () => () => {
+      currentAccount.current = undefined;
+    },
+    [],
+  );
+  const characterRef = useRef<CharacterRow | null>(null);
+  const lastLoad = useRef(0);
+  const [allowRemove, setAllowRemove] = useState(false);
+  const mutationBusy = useRef(false);
+  const battleLockRef = useRef(false);
+  const pendingNavigation = useRef<
+    Parameters<typeof navigation.dispatch>[0] | null
+  >(null);
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true),
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const [character, setCharacter] = useState<CharacterRow | null>(null);
   const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
@@ -204,42 +230,49 @@ export default function EditCharacterScreen() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarVersion, setAvatarVersion] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [artLoadError, setArtLoadError] = useState(false);
   const [busyKey, setBusyKey] = useState<
     'save' | 'render' | 'restore' | 'retryAvatar' | null
   >(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState<Category>('identity');
   const [pricing, setPricing] = useState<EditPricing>(EMPTY_PRICING);
   // Until live prices arrive, or if they cannot be read, the paid actions stay
   // disabled rather than quoting a constant the server may not agree with.
   const [pricingVerified, setPricingVerified] = useState(false);
   const [history, setHistory] = useState<PortraitHistoryEntry[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [viewerPortraitId, setViewerPortraitId] = useState<string | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [items, setItems] = useState<CatalogSignatureItem[]>([]);
+  const [currentItem, setCurrentItem] = useState<CatalogSignatureItem | null>(
+    null,
+  );
   const [itemsLoading, setItemsLoading] = useState(true);
   const [itemsError, setItemsError] = useState<string | null>(null);
-  const [archetypeOpen, setArchetypeOpen] = useState(false);
   // Signature colours the player has bought. Owning one unlocks the swatch; it
   // never applies itself (see IdentityPanel).
   const [unlockedColors, setUnlockedColors] = useState<ColorSwatchOption[]>([]);
 
+  const walletFocusRef = useRef<View>(null);
+  const compactHistoryRef = useRef<View>(null);
+  const { remember: rememberSheetOpener, returnFocusRef: sheetReturnFocusRef } =
+    useSheetReturnFocus(walletFocusRef);
+  const {
+    remember: rememberRenderOpener,
+    returnFocusRef: renderReturnFocusRef,
+  } = useSheetReturnFocus(walletFocusRef);
+  const {
+    remember: rememberPortraitOpener,
+    returnFocusRef: portraitReturnFocusRef,
+  } = useSheetReturnFocus(walletFocusRef);
   const [sheet, setSheet] = useState<SheetState>(null);
-  const [renderPhase, setRenderPhase] = useState<RenderPhase | null>(null);
-  const [renderStartedAt, setRenderStartedAt] = useState<number | null>(null);
   const [reveal, setReveal] = useState<RevealState | null>(null);
   // Sticks after a render whose avatar leg failed, until a retry lands.
   const [avatarNeedsRetry, setAvatarNeedsRetry] = useState(false);
-
-  const [metrics, setMetrics] = useState<StageMetrics | null>(null);
-  const [viewportHeight, setViewportHeight] = useState(0);
-  const scrollY = useSharedValue(0);
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (e) => {
-      scrollY.value = e.contentOffset.y;
-    },
-  });
 
   const {
     locked: battleLocked,
@@ -248,16 +281,69 @@ export default function EditCharacterScreen() {
     refresh: refreshLock,
   } = useCharacterEditLock(character?.id);
 
+  battleLockRef.current = battleLocked;
   const itemName = useCallback(
-    (id: string) => items.find((i) => i.id === id)?.name ?? 'that item',
-    [items],
+    (id: string) =>
+      items.find((i) => i.id === id)?.name ??
+      (currentItem?.id === id ? currentItem.name : 'that item'),
+    [items, currentItem],
   );
 
   const draft = useCharacterEditDraft(
     character as unknown as Record<string, unknown> | null,
     pricing,
     itemName,
+    { accountId: user?.id, characterId: character?.id, initialSection: 'look' },
   );
+  const activeCategory = draft.section;
+  const entrySection: Category =
+    params.section === 'fighter'
+      ? 'identity'
+      : params.section === 'gear'
+        ? 'gear'
+        : 'look';
+  useEffect(() => {
+    if (!draft.ready || !character) return;
+    const entry = [character.id, params.section, params.focus].join(':');
+    if (entryApplied.current === entry) return;
+    entryApplied.current = entry;
+    draft.setSection(
+      params.focus === 'signature-color' ? 'identity' : entrySection,
+    );
+    if (params.section || params.focus) {
+      setHistoryOpen(false);
+      setViewerOpen(false);
+      setSheet(null);
+      const section =
+        params.focus === 'signature-color' ? 'identity' : entrySection;
+      draft.setSection(section);
+      draft.setScrollPosition(section, 0);
+      colorFocused.current = false;
+    }
+  }, [
+    draft.ready,
+    character,
+    params.section,
+    params.focus,
+    entrySection,
+    draft,
+  ]);
+  const positionsRef = useRef(draft.scrollPositions);
+  positionsRef.current = draft.scrollPositions;
+  useEffect(() => {
+    if (!draft.ready) return;
+    const id = requestAnimationFrame(() => {
+      const position = positionsRef.current[activeCategory] ?? 0;
+      scrollPosition.current = position;
+      scrollRef.current?.scrollTo({ y: position, animated: false });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [activeCategory, draft.ready]);
+  const setActiveCategory = (section: Category) => {
+    draft.setScrollPosition(activeCategory, scrollPosition.current);
+    Keyboard.dismiss();
+    draft.setSection(section);
+  };
 
   const alertEditError = useCallback((err: unknown, fallbackTitle: string) => {
     const { title, message } = describeEditError(err, fallbackTitle);
@@ -269,58 +355,139 @@ export default function EditCharacterScreen() {
     setTimeout(() => setToast(null), 2500);
   }, []);
 
+  const navigateWithDraft = useCallback(
+    (action: () => void) => {
+      if (!character) {
+        action();
+        return;
+      }
+      draft.setScrollPosition(activeCategory, scrollPosition.current);
+      void draft
+        .flush()
+        .then(action)
+        .catch(() =>
+          Alert.alert(
+            'Draft not saved on this device',
+            'Keep editing and retry, or explicitly discard this draft to leave.',
+            [
+              { text: 'Keep editing', style: 'cancel' },
+              {
+                text: 'Discard and leave',
+                style: 'destructive',
+                onPress: () =>
+                  void draft
+                    .discard()
+                    .then(action)
+                    .catch(() => undefined),
+              },
+            ],
+          ),
+        );
+    },
+    [character, draft, activeCategory],
+  );
   const goToWallet = useCallback(() => {
     hapticWarning();
-    router.push('/(profile)/wallet');
-  }, [router]);
+    navigateWithDraft(() => router.push('/(profile)/wallet'));
+  }, [router, navigateWithDraft]);
 
   // --- Loading -------------------------------------------------------------
 
-  const loadCharacter = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('characters')
-        .select(CHARACTER_COLUMNS)
-        .eq('profile_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw new Error(error.message);
-      const row = data as CharacterRow | null;
-      setCharacter(row);
+  const loadCharacter = useCallback(
+    async (initial = false) => {
+      if (!user) return;
+      const accountId = user.id;
+      const loadId = ++lastLoad.current;
+      if (initial) setLoading(true);
+      setLoadError(false);
+      try {
+        const { data, error } = await supabase
+          .from('characters')
+          .select(CHARACTER_COLUMNS)
+          .eq('profile_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) throw new Error(error.message);
+        const row = data as CharacterRow | null;
+        if (currentAccount.current !== accountId || loadId !== lastLoad.current)
+          return;
+        const previous = characterRef.current;
+        characterRef.current = row;
+        setCharacter(row);
 
-      const [fighter, avatar] = await Promise.all([
-        row?.portrait_id ? loadPortraitRef(row.portrait_id) : null,
-        row?.avatar_portrait_id
-          ? loadPortraitRef(row.avatar_portrait_id)
-          : null,
-      ]);
-      setPortraitUrl(fighter?.url ?? null);
-      setPortraitVersion(fighter?.appearanceVersion ?? null);
-      setPortraitSnapshot(fighter?.snapshot ?? null);
-      setAvatarUrl(avatar?.url ?? null);
-      setAvatarVersion(avatar?.appearanceVersion ?? null);
-    } catch (err) {
-      console.error('Failed to load character:', err);
-      alertEditError(err, 'Could not load your character');
-    } finally {
-      setLoading(false);
-    }
-  }, [user, alertEditError]);
+        const [fighter, avatar] = await Promise.all([
+          row?.portrait_id ? loadPortraitRef(row.portrait_id) : null,
+          row?.avatar_portrait_id
+            ? loadPortraitRef(row.avatar_portrait_id)
+            : null,
+        ]);
+        if (currentAccount.current !== accountId || loadId !== lastLoad.current)
+          return;
+        setPortraitUrl(
+          (known) =>
+            fighter?.url ??
+            (previous?.portrait_id === row?.portrait_id ? known : null),
+        );
+        setPortraitVersion(
+          (known) =>
+            fighter?.appearanceVersion ??
+            (previous?.portrait_id === row?.portrait_id ? known : null),
+        );
+        setPortraitSnapshot(
+          (known) =>
+            fighter?.snapshot ??
+            (previous?.portrait_id === row?.portrait_id ? known : null),
+        );
+        setAvatarUrl(
+          (known) =>
+            avatar?.url ??
+            (previous?.avatar_portrait_id === row?.avatar_portrait_id
+              ? known
+              : null),
+        );
+        setAvatarVersion(
+          (known) =>
+            avatar?.appearanceVersion ??
+            (previous?.avatar_portrait_id === row?.avatar_portrait_id
+              ? known
+              : null),
+        );
+      } catch (err) {
+        if (currentAccount.current !== accountId || loadId !== lastLoad.current)
+          return;
+        setLoadError(true);
+        console.error('Failed to load character:', err);
+      } finally {
+        if (currentAccount.current === accountId && loadId === lastLoad.current)
+          setLoading(false);
+      }
+    },
+    [user],
+  );
 
   useEffect(() => {
-    void loadCharacter();
+    setCharacter(null);
+    characterRef.current = null;
+    setPortraitUrl(null);
+    setAvatarUrl(null);
+    void loadCharacter(true);
   }, [loadCharacter]);
 
   const loadPricing = useCallback(async (characterId: string) => {
     try {
-      setPricing(await fetchEditPricing(characterId));
+      const accountId = currentAccount.current;
+      const next = await fetchEditPricing(characterId);
+      if (
+        accountId !== currentAccount.current ||
+        characterRef.current?.id !== characterId
+      )
+        return;
+      setPricing(next);
       setPricingVerified(true);
     } catch (err) {
       console.warn('Could not load live edit pricing', err);
-      setPricingVerified(false);
+      if (characterRef.current?.id === characterId) setPricingVerified(false);
     }
   }, []);
 
@@ -328,57 +495,94 @@ export default function EditCharacterScreen() {
     if (character?.id) void loadPricing(character.id);
   }, [character?.id, character?.last_edited_at, loadPricing]);
 
-  useEffect(() => {
-    if (!character?.id) {
-      setHistory([]);
-      return;
+  const loadHistory = useCallback(async () => {
+    if (!character?.id) return;
+    const accountId = user?.id;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const entries = await listPortraitHistory(character.id);
+      if (currentAccount.current === accountId) setHistory(entries);
+    } catch {
+      if (currentAccount.current === accountId)
+        setHistoryError('Could not load previous looks. Retry.');
+    } finally {
+      if (currentAccount.current === accountId) setHistoryLoading(false);
     }
-    let active = true;
-    void listPortraitHistory(character.id).then((entries) => {
-      if (active) setHistory(entries);
-    });
-    return () => {
-      active = false;
-    };
-  }, [character?.id, character?.portrait_id]);
+  }, [character?.id, user?.id]);
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory, character?.portrait_id]);
 
   const loadItems = useCallback(async () => {
+    const accountId = currentAccount.current;
+    setItemsLoading(true);
     try {
-      setItems(await listSignatureItemsCatalog());
+      const next = await listSignatureItemsCatalog();
+      if (currentAccount.current !== accountId) return;
+      setItems(next);
       setItemsError(null);
     } catch (err) {
       console.error('Failed to load signature items', err);
-      setItemsError(describeEditError(err, 'Could not load items').message);
+      if (currentAccount.current === accountId)
+        setItemsError(describeEditError(err, 'Could not load items').message);
     } finally {
-      setItemsLoading(false);
+      if (currentAccount.current === accountId) setItemsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadItems();
-  }, [loadItems]);
-
-  useEffect(() => {
     let active = true;
-    void listCosmetics().then((catalog) => {
-      if (active && catalog?.items) {
-        setUnlockedColors(unlockedColorSwatches(catalog.items));
-      }
-    });
+    if (character?.id && user?.id)
+      void loadEquippedSignatureItem(character.id, user.id)
+        .then((item) => {
+          if (active) setCurrentItem(item);
+        })
+        .catch(() => {
+          if (active)
+            setItemsError('Could not refresh your current item. Retry.');
+        });
     return () => {
       active = false;
     };
-  }, []);
+  }, [character?.id, character?.signature_item_id, user?.id, items]);
+  useEffect(() => {
+    void loadItems();
+  }, [loadItems, user?.id]);
+
+  useEffect(() => {
+    let active = true;
+    setUnlockedColors([]);
+    void listCosmetics()
+      .then((catalog) => {
+        if (active && catalog?.items) {
+          setUnlockedColors(unlockedColorSwatches(catalog.items));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   // --- Derived -------------------------------------------------------------
 
   const accentColor = useMemo(
-    () => resolveSignatureHex(character?.signature_color),
-    [character?.signature_color],
+    () =>
+      resolveSignatureHex(
+        (draft.values.signatureColor as string) ?? character?.signature_color,
+      ),
+    [character?.signature_color, draft.values.signatureColor],
   );
 
   const fallbackUri = useMemo(() => {
     if (!character) return '';
+    if (character.starter_asset_key?.startsWith('bundled:')) {
+      const bundled = archetypeIllustrationUri(
+        character.starter_asset_key.slice('bundled:'.length),
+      );
+      if (bundled) return bundled;
+    }
     return getPortraitFallbackUri({
       archetype: character.archetype,
       signatureColor: character.signature_color,
@@ -414,13 +618,141 @@ export default function EditCharacterScreen() {
     [portraitStale, character, portraitSnapshot],
   );
 
-  const renderCost = pricing.prices.render_look?.credits ?? 0;
+  const refreshEditorRef = useRef<() => void>(() => undefined);
+  const leaveEditorRef = useRef<() => void>(() => undefined);
+  refreshEditorRef.current = () => {
+    if (!characterRef.current) return;
+    void loadCharacter();
+    void refreshCredits();
+    void refreshLock();
+    void loadPricing(characterRef.current.id);
+    void loadHistory();
+  };
+  leaveEditorRef.current = () => {
+    if (!characterRef.current) return;
+    draft.setScrollPosition(activeCategory, scrollPosition.current);
+    void draft.flush().catch(() => undefined);
+  };
+  useFocusEffect(
+    useCallback(() => {
+      setAllowRemove(false);
+      refreshEditorRef.current();
+      return () => leaveEditorRef.current();
+    }, []),
+  );
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshEditorRef.current();
+      else leaveEditorRef.current();
+    });
+    return () => sub.remove();
+  }, []);
+
+  const afterEdit = useCallback(async () => {
+    const accountId = user?.id;
+    if (!accountId || currentAccount.current !== accountId) return;
+    await loadCharacter();
+    if (currentAccount.current !== accountId) return;
+    await refreshCredits();
+    await refreshLock();
+  }, [loadCharacter, refreshCredits, refreshLock, user?.id]);
+
+  const initialRecovery = useInitialPortraitRecovery(
+    character?.id ?? null,
+    afterEdit,
+  );
+
+  const {
+    blocked: initialRecoveryBlocked,
+    runOrRecover: recoverOrRun,
+    refresh: refreshInitialRecovery,
+  } = initialRecovery;
+
+  const paidRecovery = usePortraitOperationRecovery(
+    user?.id ?? null,
+    character?.id ?? null,
+  );
+  const handledPaidResult = useRef<string | null>(null);
+  const paidSettlementRef = useRef<() => Promise<void>>(async () => undefined);
+  paidSettlementRef.current = async () => {
+    const operation = paidRecovery.operation,
+      result = paidRecovery.result;
+    if (
+      !operation ||
+      !result ||
+      operation.status !== 'succeeded' ||
+      !draft.ready
+    )
+      return;
+    if (handledPaidResult.current === operation.requestKey) {
+      setReveal((current) =>
+        current
+          ? {
+              ...current,
+              fighterUri: result.imageUrl,
+              avatar: result.avatarImageUrl
+                ? { status: 'ready', uri: result.avatarImageUrl }
+                : current.avatar,
+            }
+          : current,
+      );
+      return;
+    }
+    handledPaidResult.current = operation.requestKey;
+    try {
+      await afterEdit();
+      if (currentAccount.current !== operation.accountId) return;
+      if (operation.mode === 'random') await draft.discard();
+      setReveal({
+        fighterUri: result.imageUrl,
+        avatar: result.avatarImageUrl
+          ? { status: 'ready', uri: result.avatarImageUrl }
+          : { status: 'failed' },
+        mode: operation.mode,
+        creditsSpent: result.creditsSpent ?? operation.creditsSpent ?? 0,
+        previousFighterId: operation.previousFighterId ?? null,
+        previousAvatarId: operation.previousAvatarId ?? null,
+      });
+      setAvatarNeedsRetry(!result.avatarImageUrl);
+    } catch {
+      handledPaidResult.current = null;
+      showToast(
+        'Your drawing finished. Retry saving the local draft before continuing.',
+      );
+    }
+  };
+  useEffect(() => {
+    void paidSettlementRef.current();
+  }, [paidRecovery.operation, paidRecovery.result, draft.ready]);
+
+  const initialPortraitsLeft = character?.starter_asset_key
+    ? Math.max(0, 3 - character.draft_portrait_renders)
+    : character?.portrait_seed === null
+      ? 1
+      : 0;
+  const renderCost =
+    initialPortraitsLeft > 0 ? 0 : (pricing.prices.render_look?.credits ?? 0);
   const randomCost = pricing.prices.random_character?.credits ?? 0;
-  const editingDisabled = battleLocked;
+  const cooldownChanges = draft.changes.filter((change) => {
+    const field = DRAFT_FIELDS.find((f) => f.key === change.key);
+    return field?.priceKey && (pricing.cooldownMs[field.priceKey] ?? 0) > 0;
+  });
+  const saveBlocked =
+    !!draft.conflicts.length ||
+    !!cooldownChanges.length ||
+    (!!draft.identityPayload && !pricingVerified);
+  const editingDisabled =
+    battleLocked || busyKey !== null || !draft.ready || paidRecovery.blocked;
+  const resultMutationDisabled =
+    battleLocked ||
+    busyKey !== null ||
+    !draft.ready ||
+    paidRecovery.loading ||
+    paidRecovery.checking ||
+    paidRecovery.dispatching ||
+    paidRecovery.operation?.status === 'pending';
   const balance = creditsLoading ? null : credits;
   const canRetryAvatar = Boolean(pricing.prices.avatar_retry);
-  const hasRender =
-    character?.portrait_seed !== null && character?.portrait_seed !== undefined;
 
   /** No avatar, or one drawn for an earlier look than the fighter. */
   const avatarPending = useMemo(() => {
@@ -471,23 +803,45 @@ export default function EditCharacterScreen() {
     (draft.values.archetype as ArchetypeId | undefined) ??
     character?.archetype ??
     'strategist';
-  const archetypeLocked = (pricing.cooldownMs.archetype ?? 0) > 0;
 
   const renderButton = useMemo(
     () =>
-      renderButtonCopy({
-        dirty: draft.dirty,
-        price: renderCost,
-        balance,
-        hasPortrait: hasRender,
-        pricingVerified,
-        locked: editingDisabled,
-      }),
+      initialRecoveryBlocked
+        ? {
+            label:
+              initialRecovery.loading || initialRecovery.checking
+                ? 'Checking render…'
+                : 'Check render',
+            accessibilityLabel: 'Check your previous initial portrait render',
+            intent:
+              initialRecovery.loading || initialRecovery.checking
+                ? ('disabled' as const)
+                : ('render' as const),
+          }
+        : initialPortraitsLeft > 0
+          ? {
+              label: `Draw portrait · Free (${initialPortraitsLeft} left)`,
+              accessibilityLabel: `Draw portrait free. ${initialPortraitsLeft} initial portraits remaining.`,
+              intent: editingDisabled
+                ? ('disabled' as const)
+                : ('render' as const),
+            }
+          : renderButtonCopy({
+              dirty: draft.dirty,
+              price: renderCost,
+              balance,
+              hasPortrait: initialPortraitsLeft === 0,
+              pricingVerified,
+              locked: editingDisabled,
+            }),
     [
       draft.dirty,
       renderCost,
       balance,
-      hasRender,
+      initialPortraitsLeft,
+      initialRecoveryBlocked,
+      initialRecovery.loading,
+      initialRecovery.checking,
       pricingVerified,
       editingDisabled,
     ],
@@ -499,24 +853,30 @@ export default function EditCharacterScreen() {
         price: randomCost,
         balance,
         pricingVerified,
-        locked: editingDisabled,
+        locked: editingDisabled || initialRecoveryBlocked,
       }),
-    [randomCost, balance, pricingVerified, editingDisabled],
+    [
+      randomCost,
+      balance,
+      pricingVerified,
+      editingDisabled,
+      initialRecoveryBlocked,
+    ],
   );
 
   // --- Mutations -----------------------------------------------------------
 
-  const afterEdit = useCallback(async () => {
-    await loadCharacter();
-    await refreshCredits();
-    await refreshLock();
-  }, [loadCharacter, refreshCredits, refreshLock]);
-
   /** Commits the draft. Free, so the only risk is a cooldown rejection. */
   const saveDraft = useCallback(async (): Promise<boolean> => {
     if (!character || !draft.dirty) return true;
+    if (battleLocked || saveBlocked) return false;
+    const accountId = user?.id;
+    const submitted = { ...draft.values };
     const landed: string[] = [];
     try {
+      await draft.flush();
+      if (currentAccount.current !== accountId || battleLockRef.current)
+        return false;
       // Two calls, not one: the Edge Function accepts a single edit kind per
       // request, so identity and look cannot travel together.
       if (draft.identityPayload) {
@@ -525,19 +885,34 @@ export default function EditCharacterScreen() {
           changes: { identity: draft.identityPayload },
         });
         landed.push('identity');
+        await draft.acknowledge(
+          draft.changes
+            .filter((c) => c.section === 'identity')
+            .map((c) => c.key),
+          submitted,
+        );
       }
+      if (currentAccount.current !== accountId || battleLockRef.current)
+        return false;
       if (draft.lookPayload) {
         await editCharacter({
           characterId: character.id,
           changes: { look: draft.lookPayload },
         });
         landed.push('look');
+        await draft.acknowledge(
+          draft.changes
+            .filter((c) => c.section !== 'identity')
+            .map((c) => c.key),
+          submitted,
+        );
       }
-      draft.clear();
       return true;
     } catch (err) {
+      if (currentAccount.current !== accountId) return false;
       console.error('Failed to save character edits', { landed, err });
       await afterEdit();
+      if (currentAccount.current !== accountId) return false;
       if (landed.length > 0) {
         // Naming what survived matters: a partial save otherwise leaves the
         // player unable to tell which half of their edit is now live.
@@ -551,9 +926,19 @@ export default function EditCharacterScreen() {
       }
       return false;
     }
-  }, [character, draft, afterEdit, alertEditError]);
+  }, [
+    character,
+    draft,
+    afterEdit,
+    alertEditError,
+    battleLocked,
+    saveBlocked,
+    user?.id,
+  ]);
 
   const runSave = useCallback(async () => {
+    if (editingDisabled || saveBlocked || mutationBusy.current) return;
+    mutationBusy.current = true;
     setBusyKey('save');
     try {
       const ok = await saveDraft();
@@ -562,9 +947,10 @@ export default function EditCharacterScreen() {
         showToast('Changes saved · free');
       }
     } finally {
+      mutationBusy.current = false;
       setBusyKey(null);
     }
-  }, [saveDraft, afterEdit, showToast]);
+  }, [saveDraft, afterEdit, showToast, editingDisabled, saveBlocked]);
 
   /**
    * Avatar state for a server too old to report it: read the reloaded row and
@@ -599,36 +985,58 @@ export default function EditCharacterScreen() {
 
   const runRender = useCallback(
     async (mode: 'render' | 'random') => {
-      if (!character) return;
-      const firstRender = character.portrait_seed === null;
+      if (
+        !character ||
+        editingDisabled ||
+        mutationBusy.current ||
+        (mode === 'render' && saveBlocked)
+      )
+        return;
+      if (initialRecoveryBlocked) {
+        await recoverOrRun(() => undefined);
+        return;
+      }
+      const firstRender = mode === 'render' && initialPortraitsLeft > 0;
       const cost = firstRender
         ? 0
         : mode === 'random'
           ? randomCost
           : renderCost;
+      if (!firstRender && !pricingVerified) {
+        showToast(
+          'Drawing prices are unavailable. Retry prices before drawing.',
+        );
+        return;
+      }
+      if (balance !== null && cost > balance) {
+        setSheet({ kind: 'topUp', price: cost });
+        return;
+      }
       const previousFighterId = character.portrait_id;
       const previousAvatarId = character.avatar_portrait_id;
       const fighterVersion = character.appearance_version ?? 0;
 
+      mutationBusy.current = true;
+      const accountId = user?.id;
       setBusyKey('render');
-      setRenderStartedAt(Date.now());
       try {
         // Save first. Rendering a staged-but-unsaved look would draw the
         // character as it was BEFORE the edits, which reads as the render
         // having silently failed.
         if (mode === 'render' && draft.dirty) {
-          setRenderPhase('saving');
           const saved = await saveDraft();
           if (!saved) return;
         }
-        setRenderPhase('fighter');
 
+        if (currentAccount.current !== accountId || battleLockRef.current)
+          return;
         let result: PortraitJobResult;
         if (firstRender) {
           result = await generatePortrait({
             characterId: character.id,
             archetype: character.archetype,
             mode: 'guided',
+            freeOnly: true,
             traits: {
               vibe: character.vibe ?? undefined,
               silhouette: character.silhouette ?? undefined,
@@ -638,10 +1046,14 @@ export default function EditCharacterScreen() {
             },
           });
         } else {
-          result = await renderLook({ characterId: character.id, mode });
+          await paidRecovery.start(mode, {
+            previousFighterId,
+            previousAvatarId,
+          });
+          await afterEdit();
+          return;
         }
-        // The staged draft goes only once the shuffle has actually landed.
-        if (mode === 'random') draft.clear();
+        if (currentAccount.current !== accountId) return;
 
         let avatar: RevealAvatar = result.avatarImageUrl
           ? { status: 'ready', uri: result.avatarImageUrl }
@@ -663,9 +1075,9 @@ export default function EditCharacterScreen() {
 
         if (avatar.status === 'pending') {
           if (result.avatarJobId) {
-            setRenderPhase('avatar');
             void awaitAvatarJob(result.avatarJobId)
               .then((a) => {
+                if (currentAccount.current !== accountId) return;
                 setReveal((r) =>
                   r
                     ? { ...r, avatar: { status: 'ready', uri: a.imageUrl } }
@@ -673,6 +1085,7 @@ export default function EditCharacterScreen() {
                 );
               })
               .catch(() => {
+                if (currentAccount.current !== accountId) return;
                 setReveal((r) =>
                   r ? { ...r, avatar: { status: 'failed' } } : r,
                 );
@@ -707,67 +1120,128 @@ export default function EditCharacterScreen() {
           alertEditError(err, 'Could not draw');
         }
       } finally {
-        setBusyKey(null);
-        setRenderPhase(null);
-        setRenderStartedAt(null);
+        mutationBusy.current = false;
+        if (currentAccount.current === accountId) setBusyKey(null);
+        await refreshInitialRecovery();
       }
     },
     [
       character,
+      user?.id,
       draft,
+      editingDisabled,
+      saveBlocked,
       saveDraft,
       afterEdit,
       showToast,
       alertEditError,
       renderCost,
+      initialPortraitsLeft,
+      initialRecoveryBlocked,
+      recoverOrRun,
+      refreshInitialRecovery,
       randomCost,
+      pricingVerified,
+      balance,
       readAvatarState,
+      paidRecovery,
     ],
   );
 
-  const onRenderPress = useCallback(() => {
-    if (!character) return;
-    switch (renderButton.intent) {
-      case 'topUp':
-        goToWallet();
+  const onRenderPress = useCallback(
+    (opener: SheetFocusRef) => {
+      rememberSheetOpener(opener);
+      rememberRenderOpener(opener);
+      if (!character) return;
+      if (paidRecovery.blocked) {
+        void paidRecovery.checkStatus();
         return;
-      case 'render':
-        if (character.portrait_seed === null) {
-          // The first portrait is free and needs no confirmation.
-          void runRender('render');
+      }
+      if (initialRecoveryBlocked) {
+        void recoverOrRun(() => undefined);
+        return;
+      }
+      if (editingDisabled || saveBlocked) return;
+      switch (renderButton.intent) {
+        case 'topUp':
+          goToWallet();
           return;
-        }
-        hapticSelection();
-        setSheet({ kind: 'render' });
-        return;
-      default:
-        return;
-    }
-  }, [character, renderButton.intent, goToWallet, runRender]);
+        case 'render':
+          hapticSelection();
+          setSheet({ kind: 'render' });
+          return;
+        default:
+          return;
+      }
+    },
+    [
+      character,
+      rememberSheetOpener,
+      rememberRenderOpener,
+      renderButton.intent,
+      initialRecoveryBlocked,
+      recoverOrRun,
+      goToWallet,
+      editingDisabled,
+      saveBlocked,
+      paidRecovery,
+    ],
+  );
 
-  const onRandomPress = useCallback(() => {
-    switch (randomButton.intent) {
-      case 'topUp':
-        goToWallet();
+  const onRandomPress = useCallback(
+    (opener: SheetFocusRef) => {
+      rememberSheetOpener(opener);
+      rememberRenderOpener(opener);
+      if (initialRecoveryBlocked) {
+        void recoverOrRun(() => undefined);
         return;
-      case 'render':
-        hapticSelection();
-        setSheet({ kind: 'random' });
-        return;
-      default:
-        return;
-    }
-  }, [randomButton.intent, goToWallet]);
+      }
+      switch (randomButton.intent) {
+        case 'topUp':
+          goToWallet();
+          return;
+        case 'render':
+          hapticSelection();
+          setSheet({ kind: 'random' });
+          return;
+        default:
+          return;
+      }
+    },
+    [
+      randomButton.intent,
+      goToWallet,
+      initialRecoveryBlocked,
+      recoverOrRun,
+      rememberSheetOpener,
+      rememberRenderOpener,
+    ],
+  );
 
-  const onSavePress = useCallback(() => {
-    if (!draft.dirty) return;
-    hapticSelection();
-    setSheet({ kind: 'save' });
-  }, [draft.dirty]);
+  const onSavePress = useCallback(
+    (opener: SheetFocusRef) => {
+      rememberSheetOpener(opener);
+      if (!draft.dirty || editingDisabled || saveBlocked) return;
+      hapticSelection();
+      setSheet({ kind: 'save' });
+    },
+    [draft.dirty, saveBlocked, editingDisabled, rememberSheetOpener],
+  );
 
   const onClearPress = useCallback(() => {
     hapticWarning();
-    draft.clear();
+    Alert.alert(
+      'Discard changes?',
+      'Remove this device’s editing draft? Your saved fighter and artwork stay unchanged.',
+      [
+        { text: 'Keep editing', style: 'cancel' },
+        {
+          text: 'Discard changes',
+          style: 'destructive',
+          onPress: () => void draft.discard().catch(() => undefined),
+        },
+      ],
+    );
   }, [draft]);
 
   const onSheetConfirm = useCallback(() => {
@@ -788,10 +1262,10 @@ export default function EditCharacterScreen() {
         void runRender('random');
         return;
       case 'topUp':
-        router.push('/(profile)/wallet');
+        goToWallet();
         return;
     }
-  }, [sheet, runSave, runRender, router]);
+  }, [sheet, runSave, runRender, goToWallet]);
 
   const sheetCopy = useMemo<SheetCopy | null>(() => {
     if (!sheet) return null;
@@ -817,7 +1291,9 @@ export default function EditCharacterScreen() {
 
   const runRestore = useCallback(
     async (portraitId: string, fallbackAvatarId?: string | null) => {
-      if (!character) return;
+      if (!character || resultMutationDisabled || mutationBusy.current) return;
+      mutationBusy.current = true;
+      const accountId = user?.id;
       setRestoringId(portraitId);
       setBusyKey('restore');
       try {
@@ -826,6 +1302,7 @@ export default function EditCharacterScreen() {
           portraitId,
           fallbackAvatarId,
         });
+        if (currentAccount.current !== accountId) return;
         setViewerOpen(false);
         setViewerPortraitId(null);
         setReveal(null);
@@ -835,22 +1312,41 @@ export default function EditCharacterScreen() {
             : 'Previous fighter restored · avatar unchanged',
         );
         await afterEdit();
+        if (paidRecovery.operation) await paidRecovery.dismiss();
       } catch (err) {
         console.error('Failed to restore portrait', { portraitId, err });
         alertEditError(err, 'Could not restore that render');
       } finally {
+        mutationBusy.current = false;
         setRestoringId(null);
         setBusyKey(null);
       }
     },
-    [character, afterEdit, showToast, alertEditError],
+    [
+      character,
+      afterEdit,
+      showToast,
+      alertEditError,
+      resultMutationDisabled,
+      paidRecovery,
+      user?.id,
+    ],
   );
 
   const runRetryAvatar = useCallback(async () => {
-    if (!character || !canRetryAvatar) return;
+    if (
+      !character ||
+      !canRetryAvatar ||
+      resultMutationDisabled ||
+      mutationBusy.current
+    )
+      return;
+    mutationBusy.current = true;
+    const accountId = user?.id;
     setBusyKey('retryAvatar');
     try {
       const result = await retryAvatar({ characterId: character.id });
+      if (currentAccount.current !== accountId) return;
       if (result.avatarImageUrl) {
         const uri = result.avatarImageUrl;
         setReveal((r) => (r ? { ...r, avatar: { status: 'ready', uri } } : r));
@@ -866,9 +1362,18 @@ export default function EditCharacterScreen() {
       hapticError();
       alertEditError(err, 'Could not draw the avatar');
     } finally {
+      mutationBusy.current = false;
       setBusyKey(null);
     }
-  }, [character, canRetryAvatar, showToast, afterEdit, alertEditError]);
+  }, [
+    character,
+    canRetryAvatar,
+    showToast,
+    afterEdit,
+    alertEditError,
+    resultMutationDisabled,
+    user?.id,
+  ]);
 
   const onKeep = useCallback(() => {
     if (!reveal) return;
@@ -880,134 +1385,196 @@ export default function EditCharacterScreen() {
     showToast(
       `${reveal.mode === 'random' ? 'New character kept' : 'New look kept'}${spent}`,
     );
-    setReveal(null);
-  }, [reveal, showToast]);
+    if (paidRecovery.operation) {
+      void paidRecovery.dismiss().then((ok) => {
+        if (ok) setReveal(null);
+      });
+    } else setReveal(null);
+  }, [reveal, showToast, paidRecovery]);
 
-  // --- Leave guard ---------------------------------------------------------
-
-  usePreventRemove(draft.dirty && busyKey === null, ({ data }) => {
-    const copy = discardDraftCopy(draft.changeCount);
-    Alert.alert(copy.title, copy.message, [
-      { text: 'Keep editing', style: 'cancel' },
-      {
-        text: copy.confirmLabel,
-        style: 'destructive',
-        onPress: () => {
-          hapticWarning();
-          draft.clear();
-          navigation.dispatch(data.action);
-        },
-      },
-    ]);
+  // Navigation is a local draft save, never a fighter mutation.
+  usePreventRemove(!allowRemove && !!character, ({ data }) => {
+    draft.setScrollPosition(activeCategory, scrollPosition.current);
+    void draft
+      .flush()
+      .then(() => {
+        pendingNavigation.current = data.action;
+        setAllowRemove(true);
+      })
+      .catch(() =>
+        Alert.alert(
+          'Draft not saved on this device',
+          'Keep editing and retry, or explicitly discard this draft to leave.',
+          [
+            { text: 'Keep editing', style: 'cancel' },
+            {
+              text: 'Discard and leave',
+              style: 'destructive',
+              onPress: () =>
+                void draft
+                  .discard()
+                  .then(() => {
+                    pendingNavigation.current = data.action;
+                    setAllowRemove(true);
+                  })
+                  .catch(() => undefined),
+            },
+          ],
+        ),
+      );
   });
+  useEffect(() => {
+    if (allowRemove && pendingNavigation.current) {
+      const action = pendingNavigation.current;
+      pendingNavigation.current = null;
+      navigation.dispatch(action);
+    }
+  }, [allowRemove, navigation]);
+  const header = (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingHorizontal: 12,
+        minHeight: 56,
+      }}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={
+          router.canGoBack() ? 'Go back' : 'Return to Profile'
+        }
+        onPress={() =>
+          router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')
+        }
+        style={{ minWidth: 48, minHeight: 48, justifyContent: 'center' }}
+      >
+        <GameIcon name="chevron-left" size={24} color={colors.ornament} />
+        {!router.canGoBack() && <GameText variant="caption">Profile</GameText>}
+      </Pressable>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <GameDisplayTitle
+          style={{
+            fontSize: window.fontScale > 1.3 ? 24 : 30,
+            textAlign: 'center',
+          }}
+        >
+          EDIT LOOK
+        </GameDisplayTitle>
+      </View>
+      <CreditChip
+        focusRef={walletFocusRef}
+        credits={credits}
+        unavailable={creditsLoading}
+        onPress={goToWallet}
+      />
+    </View>
+  );
 
   // --- Render --------------------------------------------------------------
 
-  if (loading) {
+  if (loading || !character || !stagedLook)
     return (
       <View
         style={[
           styles.container,
-          styles.centered,
-          { backgroundColor: colors.background },
+          { backgroundColor: colors.background, paddingTop: insets.top },
         ]}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
+        <Stack.Screen options={{ headerShown: false }} />
+        {header}
+        <View style={[styles.centered, { flex: 1, gap: 16 }]}>
+          {loading ? (
+            <>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <GameText variant="body">Loading your fighter…</GameText>
+            </>
+          ) : loadError ? (
+            <>
+              <GameText variant="body">Could not load your fighter.</GameText>
+              <GameButton
+                label="Retry"
+                onPress={() => void loadCharacter(true)}
+              />
+            </>
+          ) : (
+            <>
+              <GameDisplayTitle>No fighter yet</GameDisplayTitle>
+              <GameButton
+                label="Create your fighter"
+                onPress={() => router.push('/(onboarding)/create-character')}
+              />
+            </>
+          )}
+        </View>
       </View>
     );
-  }
 
-  if (!character || !stagedLook) {
-    return (
-      <View
-        style={[
-          styles.container,
-          styles.centered,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <Text style={[styles.h1, { color: colors.text }]}>
-          No character yet.
-        </Text>
-        <TouchableOpacity
-          onPress={() => router.push('/(onboarding)/create-character')}
-          accessibilityRole="button"
-          accessibilityLabel="Create your character"
-          style={[
-            styles.primaryBtn,
-            { backgroundColor: colors.primary, marginTop: Spacing.lg },
-          ]}
-        >
-          <Text style={styles.primaryBtnText}>Create your character</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  const notice = mergeEditNotices({
-    battleLocked,
-    activeBattleCount,
-    pricingVerified,
-    avatarPending,
-    canRetryAvatar,
-    onRetryPricing: () => void loadPricing(character.id),
-    onRetryAvatar: () => void runRetryAvatar(),
-    onManageBattles: () => router.push(primaryBattleRoute ?? '/(tabs)/battles'),
-  });
-  const statusLabel = compactStatusLabel({
-    battleLocked,
-    pricingVerified,
-    avatarPending,
-  });
-  const compactStatus = battleLocked
-    ? `View only · Manage ${Math.max(1, activeBattleCount)} ${activeBattleCount === 1 ? 'battle' : 'battles'}`
-    : statusLabel;
-
-  const fighterHeight = computeFighterHeight({
-    windowHeight: windowHeightRef.current,
-    headerHeight,
-    saveBarHeight: insets.bottom + SAVE_BAR_BASE_HEIGHT,
-    hasNotice: notice !== null,
-    isStale: portraitStale,
-  });
-  const initialMetrics = estimateMetrics({
-    headerHeight,
-    fighterHeight,
-    hasNotice: notice !== null,
-    isStale: portraitStale,
-  });
-  const liveMetrics = metrics ?? initialMetrics;
-
-  const categoryItems = CATEGORIES.map((c) => ({
-    ...c,
-    badge: draft.dirtySections[c.key],
-  }));
-
-  // The archetype has its own chip under the name, so the subtitle carries
-  // only the art style.
-  const subtitle = `${ART_STYLE_LABELS[character.art_style ?? 'painterly']} style`;
   const fighterUri = portraitUrl ?? fallbackUri;
-  const rendering = busyKey === 'render';
-
-  const openArchetype = () => {
-    hapticSelection();
-    setArchetypeOpen(true);
-  };
-  const archetypeChipProps = {
-    archetype: stagedArchetype,
-    staged: changedKeys.has('archetype'),
-    locked: archetypeLocked,
-    onPress: openArchetype,
-  };
-
+  const stagedName = (draft.values.name as string) ?? character.name;
+  const compactPreview =
+    keyboardVisible || window.fontScale > 1.3 || window.height < 740;
   const viewerUri = viewerPortraitId
     ? (history.find((h) => h.portraitId === viewerPortraitId)?.imageUrl ?? null)
-    : portraitUrl;
-
-  const openViewer = () => {
+    : fighterUri;
+  const openViewer = (opener: SheetFocusRef) => {
+    rememberPortraitOpener(opener);
+    Keyboard.dismiss();
     setViewerPortraitId(null);
     setViewerOpen(true);
   };
+  const historyFocus = () => {
+    setHistoryOpen(false);
+  };
+  const rendering = busyKey === 'render';
+  const footerStatus = paidRecovery.blocked
+    ? paidRecovery.dispatching
+      ? 'Drawing · you can leave and return'
+      : paidRecovery.loading || paidRecovery.checking
+        ? 'Checking your saved drawing…'
+        : paidRecovery.operation?.status === 'failed'
+          ? 'Drawing failed · your choices are kept'
+          : paidRecovery.operation?.status === 'succeeded'
+            ? 'Drawing complete · recovering artwork'
+            : 'Still processing · Check status'
+    : battleLocked
+      ? 'View only during an active battle'
+      : (draft.persistenceError ??
+        (!draft.ready
+          ? 'Restoring draft…'
+          : draft.conflicts.length
+            ? 'Review conflicting changes before saving'
+            : rendering
+              ? 'Drawing your look…'
+              : draft.dirty
+                ? 'Unsaved changes · artwork unchanged'
+                : portraitStale
+                  ? 'Choices saved · artwork not updated'
+                  : 'Current artwork · drawing is optional'));
+  const footerRenderLabel = paidRecovery.blocked
+    ? paidRecovery.loading || paidRecovery.checking
+      ? 'Checking status…'
+      : paidRecovery.dispatching
+        ? 'Drawing…'
+        : paidRecovery.operation?.status === 'succeeded'
+          ? 'Retry artwork'
+          : 'Check status'
+    : initialRecoveryBlocked
+      ? renderButton.label
+      : initialPortraitsLeft > 0
+        ? 'Review & draw · Free (' + initialPortraitsLeft + ' left)'
+        : !pricingVerified
+          ? renderButton.label
+          : renderButton.intent === 'topUp'
+            ? renderButton.label
+            : (draft.dirty
+                ? 'Review & draw'
+                : portraitStale
+                  ? 'Draw updated look'
+                  : 'Draw another version') +
+              ' · ' +
+              formatCredits(renderCost, 'sentence');
 
   const panel =
     activeCategory === 'identity' ? (
@@ -1019,9 +1586,26 @@ export default function EditCharacterScreen() {
         disabled={editingDisabled}
         unlockedColors={unlockedColors}
         onStage={draft.stage}
+        onColorLayout={(event) => {
+          colorOffset.current = event.nativeEvent.layout.y;
+          if (params.focus === 'signature-color' && !colorFocused.current) {
+            requestAnimationFrame(() => {
+              scrollRef.current?.scrollTo({
+                y: panelOffset.current + (colorOffset.current ?? 0),
+                animated: false,
+              });
+              colorFocused.current = true;
+            });
+          }
+        }}
       />
     ) : activeCategory === 'look' ? (
       <LookPanel
+        mode={draft.activeMode}
+        writtenText={draft.writtenText}
+        onModeChange={draft.setMode}
+        expandedGroups={draft.expandedGroups}
+        onExpandedGroupChange={draft.setExpandedGroup}
         look={stagedLook}
         changedKeys={changedKeys}
         disabled={editingDisabled}
@@ -1030,14 +1614,18 @@ export default function EditCharacterScreen() {
     ) : (
       <GearPanel
         items={items}
+        currentItem={currentItem}
         equippedId={stagedItemId}
+        savedItemId={character.signature_item_id}
         loading={itemsLoading}
         error={itemsError}
         disabled={editingDisabled}
         disabledReason={`View only while this fighter is in ${Math.max(1, activeBattleCount)} active ${activeBattleCount === 1 ? 'battle' : 'battles'}.`}
         disabledActionLabel={`Manage ${Math.max(1, activeBattleCount)} ${activeBattleCount === 1 ? 'battle' : 'battles'}`}
         onDisabledAction={() =>
-          router.push(primaryBattleRoute ?? '/(tabs)/battles')
+          navigateWithDraft(() =>
+            router.push(primaryBattleRoute ?? '/(tabs)/battles'),
+          )
         }
         onRetry={() => {
           setItemsError(null);
@@ -1048,147 +1636,451 @@ export default function EditCharacterScreen() {
     );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack.Screen
-        options={{ headerRight: () => <CreditChip credits={credits} /> }}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[
+        styles.container,
+        { backgroundColor: colors.background, paddingTop: insets.top },
+      ]}
+    >
+      <Stack.Screen options={{ headerShown: false }} />
+      {header}
+      <EditorPreview
+        name={stagedName}
+        archetype={stagedArchetype}
+        avatarUri={avatarUrl ?? fallbackUri}
+        cosmetics={cosmetics}
+        accentColor={accentColor}
+        compact={compactPreview}
+        dirty={draft.dirty}
+        onImageError={() => setArtLoadError(true)}
+        onView={openViewer}
+        onHistory={(opener) => {
+          rememberSheetOpener(opener);
+          Keyboard.dismiss();
+          setHistoryOpen(true);
+          void loadHistory();
+        }}
       />
-
-      <Animated.ScrollView
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
+      <EditorTabs
+        value={activeCategory}
+        dirty={draft.dirtySections}
+        onChange={setActiveCategory}
+      />
+      <ScrollView
+        ref={scrollRef}
+        testID="edit-look-scroll"
+        style={styles.scroll}
+        contentContainerStyle={{ paddingBottom: 16 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        automaticallyAdjustKeyboardInsets
-        contentContainerStyle={{ paddingTop: liveMetrics.expandedHeight }}
-        scrollIndicatorInsets={{ top: liveMetrics.compactHeight }}
-        onLayout={(e) => setViewportHeight(e.nativeEvent.layout.height)}
-        style={styles.scroll}
+        automaticallyAdjustKeyboardInsets={false}
+        contentInsetAdjustmentBehavior="never"
+        onScroll={(event) => {
+          scrollPosition.current = event.nativeEvent.contentOffset.y;
+        }}
+        onScrollEndDrag={() =>
+          draft.setScrollPosition(activeCategory, scrollPosition.current)
+        }
+        onMomentumScrollEnd={() =>
+          draft.setScrollPosition(activeCategory, scrollPosition.current)
+        }
+        scrollEventThrottle={32}
+        onLayout={() => {
+          if (keyboardVisible && footerHeight > 0) {
+            const node = scrollRef.current as ScrollView & {
+              scrollResponderScrollNativeHandleToKeyboard?: (
+                node: number,
+                offset: number,
+                prevent: boolean,
+              ) => void;
+            };
+            // ScrollView owns field scrolling; the outer avoider owns keyboard height.
+            const focused = TextInput.State.currentlyFocusedInput?.();
+            if (focused) {
+              const handle = findNodeHandle(
+                focused as unknown as Parameters<typeof findNodeHandle>[0],
+              );
+              if (handle)
+                node?.scrollResponderScrollNativeHandleToKeyboard?.(
+                  handle,
+                  12,
+                  true,
+                );
+            }
+          }
+        }}
       >
-        {/* Keeps the collapsed offset reachable on every tab, so switching
-            from a long panel to a short one does not bounce the Stage open. */}
+        {paidRecovery.blocked && !paidRecovery.loading && (
+          <View style={styles.notice}>
+            <GameText variant="body" accessibilityLiveRegion="polite">
+              {paidRecovery.error ??
+                (paidRecovery.operation?.status === 'failed'
+                  ? 'The server could not complete this drawing. Your draft is kept.'
+                  : paidRecovery.operation?.status === 'pending' &&
+                      paidRecovery.operation?.portraitId
+                    ? 'Fighter drawn. The avatar is still processing.'
+                    : 'This drawing is saved for recovery. Checking never starts another drawing or spends credits.')}
+            </GameText>
+            <GameButton
+              label={
+                paidRecovery.operation?.status === 'succeeded'
+                  ? 'Retry loading artwork'
+                  : 'Check status'
+              }
+              tone="secondary"
+              disabled={paidRecovery.checking || paidRecovery.dispatching}
+              onPress={() => void paidRecovery.checkStatus()}
+            />
+            {paidRecovery.operation?.status === 'failed' && (
+              <GameButton
+                label="Return to editing"
+                onPress={() => void paidRecovery.dismiss()}
+              />
+            )}
+          </View>
+        )}
+        {artLoadError && (
+          <View style={styles.notice}>
+            <GameText variant="caption">
+              Artwork could not load. Your fighter is unchanged.
+            </GameText>
+            <GameButton
+              label="Retry artwork"
+              tone="secondary"
+              onPress={() => {
+                setArtLoadError(false);
+                void loadCharacter();
+                void loadHistory();
+              }}
+            />
+          </View>
+        )}
+        {battleLocked && (
+          <View style={styles.notice}>
+            <GameText variant="body">
+              View only while this fighter is in{' '}
+              {Math.max(1, activeBattleCount)} active{' '}
+              {activeBattleCount === 1 ? 'battle' : 'battles'}.
+            </GameText>
+            <GameButton
+              label="Manage battles"
+              tone="secondary"
+              onPress={() =>
+                navigateWithDraft(() =>
+                  router.push(primaryBattleRoute ?? '/(tabs)/battles'),
+                )
+              }
+            />
+          </View>
+        )}
+        {loadError && (
+          <View style={styles.notice}>
+            <GameText variant="body">
+              Could not refresh your fighter. Your known artwork and draft are
+              kept.
+            </GameText>
+            <GameButton
+              label="Retry fighter"
+              onPress={() => void loadCharacter()}
+            />
+          </View>
+        )}
+        {compactPreview && (
+          <GameButton
+            ref={compactHistoryRef}
+            label="Previous looks"
+            labelStyle={{ fontSize: 16 }}
+            chrome="text"
+            tone="secondary"
+            onPress={() => {
+              rememberSheetOpener(compactHistoryRef);
+              setHistoryOpen(true);
+              void loadHistory();
+            }}
+          />
+        )}
+        {draft.persistenceError && (
+          <View style={styles.notice}>
+            <GameText variant="body" accessibilityRole="alert">
+              {draft.persistenceError}
+            </GameText>
+            <GameButton
+              label="Retry saving draft"
+              onPress={() => void draft.flush().catch(() => undefined)}
+            />
+          </View>
+        )}
+        {draft.restored && (
+          <GameText variant="caption" style={styles.notice}>
+            Draft restored
+          </GameText>
+        )}
+        {cooldownChanges.length > 0 && (
+          <GameText variant="body" style={styles.notice}>
+            Wait for the cooldown before saving:{' '}
+            {cooldownChanges.map((c) => c.label).join(', ')}.
+          </GameText>
+        )}
+        {portraitStale && changedFields.length > 0 && (
+          <GameText variant="caption" style={styles.notice}>
+            Saved since this artwork: {changedFields.join(', ')}. Drawing is
+            optional.
+          </GameText>
+        )}
+        {draft.conflicts.map((conflict) => (
+          <View key={conflict.key} style={styles.notice}>
+            <GameText variant="title">
+              {conflict.label} changed elsewhere
+            </GameText>
+            <GameText variant="body">
+              Saved: {conflict.saved ?? 'None'}
+            </GameText>
+            <GameText variant="body">
+              Your draft: {conflict.draft ?? 'None'}
+            </GameText>
+            <GameButton
+              label="Use saved value"
+              tone="secondary"
+              onPress={() => draft.resolveConflict(conflict.key, 'saved')}
+            />
+            <GameButton
+              label="Keep my edit"
+              onPress={() => draft.resolveConflict(conflict.key, 'draft')}
+            />
+          </View>
+        ))}
+        {!pricingVerified && (
+          <View style={styles.notice}>
+            <GameText variant="caption">
+              Drawing prices are unavailable. Editing your look is free.
+            </GameText>
+            <GameButton
+              label="Retry prices"
+              chrome="text"
+              onPress={() => void loadPricing(character.id)}
+            />
+          </View>
+        )}
+        {initialRecovery.request || initialRecovery.error ? (
+          <GameText variant="body" style={styles.notice}>
+            {initialRecovery.error ??
+              'Your initial portrait request is saved. Check render to recover its result or returned allowance.'}
+          </GameText>
+        ) : null}
         <View
-          style={{
-            minHeight: Math.max(0, viewportHeight - liveMetrics.compactHeight),
+          onLayout={(event) => {
+            panelOffset.current = event.nativeEvent.layout.y;
           }}
         >
           {panel}
         </View>
-      </Animated.ScrollView>
-
-      <CollapsingStage
-        scrollY={scrollY}
-        headerHeight={headerHeight}
-        backgroundColor={colors.background}
-        onMetrics={setMetrics}
-        initialMetrics={initialMetrics}
-        expanded={
-          <StageExpanded
-            name={character.name}
-            subtitle={subtitle}
-            archetypeChip={
-              <ArchetypeChip variant="stage" {...archetypeChipProps} />
-            }
-            fighterUri={fighterUri}
-            avatarUri={avatarUrl ?? fighterUri}
-            hasPortrait={!!portraitUrl}
-            accentColor={accentColor}
-            cosmetics={cosmetics}
-            fighterHeight={fighterHeight}
-            busy={rendering}
-            portraitStale={portraitStale}
-            changedFields={changedFields}
-            notice={notice}
-            history={history}
-            restoringId={restoringId}
-            renderButton={renderButton}
-            randomButton={randomButton}
-            rendering={rendering}
-            renderPhase={renderPhase}
-            renderStartedAt={renderStartedAt}
-            renderExpectedCopy={RENDER_EXPECTED_DURATION}
-            renderingCaption={renderingCaption(stagedLook as never)}
-            onRender={onRenderPress}
-            onRandom={onRandomPress}
-            onOpenViewer={openViewer}
-            onSelectHistory={(id) => {
-              setViewerPortraitId(id);
-              setViewerOpen(true);
-            }}
+        {activeCategory === 'identity' && (
+          <CharacterRespec
+            characterId={character.id}
+            disabled={editingDisabled}
           />
-        }
-        compact={
-          <CharacterHero
-            name={character.name}
-            subtitle={subtitle}
-            archetypeChip={
-              <ArchetypeChip variant="compact" {...archetypeChipProps} />
-            }
-            portraitUri={fighterUri}
-            accentColor={accentColor}
-            busy={rendering}
-            hasPortrait={!!portraitUrl}
-            portraitStale={portraitStale}
-            changedFields={changedFields}
-            cosmetics={cosmetics}
-            renderButton={renderButton}
-            randomButton={randomButton}
-            rendering={rendering}
-            statusLabel={compactStatus}
-            onStatusPress={
-              battleLocked
-                ? () => router.push(primaryBattleRoute ?? '/(tabs)/battles')
-                : !pricingVerified
-                  ? () => void loadPricing(character.id)
-                  : avatarPending && canRetryAvatar
-                    ? () => void runRetryAvatar()
-                    : undefined
-            }
-            onRender={onRenderPress}
-            onRandom={onRandomPress}
-            onOpenViewer={openViewer}
+        )}
+        {avatarPending && canRetryAvatar && (
+          <GameButton
+            label="Repair avatar · Free"
+            tone="secondary"
+            disabled={editingDisabled}
+            onPress={() => void runRetryAvatar()}
           />
-        }
-        tabBar={
-          <SegmentedCategoryBar
-            items={categoryItems}
-            value={activeCategory}
-            onChange={(k) => setActiveCategory(k as Category)}
+        )}
+        <View style={styles.notice}>
+          <GameButton
+            label={
+              pricingVerified
+                ? randomButton.label.replace(/^.*?·/, 'Shuffle & draw ·')
+                : 'Shuffle & draw · Price unavailable'
+            }
+            accessibilityLabel={randomButton.accessibilityLabel.replace(
+              'Generate a random character',
+              'Shuffle and draw',
+            )}
+            gameIcon="replay"
+            tone="secondary"
+            disabled={randomButton.intent === 'disabled' || rendering}
+            onPress={() => onRandomPress(walletFocusRef)}
           />
+          {draft.dirty && (
+            <GameButton
+              label="Discard changes"
+              chrome="text"
+              tone="danger"
+              onPress={onClearPress}
+              disabled={busyKey !== null}
+            />
+          )}
+        </View>
+      </ScrollView>
+      <View style={{ paddingBottom: keyboardVisible ? 0 : insets.bottom }}>
+        <EditorFooter
+          status={footerStatus}
+          renderLabel={footerRenderLabel}
+          saveDisabled={!draft.dirty || editingDisabled || saveBlocked}
+          renderDisabled={
+            paidRecovery.blocked
+              ? paidRecovery.loading ||
+                paidRecovery.checking ||
+                paidRecovery.dispatching
+              : renderButton.intent === 'disabled' ||
+                rendering ||
+                (!initialRecoveryBlocked && saveBlocked)
+          }
+          saveBusy={busyKey === 'save'}
+          renderBusy={rendering}
+          savePrimary={
+            draft.dirty &&
+            !draft.dirtySections.look &&
+            !draft.dirtySections.gear
+          }
+          keyboardVisible={keyboardVisible}
+          onSave={onSavePress}
+          onRender={onRenderPress}
+          onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
+        />
+      </View>
+      <BottomSheet
+        visible={historyOpen}
+        onClose={historyFocus}
+        title="Previous looks"
+        closeAccessibilityLabel="Close previous looks"
+        returnFocusRef={sheetReturnFocusRef}
+        footer={<GameButton label="Back to editing" onPress={historyFocus} />}
+      >
+        {historyLoading ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : historyError ? (
+          <View style={{ gap: 12 }}>
+            <GameText variant="body">{historyError}</GameText>
+            <GameButton
+              label="Retry previous looks"
+              onPress={() => void loadHistory()}
+            />
+          </View>
+        ) : history.length === 0 ? (
+          <GameText variant="body">No previous looks available yet.</GameText>
+        ) : (
+          history.map((entry) => (
+            <View key={entry.portraitId} style={{ gap: 8, marginBottom: 16 }}>
+              {entry.imageUrl ? (
+                <Image
+                  source={{ uri: entry.imageUrl }}
+                  resizeMode="contain"
+                  style={{ width: '100%', height: 180 }}
+                  onError={() => setArtLoadError(true)}
+                />
+              ) : (
+                <GameButton
+                  label="Retry this artwork"
+                  tone="secondary"
+                  onPress={() => void loadHistory()}
+                />
+              )}
+              <GameText variant="caption">
+                {new Date(entry.createdAt).toLocaleString()}
+              </GameText>
+              <GameButton
+                label="Preview this look"
+                tone="secondary"
+                onPress={() => {
+                  setHistoryOpen(false);
+                  setViewerPortraitId(entry.portraitId);
+                  setViewerOpen(true);
+                }}
+              />
+            </View>
+          ))
+        )}
+      </BottomSheet>
+      <ConfirmSheet
+        visible={sheet !== null}
+        title={sheetCopy?.title ?? ''}
+        confirmLabel={sheetCopy?.confirmLabel ?? 'Confirm'}
+        confirmDisabled={
+          sheet?.kind !== 'topUp' &&
+          (editingDisabled ||
+            ((sheet?.kind === 'save' || sheet?.kind === 'render') &&
+              saveBlocked) ||
+            ((sheet?.kind === 'random' ||
+              (sheet?.kind === 'render' && initialPortraitsLeft === 0)) &&
+              !pricingVerified))
         }
+        {...sheetCopy}
+        returnFocusRef={
+          rendering || reveal !== null ? undefined : sheetReturnFocusRef
+        }
+        thumbnailUri={sheet?.kind === 'render' ? portraitUrl : undefined}
+        accentColor={accentColor}
+        onConfirm={onSheetConfirm}
+        onCancel={() => setSheet(null)}
       />
 
-      {draft.dirty && !editingDisabled ? (
-        <SaveBar
-          changeCount={draft.changeCount}
-          busy={busyKey === 'save'}
-          onSave={onSavePress}
-          onClear={onClearPress}
-        />
-      ) : null}
-
-      {sheetCopy ? (
-        <ConfirmSheet
-          visible={sheet !== null}
-          {...sheetCopy}
-          thumbnailUri={sheet?.kind === 'render' ? portraitUrl : undefined}
-          accentColor={accentColor}
-          onConfirm={onSheetConfirm}
-          onCancel={() => setSheet(null)}
-        />
-      ) : null}
-
       <RenderRevealSheet
+        returnFocusRef={renderReturnFocusRef}
         visible={reveal !== null}
         characterName={character.name}
         accentColor={accentColor}
         fighterUri={reveal?.fighterUri ?? null}
+        frame={cosmetics.frame}
         avatar={reveal?.avatar ?? { status: 'pending' }}
         mode={reveal?.mode ?? 'render'}
         creditsSpent={reveal?.creditsSpent ?? 0}
-        canRetryAvatar={canRetryAvatar}
+        canRetryAvatar={canRetryAvatar && !resultMutationDisabled}
         retryingAvatar={busyKey === 'retryAvatar'}
-        canRestorePrevious={Boolean(reveal?.previousFighterId)}
+        canRestorePrevious={
+          Boolean(reveal?.previousFighterId) && !resultMutationDisabled
+        }
         restoring={busyKey === 'restore'}
+        onImageError={() => setArtLoadError(true)}
+        mediaError={artLoadError}
+        onRetryMedia={() => {
+          if (paidRecovery.operation) {
+            const accountId = user?.id;
+            void paidRecovery
+              .checkStatus()
+              .then((outcome) => {
+                if (currentAccount.current === accountId)
+                  setArtLoadError(
+                    !!outcome?.error || !outcome?.result?.imageUrl,
+                  );
+              })
+              .catch(() => {
+                if (currentAccount.current === accountId) setArtLoadError(true);
+              });
+          } else {
+            const accountId = user?.id;
+            void Promise.all([
+              character.portrait_id
+                ? loadPortraitRef(character.portrait_id)
+                : Promise.resolve({ url: null }),
+              character.avatar_portrait_id
+                ? loadPortraitRef(character.avatar_portrait_id)
+                : Promise.resolve({ url: null }),
+            ])
+              .then(([fighter, avatar]) => {
+                if (currentAccount.current !== accountId) return;
+                setArtLoadError(!fighter.url);
+                setReveal((current) =>
+                  current
+                    ? {
+                        ...current,
+                        fighterUri: fighter.url ?? current.fighterUri,
+                        avatar: avatar.url
+                          ? { status: 'ready', uri: avatar.url }
+                          : current.avatar,
+                      }
+                    : current,
+                );
+              })
+              .catch(() => {
+                if (currentAccount.current === accountId) setArtLoadError(true);
+              });
+          }
+        }}
         onKeep={onKeep}
         onRestorePrevious={() => {
           if (reveal?.previousFighterId) {
@@ -1198,43 +2090,73 @@ export default function EditCharacterScreen() {
         onRetryAvatar={() => void runRetryAvatar()}
       />
 
-      <PortraitViewer
+      <BottomSheet
         visible={viewerOpen}
-        uri={viewerUri}
-        caption={character.name}
         onClose={() => {
           setViewerOpen(false);
           setViewerPortraitId(null);
         }}
-        footerAction={
-          viewerPortraitId
-            ? {
-                label: 'Restore this render · Free',
-                busy: restoringId === viewerPortraitId,
-                disabled: editingDisabled,
-                onPress: () => void runRestore(viewerPortraitId),
-              }
-            : undefined
+        title={stagedName}
+        closeAccessibilityLabel="Close full-screen portrait"
+        returnFocusRef={portraitReturnFocusRef}
+        footer={
+          <View style={{ gap: 8 }}>
+            {viewerPortraitId && (
+              <GameButton
+                label="Restore this look · Free"
+                disabled={editingDisabled}
+                busy={restoringId === viewerPortraitId}
+                onPress={() => void runRestore(viewerPortraitId)}
+              />
+            )}
+            <GameButton
+              label="Back to editing"
+              tone="secondary"
+              onPress={() => {
+                setViewerOpen(false);
+                setViewerPortraitId(null);
+              }}
+            />
+          </View>
         }
-      />
-
-      <ArchetypeSheet
-        visible={archetypeOpen}
-        value={stagedArchetype}
-        savedValue={character.archetype}
-        pricing={pricing}
-        disabled={editingDisabled}
-        onStage={(id) => draft.stage('archetype', id)}
-        onClose={() => setArchetypeOpen(false)}
-      />
+      >
+        <GameText variant="caption">
+          {viewerPortraitId ? 'Previous artwork' : 'Current artwork'}
+        </GameText>
+        {viewerUri ? (
+          <FighterCard
+            name={stagedName}
+            archetype={stagedArchetype}
+            renderUri={viewerUri}
+            avatarUri={avatarUrl}
+            signatureColor={accentColor}
+            cosmetics={cosmetics}
+            onImageError={() => setArtLoadError(true)}
+          />
+        ) : (
+          <GameText variant="body">This artwork could not load.</GameText>
+        )}
+        {(artLoadError || !viewerUri) && (
+          <GameButton
+            label="Retry artwork"
+            tone="secondary"
+            onPress={() => {
+              setArtLoadError(false);
+              void loadCharacter();
+              void loadHistory();
+            }}
+          />
+        )}
+      </BottomSheet>
 
       {toast && <Toast text={toast} />}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  notice: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
   scroll: { flex: 1 },
   centered: {
     alignItems: 'center',

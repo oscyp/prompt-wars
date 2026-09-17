@@ -51,6 +51,7 @@ export interface WalletBalance {
 export async function requestVideoUpgrade(
   battleId: string,
   autoSpend = false,
+  roundId?: string,
 ): Promise<VideoUpgradeResult> {
   try {
     const { data, error } = await invokeFunctionResult<
@@ -58,6 +59,7 @@ export async function requestVideoUpgrade(
     >('request-video-upgrade', {
       battle_id: battleId,
       auto_spend: autoSpend,
+      ...(roundId ? { battle_round_id: roundId } : {}),
     });
 
     if (error) {

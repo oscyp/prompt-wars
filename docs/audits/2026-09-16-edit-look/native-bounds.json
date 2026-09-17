@@ -1,0 +1,70 @@
+{
+  "viewport": {
+    "width": 402,
+    "height": 874
+  },
+  "state": "Gear selected, current fighter battle-locked, default text size",
+  "environment": "existing development binary/current JS on iPhone 17 Pro iOS26.5",
+  "elements": [
+    {
+      "label": "View only \u2014 editing is locked while this fighter is in 1 active battle.",
+      "frame": {
+        "height": 95.99999237060547,
+        "y": 124.3333330154419,
+        "width": 148,
+        "x": 64.33333206176758
+      },
+      "enabled": true
+    },
+    {
+      "label": "Manage 1 battle",
+      "frame": {
+        "height": 95.99999237060547,
+        "y": 124.3333330154419,
+        "width": 141.3333282470703,
+        "x": 220.3333282470703
+      },
+      "enabled": true
+    },
+    {
+      "label": "Look",
+      "frame": {
+        "height": 48,
+        "width": 112.66667175292969,
+        "x": 144.66666412353516,
+        "y": 797
+      },
+      "enabled": true
+    },
+    {
+      "label": "Gear",
+      "frame": {
+        "height": 48,
+        "width": 112.66665649414062,
+        "x": 261.3333282470703,
+        "y": 797
+      },
+      "enabled": true
+    },
+    {
+      "label": "Equipped item",
+      "frame": {
+        "x": 48,
+        "y": 905,
+        "height": 19.66668701171875,
+        "width": 306
+      },
+      "enabled": true
+    },
+    {
+      "label": "Choose a catalogue item below.",
+      "frame": {
+        "x": 48,
+        "y": 942.6666679382324,
+        "height": 21,
+        "width": 306
+      },
+      "enabled": true
+    }
+  ]
+}

@@ -1,12 +1,17 @@
+import { GameText as Text } from '@/components/game';
+import CosmeticFrame from '@/components/CosmeticFrame';
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
+import type { EquippedCosmetics } from '@/utils/cosmetics';
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import Animated, {
   Easing,
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import {
@@ -17,7 +22,6 @@ import {
 } from '@/constants/DesignTokens';
 import { VideoJobUpdate } from '@/hooks/useRealtimeBattle';
 import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
-import PosterGradient from './PosterGradient';
 
 /**
  * Legacy voice-line metadata carried by older reveal payloads. The silent
@@ -103,6 +107,7 @@ export interface RoundResultCinematicProps {
    * series result says "Battle reveal", a round says "Round reveal".
    */
   context?: 'round' | 'battle';
+  cosmetics?: EquippedCosmetics;
 }
 
 /**
@@ -143,14 +148,17 @@ export default function RoundResultCinematic({
   portraitUrl,
   archetype,
   context = 'round',
+  cosmetics,
 }: RoundResultCinematicProps) {
   const colors = useThemedColors();
-  const reduceMotion = useReducedMotion();
+  const active = useBattlePresentationActive();
+  const reduceMotion = useReducedMotion() || !active;
+  const [posterWidth, setPosterWidth] = useState(260);
   const [portraitFailed, setPortraitFailed] = useState(false);
 
   // Ken Burns / parallax drift for the portrait. One-time, subtle, and static
   // when Reduce Motion is on.
-  const scale = useSharedValue(reduceMotion ? 1 : 1.12);
+  const scale = useSharedValue(reduceMotion ? 1 : 0.96);
   const translateY = useSharedValue(reduceMotion ? 0 : 8);
 
   useEffect(() => {
@@ -160,13 +168,17 @@ export default function RoundResultCinematic({
       return;
     }
     scale.value = withTiming(1, {
-      duration: 3600,
+      duration: 320,
       easing: Easing.out(Easing.cubic),
     });
-    translateY.value = withTiming(-6, {
-      duration: 3600,
+    translateY.value = withTiming(0, {
+      duration: 320,
       easing: Easing.out(Easing.cubic),
     });
+    return () => {
+      cancelAnimation(scale);
+      cancelAnimation(translateY);
+    };
   }, [reduceMotion, scale, translateY]);
 
   const portraitStyle = useAnimatedStyle(() => ({
@@ -188,14 +200,13 @@ export default function RoundResultCinematic({
   const tier1Blurred =
     !!videoJob && videoJob.status === 'succeeded' && !isModerationApproved;
 
-  const baseColor = tier0Payload?.winnerColor ?? colors.primary;
-
   const portrait =
     portraitUrl ??
     tier0Payload?.portraitUrl ??
     tier0Payload?.winnerPortraitUrl ??
     null;
   const showPortrait = !!portrait && !portraitFailed;
+  useEffect(() => setPortraitFailed(false), [portrait]);
 
   // Designed fallback subject when no real photo exists: the winner's bundled
   // archetype illustration (always resolves to a local image, never null).
@@ -217,52 +228,40 @@ export default function RoundResultCinematic({
         styles.wrap,
         {
           backgroundColor: colors.card,
-          borderColor: colors.border,
+          borderColor: colors.ornamentMuted,
         },
       ]}
     >
       <View
         style={styles.poster}
+        onLayout={(event) =>
+          setPosterWidth(
+            Math.max(48, Math.min(320, event.nativeEvent.layout.width - 24)),
+          )
+        }
         accessible
         accessibilityRole="image"
         accessibilityLabel={posterA11y}
       >
-        {/* Solid signature-color base (sits behind the poster subject). */}
-        <View
-          style={[StyleSheet.absoluteFill, { backgroundColor: baseColor }]}
-        />
-
-        {/* Parallaxed poster subject: the real character photo when available,
-            otherwise the winner's bundled archetype illustration (never an empty
-            color field). Reduce Motion keeps it static via `portraitStyle`. */}
-        {showPortrait ? (
-          <Animated.Image
-            source={{ uri: portrait as string }}
-            style={[StyleSheet.absoluteFill, portraitStyle]}
-            resizeMode="cover"
-            onError={() => setPortraitFailed(true)}
-            accessibilityElementsHidden
-            importantForAccessibility="no"
+        <Animated.View style={portraitStyle}>
+          <CosmeticFrame
+            size={posterWidth}
+            variant="fullBody"
+            source={
+              showPortrait ? { uri: portrait as string } : archetypeAvatar
+            }
+            frame={cosmetics?.frame}
+            accentColor={colors.ornament}
+            onImageError={() => setPortraitFailed(true)}
           />
-        ) : (
-          <Animated.Image
-            source={archetypeAvatar}
-            style={[StyleSheet.absoluteFill, portraitStyle]}
-            resizeMode="cover"
-            accessibilityElementsHidden
-            importantForAccessibility="no"
-          />
-        )}
-
-        {/* Signature vertical gradient overlay (fades to near-black for AA). */}
-        <PosterGradient base={baseColor} />
+        </Animated.View>
 
         {/* Status overlays. Each sits on a dark pill to guarantee AA contrast
             regardless of the winner's signature color (e.g. white-on-orange). */}
         <View style={styles.posterContent} pointerEvents="none">
           {tier1Ready ? (
             <View style={styles.badgePill}>
-              <Ionicons name="play" size={16} color="#FFFFFF" />
+              <GameSymbol name="play" size={16} color="#FFFFFF" />
               <Text style={styles.posterBadge}>Cinematic ready</Text>
             </View>
           ) : tier1Pending ? (
@@ -272,7 +271,7 @@ export default function RoundResultCinematic({
             </View>
           ) : tier1Blurred ? (
             <View style={styles.badgePill}>
-              <Ionicons name="shield-half" size={16} color="#FFFFFF" />
+              <GameSymbol name="shield-half" size={16} color="#FFFFFF" />
               <Text style={styles.posterBadge}>Video pending moderation</Text>
             </View>
           ) : null}
@@ -280,7 +279,7 @@ export default function RoundResultCinematic({
       </View>
 
       {tier0Payload?.battleCryText ? (
-        <Text style={[styles.cry, { color: colors.text }]} numberOfLines={3}>
+        <Text style={[styles.cry, { color: colors.text }]}>
           “{tier0Payload.battleCryText}”
         </Text>
       ) : null}
@@ -304,13 +303,12 @@ const styles = StyleSheet.create({
   },
   poster: {
     width: '100%',
-    aspectRatio: 9 / 16,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   posterContent: {
-    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'flex-end',
     padding: Spacing.lg,

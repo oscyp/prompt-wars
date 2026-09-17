@@ -8,6 +8,7 @@
  * viewer-relative lives here so it can be pinned by tests without a screen.
  */
 
+import type { BattleIntegrityFields } from '@/types/battle';
 import type { Href } from 'expo-router';
 import { orientSeriesScore } from '@/components/SeriesScoreIndicator';
 import { supabase } from './supabase';
@@ -27,12 +28,13 @@ export interface BattleListProfile {
 
 export interface BattleListRound {
   round_number: number;
+  lock_in_deadline?: string | null;
   player_one_locked_at: string | null;
   player_two_locked_at: string | null;
 }
 
 /** The columns a list row reads. Extra columns from `*` are tolerated. */
-export interface BattleListRow {
+export interface BattleListRow extends BattleIntegrityFields {
   id: string;
   status: string;
   mode?: string | null;
@@ -40,6 +42,8 @@ export interface BattleListRow {
   theme?: string | null;
   created_at: string;
   current_round?: number | null;
+  player_one_prompt_deadline?: string | null;
+  player_two_prompt_deadline?: string | null;
   player_one_id: string;
   player_two_id?: string | null;
   is_player_two_bot?: boolean | null;
@@ -66,7 +70,7 @@ const BATTLE_LIST_SELECT = [
   '*',
   'player_one:profiles!battles_player_one_id_fkey(username, display_name)',
   'player_two:profiles!battles_player_two_id_fkey(username, display_name)',
-  'rounds:battle_rounds(round_number, player_one_locked_at, player_two_locked_at)',
+  'rounds:battle_rounds(round_number, lock_in_deadline, player_one_locked_at, player_two_locked_at)',
 ].join(', ');
 
 /** Whether a battle is still live (not in a status it never leaves). */
@@ -290,7 +294,11 @@ export function statusToneColor(
 // Sections
 // ---------------------------------------------------------------------------
 
-export type BattleSectionKey = 'yourTurn' | 'inProgress' | 'finished';
+export type BattleSectionKey =
+  | 'yourTurn'
+  | 'inProgress'
+  | 'finished'
+  | 'canceled';
 
 export interface BattleListSection<T extends BattleListRow = BattleListRow> {
   key: BattleSectionKey;
@@ -302,12 +310,14 @@ export const BATTLE_SECTION_TITLES: Record<BattleSectionKey, string> = {
   yourTurn: 'Your turn',
   inProgress: 'In progress',
   finished: 'Finished',
+  canceled: 'Canceled or unmatched',
 };
 
 const BATTLE_SECTION_ORDER: readonly BattleSectionKey[] = [
   'yourTurn',
   'inProgress',
   'finished',
+  'canceled',
 ];
 
 /**
@@ -323,9 +333,12 @@ export function groupBattlesForList<T extends BattleListRow>(
     yourTurn: [],
     inProgress: [],
     finished: [],
+    canceled: [],
   };
   for (const row of sortBattlesForList(rows, myProfileId)) {
-    if (!isActiveBattleStatus(row.status)) buckets.finished.push(row);
+    if (row.status === 'canceled' || row.status === 'expired')
+      buckets.canceled.push(row);
+    else if (!isActiveBattleStatus(row.status)) buckets.finished.push(row);
     else if (describeBattleRow(row, myProfileId).status.actionable)
       buckets.yourTurn.push(row);
     else buckets.inProgress.push(row);
@@ -429,4 +442,66 @@ export function opponentProfileIds(
     if (opponentId && opponentId !== myProfileId) ids.add(opponentId);
   }
   return Array.from(ids);
+}
+
+export interface BattleHistoryCursor {
+  createdAt: string;
+  id: string;
+}
+export interface BattleHistoryPage {
+  items: BattleListRow[];
+  nextCursor: BattleHistoryCursor | null;
+}
+/** Stable keyset pages. The sampled getBattleHistory helper remains for Stats. */
+export async function getFinishedBattlePage(
+  cursor: BattleHistoryCursor | null = null,
+): Promise<BattleHistoryPage> {
+  const userId = await requireUserId();
+  let query = supabase
+    .from('battles')
+    .select(BATTLE_LIST_SELECT)
+    .or(`player_one_id.eq.${userId},player_two_id.eq.${userId}`)
+    .in('status', [...FINAL_BATTLE_STATUSES])
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false });
+  if (cursor)
+    query = query.or(
+      `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`,
+    );
+  const { data, error } = await query.limit(51);
+  if (error) throw new Error(error.message || 'Failed to fetch history');
+  const rows = (data ?? []) as unknown as BattleListRow[];
+  const items = rows.slice(0, 50);
+  const last = items[items.length - 1];
+  return {
+    items,
+    nextCursor:
+      rows.length > 50 && last
+        ? { createdAt: last.created_at, id: last.id }
+        : null,
+  };
+}
+
+/** Current server deadline only; a Bo3 parent timestamp can belong to round one. */
+export function activeBattleDeadline(
+  battle: BattleListRow,
+  viewerId: string | null | undefined,
+): string | null {
+  if (
+    battle.status !== 'waiting_for_prompts' ||
+    !viewerId ||
+    iHaveLockedIn(battle, viewerId)
+  )
+    return null;
+  if (battle.format === 'bo3')
+    return (
+      battle.rounds?.find(
+        (round) => round.round_number === (battle.current_round ?? 1),
+      )?.lock_in_deadline ?? null
+    );
+  return (
+    (battle.player_one_id === viewerId
+      ? battle.player_one_prompt_deadline
+      : battle.player_two_prompt_deadline) ?? null
+  );
 }

@@ -13,6 +13,9 @@ import FighterEntrance, {
 } from '@/components/FighterEntrance';
 import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
 import { NO_COSMETICS } from '@/utils/cosmetics';
+jest.mock('@/components/game/battle/useBattlePresentationActive', () => ({
+  useBattlePresentationActive: () => true,
+}));
 
 jest.mock('@/utils/haptics', () => ({
   hapticSuccess: jest.fn(),
@@ -129,9 +132,9 @@ describe('FighterEntrance', () => {
     expect(loop).not.toHaveBeenCalled();
   });
 
-  it('breathes under motion', () => {
+  it('uses a finite entrance without a continuous halo', () => {
     const loop = jest.spyOn(Animated, 'loop');
     render(<FighterEntrance {...props({ reduceMotion: false })} />);
-    expect(loop).toHaveBeenCalledTimes(1);
+    expect(loop).not.toHaveBeenCalled();
   });
 });

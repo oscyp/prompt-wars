@@ -1,0 +1,24 @@
+{
+  "archiveFileCount": 318,
+  "totalBytes": 18455300,
+  "excludedFiles": [],
+  "unexpectedCredentialFiles": [],
+  "knownSecretPatternMatches": [],
+  "sourceTreeSha256": "19658240e4abc8d0de64da1252c0e3bcc9fef27103552d5f2f75686bfb621853",
+  "gitHistoryAbsent": true,
+  "excludedPaths": [
+    ".git",
+    ".env",
+    ".env.local",
+    ".eas.production.env",
+    ".superpowers",
+    ".agents",
+    ".codex",
+    ".claude",
+    ".github",
+    "docs",
+    "supabase",
+    "landing",
+    "__tests__"
+  ]
+}

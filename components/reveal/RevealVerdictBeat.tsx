@@ -1,6 +1,10 @@
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
+import BrandMark from '@/components/game/BrandMark';
+import { GameText as Text } from '@/components/game';
 import React, { useEffect, useMemo, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -52,6 +56,7 @@ export default function RevealVerdictBeat({
   insets,
 }: RevealVerdictBeatProps) {
   const colors = useThemedColors();
+  const active = useBattlePresentationActive();
   const copy = verdictCopy({ format, outcome, mine, theirs, isKo });
   const outcomeColor =
     outcome === 'draw'
@@ -74,6 +79,7 @@ export default function RevealVerdictBeat({
   // Haptics follow the same clock as the visuals. One outcome haptic only.
   const outcomeFired = useRef(false);
   useEffect(() => {
+    if (!active) return;
     const fireOutcome = () => {
       if (outcomeFired.current) return;
       outcomeFired.current = true;
@@ -90,7 +96,7 @@ export default function RevealVerdictBeat({
     );
     timers.push(setTimeout(fireOutcome, timeline.outcomeAt));
     return () => timers.forEach(clearTimeout);
-  }, [timeline, reduceMotion, outcome]);
+  }, [active, timeline, reduceMotion, outcome]);
 
   // Headline: scale 0.8 → 1 on a spring, fading in.
   const headlineScale = useSharedValue(reduceMotion ? 1 : 0.8);
@@ -125,6 +131,7 @@ export default function RevealVerdictBeat({
         withTiming(1, { duration: Motion.durations.fast }),
       );
     }
+    return () => { cancelAnimation(headlineScale); cancelAnimation(headlineOpacity); cancelAnimation(stampScale); cancelAnimation(stampOpacity); };
   }, [
     reduceMotion,
     timeline,
@@ -144,12 +151,13 @@ export default function RevealVerdictBeat({
   }));
 
   return (
-    <View
-      style={[
+    <ScrollView
+      contentContainerStyle={[
         styles.root,
         { paddingTop: insets.top, paddingBottom: insets.bottom },
       ]}
     >
+      <BrandMark kind="emblem" size={80} />
       {showScore ? (
         <View style={styles.scoreRow}>
           <ScoreColumn
@@ -182,6 +190,7 @@ export default function RevealVerdictBeat({
 
       <Animated.View style={headlineStyle}>
         <Text
+          variant="display"
           style={[
             showScore ? styles.headlineSeries : styles.headlineSingle,
             NumericFontVariant,
@@ -196,7 +205,10 @@ export default function RevealVerdictBeat({
         <Animated.View
           style={[styles.stamp, { borderColor: outcomeColor }, stampStyle]}
         >
-          <Text style={[styles.stampText, { color: outcomeColor }]}>
+          <Text
+            variant="display"
+            style={[styles.stampText, { color: outcomeColor }]}
+          >
             {copy.stamp}
           </Text>
         </Animated.View>
@@ -207,7 +219,7 @@ export default function RevealVerdictBeat({
           {copy.subline}
         </Text>
       ) : null}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -261,6 +273,7 @@ function Dot({
       return;
     }
     scale.value = withDelay(delay, withSpring(1, Motion.spring));
+    return () => cancelAnimation(scale);
   }, [delay, reduceMotion, scale]);
 
   const style = useAnimatedStyle(() => ({
@@ -277,7 +290,7 @@ function Dot({
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.lg,

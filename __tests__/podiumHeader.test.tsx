@@ -3,7 +3,7 @@
  * "1st place: Name, rating N"; nothing for fewer than three rows.
  */
 import React from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, useWindowDimensions } from 'react-native';
 import { render } from '@testing-library/react-native';
 import PodiumHeader, { PODIUM_ORDER } from '@/components/PodiumHeader';
 import { NO_COSMETICS } from '@/utils/cosmetics';
@@ -22,6 +22,15 @@ const row = (rank: number, name: string, rating: number): RankingRow => ({
 });
 
 const TOP = [row(1, 'Ace', 1512.6), row(2, 'Bea', 1490), row(3, 'Cal', 1470)];
+
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: jest.fn(() => ({ width: 430, height: 900, scale: 3, fontScale: 1 })),
+}));
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: 'Icon',
+  MaterialCommunityIcons: 'Icon',
+}));
 
 describe('PodiumHeader', () => {
   beforeEach(() => {
@@ -61,6 +70,27 @@ describe('PodiumHeader', () => {
     getByLabelText('2nd place: Bea (you), rating 1490');
     getByText('You');
   });
+
+  it.each([
+    { width: 320, fontScale: 1 },
+    { width: 430, fontScale: 1.8 },
+  ])(
+    'keeps all podium names in rank order at $width points and $fontScale text scale',
+    ({ width, fontScale }) => {
+      jest
+        .mocked(useWindowDimensions)
+        .mockReturnValueOnce({ width, height: 800, scale: 3, fontScale });
+      const name = 'Żaneta the extraordinarily patient strategist';
+      const { getAllByTestId, getByText } = render(
+        <PodiumHeader rows={[row(1, name, 1513), ...TOP.slice(1)]} />,
+      );
+      expect(
+        getAllByTestId(/^podium-\d$/).map((node) => node.props.testID),
+      ).toEqual(['podium-1', 'podium-2', 'podium-3']);
+      expect(getByText(name).props.numberOfLines).toBeUndefined();
+      expect(getByText(name).props.allowFontScaling).toBe(true);
+    },
+  );
 
   it('accepts the public-players map for archetype and colour', () => {
     const players: PublicPlayerMap = new Map([

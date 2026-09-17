@@ -139,3 +139,13 @@ export function standingLabel(input: {
   const rating = input.rated ? `rating ${input.ratingValue}` : 'unrated';
   return `Your standing: ${rank}, ${rating}. Opens rankings`;
 }
+
+export function seasonAvailability(
+  season: { starts_at?: string; ends_at: string } | null,
+  now = Date.now(),
+): 'upcoming' | 'ended' | 'active' | 'unavailable' {
+  if (!season) return 'unavailable';
+  if (season.starts_at && Date.parse(season.starts_at) > now) return 'upcoming';
+  if (Date.parse(season.ends_at) <= now) return 'ended';
+  return 'active';
+}

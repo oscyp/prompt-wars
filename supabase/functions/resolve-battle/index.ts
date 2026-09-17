@@ -254,6 +254,7 @@ Deno.serve(async (req) => {
     if (
       battle.mode === 'ranked' &&
       !battle.is_player_two_bot &&
+      !judgeResult.mock_assisted &&
       !ratingGatedByQualityFloor
     ) {
       const p1Profile = battle.player_one as unknown as {
@@ -288,6 +289,12 @@ Deno.serve(async (req) => {
 
     // Build score payload
     const scorePayload = {
+      calls: judgeResult.calls,
+      aggregation: judgeResult.aggregation,
+      mock_assisted: judgeResult.mock_assisted,
+      competitive_eligible: !(
+        battle.mode === 'ranked' && judgeResult.mock_assisted
+      ),
       player_one_raw_scores: judgeResult.player_one_raw_scores,
       player_two_raw_scores: judgeResult.player_two_raw_scores,
       player_one_normalized_scores: judgeResult.player_one_normalized_scores,
@@ -302,14 +309,14 @@ Deno.serve(async (req) => {
     };
 
     // Get judge model ID from provider
-    const judgeModelId = judgeProvider.getModelId();
+    const judgeModelId = judgeResult.calls.map((c) => c.model_id).join(',');
 
     // Insert judge run
     const { error: judgeRunError } = await supabase.from('judge_runs').insert({
       battle_id,
       judge_prompt_version: JUDGE_PROMPT_VERSION,
       model_id: judgeModelId,
-      seed: Math.floor(Math.random() * 10000),
+      seed: judgeResult.calls[0]?.seed ?? 0,
       player_one_raw_scores: judgeResult.player_one_raw_scores,
       player_two_raw_scores: judgeResult.player_two_raw_scores,
       player_one_normalized_scores: judgeResult.player_one_normalized_scores,
@@ -336,7 +343,7 @@ Deno.serve(async (req) => {
       p_rating_delta_payload: ratingDeltaPayload,
       p_judge_prompt_version: JUDGE_PROMPT_VERSION,
       p_judge_model_id: judgeModelId,
-      p_judge_seed: Math.floor(Math.random() * 10000),
+      p_judge_seed: judgeResult.calls[0]?.seed ?? 0,
     });
 
     if (resolveError) {

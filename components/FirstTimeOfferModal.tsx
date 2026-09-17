@@ -1,15 +1,15 @@
+import { GameText as Text, GameButton } from '@/components/game';
+import BottomSheet from '@/components/sheets/BottomSheet';
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
 import React, { useEffect, useState } from 'react';
 import {
-  Modal,
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
   Linking,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
@@ -26,6 +26,7 @@ import type { FirstTimeOffer } from '@/utils/dailyMeta';
 
 export interface FirstTimeOfferModalProps {
   visible: boolean;
+  returnFocusRef?: React.RefObject<View | null>;
   offer: FirstTimeOffer['offer'];
   expiresAt?: string;
   /**
@@ -40,6 +41,8 @@ export interface FirstTimeOfferModalProps {
    * USD anchor would read as a different amount than the localized price.
    */
   referencePriceString?: string | null;
+  pending?: boolean;
+  onCheckAgain?: () => void;
   onClaim: () => Promise<boolean>;
   onDismiss: () => void;
 }
@@ -84,14 +87,18 @@ function remainingMs(
  */
 export default function FirstTimeOfferModal({
   visible,
+  returnFocusRef,
   offer,
   expiresAt,
   priceString,
   referencePriceString,
   onClaim,
+  pending = false,
+  onCheckAgain,
   onDismiss,
 }: FirstTimeOfferModalProps) {
   const colors = useThemedColors();
+  const active = useBattlePresentationActive();
   const reduceMotion = useReducedMotion();
   const accessibleText = useAccessibleTextStyle();
   const [purchasing, setPurchasing] = useState(false);
@@ -100,14 +107,14 @@ export default function FirstTimeOfferModal({
   // A ticking second hand is motion. Under Reduce Motion the countdown still
   // updates, once a minute, so the offer never shows a stale hour.
   useEffect(() => {
-    if (!visible || !expiresAt) return;
+    if (!visible || !active || !expiresAt) return;
     setNow(Date.now());
     const id = setInterval(
       () => setNow(Date.now()),
       reduceMotion ? 60_000 : 1000,
     );
     return () => clearInterval(id);
-  }, [visible, expiresAt, reduceMotion]);
+  }, [visible, expiresAt, reduceMotion, active]);
 
   if (!offer) return null;
 
@@ -115,7 +122,7 @@ export default function FirstTimeOfferModal({
   const expired = remaining !== null && remaining <= 0;
 
   const handleClaim = async () => {
-    if (expired) return;
+    if (expired || pending) return;
     setPurchasing(true);
     try {
       const ok = await onClaim();
@@ -152,190 +159,169 @@ export default function FirstTimeOfferModal({
       : referencePriceString;
 
   return (
-    <Modal
+    <BottomSheet
+      returnFocusRef={returnFocusRef}
       visible={visible}
-      transparent
-      animationType={reduceMotion ? 'none' : 'fade'}
-      onRequestClose={handleDismiss}
-    >
-      <View style={styles.backdrop}>
-        <View
-          accessibilityViewIsModal
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.primary },
-          ]}
-        >
-          <View style={[styles.ribbon, { backgroundColor: colors.primary }]}>
-            <Text style={styles.ribbonText}>ONE-TIME OFFER</Text>
-          </View>
-
-          <Text
-            accessibilityRole="header"
-            style={[styles.title, accessibleText, { color: colors.text }]}
-          >
-            {offer.title}
-          </Text>
-          <Text
-            style={[
-              styles.description,
-              accessibleText,
-              { color: colors.textSecondary },
-            ]}
-          >
-            {offer.description}
-          </Text>
-
-          <View style={styles.rewards}>
-            <View
-              accessible
-              accessibilityLabel={formatCredits(offer.credits, 'sentence')}
-              style={[
-                styles.rewardPill,
-                { backgroundColor: colors.backgroundTertiary },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.rewardValue,
-                  NumericFontVariant,
-                  { color: colors.primary },
-                ]}
-              >
-                {offer.credits}
-              </Text>
-              <Text
-                style={[styles.rewardLabel, { color: colors.textSecondary }]}
-              >
-                {offer.credits === 1 ? 'credit' : 'credits'}
-              </Text>
+      onClose={handleDismiss}
+      dismissDisabled={purchasing}
+      closeAccessibilityLabel="Close offer"
+      title={offer.title}
+      footer={
+        <View style={{ gap: 8 }}>
+          {pending ? (
+            <View style={{ gap: 8 }}>
+              <Text>Still processing. You do not need to purchase again.</Text>
+              <GameButton
+                label="Check again"
+                tone="secondary"
+                onPress={onCheckAgain}
+              />
             </View>
-            {offer.exclusive_cosmetic_slug ? (
-              <View
-                accessible
-                accessibilityLabel="Exclusive cosmetic"
-                style={[
-                  styles.rewardPill,
-                  { backgroundColor: colors.backgroundTertiary },
-                ]}
-              >
-                <Ionicons name="star" size={26} color={colors.warning} />
-                <Text
-                  style={[styles.rewardLabel, { color: colors.textSecondary }]}
-                >
-                  exclusive cosmetic
-                </Text>
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.priceRow}>
-            {referencePrice ? (
-              <Text
-                style={[
-                  styles.refPrice,
-                  NumericFontVariant,
-                  { color: colors.textTertiary },
-                ]}
-                accessibilityLabel={`Usually ${referencePrice}`}
-              >
-                {referencePrice}
-              </Text>
-            ) : null}
-            {price ? (
-              <Text
-                style={[
-                  styles.price,
-                  NumericFontVariant,
-                  { color: colors.text },
-                ]}
-              >
-                {price}
-              </Text>
-            ) : null}
-          </View>
-
-          {remaining !== null ? (
-            <Text
-              style={[
-                styles.countdown,
-                NumericFontVariant,
-                { color: colors.error },
-              ]}
-              accessibilityLiveRegion="polite"
-            >
-              {expired
-                ? 'This offer has ended.'
-                : `Ends in ${formatRemaining(remaining)}`}
-            </Text>
           ) : null}
-
-          <TouchableOpacity
-            style={[
-              styles.claimButton,
-              { backgroundColor: colors.primary, opacity: expired ? 0.5 : 1 },
-            ]}
-            onPress={handleClaim}
-            disabled={purchasing || expired}
-            accessibilityRole="button"
+          <GameButton
+            label={
+              pending
+                ? 'Still processing'
+                : expired
+                  ? OFFER_ENDED_LABEL
+                  : 'Claim Offer'
+            }
             accessibilityLabel={
               expired ? OFFER_ENDED_LABEL : 'Claim one-time offer'
             }
-            accessibilityState={{
-              disabled: purchasing || expired,
-              busy: purchasing,
-            }}
-          >
-            {purchasing ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.claimText}>
-                {expired ? OFFER_ENDED_LABEL : 'Claim Offer'}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
+            onPress={handleClaim}
+            busy={purchasing}
+            disabled={expired || pending}
+          />
+          <GameButton
+            label={expired ? 'Close' : 'Maybe later'}
+            tone="secondary"
             onPress={handleDismiss}
             disabled={purchasing}
-            accessibilityRole="button"
-            accessibilityLabel={expired ? 'Close' : 'Maybe later'}
-            style={styles.dismissButton}
-          >
-            <Text style={[styles.dismissText, { color: colors.textSecondary }]}>
-              {expired ? 'Close' : 'Maybe later'}
-            </Text>
-          </TouchableOpacity>
-
-          {/* App Store 3.1.2: Terms and Privacy on any surface that sells. */}
-          <View style={styles.legalRow}>
-            <TouchableOpacity
-              onPress={() => Linking.openURL(Links.termsAndConditions)}
-              accessibilityRole="link"
-              accessibilityLabel="Terms and conditions"
-              style={styles.legalButton}
-            >
-              <Text style={[styles.legalLink, { color: colors.textTertiary }]}>
-                Terms
-              </Text>
-            </TouchableOpacity>
-            <Text style={[styles.legalDot, { color: colors.textTertiary }]}>
-              •
-            </Text>
-            <TouchableOpacity
-              onPress={() => Linking.openURL(Links.privacyPolicy)}
-              accessibilityRole="link"
-              accessibilityLabel="Privacy policy"
-              style={styles.legalButton}
-            >
-              <Text style={[styles.legalLink, { color: colors.textTertiary }]}>
-                Privacy
-              </Text>
-            </TouchableOpacity>
-          </View>
+          />
         </View>
+      }
+    >
+      <View
+        style={[
+          styles.ribbon,
+          { backgroundColor: colors.ornament, alignSelf: 'center' },
+        ]}
+      >
+        <Text variant="label" style={styles.ribbonText}>
+          ONE-TIME OFFER
+        </Text>
       </View>
-    </Modal>
+      <Text
+        style={[
+          styles.description,
+          accessibleText,
+          { color: colors.textSecondary },
+        ]}
+      >
+        {offer.description}
+      </Text>
+
+      <View style={styles.rewards}>
+        <View
+          accessible
+          accessibilityLabel={formatCredits(offer.credits, 'sentence')}
+          style={[
+            styles.rewardPill,
+            { backgroundColor: colors.backgroundTertiary },
+          ]}
+        >
+          <Text
+            style={[
+              styles.rewardValue,
+              NumericFontVariant,
+              { color: colors.primary },
+            ]}
+          >
+            {offer.credits}
+          </Text>
+          <Text style={[styles.rewardLabel, { color: colors.textSecondary }]}>
+            {offer.credits === 1 ? 'credit' : 'credits'}
+          </Text>
+        </View>
+        {offer.exclusive_cosmetic_slug ? (
+          <View
+            accessible
+            accessibilityLabel="Exclusive cosmetic"
+            style={[
+              styles.rewardPill,
+              { backgroundColor: colors.backgroundTertiary },
+            ]}
+          >
+            <GameSymbol name="star" size={26} color={colors.warning} />
+            <Text style={[styles.rewardLabel, { color: colors.textSecondary }]}>
+              exclusive cosmetic
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.priceRow}>
+        {referencePrice ? (
+          <Text
+            style={[
+              styles.refPrice,
+              NumericFontVariant,
+              { color: colors.textTertiary },
+            ]}
+            accessibilityLabel={`Usually ${referencePrice}`}
+          >
+            {referencePrice}
+          </Text>
+        ) : null}
+        {price ? (
+          <Text
+            style={[styles.price, NumericFontVariant, { color: colors.text }]}
+          >
+            {price}
+          </Text>
+        ) : null}
+      </View>
+
+      {remaining !== null ? (
+        <Text
+          style={[
+            styles.countdown,
+            NumericFontVariant,
+            { color: colors.error },
+          ]}
+          accessibilityLiveRegion="polite"
+        >
+          {expired
+            ? 'This offer has ended.'
+            : `Ends in ${formatRemaining(remaining)}`}
+        </Text>
+      ) : null}
+      {/* App Store 3.1.2: Terms and Privacy on any surface that sells. */}
+      <View style={styles.legalRow}>
+        <TouchableOpacity
+          onPress={() => Linking.openURL(Links.termsAndConditions)}
+          accessibilityRole="link"
+          accessibilityLabel="Terms and conditions"
+          style={styles.legalButton}
+        >
+          <Text style={[styles.legalLink, { color: colors.textTertiary }]}>
+            Terms
+          </Text>
+        </TouchableOpacity>
+        <Text style={[styles.legalDot, { color: colors.textTertiary }]}>•</Text>
+        <TouchableOpacity
+          onPress={() => Linking.openURL(Links.privacyPolicy)}
+          accessibilityRole="link"
+          accessibilityLabel="Privacy policy"
+          style={styles.legalButton}
+        >
+          <Text style={[styles.legalLink, { color: colors.textTertiary }]}>
+            Privacy
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </BottomSheet>
   );
 }
 
@@ -348,6 +334,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   card: {
+    maxHeight: '90%',
     width: '100%',
     maxWidth: 380,
     borderRadius: BorderRadius.xl,
@@ -362,7 +349,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   ribbonText: {
-    color: '#FFFFFF',
+    color: '#171225',
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
     letterSpacing: 1,
@@ -380,6 +367,7 @@ const styles = StyleSheet.create({
   },
   rewards: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.md,
     marginBottom: Spacing.lg,
   },
@@ -399,6 +387,7 @@ const styles = StyleSheet.create({
   },
   priceRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'baseline',
     gap: Spacing.sm,
     marginBottom: Spacing.xs,
@@ -425,13 +414,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   claimText: {
-    color: '#FFFFFF',
+    color: '#171225',
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
   },
   dismissButton: {
-    minHeight: 44,
-    minWidth: 44,
+    minHeight: 48,
+    minWidth: 48,
     paddingHorizontal: Spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
@@ -445,7 +434,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   legalButton: {
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: Spacing.sm,
     justifyContent: 'center',
   },

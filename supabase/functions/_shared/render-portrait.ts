@@ -42,6 +42,10 @@ export interface RenderPortraitInput {
   /** Distinguishes a first generation from a re-render in portrait_jobs. */
   jobKind: 'generate' | 'regenerate';
   idempotencyKey?: string | null;
+  /** Initial reservations publish only in their fenced database commit. */
+  deferPublication?: boolean;
+  existingJobId?: string;
+  initialRequestId?: string;
 }
 
 export interface RenderPortraitSuccess {
@@ -91,28 +95,30 @@ export async function renderOnePortrait(
     idempotencyKey = null,
   } = input;
 
-  const { data: job } = await supabase
-    .from('portrait_jobs')
-    .insert({
-      character_id: character.id,
-      profile_id: userId,
-      kind: jobKind,
-      portrait_kind: kind,
-      status: 'running',
-      seed,
-      prompt_payload: {
-        raw: promptRaw,
-        traits,
-        archetype: character.archetype,
-        signature_color: character.signature_color,
-        signature_item_fragment: itemFragment ?? null,
-        art_style: artStyle,
-      },
-      idempotency_key: idempotencyKey ? `${idempotencyKey}:${kind}` : null,
-      attempt: 1,
-    })
-    .select('id')
-    .single();
+  const { data: job } = input.existingJobId
+    ? { data: { id: input.existingJobId } }
+    : await supabase
+        .from('portrait_jobs')
+        .insert({
+          character_id: character.id,
+          profile_id: userId,
+          kind: jobKind,
+          portrait_kind: kind,
+          status: 'running',
+          seed,
+          prompt_payload: {
+            raw: promptRaw,
+            traits,
+            archetype: character.archetype,
+            signature_color: character.signature_color,
+            signature_item_fragment: itemFragment ?? null,
+            art_style: artStyle,
+          },
+          idempotency_key: idempotencyKey ? `${idempotencyKey}:${kind}` : null,
+          attempt: 1,
+        })
+        .select('id')
+        .single();
 
   const failJob = async (code: string, message: string): Promise<void> => {
     if (!job?.id) return;
@@ -179,12 +185,13 @@ export async function renderOnePortrait(
     };
   }
 
-  await supabase
-    .from('character_portraits')
-    .update({ is_current: false })
-    .eq('character_id', character.id)
-    .eq('kind', kind)
-    .eq('is_current', true);
+  if (!input.deferPublication)
+    await supabase
+      .from('character_portraits')
+      .update({ is_current: false })
+      .eq('character_id', character.id)
+      .eq('kind', kind)
+      .eq('is_current', true);
 
   const { data: portrait, error: insertErr } = await supabase
     .from('character_portraits')
@@ -209,7 +216,8 @@ export async function renderOnePortrait(
         art_style: artStyle,
       },
       generation_job_id: job?.id ?? null,
-      is_current: true,
+      initial_portrait_request_id: input.initialRequestId ?? null,
+      is_current: !input.deferPublication,
       moderation_status: 'approved',
       // Stamped by the caller once the character patch has settled: this write
       // can bump characters.appearance_version, and reading it beforehand marks
@@ -252,8 +260,8 @@ export async function renderOnePortrait(
 }
 
 /** Builds the trait bundle the resolver expects from a character row. */
-// deno-lint-ignore no-explicit-any
 export function traitsFromCharacter(
+  // deno-lint-ignore no-explicit-any
   character: Record<string, any>,
 ): PortraitTraits {
   return {

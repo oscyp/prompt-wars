@@ -9,15 +9,19 @@ import {
   successResponse,
 } from '../_shared/utils.ts';
 import { runJudgePipeline, JUDGE_PROMPT_VERSION } from '../_shared/judge.ts';
+import { independentProvider } from '../_shared/appeals-service.ts';
+import { assertIndependentCalls, type ActualCall } from '../_shared/appeals.ts';
 import { createJudgeProvider } from '../_shared/providers.ts';
 
 interface RunCalibrationRequest {
+  target?: 'primary' | 'appeal';
   locale?: string;
   limit?: number;
   threshold?: number;
 }
 
 interface CalibrationItemResult {
+  calls?: ActualCall[];
   id: string;
   expected_winner: number;
   actual_winner: number | null; // 1, 2, or null for draw
@@ -41,6 +45,7 @@ Deno.serve(async (req) => {
 
   try {
     const {
+      target = 'primary',
       locale = 'en',
       limit = 100,
       threshold = 0.9,
@@ -65,7 +70,8 @@ Deno.serve(async (req) => {
     }
 
     // Run judge pipeline for each calibration set
-    const judgeProvider = createJudgeProvider();
+    const judgeProvider =
+      target === 'appeal' ? independentProvider() : createJudgeProvider();
     const results: CalibrationItemResult[] = [];
     let correctCount = 0;
 
@@ -82,6 +88,14 @@ Deno.serve(async (req) => {
           set.theme,
           JUDGE_PROMPT_VERSION,
         );
+
+        if (target === 'appeal')
+          assertIndependentCalls(
+            judgeResult.calls,
+            judgeProvider.getModelId(),
+            [],
+            JUDGE_PROMPT_VERSION,
+          );
 
         // Map judge result to winner number (1, 2, or null for draw)
         let actualWinner: number | null = null;
@@ -106,6 +120,7 @@ Deno.serve(async (req) => {
         ).reduce((sum: number, val) => sum + (val as number), 0);
 
         results.push({
+          calls: judgeResult.calls,
           id: set.id,
           expected_winner: set.expected_winner,
           actual_winner: actualWinner,
@@ -132,7 +147,17 @@ Deno.serve(async (req) => {
     // Calculate accuracy
     const totalCount = calibrationSets.length;
     const accuracy = totalCount > 0 ? correctCount / totalCount : 0;
-    const status = accuracy >= threshold ? 'passed' : 'failed';
+    const status =
+      accuracy >= Math.max(0.9, threshold) &&
+      results.every(
+        (r) =>
+          r.calls?.length &&
+          r.calls.every(
+            (c) => !c.fallback && c.model_id === judgeProvider.getModelId(),
+          ),
+      )
+        ? 'passed'
+        : 'failed';
 
     // Insert calibration run
     const { data: calibrationRun, error: runError } = await supabase
@@ -144,7 +169,7 @@ Deno.serve(async (req) => {
         total_count: totalCount,
         correct_count: correctCount,
         accuracy,
-        threshold,
+        threshold: Math.max(0.9, threshold),
         status,
         per_item_results: results,
       })

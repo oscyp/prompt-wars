@@ -1,5 +1,6 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { GameText } from '@/components/game';
+
+import { StyleSheet, View } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -91,20 +92,22 @@ export default function RivalRow({
         accentColor={ring}
         accessibilityLabel={`${name}'s archetype`}
       />
-      <Text
+      <GameText
+        variant="fighter"
         style={[styles.name, accessibleText, { color: colors.text }]}
-        numberOfLines={1}
       >
         {name}
-      </Text>
+      </GameText>
       <View style={styles.right}>
-        <Text
+        <GameText
+          variant="body"
           style={[styles.record, NumericFontVariant, { color: recordColor }]}
           testID="rival-record"
         >
           {rivalRecordLabel(record)}
-        </Text>
-        <Text
+        </GameText>
+        <GameText
+          variant="body"
           style={[
             styles.count,
             NumericFontVariant,
@@ -112,7 +115,7 @@ export default function RivalRow({
           ]}
         >
           {rivalCountLabel(battlesCount)}
-        </Text>
+        </GameText>
       </View>
     </View>
   );
@@ -121,13 +124,15 @@ export default function RivalRow({
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: Spacing.sm,
-    minHeight: 44,
+    minHeight: 48,
     marginTop: Spacing.sm,
   },
   name: {
     flex: 1,
+    minWidth: 120,
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
   },
@@ -140,6 +145,6 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
   },
   count: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
   },
 });

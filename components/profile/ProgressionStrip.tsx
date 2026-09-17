@@ -1,6 +1,8 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameButton } from '@/components/game';
+import { GamePanel, GameText } from '@/components/game';
+
+import { Pressable, StyleSheet, View } from 'react-native';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -53,17 +55,22 @@ export default function ProgressionStrip({
   const accessibleText = useAccessibleTextStyle();
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card }]}>
-      <Text
+    <GamePanel
+      tone="ornate"
+      style={[styles.card, { backgroundColor: colors.card }]}
+    >
+      <GameText
+        variant="title"
         style={[styles.title, accessibleText, { color: colors.text }]}
         accessibilityRole="header"
       >
         {PROGRESS_TITLE}
-      </Text>
+      </GameText>
 
       {error ? (
         <View style={styles.errorRow}>
-          <Text
+          <GameText
+            variant="body"
             style={[
               styles.errorText,
               accessibleText,
@@ -71,17 +78,15 @@ export default function ProgressionStrip({
             ]}
           >
             {PROGRESS_ERROR_COPY.body}
-          </Text>
-          <Pressable
+          </GameText>
+          <GameButton
             onPress={onRetry}
             style={styles.retry}
             accessibilityRole="button"
             accessibilityLabel={PROGRESS_ERROR_COPY.retry}
-          >
-            <Text style={[styles.retryText, { color: colors.primary }]}>
-              {PROGRESS_ERROR_COPY.retry}
-            </Text>
-          </Pressable>
+            tone="secondary"
+            label={PROGRESS_ERROR_COPY.retry}
+          />
         </View>
       ) : (
         <>
@@ -105,7 +110,7 @@ export default function ProgressionStrip({
           ))}
         </>
       )}
-    </View>
+    </GamePanel>
   );
 }
 
@@ -131,7 +136,8 @@ function Row({
   const body = (
     <>
       <View style={styles.rowText}>
-        <Text
+        <GameText
+          variant="label"
           style={[
             styles.label,
             accessibleText,
@@ -139,9 +145,10 @@ function Row({
           ]}
         >
           {label}
-        </Text>
+        </GameText>
         {detail ? (
-          <Text
+          <GameText
+            variant="body"
             style={[
               styles.detail,
               accessibleText,
@@ -149,17 +156,17 @@ function Row({
             ]}
           >
             {detail}
-          </Text>
+          </GameText>
         ) : null}
       </View>
-      <Text
+      <GameText
+        variant="label"
         style={[styles.value, NumericFontVariant, { color: valueColor }]}
-        numberOfLines={1}
       >
         {value}
-      </Text>
+      </GameText>
       {onPress ? (
-        <Ionicons
+        <GameSymbol
           name="chevron-forward"
           size={18}
           color={colors.textSecondary}
@@ -197,7 +204,7 @@ function Row({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.xs,
@@ -209,9 +216,10 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: Spacing.sm,
-    minHeight: 44,
+    minHeight: 48,
     paddingVertical: Spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
@@ -237,7 +245,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    minHeight: 44,
+    minHeight: 48,
     paddingBottom: Spacing.sm,
   },
   errorText: {
@@ -245,8 +253,8 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.sm,
   },
   retry: {
-    minHeight: 44,
-    minWidth: 44,
+    minHeight: 48,
+    minWidth: 48,
     justifyContent: 'center',
     paddingHorizontal: Spacing.sm,
   },

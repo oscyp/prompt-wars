@@ -1,0 +1,30 @@
+{
+  "version": "1.3.1",
+  "archiveFileCount": 371,
+  "totalBytes": 34552213,
+  "excludedFiles": [],
+  "knownSecretPatternMatches": [],
+  "sourceTreeSha256": "d135871b8f798265676a0da4cf79af0fecfe88f679fef53ac2775327fed22508",
+  "excludedPaths": [
+    ".git",
+    ".env",
+    ".env.local",
+    ".eas.production.env",
+    ".superpowers",
+    ".agents",
+    ".codex",
+    ".claude",
+    ".github",
+    "docs",
+    "supabase",
+    "landing",
+    "__tests__",
+    "output",
+    "test-support",
+    ".expo"
+  ],
+  "displayFontFiles": [
+    "assets/fonts/BarlowCondensed-Bold.ttf",
+    "assets/fonts/BarlowCondensed-ExtraBoldItalic.ttf"
+  ]
+}

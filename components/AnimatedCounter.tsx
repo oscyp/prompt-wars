@@ -1,7 +1,10 @@
+import { GameText as Text } from '@/components/game';
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleProp, Text, TextStyle } from 'react-native';
+import { StyleProp, TextStyle } from 'react-native';
 import {
   Easing,
+  cancelAnimation,
   runOnJS,
   useAnimatedReaction,
   useSharedValue,
@@ -37,7 +40,8 @@ export default function AnimatedCounter({
   style,
   accessibilityLabel,
 }: AnimatedCounterProps) {
-  const reduceMotion = useReducedMotion();
+  const active = useBattlePresentationActive();
+  const reduceMotion = useReducedMotion() || !active;
   const [display, setDisplay] = useState<number>(reduceMotion ? value : 0);
   const progress = useSharedValue<number>(reduceMotion ? value : 0);
   const hasAnimated = useRef(false);
@@ -61,6 +65,7 @@ export default function AnimatedCounter({
       duration,
       easing: Easing.out(Easing.cubic),
     });
+    return () => cancelAnimation(progress);
   }, [value, duration, reduceMotion, progress]);
 
   useAnimatedReaction(

@@ -7,6 +7,9 @@ import { AccessibilityInfo } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 import ArenaTips from '@/components/ArenaTips';
 import { TIP_INTERVAL_MS, tipForTick } from '@/utils/arenaTips';
+jest.mock('@/components/game/battle/useBattlePresentationActive', () => ({
+  useBattlePresentationActive: () => true,
+}));
 
 jest.mock('@/utils/haptics', () => ({
   hapticSuccess: jest.fn(),

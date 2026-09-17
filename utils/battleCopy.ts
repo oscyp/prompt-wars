@@ -354,3 +354,10 @@ export function ratingDeltaLabel(
   if (rounded === 0) return 'Rating unchanged';
   return rounded > 0 ? `Rating +${rounded}` : `Rating ${rounded}`;
 }
+
+/** Exact assigned server deadline, localized with the device timezone. */
+export function exactBattleDeadline(value: string | null | undefined): string {
+  if (!value || !Number.isFinite(Date.parse(value)))
+    return 'Deadline will appear when the round opens';
+  return `Lock in by ${new Date(value).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}`;
+}

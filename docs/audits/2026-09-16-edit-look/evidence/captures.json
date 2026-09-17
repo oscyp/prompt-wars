@@ -1,0 +1,70 @@
+[
+  {
+    "name": "standard-look",
+    "file": "standard-look.jpg"
+  },
+  {
+    "name": "standard-fighter",
+    "file": "standard-fighter.jpg"
+  },
+  {
+    "name": "standard-gear",
+    "file": "standard-gear.jpg"
+  },
+  {
+    "name": "standard-card",
+    "file": "standard-card.jpg"
+  },
+  {
+    "name": "standard-history",
+    "file": "standard-history.jpg"
+  },
+  {
+    "name": "standard-confirm",
+    "file": "standard-confirm.jpg"
+  },
+  {
+    "name": "standard-pending",
+    "file": "standard-pending.jpg"
+  },
+  {
+    "name": "standard-failure",
+    "file": "standard-failure.jpg"
+  },
+  {
+    "name": "small-accessibility-look",
+    "file": "small-accessibility-look.jpg"
+  },
+  {
+    "name": "small-look",
+    "file": "small-look.jpg"
+  },
+  {
+    "name": "small-fighter",
+    "file": "small-fighter.jpg"
+  },
+  {
+    "name": "small-gear",
+    "file": "small-gear.jpg"
+  },
+  {
+    "name": "production-locked-look",
+    "file": "production-locked-look.jpg"
+  },
+  {
+    "name": "production-locked-fighter",
+    "file": "production-locked-fighter.jpg"
+  },
+  {
+    "name": "production-locked-gear",
+    "file": "production-locked-gear.jpg"
+  },
+  {
+    "name": "standard-writing-no-software-keyboard",
+    "file": "standard-writing-no-software-keyboard.jpg"
+  },
+  {
+    "name": "small-writing-no-software-keyboard",
+    "file": "small-writing-no-software-keyboard.jpg"
+  }
+]

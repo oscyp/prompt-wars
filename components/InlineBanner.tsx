@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameText as Text, GameButton } from '@/components/game';
+import { View, StyleSheet } from 'react-native';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
@@ -10,7 +11,7 @@ export type BannerTone = 'info' | 'warning' | 'error';
 export interface InlineBannerProps {
   tone?: BannerTone;
   text: string;
-  icon?: React.ComponentProps<typeof Ionicons>['name'];
+  icon?: React.ComponentProps<typeof GameSymbol>['name'];
   /** Renders a trailing button when both this and `onAction` are supplied. */
   actionLabel?: string;
   onAction?: () => void;
@@ -18,7 +19,7 @@ export interface InlineBannerProps {
 
 const DEFAULT_ICON: Record<
   BannerTone,
-  React.ComponentProps<typeof Ionicons>['name']
+  React.ComponentProps<typeof GameSymbol>['name']
 > = {
   info: 'information-circle-outline',
   warning: 'lock-closed-outline',
@@ -58,22 +59,17 @@ export default function InlineBanner({
         { borderColor: accent, backgroundColor: colors.backgroundSecondary },
       ]}
     >
-      <Ionicons name={icon ?? DEFAULT_ICON[tone]} size={16} color={accent} />
+      <GameSymbol name={icon ?? DEFAULT_ICON[tone]} size={16} color={accent} />
       <Text style={[styles.text, accessibleText, { color: colors.text }]}>
         {text}
       </Text>
       {actionLabel && onAction ? (
-        <TouchableOpacity
+        <GameButton
+          label={actionLabel}
           onPress={onAction}
-          accessibilityRole="button"
-          accessibilityLabel={actionLabel}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          style={styles.action}
-        >
-          <Text style={[styles.actionText, { color: accent }]}>
-            {actionLabel}
-          </Text>
-        </TouchableOpacity>
+          tone="secondary"
+          style={{ alignSelf: 'stretch' }}
+        />
       ) : null}
     </View>
   );
@@ -82,9 +78,10 @@ export default function InlineBanner({
 const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: Spacing.sm,
-    minHeight: 44,
+    minHeight: 48,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
@@ -92,11 +89,11 @@ const styles = StyleSheet.create({
   },
   text: {
     flex: 1,
-    fontSize: Typography.sizes.sm,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 24,
   },
   action: {
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: 'center',
   },
   actionText: {

@@ -16,7 +16,7 @@
 import type { PublicPlayerMap } from './publicPlayers';
 
 export interface OpponentIdentity {
-  /** The fighter's character name; null when unknown or for a bot. */
+  /** The frozen fighter name; null when unknown, including unnamed legacy bots. */
   name: string | null;
   archetype: string | null;
   /** As stored (hex or palette key); resolve with `resolveSignatureHex`. */
@@ -29,6 +29,7 @@ export interface OpponentIdentityBattle {
   player_two_id?: string | null;
   is_player_two_bot?: boolean | null;
   tier0_reveal_payload?: unknown;
+  identity_snapshot?: unknown;
 }
 
 export const UNKNOWN_OPPONENT: OpponentIdentity = {
@@ -77,6 +78,20 @@ export function opponentIdentityFor(
   const opponentId = iAmPlayerTwo ? battle.player_one_id : battle.player_two_id;
   const isBot = !iAmPlayerTwo && battle.is_player_two_bot === true;
 
+  const snapshot = payloadPlayer(
+    { players: battle.identity_snapshot },
+    opponentSide,
+  );
+  if (snapshot) {
+    // Assigned identity is immutable. Missing snapshot fields remain unknown;
+    // later public equipment must not rewrite this battle's actor.
+    return {
+      name: str(snapshot.name),
+      archetype: str(snapshot.archetype),
+      signatureColor: str(snapshot.signature_color),
+      isBot,
+    };
+  }
   const frozen = payloadPlayer(battle.tier0_reveal_payload, opponentSide);
   const payloadArchetype = str(frozen?.archetype);
   const payloadColor = str(frozen?.signature_color);

@@ -1,6 +1,8 @@
 # Prompt Wars Implementation Concept
 
-> Document version: v3 (designer-adjusted).
+> Document version: v4 (UX and game-integrity remediation, 2026-09-13).
+>
+> The [approved remediation plan](plans/2026-09-13-ux-game-integrity.md) defines this release. New combat rules and independent appeals are gated until compatibility, calibration, and validation pass. Existing battles retain their stored rules and assigned deadlines. The older amendment below is historical context.
 >
 > **Amended 2026-08-22** after an implementation audit. Sections corrected where
 > the code was right and the doc had gone stale: §7.7 (Bo3 is every mode, not
@@ -47,11 +49,12 @@ app/
 
 Suggested tabs:
 
-- Home
+- Arena
 - Battles
-- Create
 - Rankings
 - Profile
+
+Battle is a raised, labeled action in the middle of the tab bar, between Battles and Rankings. It opens the mode sheet while keeping the current destination selected. A persistent root stack preserves the tab and scroll state beneath secondary screens.
 
 ## 3. MVP Scope
 
@@ -60,14 +63,15 @@ The MVP should optimize for async turn-based 1v1 battles. This avoids the comple
 MVP features:
 
 - Account creation and sign-in
-- First-run character creation with free starter archetypes
+- First-run free starter fighter and resumable guided practice, with full customization as an alternative
 - Prompt template selection
 - Custom prompt entry with moderation
 - Structured prompts: move type (attack / defense / finisher) plus text
 - Bot opponents for first battle and as a fallback when matchmaking is empty
 - Async 1v1 battle creation, friend challenge by deep link, and matchmaking
-- Theme-after-matchmaking constraint reveal (both players write under the same constraint)- Prompt lock-in by each player with 2h ranked timeout / 8h friend-challenge timeout
-- ~~Auto-enqueue a second battle to a different opponent immediately after lock-in (parallel queue)~~ — **not implemented.** `submit-prompt` returns without any matchmaking call. Listed here and in §4 step 7 as MVP scope; either build it or cut it, but it is not shipped.
+- Theme revealed after matchmaking; both players write under the same constraint
+- New human rounds allow 24 hours from server opening; practice allows two hours. Assigned deadlines are never changed retroactively.
+- Starting another battle is always an explicit player action; no automatic parallel enqueue.
 - Server-side battle resolution using LLM-as-judge with rubric, double-run, length normalization, and judge calibration
 - Player appeal flow for ranked losses (capped 1/day)
 - Tier 0 result reveal (always free, cinematic and silent): scored card, rubric breakdown, judge "why," 9:16 motion poster, per-move-type animation
@@ -75,8 +79,8 @@ MVP features:
 - 3 free Tier 1 video reveals in the first 7 days for every new account
 - Draws as a first-class outcome
 - Player stats and battle history
-- Daily themed prompt with shared global leaderboard, daily quests, win-streak meter with mercy day
-- Rival auto-tagging on most-played opponent; prompt journal of personal best-rated prompts
+- General Arena entry with theme revealed after matching, daily quests, win-streak meter with mercy day
+- Rival auto-tagging on most-played opponent; recent best prompts with an explicit sample window
 - Basic rankings (Glicko-2) and seasonal leaderboard with anti-collusion guardrails
 - Newbie matchmaking bucket (under 10 ranked battles only matched to newbies or bots)
 - Credits for video upgrades, subscription ("Prompt Wars+") for video allowance and cosmetics
@@ -99,24 +103,24 @@ Out of scope for MVP:
 ## 4. Core Game Loop
 
 1. Player signs up or signs in.
-2. Player creates a character during onboarding.
+2. Player chooses Play practice with a free balanced starter, or Customize first. The starter needs no image-generation request.
 3. Player enters matchmaking, accepts a challenge, or starts an unranked battle.
 4. Once both players are matched, the **battle theme is revealed to both** with a per-side visible timer.
 5. Player picks a predefined prompt or writes a custom prompt under the shared theme constraint.
 6. Custom prompts pass moderation and length checks.
-7. Player locks in the prompt. Player is immediately auto-enqueued for a second parallel battle against a different opponent.
-8. The battle waits until the opponent also locks in (2h ranked / 8h friend timeout).
+7. Player locks in the prompt. Unsubmitted writing is persisted locally by account, battle, and round. The player may park safely and start another battle explicitly.
+8. The battle waits until the opponent locks in or the displayed round deadline expires (24 hours for new human rounds; two hours for practice).
 9. Backend resolves the battle (LLM-as-judge, double-run, length-normalized, calibrated).
 10. Tier 0 cinematic reveal plays silently for both players: motion poster, animation, scored card.
 11. Backend automatically queues one shared silent Tier 1 video when either participant is below the 1/day cap (global 100/day); otherwise the existing credits/sub allowance upgrade remains available.
 12. Stats, rankings, rewards, and wallet transactions are updated. Player may file one appeal/day on a ranked loss.
 13. Player can rematch, share (video or scored card image), or start a new battle.
 
-The loop should be short enough that a user can complete their first battle within a few minutes, while async waiting states keep the app useful when the opponent has not submitted yet. The auto-enqueued second battle ensures the player always has a next action.
+The loop should be short enough that a user can complete their first battle within a few minutes, while async waiting states keep the app useful when the opponent has not submitted yet. Return to Arena is always available without forfeiting. Forfeit is a separate free action with mode-specific consequences.
 
 ## 5. Character Creation
 
-Character creation is required before the first battle. The MVP should keep it expressive but lightweight, while giving the player enough surface area to feel ownership. Identity drives retention.
+A server-finalized fighter is required before a battle, but customization is optional before first play. Play practice creates an idempotent balanced starter with bundled artwork; Customize first retains the full creator. Contextual tutorial hints teach the ordinary Bo3 rules without forcing a win. Dismissal, resumption, and replay are supported. Deferred customization retains three initial free portrait renders, consumed server-side. Request notification permission at the first meaningful async wait.
 
 Starter character model:
 
@@ -131,13 +135,13 @@ Starter character model:
 
 Starter archetypes (all free, all available from day one):
 
-- The Strategist: precise, tactical, rewards Defense moves
-- The Trickster: creative, chaotic, rewards unexpected angles
-- The Titan: direct, powerful, rewards Attack moves
-- The Mystic: poetic, abstract, rewards Originality
-- The Engineer: structured, technical, rewards Specificity
+- The Strategist: precise, tactical identity/build preset
+- The Trickster: creative, chaotic identity/build preset
+- The Titan: direct, powerful identity/build preset
+- The Mystic: poetic, abstract identity/build preset
+- The Engineer: structured, technical identity/build preset
 
-Archetypes are baseline content and must always be free. Archetype effects influence narrative flavor and small, capped scoring modifiers (no more than ~5 percent of total score), never raw win probability. Cosmetics, subscriptions, and shop items must never gate or boost an archetype. Any new archetype added later must ship as a free unlock through play, not a paid wall, to preserve competitive trust.
+Archetypes are free identity and build presets, with no additional affinity stat or scoring bonus. Allocated stats supply the documented bounded combat effects. Cosmetics, subscriptions, and shop items never gate or boost an archetype.
 
 Progression ideas:
 
@@ -190,7 +194,7 @@ Prompt categories for templates:
 
 Battles are resolved server-side. AI is used as a structured judge of prompt quality, but the resolution pipeline, scoring, tie-breaks, and rating updates are owned by the backend. The client never decides outcomes.
 
-Decision-making layer (MVP): once both players are matched, the **battle theme is revealed to both** before either writes their prompt. Both write under the same constraint, in parallel, with a visible per-side timer. This is what turns the game from a writing exercise into a battle. **Best-of-3 rounds (see §7.7)** is a Phase 2 mode shipped behind a per-battle `format` flag; per-match wagers remain phase 4+.
+Decision-making layer (MVP): once both players are matched, the **battle theme is revealed to both** before either writes their prompt. Both write under the same constraint, in parallel, with a visible per-side timer. This is what turns the game from a writing exercise into a battle. **Best-of-3 rounds (see §7.7)** is the live format; legacy single battles remain readable and resolvable. Per-match wagers are outside this remediation.
 
 ### 7.1 Structured Prompt Model
 
@@ -239,7 +243,7 @@ Rubric per prompt (each 0-10):
 - Originality
 - Specificity
 - Theme fit
-- Character / archetype fit
+- Character consistency (wire key `archetype_fit`)
 - Dramatic potential
 
 Procedure:
@@ -247,7 +251,7 @@ Procedure:
 1. Server packages both prompts blindly (no usernames, no ratings, no archetype names, no theme name in natural language) into a structured judging payload. Archetype and theme are passed as opaque structured fields the judge cannot pattern-match on stylistically.
 2. The judge model is asked to score both prompts on the rubric and return strict JSON.
 3. **Length normalization**: per-category scores are normalized against word-count buckets so longer prompts cannot win on volume alone. Cap the marginal benefit of length above the soft target (400 chars).
-4. The call is run twice with different seeds. If aggregate scores disagree on the winner, a third tie-breaker call runs.
+4. The call is run twice with different seeds. Agreeing calls average corresponding normalized rubric values. This same aggregate drives outcome, displayed totals, and damage. Directional disagreement retains the third-call policy. Store each actual model ID, prompt version, seed, raw/normalized rubric, fallback status, and aggregation path.
 5. Move-type matchup modifier is applied after rubric scoring, capped.
 6. Final winner, per-category scores, normalized scores, and a short "why" explanation are stored on the battle.
 7. Players see the per-category breakdown and judge explanation on the result screen. Transparency is the retention lever.
@@ -255,21 +259,23 @@ Procedure:
 
 **Calibration set**: a frozen library of ~200 prompt pairs with known correct winners. The live judge runs against this set nightly; if accuracy drops below threshold, the current judge model/prompt version is frozen and an incident is opened. New judge versions must beat the current version on the calibration set before promotion. Judge versions ship at season boundaries only, so mid-season ratings stay stable.
 
-**Player appeal flow**: a player can appeal a ranked loss, capped at 1/day. Appeals enqueue the battle for a third independent judge run with a different model; if the result flips, the original rating change is reversed and the appeal is logged. Even rare appeals materially improve trust.
+**Player appeal flow**: a ranked loss may be appealed once per day when an independently configured, calibrated reviewer is available. Review every played round with frozen prompts, moves, stat snapshots, and rules, using a model different from the original calls. Reconstruct the series sequentially: uphold, overturn, or no contest when an unplayed deciding round is required. On overturn/no contest, an atomic unique correction reverses the original rating-point delta once, preserving later rating changes and current deviation/volatility. Do not replay later games or grant replacement win rating. Reconcile outcome records/streaks without reclaiming credits/cosmetics or duplicating rewards. Pending, processing, retryable failure and final states survive restart. Preserve original evidence, revise result cards, and identify pre-review cinematics. Unavailable review never consumes the allowance.
+
+**Degraded judging**: any mock-assisted ranked series still completes Tier 0, explicitly as an unrated exhibition. No ranked rating or competitive win/streak reward changes; participation remains available.
 
 Scoring inputs explicitly excluded from MVP: player rating difference, recent streaks, paid items. Rating changes are computed _after_ scoring, never as part of it.
 
 ### 7.4 Draws
 
-Draws are first-class in MVP. If aggregate rubric difference is below a small epsilon and move-type matchup is neutral, the battle is a draw. Both players get partial XP, a small rating regression toward expected outcome, and the result reveal still plays.
+Draws are first-class. A round is drawn when the final score gap is below the existing three-point threshold. Series rules are in §7.7. Eligible ranked series draws use normal Glicko-2 draw handling; the free reveal still completes.
 
 ### 7.5 Ranked Battle Constraints
 
 - Only moderated prompts (templates or custom).
 - No paid stat modifiers.
 - Rating updates use **Glicko-2** (chosen for sparse async play; rating deviation grows during inactivity).
-- Timeout: **2 hours** to lock prompt in ranked. Auto-forfeit on expire.
-- After lock-in, the player is automatically enqueued for a second battle against a different opponent so there is always another action available.
+- New human-round deadline: **24 hours** from server opening; existing assigned deadlines remain unchanged. Per-round timeout handling remains server-owned.
+- Parking is free and never changes battle status; starting a new battle is explicit. Ranked human forfeits are free losses; casual/practice abandonment and unmatched queues cancel. During judging, parking remains available without racing the resolver.
 - A player can send one "poke" notification per battle after 30 minutes of opponent inactivity.
 - Opponent diversity: cannot face the same opponent more than N times per 24h in ranked.
 - Newbie bucket: accounts with under 10 ranked battles are only matched to other newbies or bots.
@@ -279,7 +285,7 @@ Draws are first-class in MVP. If aggregate rubric difference is below a small ep
 
 - Experimental templates allowed.
 - Friend challenges via deep link.
-- Timeout: **8 hours** to lock prompt (longer than ranked, accommodates real-life friend cadence).
+- New casual/friend rounds: **24 hours**; practice: **two hours**. Show exact localized deadlines.
 - No ranking penalty.
 - Still moderated. Still subject to anti-abuse caps.
 
@@ -289,12 +295,15 @@ Best-of-3 (Bo3) is **the live battle format for every mode** — ranked, unranke
 
 > The `battles.format` column still defaults to `'single'` and the single-format resolver (plus `expire_timed_out_battles` and `claim_forfeit_timeout_battles`) is still maintained, but **no new battle reaches it** — `create_battle` and `create_bot_battle` both force `'bo3'`. Those paths are legacy-only, for rows created before the flip.
 
-**Character stats.** Each character has four stats — Strength, Stamina, Agility, Focus — each integer 1-10. At creation the player distributes a fixed pool of **20 points** across them (min 1, max 10 each; the historical default was 5/5/5/5, which is the same total), validated server-side in `finalize-character-creation` (`_shared/character-stats.ts`); the client can never write `stat_*` directly. After creation stats are earn-only (no paid boosts). _(Updated 2026-09-03: creation-time allocation added; presets per archetype are UI convenience, not bonuses.)_ Archetype affinity grants +1 to one stat (mapping defined in the seed). Stats are **snapshotted into the battle row at face-off** (`player_one_stats_snapshot`, `player_two_stats_snapshot` JSONB). All resolution code reads the snapshot — never the live `characters.stat_*` columns — so retroactive stat changes never alter past battles.
+**Character stats.** Each character has four stats — Strength, Stamina, Agility, Focus — each integer 1-10. At creation the player distributes a fixed pool of **20 points** across them (min 1, max 10 each; the historical default was 5/5/5/5, which is the same total), validated server-side in `finalize-character-creation` (`_shared/character-stats.ts`); the client can never write `stat_*` directly. After creation stats have no paid boosts. Existing players receive one free rules-v2 respec, preserving their current point total and all active battle snapshots. Archetype presets are convenience, not affinity bonuses. Stats are **snapshotted into the battle row at face-off** (`player_one_stats_snapshot`, `player_two_stats_snapshot` JSONB). All resolution code reads the snapshot — never the live `characters.stat_*` columns — so retroactive stat changes never alter past battles.
 
-- Strength: damage modifier.
-- Stamina: HP. `HP_max = clamp(60 + Stamina * 8, 70, 140)`.
-- Agility: small initiative / tiebreak influence.
-- Focus: reduces variance in stat modifier.
+New battles use version 2 only after the rollout gate is enabled; existing battles retain version 1.
+
+- Strength: existing damage contribution plus 0.5% scoring per point of difference.
+- Stamina: `HP_max = 60 + Stamina * 8`, spanning 68–140.
+- Agility: incoming damage reduction of 2% per point above the attacker, capped at 18%.
+- Focus: predictable 0.25% scoring per point of difference.
+- Combined Strength/Focus scoring is capped at ±5%.
 
 **Round modifiers.** Per round, after rubric + move-type scoring:
 
@@ -307,7 +316,7 @@ Best-of-3 (Bo3) is **the live battle format for every mode** — ranked, unranke
 
 - HP is initialized from Stamina at face-off and **carries across rounds**.
 - Round winner: higher final normalized score. Within draw epsilon → `is_draw=true`, `round_winner_id=NULL`, no damage applied.
-- Damage = `clamp(round(12 + score_gap * 2.2 + (winner_strength - 5) * 1.5), 8, 60)`, applied to the loser's HP after the round.
+- Version-2 damage = `clamp(round((12 + score_gap * 2.2 + (winner_strength - 5) * 1.5) * (1 - agility_reduction)), 8, 60)`, applied to the loser after the round. Round once after reduction. Version 1 retains its recorded rules.
 - KO: `hp ≤ 0` at end of round AND `score_gap ≥ 7`. KO ends the battle immediately and wins it.
 
 > The earlier formula (`gap * (8 + strength/2)` clamped to 40) pinned to its clamp for essentially every non-draw round, since the draw epsilon is 3.0. With 100 HP at default stamina and at most two losses before a match ends, **KO was mathematically unreachable and the "lower HP loses" tiebreaker could never discriminate** — both players always held identical HP. Under the current curve two blowouts KO at default stamina, an even series does not, and stamina 10 survives what stamina 1 does not.
@@ -316,14 +325,14 @@ Best-of-3 (Bo3) is **the live battle format for every mode** — ranked, unranke
 
 - First to 2 round wins → wins the battle.
 - KO at any round → wins the battle.
-- Round 3 is only played when standings are 1-1 and no KO has occurred.
-- All-draw tiebreaker (final round draw with 0-0 or 1-1): lower HP loses → higher cumulative judge score → earlier final round lock timestamp.
+- Continue to round three whenever neither side has two wins and no KO has occurred, including standings with draws.
+- Version-2 exhaustion compares round wins, then remaining HP percentage, then cumulative final score, then declares a draw. Submission speed is never a deciding rule. Persist the rule and comparison values for player-facing explanations.
 
-**Timeouts.** Per-round lock-in deadline. Round 1 ranked = 45 minutes (the clock starts at face-off, with both players present); **rounds 2-3 ranked = 2 hours**, because they begin whenever the previous round resolves, which in an async game is often while the player is away. Friend = 2 hours throughout. A `round_start` push fires when a new round opens — without it players lost rounds to a clock they were never told had started.
+**Timeouts.** Each new human round receives 24 hours when opened by the server, including ranked, casual, and friend rounds. Practice retains two hours and immediate bot behavior. Existing assigned deadlines remain unchanged. Round-start pushes remain subject to quiet hours and notification caps; notification receipt never starts the clock.
 
-> This supersedes the battle-level "2h ranked / 8h friend" figure in §7.5 for Bo3, which is now every battle. Only per-round deadlines are swept. Sweeper operates on `battle_rounds.lock_in_deadline`, not the battle-level deadline. Single-sided lock at deadline → opponent forfeits that round only; battle continues unless that loss completes the match.
+> Bo3 uses per-round deadlines; legacy single battles retain their assigned battle-level deadline. Only per-round deadlines are swept. Sweeper operates on `battle_rounds.lock_in_deadline`, not the battle-level deadline. Single-sided lock at deadline → opponent forfeits that round only; battle continues unless that loss completes the match.
 
-**Entitlements.** Allowances are denominated in round-units, and one credit buys one **round**, not one battle — a fully cinematic Bo3 costs three. The automatic free video enqueues **one** shared cinematic per completed series (for the final round), not three. Glicko-2 rating updates remain **one match-level call** per completed Bo3 battle, never per round.
+**Entitlements.** Allowances are denominated in round-units, and one credit buys one **round**, not one battle — a three-round cinematic Bo3 costs three. The automatic free video enqueues **one** shared cinematic per completed series (for the final round), not three. Glicko-2 rating updates remain **one match-level call** per completed Bo3 battle, never per round.
 
 **Schema seams (Phase 2).**
 
@@ -487,11 +496,11 @@ Indicative starting price ladder (validate live):
 | Pack     | Credits | USD   | Notes            |
 | -------- | ------- | ----- | ---------------- |
 | Starter  | 10      | 1.99  | impulse          |
-| Standard | 30      | 4.99  | best value badge |
+| Standard | 30      | 4.99  | store price      |
 | Big      | 80      | 9.99  | anchor           |
 | Whale    | 200     | 19.99 | rare buyer       |
 
-One credit equals one **round** upgraded to video. Since every battle is Bo3, a fully cinematic battle costs three credits; the free automatic job covers one shared cinematic per completed series.
+One credit equals one **round** upgraded to video. Since every battle is Bo3, a three-round cinematic battle costs three credits; the free automatic job covers one shared cinematic per completed series.
 
 ### 10.2 Subscription
 
@@ -499,9 +508,7 @@ Single tier in MVP, branded **Prompt Wars+**. Indicative ~9.99 USD per month, ~5
 
 - Monthly video allowance large enough that an engaged daily player rarely runs out.
 - Cosmetic frames, titles, avatar effects, and reveal styles.
-- Priority generation queue where provider and fairness constraints allow.
-- Extra saved video history (free tier auto-prunes after N battles).
-- Expanded custom prompt draft slots.
+- Priority queue, extra retention, and paid draft slots are not implemented benefits and must not be advertised. Local active-round drafts are available to every player.
 - Never grants ranked stat advantage.
 
 ### 10.3 First-Time-User Offer (FTUO)
@@ -510,7 +517,10 @@ A one-time, time-boxed offer surfaced 24-72 hours after install for non-payers w
 
 ### 10.4 Cosmetics And Battle Pass (Phase 4+)
 
-- Cosmetic shop: frames, titles, avatar effects, reveal styles. Strictly cosmetic.
+- Cosmetic shop: frames, titles, avatar effects, badges and signature-color swatches. Strictly cosmetic. Reveal styles remain unavailable until a rendering surface exists.
+- Shop separates preview from currently worn equipment, with category and owned filters and non-actionable collection tiles with explicit Preview. Buy/Equip/Remove are in the preview’s persistent footer and purchase confirmation remains. Two columns require width >=390 points and fontScale <=1.15; otherwise use one. Color ownership unlocks a deliberate choice in Identity; it never silently regenerates artwork.
+- Astral Codex, Emberforge and Neon Circuit frames are epic cosmetics at 25 credits. Laureate is legendary at 40 credits or earned with 50 wins. Prior prices, earned paths and Founders exclusivity remain unchanged. Each new frame has a bundled portrait and circular-avatar variant.
+- Cosmetics client contract 2 is required to list, purchase or equip the new frames. Missing client versions mean contract 1; legacy items remain usable. Catalog, ownership, wallet and equipment are server-owned. Purchase acknowledgment survives a failed catalog refresh, and retrying an owned purchase cannot charge again.
 - Seasonal battle pass with free and premium tracks tied to play activity, not pay activity. Tracks should not require purchase to make play meaningful, only to unlock cosmetics.
 - Paid challenge packs and sponsored prompt template events are optional.
 - Rewarded ads only as a small free credit top-up path, with a hard daily cap, never on the result screen.
@@ -529,7 +539,8 @@ A one-time, time-boxed offer surfaced 24-72 hours after install for non-payers w
 - No paid archetypes.
 - No paid prompt templates that score better than free templates.
 - No paid bypass of moderation.
-- Subscription only buys: more video reveals, cosmetics, convenience, history.
+- Subscription benefits are the implemented video allowance, badge and cosmetics. Do not promise priority generation or full-history retention.
+- Paid idea rerolls remain available in ranked by explicit product decision. The current first suggestion set per battle/round/move is free; later sets cost the displayed credit price. Both use the same provider, quality policy and moderation. More suggestions do not guarantee a higher score; assistance availability is disclosed, and payment metadata is excluded from judging.
 
 ### 10.7 Conversion Principles
 
@@ -538,6 +549,18 @@ A one-time, time-boxed offer surfaced 24-72 hours after install for non-payers w
 - Credit cost is transparent before lock-in.
 - Failed generation never costs the player.
 - Subscriptions feel like creative expansion, not a competitive requirement.
+
+### Character editor contract (16 September 2026)
+
+Edit Look uses visible Look, Fighter and Gear categories and a compact current-artwork preview. Its former collapsing stage is removed. All existing appearance traits, identity fields, art styles, owned signature colours, retained custom/legacy signature items, cooldowns and free stat respec remain. Selecting equipment stages it for free; including it in artwork requires a separate drawing. No new custom-item creation, unequip action or history retention entitlement is added.
+
+Back automatically preserves a versioned local draft scoped to authenticated account and fighter; explicit Save changes updates the server for free. The local record stores staged and baseline fields, independent written/guided choices, active description mode, category, disclosures and scroll positions, never signed media URLs. Untouched fields refresh from the server. Same-field remote changes require a comparison choice. Identity and look requests remain separate, and only successful fields are acknowledged after partial saves. Inactive written/guided work survives saving the active representation. Storage failures expose Retry and require an explicit discard before leaving without a saved draft.
+
+Drawing is confirmed with live prices and remaining free initial-portrait allowances. Normal drawing saves applicable edits first; a failed save prevents generation. Shuffle explicitly describes replacing staged choices and clears them only after authoritative success. Unknown prices disable priced actions while free Look/Gear edits remain available. Active battle locks disable mutation handlers without hiding saved values, previews or Manage battles.
+
+Paid drawing reserves a durable account/fighter/request key locally before dispatch and retains available job/result references. Reopened editors reconcile existing owner-readable records; Check status never calls generation. Network ambiguity remains Still processing, and result signing/loading can retry without another charge. A known terminal result whose local write failed is retried before acknowledgment; authoritative success wins over stale failure. Process termination before terminal evidence can be persisted remains safely pending for reconciliation, rather than treating missing rows as proof of no charge. Initial portrait reservation, moderation, provider refunds and avatar repair retain their existing server authority.
+
+This update changes the client only. It introduces no schema migration, Edge Function deployment, entitlement, pricing rule, combat flag or audio-provider change. Android acceptance remains blocked pending a test environment. The scoped implementation and validation record is `docs/audits/2026-09-16-edit-look/IMPLEMENTATION.md`; version bumps and distribution are separate work.
 
 ## 11. Technical Architecture
 
@@ -722,7 +745,7 @@ reports
 - `subscription_tier`
 - `monthly_video_allowance_remaining`
 - `cosmetic_unlocks`
-- `priority_queue`
+- Legacy `priority_queue` fields, if present, do not represent an implemented benefit and are not advertised.
 - `updated_at`
 
 Server-side feature gates query this view, never raw RevenueCat or `subscriptions` rows.
@@ -799,7 +822,7 @@ Onboarding:
 
 Main app:
 
-- Home dashboard (daily theme, daily quests, streak meter, rival panel)
+- Arena dashboard (general battle entry, daily quests, streak meter, rival panel)
 - Start battle
 - Matchmaking
 - Theme reveal
@@ -810,7 +833,7 @@ Main app:
 - Appeal sheet (1/day on ranked losses)
 - Battle history
 - Prompt journal
-- Rankings (global, seasonal, daily theme leaderboard)
+- Rankings (global and seasonal; no daily challenge in this release)
 - Profile and stats
 - Wallet and subscription (Prompt Wars+)
 - Judge-a-friend minigame
@@ -884,7 +907,7 @@ The first playable implementation is successful when:
 - Provider generation latency may make result reveals feel slow.
 - Moderation must be strong enough for user-generated prompts.
 - Prompt quality scoring can feel unfair if not explained carefully.
-- Ranked play must avoid paid advantage.
+- No paid stats, scoring modifiers, or archetypes. Paid additional suggestions are explicitly retained with truthful assistance disclosure; do not claim their access is competitively neutral.
 - Storage and bandwidth costs can grow quickly if videos are permanent.
 - App store review may scrutinize AI-generated content, subscriptions, and user safety flows.
 
@@ -894,15 +917,15 @@ Start with a non-video async battle prototype. Prove the core loop first: charac
 
 ## 19. Cold Start, Bots, And Matchmaking
 
-Async 1v1 dies without opponents. The MVP must guarantee an instant first match, and the first match must not feel like a tutorial.
+The starter path provides a resumable guided Bo3 practice match with immediate bot behavior. Contextual hints teach the actual game and can be dismissed or replayed later.
 
 - Bot opponents seeded with a curated, archetype-appropriate prompt library, **separate from the human-facing template library** so users cannot memorize bot prompts.
-- Each bot has a plausible persona: name, archetype, avatar, battle cry, signature color. First-battle screenshots must be indistinguishable from real PVP at a glance.
-- First battle is always vs a bot, framed lightly as a "warm-up," but the bot is tuned to **lose 55-60% of the time in week 1**, then drift toward 50% as the player's rating stabilizes. Never below 40% for new users.
-- After the first battle, the player is _immediately_ enqueued for a real human match (with bot fallback) so PVP cadence starts on session 1.
+- Each bot has a consistent persona: name, archetype, avatar, battle cry, signature color. All battle surfaces clearly identify it as an AI opponent / Practice.
+- Guided practice uses the normal scoring and combat rules. Do not force a win or secretly alter scoring for onboarding.
+- After the first payoff, invite customization and offer Battle Again or Arena. A new match starts only after the player chooses it; there is no automatic enqueueing.
 - Matchmaking falls back to a bot if no human match is found within 60 seconds.
 - Bot wins do not grant ranked rating but do grant XP and credits.
-- Bots are clearly labeled in the post-match summary (not pre-match) to avoid sandbagging while preserving honesty.
+- Bots have a consistent name and an AI opponent / Practice label throughout entry, battle and result.
 - Bot prompt pool is curated by the team, never from real player submissions, to avoid consent and content-rights ambiguity.
 
 Matchmaking pairing rules:
@@ -914,7 +937,7 @@ Matchmaking pairing rules:
 - Newbies (under 10 ranked battles) only matched to other newbies or bots.
 - Avoid same-opponent pairing within a 24h ranked window.
 - Avoid pairing accounts on the same network or device fingerprint in ranked.
-- Daily theme battles use a separate matchmaking pool with relaxed rating bands.
+- Arena uses general matchmaking; a daily challenge and separate daily pool are outside this release.
 
 ## 20. Retention And Notifications
 
@@ -928,7 +951,7 @@ Core push events:
 - Daily quest available.
 - Season ends in 24h, claim rewards.
 - Friend challenged you.
-- New daily prompt theme.
+- Daily-challenge notifications are outside this release.
 - Rival is online.
 - Opponent has been idle 30 min (one-tap "poke," sender-initiated).
 
@@ -936,8 +959,8 @@ In-app retention surfaces (all in MVP, not deferred):
 
 - Daily quest list (3 small tasks, refresh daily, with reward sizes balanced against §10.1 F2P spine).
 - Streak meter with one mercy day per week.
-- Daily themed prompt with shared global leaderboard.
-- Prompt journal: a personal collection of the player's best-rated prompts, shareable.
+- General Arena entry; the battle theme is revealed after matching.
+- Best prompts and Stats insights describe their actual recent-data sample (latest 50 battles / 200 prompts); they are not a permanent saved journal.
 - Rival panel: most-played opponent over 30 days, head-to-head record, quick rematch.
 - Spectate feed of recent public battles (default off in MVP, on by phase 4).
 
@@ -987,7 +1010,7 @@ Moderation pipeline:
 - Human review queue for reported content with the 24h SLA above.
 - Region-aware content rules where required.
 - Audit log of moderation decisions, retained per platform requirements.
-- Storage retention tier: free-tier user videos auto-prune after 14 days; Prompt Wars+ keeps full history. Reduces storage cost growth and provides a sub benefit.
+- Do not advertise subscriber-only full retention or free automatic pruning: no retention product is introduced by this release. Battle history is cursor-paginated independently of media loading.
 
 Localization & judge fairness:
 
@@ -1002,7 +1025,7 @@ Product-readiness for store features and broad reach requires accessibility from
 - Voice-over labels on the result screen and all primary CTAs.
 - Captions auto-generated on every Tier 1 video.
 - Color-blind-safe move-type icons (shape + color, not color alone).
-- Dyslexia-friendly font option in settings.
+- Visual migration 1.3.0 bundles Barlow Condensed Bold for names/compact headings and ExtraBold Italic for major headings/outcomes, with SIL OFL included. Prompts, forms and detailed explanations keep 16-point system text and OS scaling; unsupported scripts/font failure fall back to system text. No in-app font preference is added.
 - Voice-to-text supported in the custom prompt editor for users for whom typing on mobile is the friction.
 
 ## 23. Telemetry And Analytics Events
@@ -1022,7 +1045,7 @@ Minimum viable event taxonomy (all events versioned, all PII scrubbed):
 - `video_upgrade_requested`, `video_job_started`, `video_job_succeeded`, `video_job_failed`
 - `result_tier1_viewed`
 - `share_initiated` (format: video | image), `share_completed`
-- `daily_quest_completed`, `daily_theme_entered`
+- `daily_quest_completed` (achievement distinct from reward claim)
 - `judge_minigame_played`, `judge_minigame_credit_earned`
 - `rival_assigned`, `rival_rematch_started`
 - `iap_paywall_view`, `iap_purchase_started`, `iap_purchase_succeeded`, `iap_purchase_failed`
@@ -1060,3 +1083,10 @@ Top-decile stretch (signals the game is breakout, not a benchmark to plan around
 - D1 35%+, D7 15%+, D30 6%+
 - Tier 1 upgrade 25%+
 - ARPDAU 0.20+ USD
+
+
+### Client visual migration — 1.3.0 (September 2026)
+
+The approved collectible-arena direction covers all 21 existing screens, startup, app-owned overlays, free result cinematics, splash and newly exported share cards. Shared native controls use obsidian surfaces, gold ornament, lavender actions and a bundled Barlow Condensed display family; detailed text stays system-readable. Arena/Profile share the current fighter card and stats; battles reuse server snapshots and measured cosmetic-frame apertures. Compact portraits use avatar art; full fighter art is contained. The raised center Battle action stays in the persistent tab bar. Mockup parity uses a custom vector icon family, metallic native-text headings, four equal divided stats with deliberate accessible 2×2 layout, mirrored duel plates, visible theme illustration and a quill lock-in action. Shop uses a compact expandable wearing strip, underlined category tabs, joined All/Owned filter and a ruled fairness footer after the collection. Native system controls remain native; all data and recovery contracts are unchanged. Essential result/modal actions remain outside scrolling optional detail. Motion is finite and stops offscreen; lists/writing are steady.
+
+Scope is client presentation only: no schema, Edge Function, matchmaking contract, combat/appeal rollout-flag or pricing/entitlement change. Retain paid ranked suggestion rerolls, free allowance and truthful assistance copy. App icon, generated-video branding and audio-provider work are unchanged. Font/splash native integration and offline cold start require native acceptance before TestFlight/Android internal distribution. See DESIGN_LANGUAGE.md and VISUAL_MIGRATION_ACCEPTANCE.md for implementation and release checks.

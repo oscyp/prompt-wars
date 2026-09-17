@@ -3,7 +3,7 @@
  * unlocks a swatch in Edit character. It must not suggest the shop applies it.
  */
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import CosmeticPreview from '@/components/CosmeticPreview';
 import { NO_COSMETICS } from '@/utils/cosmetics';
 import { presentationFor } from '@/constants/Cosmetics';
@@ -58,4 +58,38 @@ describe('CosmeticPreview', () => {
     );
     getByLabelText('Golota wearing the selected cosmetic');
   });
+});
+
+it('offers portrait and avatar contexts and switches aura to Avatar automatically', () => {
+  const { getByText, getByLabelText, rerender } = render(
+    <CosmeticPreview
+      {...baseProps}
+      avatarUri="avatar-reference"
+      preview={presentationFor('gold_frame')}
+    />,
+  );
+  fireEvent.press(getByText('Avatar'));
+  expect(
+    getByLabelText('Golota wearing the selected cosmetic').props.source.uri,
+  ).toBe('avatar-reference');
+  rerender(
+    <CosmeticPreview
+      {...baseProps}
+      avatarUri="avatar-reference"
+      preview={presentationFor('plus_aura')}
+    />,
+  );
+  expect(
+    getByLabelText('Avatar context').props.accessibilityState.selected,
+  ).toBe(true);
+});
+it('visibly shows the color swatch without claiming the image changes', () => {
+  const { getByText, getByTestId } = render(
+    <CosmeticPreview
+      {...baseProps}
+      preview={presentationFor('crimson_color')}
+    />,
+  );
+  getByTestId('cosmetic-color-swatch');
+  getByText('Generated artwork keeps its original colours.');
 });

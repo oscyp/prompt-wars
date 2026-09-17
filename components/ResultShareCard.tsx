@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Image, StyleSheet, View } from 'react-native';
+import { GameText as Text, GameBevel } from '@/components/game';
+import BrandMark from '@/components/game/BrandMark';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import {
   BorderRadius,
@@ -34,6 +36,7 @@ export interface ResultShareCardProps {
   ratingLine: string | null;
   /** The winner's signature colour for the frame; the brand colour when null. */
   accentColor?: string | null;
+  adjudicationRevision?: number;
 }
 
 export const KNOCKOUT_TAG = 'KNOCKOUT';
@@ -56,6 +59,7 @@ export default function ResultShareCard({
   theme,
   ratingLine,
   accentColor,
+  adjudicationRevision = 0,
 }: ResultShareCardProps) {
   const colors = useThemedColors();
   const accent = accentColor ?? colors.primary;
@@ -72,6 +76,9 @@ export default function ResultShareCard({
     `${me.name} versus ${them.name}${scoreLine ? `, ${scoreLine}` : ''}`,
     theme ? `Theme: ${theme}` : null,
     ratingLine,
+    adjudicationRevision > 0
+      ? `Reviewed result, revision ${adjudicationRevision}`
+      : null,
   ]
     .filter(Boolean)
     .join('. ');
@@ -85,6 +92,8 @@ export default function ResultShareCard({
       accessible
       accessibilityLabel={label}
     >
+      <GameBevel color={colors.ornament} insetColor={colors.ornamentMuted} />
+      <BrandMark size={180} />
       <View style={styles.fighters}>
         <Fighter
           fighter={me}
@@ -112,6 +121,7 @@ export default function ResultShareCard({
       </View>
 
       <Text
+        variant="display"
         style={[styles.headline, NumericFontVariant, { color: outcomeColor }]}
         accessibilityRole="header"
       >
@@ -143,9 +153,11 @@ export default function ResultShareCard({
         </Text>
       ) : null}
 
-      <Text style={[styles.brand, { color: colors.textTertiary }]}>
-        Prompt Wars
-      </Text>
+      {adjudicationRevision > 0 && (
+        <Text variant="caption" style={{ color: colors.textSecondary }}>
+          Reviewed result · revision {adjudicationRevision}
+        </Text>
+      )}
     </View>
   );
 }
@@ -188,12 +200,12 @@ function Fighter({
             style={[styles.trophy, { backgroundColor: accent }]}
             testID="share-card-winner-badge"
           >
-            <Ionicons name="trophy" size={12} color={inkFor(accent)} />
+            <GameSymbol name="trophy" size={12} color={inkFor(accent)} />
           </View>
         ) : null}
       </View>
       <Text style={[styles.who, { color: colors.textTertiary }]}>{who}</Text>
-      <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>
+      <Text variant="fighter" style={[styles.name, { color: colors.text }]}>
         {fighter.name}
       </Text>
     </View>
@@ -246,8 +258,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   name: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold,
+    fontSize: 24,
+    lineHeight: 30,
     textAlign: 'center',
   },
   centre: {
@@ -266,8 +278,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   headline: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.bold,
+    fontSize: 36,
+    lineHeight: 42,
     textAlign: 'center',
   },
   koTag: {

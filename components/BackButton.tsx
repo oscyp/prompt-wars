@@ -1,7 +1,7 @@
+import { GameText as Text } from '@/components/game';
 import React from 'react';
 import {
   TouchableOpacity,
-  Text,
   StyleSheet,
   View,
   ViewStyle,
@@ -79,7 +79,7 @@ export default function BackButton({
           styles.button,
           {
             backgroundColor: colors.card,
-            borderColor: colors.border,
+            borderColor: colors.ornamentMuted,
             shadowColor: colors.shadow,
           },
           label ? styles.withLabel : null,
@@ -97,8 +97,8 @@ export default function BackButton({
 
 const styles = StyleSheet.create({
   button: {
-    width: 40,
-    height: 40,
+    minWidth: 48,
+    minHeight: 48,
     borderRadius: BorderRadius.full,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',

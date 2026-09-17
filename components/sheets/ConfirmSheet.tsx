@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  ActivityIndicator,
-  StyleSheet,
-} from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -16,10 +10,12 @@ import {
 } from '@/constants/DesignTokens';
 import type { SheetCopy, SpendRow } from '@/utils/editDialogCopy';
 import PortraitPreview from '../PortraitPreview';
+import { GameText as Text, GameButton } from '@/components/game';
 import BottomSheet from './BottomSheet';
 
 export interface ConfirmSheetProps {
   visible: boolean;
+  returnFocusRef?: React.RefObject<View | null>;
   title: string;
   subtitle?: string;
   /** Bulleted body lines, e.g. the staged changes a save will commit. */
@@ -36,6 +32,8 @@ export interface ConfirmSheetProps {
   accentColor?: string;
   /** Spinner in the confirm button; cancel and scrim stop dismissing. */
   busy?: boolean;
+  /** Unavailable action; leaving the sheet remains possible. */
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -52,6 +50,7 @@ export type ConfirmSheetCopyProps = SheetCopy;
  */
 export default function ConfirmSheet({
   visible,
+  returnFocusRef,
   title,
   subtitle,
   lines = [],
@@ -63,20 +62,37 @@ export default function ConfirmSheet({
   thumbnailUri,
   accentColor,
   busy = false,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }: ConfirmSheetProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
-  const confirmColor =
-    confirmTone === 'destructive' ? colors.error : colors.primary;
 
   return (
     <BottomSheet
+      returnFocusRef={returnFocusRef}
       visible={visible}
       onClose={onCancel}
       dismissDisabled={busy}
-      closeAccessibilityLabel="Cancel"
+      closeAccessibilityLabel="Close confirmation"
+      footer={
+        <View style={styles.actions}>
+          <GameButton
+            label={cancelLabel}
+            onPress={onCancel}
+            disabled={busy}
+            tone="secondary"
+          />
+          <GameButton
+            label={confirmLabel}
+            onPress={onConfirm}
+            busy={busy}
+            disabled={confirmDisabled}
+            tone={confirmTone === 'destructive' ? 'danger' : 'primary'}
+          />
+        </View>
+      }
     >
       <View style={styles.header}>
         {thumbnailUri ? (
@@ -90,6 +106,7 @@ export default function ConfirmSheet({
         ) : null}
         <View style={styles.headerText}>
           <Text
+            variant="title"
             accessibilityRole="header"
             style={[
               styles.title,
@@ -179,43 +196,6 @@ export default function ConfirmSheet({
           {footnote}
         </Text>
       ) : null}
-
-      <View style={styles.actions}>
-        <Pressable
-          onPress={onCancel}
-          disabled={busy}
-          accessibilityRole="button"
-          accessibilityLabel={cancelLabel}
-          accessibilityState={{ disabled: busy }}
-          style={[
-            styles.button,
-            { backgroundColor: colors.backgroundTertiary },
-          ]}
-        >
-          <Text style={[styles.buttonText, { color: colors.text }]}>
-            {cancelLabel}
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={onConfirm}
-          disabled={busy}
-          accessibilityRole="button"
-          accessibilityLabel={confirmLabel}
-          accessibilityState={{ disabled: busy, busy }}
-          style={[
-            styles.button,
-            { backgroundColor: confirmColor, opacity: busy ? 0.6 : 1 },
-          ]}
-        >
-          {busy ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
-              {confirmLabel}
-            </Text>
-          )}
-        </Pressable>
-      </View>
     </BottomSheet>
   );
 }
@@ -228,8 +208,8 @@ const styles = StyleSheet.create({
   },
   headerText: { flex: 1 },
   title: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.bold,
+    fontSize: 28,
+    lineHeight: 34,
   },
   subtitle: {
     fontSize: Typography.sizes.sm,
@@ -257,8 +237,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 24,
   },
-  rowLabel: { fontSize: Typography.sizes.sm },
+  rowLabel: { flex: 1, fontSize: Typography.sizes.sm },
   rowValue: {
+    flexShrink: 1,
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
@@ -267,10 +248,11 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.xs,
     lineHeight: 17,
   },
-  actions: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.lg },
+  actions: { flexDirection: 'column', gap: Spacing.md, marginTop: Spacing.lg },
   button: {
-    flex: 1,
-    height: 48,
+    width: '100%',
+    minHeight: 48,
+    padding: Spacing.sm,
     borderRadius: BorderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',

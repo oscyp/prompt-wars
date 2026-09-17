@@ -1,0 +1,45 @@
+$ node /tmp/prompt-wars-db-runtime/verify.cjs fixture supabase/tests/combat_v2_integrity.sql
+PASS fixture supabase/tests/combat_v2_integrity.sql
+
+
+exit=0
+$ node /tmp/prompt-wars-db-runtime/verify.cjs fixture supabase/tests/independent_appeals.sql
+PASS fixture supabase/tests/independent_appeals.sql
+
+
+exit=0
+$ node /tmp/prompt-wars-db-runtime/verify.cjs fixture supabase/tests/appeal_retry_queue.sql
+PASS fixture supabase/tests/appeal_retry_queue.sql
+
+
+exit=0
+$ node /tmp/prompt-wars-db-runtime/verify.cjs fixture supabase/tests/starter_tutorial_respec.sql
+PASS fixture supabase/tests/starter_tutorial_respec.sql
+
+
+exit=0
+$ node /tmp/prompt-wars-db-runtime/verify.cjs fixture supabase/tests/initial_portrait_recovery.sql
+PASS fixture supabase/tests/initial_portrait_recovery.sql
+
+
+exit=0
+$ node /tmp/prompt-wars-db-runtime/isolation.cjs
+PASS concurrent permutation (1 observed lock wait): leave_begin → leave_claim → timeout_begin → timeout_apply → leave_resolve → leave_commit → timeout_commit → assert_terminal
+PASS concurrent permutation (1 observed lock wait): timeout_begin → timeout_apply → leave_begin → leave_claim → timeout_commit → leave_resolve → leave_commit → assert_terminal
+PASS concurrent permutation (1 observed lock wait): submit_begin → submit_prompt → timeout_begin → timeout_apply → submit_commit → timeout_commit → assert_prompt_survives
+
+
+exit=0
+$ node /tmp/prompt-wars-db-runtime/idempotency.cjs
+PASS simultaneous lock barrier: starter duplicates
+PASS simultaneous lock barrier: tutorial duplicates
+PASS simultaneous lock barrier: respec duplicate request
+PASS simultaneous lock barrier: portrait duplicate claim
+PASS simultaneous lock barrier: portrait duplicate refund
+PASS simultaneous lock barrier: duplicate eligible appeal submissions
+PASS simultaneous lock barrier: duplicate appeal processors
+PASS simultaneous lock barrier: duplicate appeal finalization
+PASS concurrency invariants: one fighter/grant/tutorial/respec/reservation/refund/appeal, one correction per player, later rating retained.
+
+
+exit=0

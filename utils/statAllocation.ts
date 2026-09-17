@@ -46,22 +46,24 @@ export const STAT_META: Record<StatKey, StatMeta> = {
   strength: {
     label: 'Strength',
     abbreviation: 'STR',
-    effect: 'Hits harder — more damage when you win a round.',
+    effect: 'More damage on a win and a small scoring adjustment.',
   },
   stamina: {
     label: 'Stamina',
     abbreviation: 'STA',
-    effect: 'More HP, so you can lose a round and still take the series.',
+    effect: 'Maximum HP is 60 + 8 per Stamina point (68–140 HP).',
   },
   agility: {
     label: 'Agility',
     abbreviation: 'AGI',
-    effect: 'Edges the close ones — initiative and tiebreaks.',
+    effect:
+      'In v2 battles, reduces incoming damage when higher than your opponent’s Agility (up to 18%).',
   },
   focus: {
     label: 'Focus',
     abbreviation: 'FOC',
-    effect: 'Steadier — less swing in your stat bonus from round to round.',
+    effect:
+      'A small scoring adjustment; combined with Strength it is capped at ±5%.',
   },
 };
 
@@ -82,12 +84,19 @@ export function statTotal(stats: StatBlock): number {
 }
 
 /** Points still to place. Negative when over the pool (never via the UI). */
-export function pointsRemaining(stats: StatBlock): number {
-  return STAT_POINT_TOTAL - statTotal(stats);
+export function pointsRemaining(
+  stats: StatBlock,
+  pointTotal = STAT_POINT_TOTAL,
+): number {
+  return pointTotal - statTotal(stats);
 }
 
-export function canIncrement(stats: StatBlock, key: StatKey): boolean {
-  return stats[key] < STAT_MAX && pointsRemaining(stats) > 0;
+export function canIncrement(
+  stats: StatBlock,
+  key: StatKey,
+  pointTotal = STAT_POINT_TOTAL,
+): boolean {
+  return stats[key] < STAT_MAX && pointsRemaining(stats, pointTotal) > 0;
 }
 
 export function canDecrement(stats: StatBlock, key: StatKey): boolean {
@@ -99,8 +108,9 @@ export function adjustStat(
   stats: StatBlock,
   key: StatKey,
   delta: 1 | -1,
+  pointTotal = STAT_POINT_TOTAL,
 ): StatBlock {
-  if (delta > 0 && !canIncrement(stats, key)) return stats;
+  if (delta > 0 && !canIncrement(stats, key, pointTotal)) return stats;
   if (delta < 0 && !canDecrement(stats, key)) return stats;
   return { ...stats, [key]: stats[key] + delta };
 }
@@ -115,10 +125,13 @@ function isIntInRange(value: unknown): value is number {
 }
 
 /** Every stat an integer in range and the whole pool spent. */
-export function isValidAllocation(stats: StatBlock): boolean {
+export function isValidAllocation(
+  stats: StatBlock,
+  pointTotal = STAT_POINT_TOTAL,
+): boolean {
   return (
     STAT_KEYS.every((key) => isIntInRange(stats[key])) &&
-    statTotal(stats) === STAT_POINT_TOTAL
+    statTotal(stats) === pointTotal
   );
 }
 
@@ -138,8 +151,11 @@ export function allocationHint(stats: StatBlock): string | undefined {
 }
 
 /** "N points left" / "All points placed" for the step header. */
-export function remainingLabel(stats: StatBlock): string {
-  const remaining = pointsRemaining(stats);
+export function remainingLabel(
+  stats: StatBlock,
+  pointTotal = STAT_POINT_TOTAL,
+): string {
+  const remaining = pointsRemaining(stats, pointTotal);
   if (remaining === 0) return 'All points placed';
   if (remaining === 1) return '1 point left';
   if (remaining > 1) return `${remaining} points left`;

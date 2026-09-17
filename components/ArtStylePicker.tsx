@@ -1,13 +1,14 @@
+import { GameText } from '@/components/game';
 import React from 'react';
 import {
   View,
-  Text,
   Image,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { hapticSelection } from '@/utils/haptics';
@@ -69,14 +70,19 @@ export default function ArtStylePicker({
   return (
     <View style={styles.wrapper}>
       <View style={styles.headerRow}>
-        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+        <GameText
+          variant="title"
+          style={[styles.title, { color: colors.text }]}
+        >
+          {title}
+        </GameText>
         {!compact ? (
-          <Text
+          <GameText
+            variant="caption"
             style={[styles.description, { color: colors.textSecondary }]}
-            numberOfLines={2}
           >
             {description}
-          </Text>
+          </GameText>
         ) : null}
       </View>
       <ScrollView
@@ -157,13 +163,17 @@ export default function ArtStylePicker({
                       { backgroundColor: colors.primary },
                     ]}
                   >
-                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                    <GameSymbol
+                      name="checkmark"
+                      size={14}
+                      color={colors.actionInk}
+                    />
                   </View>
                 ) : null}
               </View>
               {!compact ? (
-                <Text
-                  numberOfLines={1}
+                <GameText
+                  variant="label"
                   style={[
                     styles.label,
                     {
@@ -175,7 +185,7 @@ export default function ArtStylePicker({
                   ]}
                 >
                   {ART_STYLE_LABELS[key]}
-                </Text>
+                </GameText>
               ) : null}
             </TouchableOpacity>
           );

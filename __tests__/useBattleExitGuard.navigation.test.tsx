@@ -8,7 +8,7 @@
  */
 import React from 'react';
 import { Text, Pressable } from 'react-native';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import {
   NavigationContainer,
   useNavigation as useRNNavigation,
@@ -19,6 +19,11 @@ import { useBattleExitGuard } from '@/hooks/useBattleExitGuard';
 const mockConfirmLeave = jest.fn();
 
 jest.mock('expo-router', () => ({
+  useRouter: () => {
+    const { useNavigation } = jest.requireActual('@react-navigation/native');
+    const navigation = useNavigation();
+    return { dismissTo: () => navigation.replace('Arena') };
+  },
   useNavigation: () => {
     // The hook imports useNavigation from expo-router; in this harness the
     // React Navigation one is the same object.
@@ -75,6 +80,9 @@ function App({ viaExitTo }: { viaExitTo: boolean }) {
           {() => <FaceOff viaExitTo={viaExitTo} />}
         </Stack.Screen>
         <Stack.Screen name="MoveSelect" component={MoveSelect} />
+        <Stack.Screen name="Arena">
+          {() => <Text>Arena home</Text>}
+        </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -83,10 +91,13 @@ function App({ viaExitTo }: { viaExitTo: boolean }) {
 beforeEach(() => mockConfirmLeave.mockClear());
 
 describe('useBattleExitGuard against a real navigator', () => {
-  it('a bare replace is intercepted by the guard', async () => {
-    const { getByLabelText, queryByText } = render(<App viaExitTo={false} />);
+  it('an accidental removal parks safely in Arena', async () => {
+    const { getByLabelText, queryByText, findByText } = render(
+      <App viaExitTo={false} />,
+    );
     fireEvent.press(getByLabelText('Continue'));
-    await waitFor(() => expect(mockConfirmLeave).toHaveBeenCalledTimes(1));
+    await findByText('Arena home');
+    expect(mockConfirmLeave).not.toHaveBeenCalled();
     expect(queryByText('Move select')).toBeNull();
   });
 

@@ -1,7 +1,8 @@
+import { GameText as Text } from '@/components/game';
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { Spacing, Typography } from '@/constants/DesignTokens';
 import { RubricScoreSet } from '@/types/battle';
 
 export interface RubricBarsProps {
@@ -17,7 +18,7 @@ export const RUBRIC_LABELS: Record<keyof RubricScoreSet, string> = {
   originality: 'Originality',
   specificity: 'Specificity',
   theme_fit: 'Theme Fit',
-  archetype_fit: 'Archetype Fit',
+  archetype_fit: 'Character consistency',
   dramatic_potential: 'Dramatic Potential',
 };
 
@@ -155,6 +156,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   legend: {
+    flexWrap: 'wrap',
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
@@ -163,26 +165,26 @@ const styles = StyleSheet.create({
   legendSwatch: {
     width: 14,
     height: 8,
-    borderRadius: BorderRadius.full,
+    borderRadius: 2,
   },
   legendSwatchThin: {
     height: 4,
   },
   legendText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
     fontWeight: Typography.weights.semibold,
   },
   row: {
     marginBottom: Spacing.sm,
   },
   label: {
-    fontSize: Typography.sizes.sm,
+    fontSize: 16,
     fontWeight: Typography.weights.semibold,
     marginBottom: 2,
   },
   track: {
     height: 10,
-    borderRadius: BorderRadius.full,
+    borderRadius: 2,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
   },
@@ -192,10 +194,10 @@ const styles = StyleSheet.create({
   },
   fill: {
     height: '100%',
-    borderRadius: BorderRadius.full,
+    borderRadius: 2,
   },
   value: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
     marginTop: 2,
     fontVariant: ['tabular-nums'],
   },

@@ -1,17 +1,17 @@
+import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
+import { GameText as Text, GamePanel, GameButton } from '@/components/game';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
-  Pressable,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -142,8 +142,13 @@ export default function BlockedPlayersScreen() {
           { backgroundColor: colors.background, paddingTop: topInset },
         ]}
       >
-        <Ionicons name="shield-outline" size={32} color={colors.textTertiary} />
+        <GameSymbol
+          name="shield-outline"
+          size={32}
+          color={colors.textTertiary}
+        />
         <Text
+          variant="title"
           accessibilityRole="header"
           style={[styles.errorTitle, accessibleText, { color: colors.text }]}
         >
@@ -177,12 +182,12 @@ export default function BlockedPlayersScreen() {
         { backgroundColor: colors.background, paddingTop: topInset },
       ]}
     >
-      <Text
+      <GameDisplayTitle
         accessibilityRole="header"
-        style={[styles.title, accessibleText, { color: colors.text }]}
+        style={[styles.title, accessibleText]}
       >
         Blocked Players
-      </Text>
+      </GameDisplayTitle>
 
       <FlatList
         data={blocked}
@@ -214,7 +219,7 @@ export default function BlockedPlayersScreen() {
           const since = blockedAtLabel(item.blockedAt);
           const pending = pendingId === item.profileId;
           return (
-            <View style={[styles.row, { backgroundColor: colors.card }]}>
+            <GamePanel style={[styles.row, { backgroundColor: colors.card }]}>
               <View
                 style={styles.rowText}
                 accessible
@@ -242,23 +247,14 @@ export default function BlockedPlayersScreen() {
                   </Text>
                 ) : null}
               </View>
-              <Pressable
-                onPress={() => confirmUnblock(item)}
-                disabled={pending}
-                accessibilityRole="button"
+              <GameButton
+                label="Unblock"
                 accessibilityLabel={`Unblock ${item.displayName}`}
-                accessibilityState={{ disabled: pending, busy: pending }}
-                style={[styles.unblock, { borderColor: colors.border }]}
-              >
-                {pending ? (
-                  <ActivityIndicator color={colors.primary} />
-                ) : (
-                  <Text style={[styles.unblockText, { color: colors.primary }]}>
-                    Unblock
-                  </Text>
-                )}
-              </Pressable>
-            </View>
+                onPress={() => confirmUnblock(item)}
+                busy={pending}
+                tone="secondary"
+              />
+            </GamePanel>
           );
         }}
       />
@@ -294,13 +290,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   retryText: {
-    color: '#FFFFFF',
+    color: '#171225',
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
   },
   list: { gap: Spacing.sm, paddingBottom: Spacing.xxl },
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.md,

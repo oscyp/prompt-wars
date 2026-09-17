@@ -8,14 +8,17 @@
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
-/** Lock-in window for round 1 (and subsequent rounds) by mode. */
-function lockInWindowMs(mode: string | null | undefined): number {
-  // 45 minutes for ranked; 2 hours for friend/unranked/bot.
-  if (mode === 'ranked') return 45 * 60 * 1000;
-  return 2 * 60 * 60 * 1000;
-}
+import { roundDeadline } from './combat.ts';
+import { resolveCurrentPortrait } from './compose-reveal-payload.ts';
 
 interface CharacterStats {
+  id?: string;
+  name?: string;
+  archetype?: string;
+  signature_color?: string;
+  battle_cry?: string;
+  art_style?: string;
+  cosmetic_config?: Record<string, string>;
   stat_strength: number;
   stat_stamina: number;
   stat_agility: number;
@@ -58,6 +61,9 @@ export interface StartFaceOffResult {
  */
 interface BattleRow {
   id: string;
+  rules_version?: number;
+  is_player_two_bot?: boolean;
+  bot_persona_id?: string;
   format: string;
   mode: string | null;
   status: string;
@@ -76,7 +82,7 @@ export async function startFaceOff(
   const { data: battleRaw, error: battleErr } = await supabase
     .from('battles')
     .select(
-      'id, format, mode, status, face_off_revealed_at, ' +
+      'id, format, mode, rules_version, is_player_two_bot, bot_persona_id, status, face_off_revealed_at, ' +
         'player_one_id, player_two_id, ' +
         'player_one_character_id, player_two_character_id',
     )
@@ -106,7 +112,9 @@ export async function startFaceOff(
 
   const { data: charactersRaw, error: charErr } = await supabase
     .from('characters')
-    .select('id, stat_strength, stat_stamina, stat_agility, stat_focus')
+    .select(
+      'id, name, archetype, signature_color, battle_cry, art_style, cosmetic_config, stat_strength, stat_stamina, stat_agility, stat_focus',
+    )
     .in('id', charIds);
 
   if (charErr || !charactersRaw) {
@@ -138,56 +146,54 @@ export async function startFaceOff(
         stat_focus: 5,
       };
 
-  const nowIso = new Date().toISOString();
   const p1HpMax = hpMaxFromStamina(p1.stat_stamina);
   const p2HpMax = hpMaxFromStamina(p2.stat_stamina);
-  const deadlineIso = new Date(
-    Date.now() + lockInWindowMs(battle.mode as string),
-  ).toISOString();
-
-  // 2. Atomic-ish battle update guarded on face_off_revealed_at IS NULL
-  //    so concurrent matchmakers cannot double-write the snapshot.
-  const { data: updated, error: updErr } = await supabase
-    .from('battles')
-    .update({
-      face_off_revealed_at: nowIso,
-      player_one_stats_snapshot: statsSnapshot(p1),
-      player_two_stats_snapshot: statsSnapshot(p2),
-      player_one_hp_max: p1HpMax,
-      player_two_hp_max: p2HpMax,
-      player_one_hp: p1HpMax,
-      player_two_hp: p2HpMax,
-      current_round: 1,
-      status: 'waiting_for_prompts',
-    })
-    .eq('id', battleId)
-    .eq('format', 'bo3')
-    .is('face_off_revealed_at', null)
-    .select('id')
-    .single();
-
-  if (updErr || !updated) {
-    // Either a concurrent writer won, or the battle is no longer eligible.
-    // Treat as idempotent no-op.
-    return { applied: false, reason: 'concurrent_or_ineligible' };
-  }
-
-  // 3. Insert round-1 row (idempotent on the UNIQUE(battle_id, round_number)).
-  const { error: roundErr } = await supabase.from('battle_rounds').upsert(
-    {
-      battle_id: battleId,
-      round_number: 1,
-      status: 'waiting_for_prompts',
-      lock_in_deadline: deadlineIso,
-    },
-    { onConflict: 'battle_id,round_number', ignoreDuplicates: true },
+  const deadlineIso = roundDeadline(
+    Date.now(),
+    battle.mode,
+    !!battle.is_player_two_bot,
+    battle.rules_version ?? 1,
+    1,
   );
-
-  if (roundErr) {
-    console.error('start-face-off: round insert failed', roundErr);
-    // The battle face-off snapshot is already committed; the resolver and
-    // submit-prompt paths can recover by reading the (existing) row.
+  const freezeIdentity = async (c: CharacterStats) => ({
+    id: c.id ?? null,
+    name: c.name ?? 'AI Opponent',
+    archetype: c.archetype ?? 'strategist',
+    signature_color: c.signature_color ?? '#8B5CF6',
+    battle_cry: c.battle_cry ?? '',
+    art_style: c.art_style ?? null,
+    cosmetic_config: c.cosmetic_config ?? null,
+    avatar: await resolveCurrentPortrait(supabase, c.id, 'avatar'),
+    fighter: await resolveCurrentPortrait(supabase, c.id, 'fighter'),
+  });
+  let botIdentity: CharacterStats = p2;
+  if (battle.is_player_two_bot && battle.bot_persona_id) {
+    const { data: persona } = await supabase
+      .from('bot_personas')
+      .select('name,archetype,signature_color,battle_cry')
+      .eq('id', battle.bot_persona_id)
+      .maybeSingle();
+    botIdentity = { ...p2, ...persona, id: undefined };
   }
+  const identitySnapshot = {
+    player_one: await freezeIdentity(p1),
+    player_two: await freezeIdentity(
+      battle.is_player_two_bot ? botIdentity : p2,
+    ),
+  };
 
-  return { applied: true };
+  const { data: applied, error } = await supabase.rpc('start_battle_face_off', {
+    p_battle_id: battleId,
+    p_identity: identitySnapshot,
+    p_one_stats: statsSnapshot(p1),
+    p_two_stats: statsSnapshot(p2),
+    p_one_hp: p1HpMax,
+    p_two_hp: p2HpMax,
+    p_deadline: deadlineIso,
+  });
+  if (error) throw new Error(`start-face-off: ${error.message}`);
+  return {
+    applied: applied === true,
+    ...(applied ? {} : { reason: 'concurrent_or_ineligible' }),
+  };
 }

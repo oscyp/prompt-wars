@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { BorderRadius } from '@/constants/DesignTokens';
 
@@ -33,30 +33,30 @@ export default function HeaderLeaveButton({
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel="Leave battle"
+      accessibilityLabel="Forfeit or cancel battle"
       accessibilityState={{ disabled: Boolean(disabled) }}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       style={[
         styles.button,
         {
           backgroundColor: colors.card,
-          borderColor: colors.border,
+          borderColor: colors.ornamentMuted,
           shadowColor: colors.shadow,
           opacity: disabled ? 0.5 : 1,
         },
       ]}
     >
-      <Ionicons name="exit-outline" size={20} color={colors.error} />
+      <GameSymbol name="exit-outline" size={20} color={colors.error} />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    // 44pt: the design language's minimum target, met by the visible chip
+    // 48pt: the shared minimum target, met by the visible chip
     // itself rather than rescued by hitSlop.
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: BorderRadius.full,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',

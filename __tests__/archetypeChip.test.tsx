@@ -5,13 +5,11 @@ import ArchetypeChip, {
 } from '@/components/edit-character/ArchetypeChip';
 
 describe('archetypeChipText', () => {
-  it('names the class and what it rewards', () => {
+  it('names the free identity and its expressive theme', () => {
     expect(archetypeChipText('strategist')).toBe(
-      'The Strategist · rewards Defense moves',
+      'The Strategist · careful plans',
     );
-    expect(archetypeChipText('mystic')).toBe(
-      'The Mystic · rewards Originality',
-    );
+    expect(archetypeChipText('mystic')).toBe('The Mystic · Originality');
   });
 });
 
@@ -21,8 +19,8 @@ describe('ArchetypeChip', () => {
     const { getByLabelText, getByText } = render(
       <ArchetypeChip archetype="titan" variant="stage" onPress={onPress} />,
     );
-    getByText('The Titan · rewards Attack moves');
-    const chip = getByLabelText('Archetype: The Titan · rewards Attack moves');
+    getByText('The Titan · bold actions');
+    const chip = getByLabelText('Archetype: The Titan · bold actions');
     expect(chip.props.accessibilityHint).toBe('Change archetype');
     fireEvent.press(chip);
     expect(onPress).toHaveBeenCalledTimes(1);
@@ -38,7 +36,7 @@ describe('ArchetypeChip', () => {
       />,
     );
     expect(
-      getByLabelText('Archetype: The Engineer · rewards Specificity').props
+      getByLabelText('Archetype: The Engineer · Specificity').props
         .accessibilityHint,
     ).toContain('Locked');
   });
@@ -53,9 +51,7 @@ describe('ArchetypeChip', () => {
         onPress={onPress}
       />,
     );
-    const chip = getByLabelText(
-      'Archetype: The Trickster · rewards unexpected angles',
-    );
+    const chip = getByLabelText('Archetype: The Trickster · unexpected angles');
     expect(chip.props.accessibilityState.disabled).toBe(true);
     fireEvent.press(chip);
     expect(onPress).not.toHaveBeenCalled();

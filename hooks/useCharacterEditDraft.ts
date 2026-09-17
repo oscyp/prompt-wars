@@ -1,4 +1,11 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
+import {
+  characterEditDrafts,
+  type CharacterEditDraft,
+  type CharacterEditDraftScope,
+  type CharacterEditMode,
+} from '@/utils/characterEditDrafts';
 import {
   describeCooldownLength,
   type EditPriceKey,
@@ -171,7 +178,7 @@ function displayValue(
     case 'signatureItemId':
       return itemName(value);
     case 'portraitPromptRaw':
-      return value.length > 40 ? `${value.slice(0, 40)}…` : value;
+      return value;
     default:
       return value;
   }
@@ -246,36 +253,478 @@ export interface UseCharacterEditDraft extends DraftSummary {
   values: DraftValues;
   stage: (key: DraftKey, value: string | null) => void;
   clear: () => void;
+  activeMode: CharacterEditMode;
+  writtenText: string;
+  setMode: (mode: CharacterEditMode) => void;
+  section: DraftSection;
+  setSection: (section: DraftSection) => void;
+  scrollPositions: Record<DraftSection, number>;
+  setScrollPosition: (section: DraftSection, position: number) => void;
+  expandedGroups: Record<string, boolean>;
+  setExpandedGroup: (group: string, expanded: boolean) => void;
+  ready: boolean;
+  restored: boolean;
+  persistenceError: string | null;
+  flush: () => Promise<void>;
+  discard: () => Promise<void>;
+  acknowledge: (keys: DraftKey[], submitted: DraftValues) => Promise<void>;
+  conflicts: DraftConflict[];
+  resolveConflict: (key: DraftKey, choice: 'saved' | 'draft') => void;
   /** Batched payload for the free `identity` edit, or null when unchanged. */
   identityPayload: IdentityChanges | null;
   /** Batched payload for the free `look` edit (look + gear), or null. */
   lookPayload: LookChanges | null;
 }
 
-/**
- * Holds every unsaved edit on the character screen behind one Save action.
- *
- * Look and Gear join Identity in the draft: equipping an item on tap while the
- * rest of the screen staged would rebuild exactly the mixed-commit
- * inconsistency this model exists to remove.
- */
+export interface CharacterEditDraftOptions {
+  accountId?: string;
+  characterId?: string;
+  initialSection?: DraftSection;
+}
+
+export interface DraftConflict {
+  key: DraftKey;
+  label: string;
+  saved: string | null;
+  draft: string | null;
+}
+
+type Character = Record<string, unknown> | null;
+interface DraftSession {
+  key: string;
+  scope: CharacterEditDraftScope | null;
+  character: Character;
+  data: CharacterEditDraft;
+  ready: boolean;
+  restored: boolean;
+  error: string | null;
+  active: boolean;
+  pendingDelete: boolean;
+  hasDraft: boolean;
+  needsSave: boolean;
+  revision: number;
+  hydration?: Promise<void>;
+}
+
+function characterValues(character: Character): DraftValues {
+  if (!character) return {};
+  return Object.fromEntries(
+    DRAFT_FIELDS.map(({ key, column }) => [
+      key,
+      (character[column] as string | null) ?? null,
+    ]),
+  );
+}
+
+function emptyDraft(
+  character: Character,
+  section: DraftSection,
+): CharacterEditDraft {
+  const prompt =
+    typeof character?.portrait_prompt_raw === 'string'
+      ? character.portrait_prompt_raw
+      : '';
+  return {
+    values: {},
+    baseline: characterValues(character),
+    acknowledged: {},
+    activeMode: prompt ? 'prompt' : 'guided',
+    writtenText: prompt,
+    section,
+    scrollPositions: { identity: 0, look: 0, gear: 0 },
+    expandedGroups: {},
+  };
+}
+
+/** Hold confirmed writes above stale subscription data until the row catches up. */
+function savedValues(
+  data: CharacterEditDraft,
+  character: Character,
+): DraftValues {
+  const saved = characterValues(character);
+  for (const { key } of DRAFT_FIELDS) {
+    const ack = data.acknowledged[key];
+    if (ack && ack.previous.includes(saved[key] ?? null))
+      saved[key] = ack.value;
+  }
+  return saved;
+}
+
+function reconcile(
+  data: CharacterEditDraft,
+  character: Character,
+): CharacterEditDraft {
+  if (!character) return data;
+  const saved = savedValues(data, character);
+  const next = {
+    ...data,
+    values: { ...data.values },
+    baseline: { ...data.baseline },
+    acknowledged: { ...data.acknowledged },
+  };
+  const incoming = characterValues(character);
+  for (const { key } of DRAFT_FIELDS) {
+    const ack = data.acknowledged[key];
+    if (
+      ack &&
+      (incoming[key] === ack.value ||
+        !ack.previous.includes(incoming[key] ?? null))
+    )
+      delete next.acknowledged[key];
+    if (key in next.values && next.values[key] === saved[key])
+      delete next.values[key];
+    if (!(key in next.values)) {
+      // Refresh untouched authoring state, but retain any independently written text.
+      if (
+        key === 'portraitPromptRaw' &&
+        data.writtenText === (data.baseline[key] ?? '') &&
+        data.activeMode === (data.baseline[key] ? 'prompt' : 'guided')
+      ) {
+        next.writtenText = saved[key] ?? '';
+        next.activeMode = saved[key] ? 'prompt' : 'guided';
+      }
+      next.baseline[key] = saved[key] ?? null;
+    } else if (!(key in next.baseline)) {
+      next.baseline[key] = saved[key] ?? null;
+    }
+  }
+  return JSON.stringify(next) === JSON.stringify(data) ? data : next;
+}
+
+/** One durable, account-and-fighter-scoped draft across all editing tabs. */
 export function useCharacterEditDraft(
-  character: Record<string, unknown> | null,
+  character: Character,
   pricing: EditPricing,
   itemName?: (id: string) => string,
+  options?: CharacterEditDraftOptions,
 ): UseCharacterEditDraft {
-  const [values, setValues] = useState<DraftValues>({});
-
-  const stage = useCallback((key: DraftKey, value: string | null) => {
-    setValues((prev) => ({ ...prev, [key]: value }));
+  const [, render] = useState(0);
+  const scopeKey = options
+    ? JSON.stringify([options.accountId ?? null, options.characterId ?? null])
+    : 'unscoped';
+  const current = useRef<DraftSession | null>(null);
+  if (!current.current || current.current.key !== scopeKey) {
+    current.current = {
+      key: scopeKey,
+      scope:
+        options?.accountId && options.characterId
+          ? { accountId: options.accountId, characterId: options.characterId }
+          : null,
+      character,
+      data: emptyDraft(character, options?.initialSection ?? 'identity'),
+      ready: !options,
+      restored: false,
+      error: null,
+      active: true,
+      pendingDelete: false,
+      hasDraft: false,
+      needsSave: false,
+      revision: 0,
+    };
+  }
+  const session = current.current;
+  session.character = character;
+  const notify = useCallback((target: DraftSession) => {
+    if (target.active && current.current === target)
+      render((revision) => revision + 1);
   }, []);
-
-  const clear = useCallback(() => setValues({}), []);
-
-  const summary = useMemo(
-    () => computeDraft({ character, values, pricing, itemName }),
-    [character, values, pricing, itemName],
+  const isCurrent = useCallback(
+    (target: DraftSession) => target.active && current.current === target,
+    [],
   );
+
+  const hydrate = useCallback(
+    async (target: DraftSession): Promise<void> => {
+      if (target.ready) return;
+      if (!target.scope)
+        throw new Error('Character draft scope is not available');
+      if (target.hydration) return target.hydration;
+      const revision = target.revision;
+      target.hydration = (async () => {
+        try {
+          const restored = await characterEditDrafts.read(target.scope!);
+          if (!isCurrent(target) || target.revision !== revision) return;
+          target.data = reconcile(
+            restored ?? emptyDraft(target.character, target.data.section),
+            target.character,
+          );
+          target.ready = true;
+          target.restored = restored !== null;
+          target.hasDraft = restored !== null;
+          target.needsSave = restored !== null && target.data !== restored;
+          target.error = null;
+          notify(target);
+        } catch (error) {
+          if (isCurrent(target) && target.revision === revision) {
+            target.error =
+              'Couldn’t restore your saved draft. Retry before writing.';
+            notify(target);
+          }
+          throw error;
+        } finally {
+          target.hydration = undefined;
+        }
+      })();
+      return target.hydration;
+    },
+    [isCurrent, notify],
+  );
+
+  const persist = useCallback(
+    async (target: DraftSession): Promise<void> => {
+      if (!target.scope || !target.ready) return;
+      const revision = target.revision;
+      const deleting = target.pendingDelete;
+      const writing = target.needsSave;
+      const data = target.data;
+      try {
+        // Enqueue synchronously: an older operation must not schedule writes after discard.
+        const work = deleting
+          ? characterEditDrafts.clear(target.scope)
+          : writing
+            ? characterEditDrafts.save(target.scope, data)
+            : characterEditDrafts.flush(target.scope);
+        await work;
+        if (target.revision === revision) {
+          target.pendingDelete = false;
+          target.needsSave = false;
+          target.error = null;
+          notify(target);
+        }
+      } catch (error) {
+        if (target.revision === revision) {
+          target.error = deleting
+            ? 'Couldn’t remove the saved draft. Retry to finish deleting it.'
+            : 'Draft is not saved on this device. Keep this screen open and retry.';
+          notify(target);
+        }
+        throw error;
+      }
+    },
+    [notify],
+  );
+
+  const update = useCallback(
+    (change: (data: CharacterEditDraft) => CharacterEditDraft) => {
+      if (!isCurrent(session) || !session.ready) return;
+      session.data = change(session.data);
+      session.revision += 1;
+      session.hasDraft = true;
+      session.needsSave = true;
+      // New user input after discard is a new draft; the queued deletion remains before it.
+      session.pendingDelete = false;
+      notify(session);
+      void persist(session).catch(() => {});
+    },
+    [isCurrent, notify, persist, session],
+  );
+
+  const flush = useCallback(async () => {
+    if (!isCurrent(session)) return;
+    if (!session.ready) await hydrate(session);
+    if (isCurrent(session)) await persist(session);
+  }, [hydrate, isCurrent, persist, session]);
+
+  useEffect(() => {
+    session.active = true;
+    if (session.scope && !session.ready) void hydrate(session).catch(() => {});
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') void flush().catch(() => {});
+    });
+    return () => {
+      session.active = false;
+      subscription.remove();
+    };
+  }, [flush, hydrate, session]);
+
+  useEffect(() => {
+    if (!session.ready) return;
+    const next = reconcile(session.data, character);
+    if (next !== session.data) {
+      session.data = next;
+      // Refresh existing drafts only; merely loading a fighter does not create one.
+      if (session.hasDraft) {
+        session.revision += 1;
+        session.needsSave = true;
+      }
+      notify(session);
+    }
+    if (session.needsSave) void persist(session).catch(() => {});
+  }, [character, notify, persist, session, session.ready]);
+
+  const stage = useCallback(
+    (key: DraftKey, value: string | null) => {
+      update((data) => {
+        const next = { ...data, values: { ...data.values, [key]: value } };
+        if (key === 'portraitPromptRaw') {
+          if (value !== null) next.writtenText = value;
+          next.values.portraitPromptRaw =
+            data.activeMode === 'prompt' ? next.writtenText : null;
+        }
+        return reconcile(next, session.character);
+      });
+    },
+    [session, update],
+  );
+
+  const setMode = useCallback(
+    (activeMode: CharacterEditMode) => {
+      update((data) =>
+        reconcile(
+          {
+            ...data,
+            activeMode,
+            values: {
+              ...data.values,
+              portraitPromptRaw:
+                activeMode === 'prompt' ? data.writtenText : null,
+            },
+          },
+          session.character,
+        ),
+      );
+    },
+    [session, update],
+  );
+
+  const setSection = useCallback(
+    (section: DraftSection) => update((data) => ({ ...data, section })),
+    [update],
+  );
+  const setScrollPosition = useCallback(
+    (section: DraftSection, position: number) => {
+      if (!Number.isFinite(position) || position < 0) return;
+      update((data) => ({
+        ...data,
+        scrollPositions: { ...data.scrollPositions, [section]: position },
+      }));
+    },
+    [update],
+  );
+  const setExpandedGroup = useCallback(
+    (group: string, expanded: boolean) => {
+      update((data) => ({
+        ...data,
+        expandedGroups: { ...data.expandedGroups, [group]: expanded },
+      }));
+    },
+    [update],
+  );
+
+  const discard = useCallback(async () => {
+    if (!isCurrent(session)) return;
+    if (!session.scope && session.key !== 'unscoped')
+      throw new Error('Character draft scope is not available');
+    session.data = emptyDraft(session.character, session.data.section);
+    session.revision += 1;
+    session.ready = true;
+    session.pendingDelete = true;
+    session.hasDraft = false;
+    session.needsSave = false;
+    session.restored = false;
+    notify(session);
+    await persist(session);
+  }, [isCurrent, notify, persist, session]);
+  const clear = useCallback(() => {
+    void discard().catch(() => {});
+  }, [discard]);
+
+  const acknowledge = useCallback(
+    async (keys: DraftKey[], submitted: DraftValues) => {
+      if (!isCurrent(session) || !session.ready) return;
+      const data = session.data;
+      const next = {
+        ...data,
+        values: { ...data.values },
+        baseline: { ...data.baseline },
+        acknowledged: { ...data.acknowledged },
+      };
+      const incoming = characterValues(session.character);
+      for (const key of keys) {
+        if (!(key in submitted)) continue;
+        const value = submitted[key] ?? null;
+        next.baseline[key] = value;
+        next.acknowledged[key] = {
+          value,
+          previous: [
+            ...new Set([
+              ...(data.acknowledged[key]?.previous ?? []),
+              data.acknowledged[key]?.value ?? incoming[key] ?? null,
+              incoming[key] ?? null,
+            ]),
+          ],
+        };
+        if (next.values[key] === value) delete next.values[key];
+      }
+      session.data = next;
+      session.revision += 1;
+      session.pendingDelete = false;
+      session.hasDraft = true;
+      session.needsSave = true;
+      notify(session);
+      await persist(session);
+    },
+    [isCurrent, notify, persist, session],
+  );
+
+  const resolveConflict = useCallback(
+    (key: DraftKey, choice: 'saved' | 'draft') => {
+      update((data) => {
+        const saved = savedValues(data, session.character)[key] ?? null;
+        const next = {
+          ...data,
+          values: { ...data.values },
+          baseline: { ...data.baseline, [key]: saved },
+        };
+        if (choice === 'saved') {
+          delete next.values[key];
+          if (key === 'portraitPromptRaw') {
+            next.activeMode = saved ? 'prompt' : 'guided';
+            if (saved !== null) next.writtenText = saved;
+          }
+        }
+        return next;
+      });
+    },
+    [session, update],
+  );
+
+  const {
+    values,
+    activeMode,
+    writtenText,
+    section,
+    scrollPositions,
+    expandedGroups,
+  } = session.data;
+  const saved = savedValues(session.data, character);
+  const conflicts: DraftConflict[] = character
+    ? DRAFT_FIELDS.flatMap(({ key, label }) =>
+        key in values &&
+        values[key] !== saved[key] &&
+        session.data.baseline[key] !== saved[key]
+          ? [
+              {
+                key,
+                label,
+                saved: saved[key] ?? null,
+                draft: values[key] ?? null,
+              },
+            ]
+          : [],
+      )
+    : [];
+  const effectiveCharacter = character ? { ...character } : null;
+  if (effectiveCharacter) {
+    for (const { key, column } of DRAFT_FIELDS)
+      effectiveCharacter[column] = saved[key] ?? null;
+  }
+  const summary = computeDraft({
+    character: effectiveCharacter,
+    values,
+    pricing,
+    itemName,
+  });
 
   const identityPayload = useMemo(() => {
     const staged = summary.changes.filter((c) => c.section === 'identity');
@@ -332,7 +781,31 @@ export function useCharacterEditDraft(
     return payload;
   }, [summary.changes, values]);
 
-  return { ...summary, values, stage, clear, identityPayload, lookPayload };
+  return {
+    ...summary,
+    values,
+    stage,
+    clear,
+    identityPayload,
+    lookPayload,
+    activeMode,
+    writtenText,
+    setMode,
+    section,
+    setSection,
+    scrollPositions,
+    setScrollPosition,
+    expandedGroups,
+    setExpandedGroup,
+    ready: session.ready,
+    restored: session.restored,
+    persistenceError: session.error,
+    flush,
+    discard,
+    acknowledge,
+    conflicts,
+    resolveConflict,
+  };
 }
 
 export type { StageTraitKey };

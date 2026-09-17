@@ -236,3 +236,21 @@ verify_jwt = false
 # the handler ever runs.
 [functions.generate-move-suggestions]
 verify_jwt = false
+
+[functions.starter-fighter]
+verify_jwt = false
+
+[functions.tutorial]
+verify_jwt = false
+
+[functions.respec-character]
+verify_jwt = false
+
+[functions.record-funnel-event]
+verify_jwt = false
+
+[functions.resolve-appeal]
+verify_jwt = false
+
+[functions.run-judge-calibration]
+verify_jwt = false

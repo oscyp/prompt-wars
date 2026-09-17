@@ -11,6 +11,12 @@ import FirstTimeOfferModal, {
   OFFER_ENDED_LABEL,
   formatRemaining,
 } from '@/components/FirstTimeOfferModal';
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+jest.mock('@/components/game/battle/useBattlePresentationActive', () => ({
+  useBattlePresentationActive: jest.fn(() => true),
+}));
 
 const offer = {
   slug: 'starter_legend',

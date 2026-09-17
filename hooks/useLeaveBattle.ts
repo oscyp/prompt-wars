@@ -1,33 +1,23 @@
-/**
- * Leaving a battle, from the confirm dialog through to the charge.
- *
- * One hook for every exit surface because the decision is the same everywhere
- * — has this player locked a prompt, what does that cost, and what do they
- * lose — while the placement differs per screen. Putting the branch here means
- * six screens cannot drift into six different answers about what leaving does.
- */
-
-import { useCallback, useEffect, useRef, useState } from 'react';
+/** Explicit free forfeit/cancel only; navigation parks without calling this API. */
+import { useCallback, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { supabase } from '@/utils/supabase';
-import { leaveBattle, leaveDialogCopy, type BattleMode } from '@/utils/battles';
+import {
+  leaveBattle,
+  leaveDialogCopy,
+  canLeaveBattleStatus,
+  type BattleMode,
+} from '@/utils/battles';
 import type { PromptUpdate } from '@/hooks/useRealtimeBattle';
 import type { BattleFormat } from '@/types/battle';
-import { insufficientCreditsMessage } from '@/utils/credits';
 import { hapticSelection } from '@/utils/haptics';
 
-/**
- * Shown while the real price is in flight, and if the price read fails.
- *
- * Display only — the server re-reads `character_edit_prices` and is
- * authoritative, so a stale number here surfaces as a 402 the player can act
- * on, never as a wrong charge.
- */
-export const LEAVE_BATTLE_FALLBACK_CREDITS = 2;
+export const LEAVE_BATTLE_FALLBACK_CREDITS = 0;
 
 export interface UseLeaveBattleArgs {
   format: BattleFormat;
+  status?: string;
+  hasOpponent?: boolean;
   mode: BattleMode;
   isBot: boolean;
   prompts?: PromptUpdate[];
@@ -41,16 +31,15 @@ export function useLeaveBattle(
   args: UseLeaveBattleArgs,
 ) {
   const router = useRouter();
-  const [price, setPrice] = useState(LEAVE_BATTLE_FALLBACK_CREDITS);
+  const price = 0;
+  const canForfeit =
+    args.status === undefined || canLeaveBattleStatus(args.status);
   const [isLeaving, setIsLeaving] = useState(false);
   // Survives the re-render that setIsLeaving triggers, so a second tap landing
   // in the same frame cannot start a second request. The server is idempotent
   // either way; this stops the dialog stacking.
   const leavingRef = useRef(false);
 
-  // Whether THIS player has committed. Derived from what useRealtimeBattle
-  // already streams -- no extra query, no extra subscription -- so the dialog
-  // flips from free to paid the instant the lock lands.
   const iHaveLocked =
     args.hasLockedPrompt ??
     Boolean(
@@ -59,22 +48,6 @@ export function useLeaveBattle(
         (p) => p.profile_id === args.myProfileId && p.is_locked,
       ),
     );
-
-  useEffect(() => {
-    let cancelled = false;
-    supabase
-      .from('character_edit_prices')
-      .select('credits')
-      .eq('edit_kind', 'leave_battle')
-      .maybeSingle()
-      .then(({ data }) => {
-        if (cancelled || typeof data?.credits !== 'number') return;
-        setPrice(data.credits);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const performLeave = useCallback(
     async (onLeft?: () => void) => {
@@ -91,31 +64,13 @@ export function useLeaveBattle(
         if (onLeft) {
           onLeft();
         } else {
-          router.replace('/(tabs)/home');
+          router.dismissTo('/(tabs)/home');
         }
         return;
       }
 
       leavingRef.current = false;
       setIsLeaving(false);
-
-      if (result.code === 'insufficient_credits') {
-        Alert.alert(
-          'Not enough credits',
-          insufficientCreditsMessage(result.shortfall),
-          [
-            { text: 'Not now', style: 'cancel' },
-            {
-              // The point of this button: telling a player to top up from a
-              // screen with no route to the wallet is the exact failure
-              // CreditChip was written to fix.
-              text: 'Top up',
-              onPress: () => router.push('/(profile)/wallet'),
-            },
-          ],
-        );
-        return;
-      }
 
       Alert.alert('Could not leave', result.error ?? 'Please try again.');
     },
@@ -131,7 +86,7 @@ export function useLeaveBattle(
    */
   const confirmLeave = useCallback(
     (onLeft?: () => void) => {
-      if (!battleId || leavingRef.current) return;
+      if (!battleId || leavingRef.current || !canForfeit) return;
       hapticSelection();
 
       const copy = leaveDialogCopy({
@@ -140,6 +95,7 @@ export function useLeaveBattle(
         isBot: args.isBot,
         isLocked: iHaveLocked,
         price,
+        hasOpponent: args.hasOpponent,
       });
 
       Alert.alert(copy.title, copy.message, [
@@ -157,10 +113,12 @@ export function useLeaveBattle(
       args.mode,
       args.isBot,
       iHaveLocked,
+      canForfeit,
+      args.hasOpponent,
       price,
       performLeave,
     ],
   );
 
-  return { price, iHaveLocked, isLeaving, confirmLeave };
+  return { price, iHaveLocked, isLeaving, confirmLeave, canForfeit };
 }

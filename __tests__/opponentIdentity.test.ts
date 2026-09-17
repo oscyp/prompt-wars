@@ -165,3 +165,48 @@ describe('opponentIdentityFor', () => {
     ).toBe(false);
   });
 });
+
+it('uses frozen new bot identity instead of the generic legacy bot label', () => {
+  const battle = {
+    player_one_id: ME,
+    is_player_two_bot: true,
+    identity_snapshot: {
+      player_two: {
+        name: 'Whisper',
+        archetype: 'mystic',
+        signature_color: 'violet',
+        avatar: { image_path: 'bot/avatar.png' },
+      },
+    },
+  };
+  expect(opponentIdentityFor(battle, ME)).toMatchObject({
+    name: 'Whisper',
+    archetype: 'mystic',
+    signatureColor: 'violet',
+    isBot: true,
+  });
+});
+it('frozen human identity wins over later payload and public equipment changes', () => {
+  const battle = {
+    player_one_id: ME,
+    player_two_id: THEM,
+    identity_snapshot: {
+      player_two: {
+        name: 'AndrewTwo',
+        archetype: 'titan',
+        signature_color: 'blue',
+      },
+    },
+    tier0_reveal_payload: payload('player_two', {
+      character_name: 'Changed',
+      archetype: 'trickster',
+    }),
+  };
+  expect(
+    opponentIdentityFor(battle, ME, publicMap(THEM, 'engineer', 'red')),
+  ).toMatchObject({
+    name: 'AndrewTwo',
+    archetype: 'titan',
+    signatureColor: 'blue',
+  });
+});

@@ -1,18 +1,17 @@
+import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
+import { GameText as Text, GamePanel, GameNavRow } from '@/components/game';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Switch,
   Pressable,
   Alert,
   Linking,
-  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import * as Application from 'expo-application';
@@ -46,7 +45,7 @@ type ThemeColors = ReturnType<typeof useThemedColors>;
 
 /**
  * A labelled switch whose whole row is the target. A 51×31 switch at the far
- * edge of a row is a small thing to hit; the row is 44pt tall and full width.
+ * edge of a row is a small thing to hit; the row is at least 48pt tall and full width.
  * The Switch itself is hidden from assistive tech so the row is announced once,
  * as one switch, rather than as a label and a separate control.
  */
@@ -102,61 +101,6 @@ function SwitchRow({
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       />
-    </Pressable>
-  );
-}
-
-/** A row that goes somewhere: label at the leading edge, chevron trailing. */
-function LinkRow({
-  label,
-  onPress,
-  accessibilityLabel,
-  role = 'button',
-  colors,
-  color,
-  trailing,
-  disabled = false,
-  last = false,
-}: {
-  label: string;
-  onPress: () => void;
-  accessibilityLabel: string;
-  role?: 'button' | 'link';
-  colors: ThemeColors;
-  color?: string;
-  trailing?: React.ReactNode;
-  disabled?: boolean;
-  last?: boolean;
-}) {
-  return (
-    <Pressable
-      style={[
-        styles.settingRow,
-        { borderBottomColor: colors.border },
-        last && styles.settingRowLast,
-      ]}
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole={role}
-      accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ disabled }}
-    >
-      <Text
-        style={[
-          styles.settingLabel,
-          styles.settingText,
-          { color: color ?? colors.text },
-        ]}
-      >
-        {label}
-      </Text>
-      {trailing ?? (
-        <Ionicons
-          name="chevron-forward"
-          size={18}
-          color={colors.textTertiary}
-        />
-      )}
     </Pressable>
   );
 }
@@ -308,17 +252,18 @@ export default function SettingsScreen() {
           { paddingTop: insets.top + HEADER_BUTTON_SIZE },
         ]}
       >
-        <Text
+        <GameDisplayTitle
           accessibilityRole="header"
-          style={[styles.title, accessibleText, { color: colors.text }]}
+          style={[styles.title, accessibleText]}
         >
           Settings
-        </Text>
+        </GameDisplayTitle>
 
         {/* Battle audio is independent from haptics and split by intent: a
             player may keep event feedback without the ambient loop. */}
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <GamePanel style={[styles.section, { backgroundColor: colors.card }]}>
           <Text
+            variant="title"
             accessibilityRole="header"
             style={[
               styles.sectionTitle,
@@ -347,11 +292,12 @@ export default function SettingsScreen() {
             labelStyle={accessibleText}
             last
           />
-        </View>
+        </GamePanel>
 
         {/* Notifications */}
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <GamePanel style={[styles.section, { backgroundColor: colors.card }]}>
           <Text
+            variant="title"
             accessibilityRole="header"
             style={[
               styles.sectionTitle,
@@ -433,7 +379,7 @@ export default function SettingsScreen() {
             labelStyle={accessibleText}
             last
           />
-        </View>
+        </GamePanel>
 
         <Text
           style={[styles.note, accessibleText, { color: colors.textTertiary }]}
@@ -442,8 +388,9 @@ export default function SettingsScreen() {
         </Text>
 
         {/* Safety — App Store 1.2 wants blocking discoverable and reversible. */}
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <GamePanel style={[styles.section, { backgroundColor: colors.card }]}>
           <Text
+            variant="title"
             accessibilityRole="header"
             style={[
               styles.sectionTitle,
@@ -453,18 +400,20 @@ export default function SettingsScreen() {
           >
             Safety
           </Text>
-          <LinkRow
-            label="Blocked Players"
+          <GameNavRow
+            inline
+            title="Blocked Players"
+            gameIcon="shield-check"
             onPress={() => router.push('/(profile)/blocked')}
             accessibilityLabel="Blocked players"
-            colors={colors}
             last
           />
-        </View>
+        </GamePanel>
 
         {/* Legal — App Store 3.1.2 requires these reachable in-app. */}
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <GamePanel style={[styles.section, { backgroundColor: colors.card }]}>
           <Text
+            variant="title"
             accessibilityRole="header"
             style={[
               styles.sectionTitle,
@@ -474,26 +423,29 @@ export default function SettingsScreen() {
           >
             Legal
           </Text>
-          <LinkRow
-            label="Privacy Policy"
+          <GameNavRow
+            inline
+            title="Privacy Policy"
+            gameIcon="defense"
             onPress={() => Linking.openURL(Links.privacyPolicy)}
             accessibilityLabel="Privacy policy"
             role="link"
-            colors={colors}
           />
-          <LinkRow
-            label="Terms & Conditions"
+          <GameNavRow
+            inline
+            title="Terms & Conditions"
+            gameIcon="scroll"
             onPress={() => Linking.openURL(Links.termsAndConditions)}
             accessibilityLabel="Terms and conditions"
             role="link"
-            colors={colors}
             last
           />
-        </View>
+        </GamePanel>
 
         {/* About */}
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <GamePanel style={[styles.section, { backgroundColor: colors.card }]}>
           <Text
+            variant="title"
             accessibilityRole="header"
             style={[
               styles.sectionTitle,
@@ -524,27 +476,22 @@ export default function SettingsScreen() {
             </Text>
           </View>
           {Links.support ? (
-            <LinkRow
-              label="Support"
+            <GameNavRow
+              inline
+              title="Support"
+              gameIcon="ideas"
               onPress={() => Linking.openURL(Links.support)}
               accessibilityLabel="Support"
               role="link"
-              colors={colors}
-              trailing={
-                <Ionicons
-                  name="open-outline"
-                  size={18}
-                  color={colors.textTertiary}
-                />
-              }
               last
             />
           ) : null}
-        </View>
+        </GamePanel>
 
         {/* Account deletion — App Store 5.1.1(v). */}
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <GamePanel style={[styles.section, { backgroundColor: colors.card }]}>
           <Text
+            variant="title"
             accessibilityRole="header"
             style={[
               styles.sectionTitle,
@@ -554,30 +501,21 @@ export default function SettingsScreen() {
           >
             Account
           </Text>
-          <LinkRow
-            label="Sign out"
+          <GameNavRow
+            inline
+            title="Sign out"
+            gameIcon="external"
             onPress={confirmSignOut}
             accessibilityLabel="Sign out"
-            colors={colors}
           />
-          <LinkRow
-            label="Delete Account"
+          <GameNavRow
+            inline
+            title="Delete Account"
+            gameIcon="blocked"
             onPress={confirmDeleteAccount}
             accessibilityLabel="Delete account"
-            colors={colors}
             color={colors.error}
-            disabled={isDeleting}
-            trailing={
-              isDeleting ? (
-                <ActivityIndicator color={colors.error} />
-              ) : (
-                <Ionicons
-                  name="chevron-forward"
-                  size={18}
-                  color={colors.textTertiary}
-                />
-              )
-            }
+            busy={isDeleting}
             last
           />
           <Text
@@ -591,7 +529,7 @@ export default function SettingsScreen() {
             stay on your opponents&apos; records, anonymized. This cannot be
             undone.
           </Text>
-        </View>
+        </GamePanel>
       </ScrollView>
       {toast ? <Toast text={toast} /> : null}
     </View>

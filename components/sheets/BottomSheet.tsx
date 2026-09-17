@@ -1,27 +1,26 @@
-import React, { useEffect, useRef } from 'react';
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { GameText as Text, GameFooter } from '@/components/game';
 import {
   Modal,
   View,
-  Text,
   Pressable,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   Animated,
   StyleSheet,
+  ScrollView,
+  AccessibilityInfo,
+  findNodeHandle,
+  InteractionManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
-import {
-  Spacing,
-  Typography,
-  BorderRadius,
-  Motion,
-  Scrim,
-} from '@/constants/DesignTokens';
+import { Spacing, BorderRadius, Motion, Scrim } from '@/constants/DesignTokens';
 
 const SHEET_OFFSET = 420;
 
@@ -37,9 +36,13 @@ export interface BottomSheetProps {
   subtitle?: string;
   /** Wraps the sheet in a KeyboardAvoidingView; for sheets with text inputs. */
   keyboardAvoiding?: boolean;
-  /** 44×44 close button in the top-right corner. */
+  /** 48×48 close button in the top-right corner. */
   showCloseButton?: boolean;
   children: React.ReactNode;
+  /** Actions remain reachable while the body scrolls. */
+  footer?: React.ReactNode;
+  /** Optional opener focus target restored when dismissed. */
+  returnFocusRef?: React.RefObject<View | null>;
   testID?: string;
 }
 
@@ -59,13 +62,32 @@ export default function BottomSheet({
   title,
   subtitle,
   keyboardAvoiding = false,
-  showCloseButton = false,
+  showCloseButton = true,
   children,
+  footer,
+  returnFocusRef,
   testID,
 }: BottomSheetProps) {
+  const focusRef = useRef<View>(null);
+  const didShow = useRef(false);
+  const isVisible = useRef(visible);
+  isVisible.current = visible;
+  const restoreFocus = useCallback(() => {
+    if (!didShow.current || isVisible.current) return;
+    didShow.current = false;
+    const target =
+      returnFocusRef?.current && findNodeHandle(returnFocusRef.current);
+    if (target) AccessibilityInfo.setAccessibilityFocus(target);
+  }, [returnFocusRef]);
+  useEffect(() => {
+    if (Platform.OS !== 'android' || visible || !didShow.current) return;
+    const task = InteractionManager.runAfterInteractions(restoreFocus);
+    return () => task.cancel();
+  }, [visible, restoreFocus]);
   const colors = useThemedColors();
   const insets = useSafeAreaInsets();
-  const reduceMotion = useReducedMotion();
+  const active = useBattlePresentationActive();
+  const reduceMotion = useReducedMotion() || !active;
   const accessibleText = useAccessibleTextStyle();
   const translateY = useRef(new Animated.Value(SHEET_OFFSET)).current;
 
@@ -76,11 +98,13 @@ export default function BottomSheet({
       return;
     }
     translateY.setValue(SHEET_OFFSET);
-    Animated.timing(translateY, {
+    const entrance = Animated.timing(translateY, {
       toValue: 0,
       duration: Motion.durations.base,
       useNativeDriver: true,
-    }).start();
+    });
+    entrance.start();
+    return () => entrance.stop();
   }, [visible, reduceMotion, translateY]);
 
   const requestClose = () => {
@@ -95,44 +119,58 @@ export default function BottomSheet({
         styles.sheet,
         {
           backgroundColor: colors.background,
-          borderColor: colors.border,
+          borderColor: colors.ornamentMuted,
           paddingBottom: insets.bottom + Spacing.lg,
           transform: [{ translateY }],
         },
       ]}
     >
-      <View style={[styles.grabber, { backgroundColor: colors.border }]} />
+      <View
+        accessible={false}
+        style={[styles.grabber, { backgroundColor: colors.ornament }]}
+      />
       {showCloseButton ? (
         <TouchableOpacity
+          ref={focusRef}
           onPress={requestClose}
           disabled={dismissDisabled}
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={closeAccessibilityLabel}
           style={styles.close}
         >
-          <Ionicons name="close" size={22} color={colors.textSecondary} />
+          <GameSymbol name="close" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
       ) : null}
-      {title ? (
-        <Text
-          accessibilityRole="header"
-          style={[styles.title, accessibleText, { color: colors.text }]}
-        >
-          {title}
-        </Text>
+      <ScrollView
+        style={{ flexShrink: 1 }}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: Spacing.md }}
+      >
+        {title ? (
+          <Text
+            variant="title"
+            accessibilityRole="header"
+            style={[styles.title, accessibleText, { color: colors.text }]}
+          >
+            {title}
+          </Text>
+        ) : null}
+        {subtitle ? (
+          <Text
+            style={[
+              styles.subtitle,
+              accessibleText,
+              { color: colors.textSecondary },
+            ]}
+          >
+            {subtitle}
+          </Text>
+        ) : null}
+        <View>{children}</View>
+      </ScrollView>
+      {footer ? (
+        <GameFooter style={{ padding: 0, paddingTop: 12 }}>{footer}</GameFooter>
       ) : null}
-      {subtitle ? (
-        <Text
-          style={[
-            styles.subtitle,
-            accessibleText,
-            { color: colors.textSecondary },
-          ]}
-        >
-          {subtitle}
-        </Text>
-      ) : null}
-      {children}
     </Animated.View>
   );
 
@@ -142,12 +180,18 @@ export default function BottomSheet({
       transparent
       animationType="none"
       onRequestClose={requestClose}
+      onShow={() => {
+        didShow.current = true;
+        const target = findNodeHandle(focusRef.current);
+        if (target) AccessibilityInfo.setAccessibilityFocus(target);
+      }}
+      onDismiss={restoreFocus}
     >
       <Pressable
         style={styles.scrim}
         onPress={requestClose}
-        accessibilityRole="button"
-        accessibilityLabel={closeAccessibilityLabel}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
       />
       {keyboardAvoiding ? (
         <KeyboardAvoidingView
@@ -170,7 +214,7 @@ const styles = StyleSheet.create({
   sheet: {
     // Capped so a large-text layout still shows the scrim above it, keeping
     // "tap outside to dismiss" discoverable.
-    maxHeight: '88%',
+    maxHeight: '92%',
     marginTop: 'auto',
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
@@ -186,22 +230,19 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   close: {
-    position: 'absolute',
-    top: Spacing.sm,
-    right: Spacing.sm,
-    width: 44,
-    height: 44,
+    alignSelf: 'flex-end',
+    marginTop: -8,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
   },
   title: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.bold,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: Typography.sizes.sm,
+    fontSize: 16,
     textAlign: 'center',
     marginTop: 2,
     marginBottom: Spacing.md,

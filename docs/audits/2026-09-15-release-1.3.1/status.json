@@ -1,0 +1,23 @@
+{
+  "checkedAt": "2026-09-15T20:46:59.620Z",
+  "id": "31127eb5-0b3f-4a2d-98ea-3a42c29a8d6e",
+  "status": "FINISHED",
+  "version": "1.3.1",
+  "buildNumber": "10",
+  "completedAt": "2026-09-15T20:43:15.986Z",
+  "error": null,
+  "submissions": [
+    {
+      "id": "aa765e3c-d1d4-4b25-9449-243bb342bc8b",
+      "status": "IN_QUEUE",
+      "error": null,
+      "logCount": 0
+    }
+  ],
+  "phase": "UPLOAD_BUILD_ARTIFACTS",
+  "lastLogTime": "2026-09-15T20:43:15.247Z",
+  "compileProgress": [
+    "› Signing   PromptWars » PromptWars.app",
+    "› Archive Succeeded"
+  ]
+}

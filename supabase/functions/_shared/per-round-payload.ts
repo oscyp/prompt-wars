@@ -10,6 +10,7 @@
 //   - round-resolve         (auto-enqueue Tier 1 for subscribers)
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { signPortraitPath } from './compose-reveal-payload.ts';
 import {
   composeTier1PerRoundPayload,
   type CharacterSnapshot,
@@ -63,38 +64,65 @@ export async function composePerRoundPayload(
     return '';
   };
 
-  const p1Text = await promptText(p1Row);
-  const p2Text = await promptText(p2Row);
+  const p1Text =
+    round.judge_payload?.frozen_inputs?.player_one?.text ??
+    (await promptText(p1Row));
+  const p2Text =
+    round.judge_payload?.frozen_inputs?.player_two?.text ??
+    (await promptText(p2Row));
+  // Some workers selected an older projection; fetch the immutable identity when absent.
+  const { data: identityRow } = battle.identity_snapshot
+    ? { data: battle }
+    : await supabase
+        .from('battles')
+        .select('identity_snapshot')
+        .eq('id', battle.id)
+        .single();
+  const identity = identityRow?.identity_snapshot;
+  const one = identity?.player_one ?? battle.player_one_character;
+  const two = identity?.player_two ?? battle.player_two_character;
+  const onePortrait = identity?.player_one?.fighter?.image_path;
+  const twoPortrait = identity?.player_two?.fighter?.image_path;
 
   const p1Char: CharacterSnapshot = {
     user_id: battle.player_one_id,
-    name: battle.player_one_character?.name ?? 'Player One',
-    archetype: battle.player_one_character?.archetype ?? 'neutral',
-    signature_color: battle.player_one_character?.signature_color ?? '#6366f1',
-    voice_id: battle.player_one_character?.voice_id ?? null,
-    portrait_ref: battle.player_one_character?.portrait_signed_url ?? null,
+    name: one?.name ?? 'Player One',
+    archetype: one?.archetype ?? 'neutral',
+    signature_color: one?.signature_color ?? '#6366f1',
+    voice_id: one?.voice_id ?? null,
+    portrait_ref: onePortrait
+      ? await signPortraitPath(supabase, onePortrait)
+      : (one?.portrait_signed_url ?? null),
     stats_snapshot:
       (battle.player_one_stats_snapshot as Record<string, number>) ?? {},
   };
   const p2Char: CharacterSnapshot = {
     user_id: battle.player_two_id,
-    name: battle.player_two_character?.name ?? 'Player Two',
-    archetype: battle.player_two_character?.archetype ?? 'neutral',
-    signature_color: battle.player_two_character?.signature_color ?? '#94a3b8',
-    voice_id: battle.player_two_character?.voice_id ?? null,
-    portrait_ref: battle.player_two_character?.portrait_signed_url ?? null,
+    name: two?.name ?? 'Player Two',
+    archetype: two?.archetype ?? 'neutral',
+    signature_color: two?.signature_color ?? '#94a3b8',
+    voice_id: two?.voice_id ?? null,
+    portrait_ref: twoPortrait
+      ? await signPortraitPath(supabase, twoPortrait)
+      : (two?.portrait_signed_url ?? null),
     stats_snapshot:
       (battle.player_two_stats_snapshot as Record<string, number>) ?? {},
   };
 
   const p1Prompt: PromptSnapshot = {
     text_moderated: p1Text,
-    move_type: p1Row?.move_type ?? 'attack',
+    move_type:
+      round.judge_payload?.frozen_inputs?.player_one?.moveType ??
+      p1Row?.move_type ??
+      'attack',
     pre_gen_moderation_id: p1Row?.moderation_event_id ?? null,
   };
   const p2Prompt: PromptSnapshot = {
     text_moderated: p2Text,
-    move_type: p2Row?.move_type ?? 'attack',
+    move_type:
+      round.judge_payload?.frozen_inputs?.player_two?.moveType ??
+      p2Row?.move_type ??
+      'attack',
     pre_gen_moderation_id: p2Row?.moderation_event_id ?? null,
   };
 

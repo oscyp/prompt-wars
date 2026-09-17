@@ -1,17 +1,22 @@
+import { GameBevel } from '@/components/game';
+import { GameButton, GameHeader } from '@/components/game';
+import { GameText } from '@/components/game';
+import BattleListPortrait from '@/components/BattleListPortrait';
+import PlayerSafetyActions from '@/components/PlayerSafetyActions';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   SectionList,
   Pressable,
-  TouchableOpacity,
   RefreshControl,
   Image,
+  useWindowDimensions,
+  type ViewToken,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { useTabClearance } from '@/hooks/useTabClearance';
@@ -24,7 +29,10 @@ import {
 import { archetypeIllustrationUri } from '@/constants/ArchetypeAvatars';
 import { UiArt } from '@/constants/UiArt';
 import {
-  getBattleHistory,
+  getActiveBattles,
+  activeBattleDeadline,
+  getFinishedBattlePage,
+  type BattleHistoryCursor,
   groupBattlesForList,
   battleSectionLabel,
   describeBattleRow,
@@ -37,7 +45,11 @@ import {
   type BattleListRow,
   type BattleListSection,
 } from '@/utils/battleLists';
-import { modeLabel, type BattleOutcome } from '@/utils/battleCopy';
+import {
+  modeLabel,
+  exactBattleDeadline,
+  type BattleOutcome,
+} from '@/utils/battleCopy';
 import { opponentIdentityFor } from '@/utils/opponentIdentity';
 import {
   fetchPublicPlayers,
@@ -48,7 +60,7 @@ import { shortDate } from '@/utils/walletView';
 import { inkFor } from '@/utils/contrast';
 import { hapticSelection } from '@/utils/haptics';
 import { useAuth } from '@/providers/AuthProvider';
-import { InlineBanner, PortraitPreview } from '@/components';
+import { InlineBanner } from '@/components';
 import { useBattleSheet } from '@/components/BattleModeSheet';
 import ListSkeleton from '@/components/ListSkeleton';
 import { useLeaveBattle } from '@/hooks/useLeaveBattle';
@@ -60,10 +72,9 @@ import {
 } from '@/utils/battles';
 import type { BattleFormat } from '@/types/battle';
 
-type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+type IoniconName = React.ComponentProps<typeof GameSymbol>['name'];
 
 const FOCUS_REFETCH_DEBOUNCE_MS = 1500;
-const HISTORY_LIMIT = 50;
 const AVATAR_SIZE = 44;
 /** Rows with nowhere to go (timed out, cancelled) read as inert. */
 const DISABLED_ROW_OPACITY = 0.6;
@@ -102,7 +113,7 @@ function BattleLeaveAction({
   });
 
   return (
-    <Pressable
+    <GameButton
       style={styles.rowLeaveAction}
       onPress={(event) => {
         event.stopPropagation();
@@ -112,11 +123,9 @@ function BattleLeaveAction({
       accessibilityRole="button"
       accessibilityLabel={`${label} battle`}
       accessibilityState={{ disabled: leave.isLeaving }}
-    >
-      <Text style={[styles.rowLeaveText, { color }]}>
-        {leave.isLeaving ? 'Leaving…' : label}
-      </Text>
-    </Pressable>
+      tone="secondary"
+      label={leave.isLeaving ? 'Leaving…' : label}
+    />
   );
 }
 
@@ -146,7 +155,25 @@ export default function BattlesScreen() {
   const battleSheet = useBattleSheet();
   const { user } = useAuth();
   const userId = user?.id;
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = fontScale >= 1.3 || width < 360;
+  const [visibleIds, setVisibleIds] = useState<Set<string>>(() => new Set());
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken<BattleListRow>[] }) => {
+      setVisibleIds(
+        new Set(
+          viewableItems
+            .filter((token) => token.isViewable && token.item?.id)
+            .map((token) => token.item.id),
+        ),
+      );
+    },
+  ).current;
   const [battles, setBattles] = useState<BattleListRow[]>([]);
+  const [nextCursor, setNextCursor] = useState<BattleHistoryCursor | null>(
+    null,
+  );
+  const [loadingMore, setLoadingMore] = useState(false);
   const [players, setPlayers] = useState<PublicPlayerMap>(() => new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -156,7 +183,12 @@ export default function BattlesScreen() {
   const loadBattles = useCallback(async () => {
     lastLoadRef.current = Date.now();
     try {
-      const data = await getBattleHistory(HISTORY_LIMIT);
+      const [active, history] = await Promise.all([
+        getActiveBattles(100),
+        getFinishedBattlePage(),
+      ]);
+      const data = [...active, ...history.items];
+      setNextCursor(history.nextCursor);
       // Live rows have no reveal payload yet; the public view supplies the
       // opponent's archetype and colour. Never rejects.
       const known = await fetchPublicPlayers(opponentProfileIds(data, userId));
@@ -182,6 +214,30 @@ export default function BattlesScreen() {
       void loadBattles();
     }, [loadBattles]),
   );
+
+  const loadMore = async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await getFinishedBattlePage(nextCursor);
+      const known = await fetchPublicPlayers(
+        opponentProfileIds(page.items, userId),
+      );
+      setBattles((current) => [
+        ...current,
+        ...page.items.filter(
+          (row) => !current.some((existing) => existing.id === row.id),
+        ),
+      ]);
+      setPlayers((current) => new Map([...current, ...known]));
+      setNextCursor(page.nextCursor);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -210,17 +266,15 @@ export default function BattlesScreen() {
     const identity = opponentIdentityFor(item, userId, players);
     const name = identity.name ?? view.opponentName;
     // Bots keep the neutral illustration and a plain ring.
-    const art =
-      archetypeIllustrationUri(identity.isBot ? null : identity.archetype) ??
-      '';
-    const ring =
-      !identity.isBot && identity.signatureColor
-        ? resolveSignatureHex(identity.signatureColor)
-        : colors.border;
+    const art = archetypeIllustrationUri(identity.archetype) ?? '';
+    const ring = identity.signatureColor
+      ? resolveSignatureHex(identity.signatureColor)
+      : colors.border;
     // Series score and knockout only once there is a result to score.
     const series = outcome ? seriesScoreFor(item, userId) : null;
     const knockout = Boolean(outcome) && item.is_ko === true;
     const date = shortDate(item.created_at);
+    const deadline = activeBattleDeadline(item, userId);
     const label = [
       `Battle against ${name}`,
       showChip ? view.status.label : null,
@@ -234,128 +288,177 @@ export default function BattlesScreen() {
       .filter(Boolean)
       .join('. ');
 
+    const opponentId =
+      item.player_one_id === userId ? item.player_two_id : item.player_one_id;
     return (
-      <Pressable
-        style={({ pressed }) => [
-          styles.battleCard,
-          {
-            backgroundColor: colors.card,
-            borderColor: chipFilled ? colors.primary : colors.borderLight,
-            borderWidth: chipFilled ? 1 : StyleSheet.hairlineWidth,
-            opacity: !route ? DISABLED_ROW_OPACITY : pressed ? 0.85 : 1,
-          },
-        ]}
-        onPress={() => {
-          if (route) router.push(route);
-        }}
-        disabled={!route}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        accessibilityState={{ disabled: !route }}
-      >
-        <PortraitPreview
-          uri={art}
-          variant="circle"
-          size={AVATAR_SIZE}
-          accentColor={ring}
-          accessibilityLabel={`${name}'s archetype`}
-        />
-        <View style={styles.battleBody}>
-          <View style={styles.battleHeader}>
-            <Text
-              style={[styles.opponent, accessibleText, { color: colors.text }]}
-              numberOfLines={1}
+      <View>
+        <Pressable
+          style={({ pressed }) => [
+            styles.battleCard,
+            stacked && styles.stackedCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: chipFilled ? colors.primary : colors.borderLight,
+              borderWidth: chipFilled ? 1 : StyleSheet.hairlineWidth,
+              opacity: !route ? DISABLED_ROW_OPACITY : pressed ? 0.85 : 1,
+            },
+          ]}
+          onPress={() => {
+            if (route) router.push(route);
+          }}
+          disabled={!route}
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          accessibilityState={{ disabled: !route }}
+        >
+          <GameBevel
+            color={chipFilled ? colors.primary : colors.ornamentMuted}
+          />
+          <BattleListPortrait
+            accountId={userId}
+            battleId={item.id}
+            side={item.player_one_id === userId ? 'player_two' : 'player_one'}
+            snapshot={item.identity_snapshot}
+            visible={visibleIds.has(item.id)}
+            fallbackUri={art}
+            accentColor={ring}
+            name={name}
+            size={AVATAR_SIZE}
+          />
+          <View style={[styles.battleBody, stacked && styles.stackedBody]}>
+            <View
+              style={[styles.battleHeader, stacked && styles.stackedHeader]}
             >
-              vs {name}
-            </Text>
-            {showChip ? (
-              <View
+              <GameText
+                variant="fighter"
                 style={[
-                  styles.statusChip,
-                  chipFilled
-                    ? { backgroundColor: toneColor, borderColor: toneColor }
-                    : { borderColor: toneColor },
+                  styles.opponent,
+                  stacked && styles.stackedOpponent,
+                  accessibleText,
+                  { color: colors.text },
                 ]}
               >
-                <Text
+                vs {name}
+              </GameText>
+              {showChip ? (
+                <View
                   style={[
-                    styles.status,
-                    { color: chipFilled ? inkFor(toneColor) : toneColor },
+                    styles.statusChip,
+                    chipFilled
+                      ? { backgroundColor: toneColor, borderColor: toneColor }
+                      : { borderColor: toneColor },
                   ]}
                 >
-                  {view.status.label}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-          <Text
-            style={[
-              styles.meta,
-              accessibleText,
-              { color: colors.textSecondary },
-            ]}
-            numberOfLines={1}
-          >
-            {item.theme ? `${mode} · ${item.theme}` : mode}
-          </Text>
-          <View style={styles.battleFooter}>
-            {outcome ? (
-              <View style={styles.outcomeRow}>
-                <Ionicons name={outcome.icon} size={14} color={outcome.color} />
-                <Text style={[styles.result, { color: outcome.color }]}>
-                  {outcome.word}
-                </Text>
-                {series ? (
-                  <Text
+                  <GameText
+                    variant="body"
                     style={[
-                      styles.series,
-                      NumericFontVariant,
-                      { color: colors.textSecondary },
+                      styles.status,
+                      { color: chipFilled ? inkFor(toneColor) : toneColor },
                     ]}
                   >
-                    {seriesLabel(series)}
-                  </Text>
-                ) : null}
-                {knockout ? (
-                  <Text
-                    style={[
-                      styles.koTag,
-                      {
-                        color: colors.text,
-                        backgroundColor: colors.backgroundTertiary,
-                      },
-                    ]}
+                    {view.status.label}
+                  </GameText>
+                </View>
+              ) : null}
+            </View>
+            <GameText
+              variant="caption"
+              style={[
+                styles.meta,
+                accessibleText,
+                { color: colors.textSecondary },
+              ]}
+            >
+              {item.theme ? `${mode} · ${item.theme}` : mode}
+            </GameText>
+            {deadline ? (
+              <GameText
+                variant="caption"
+                style={[
+                  styles.meta,
+                  accessibleText,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                {exactBattleDeadline(deadline)}
+              </GameText>
+            ) : null}
+            <View
+              style={[styles.battleFooter, stacked && styles.stackedFooter]}
+            >
+              {outcome ? (
+                <View style={styles.outcomeRow}>
+                  <GameSymbol
+                    name={outcome.icon}
+                    size={14}
+                    color={outcome.color}
+                  />
+                  <GameText
+                    variant="body"
+                    style={[styles.result, { color: outcome.color }]}
                   >
-                    KO
-                  </Text>
-                ) : null}
-              </View>
-            ) : (
-              <View />
-            )}
-            {date ? (
-              <Text style={[styles.date, { color: colors.textTertiary }]}>
-                {date}
-              </Text>
+                    {outcome.word}
+                  </GameText>
+                  {series ? (
+                    <GameText
+                      variant="body"
+                      style={[
+                        styles.series,
+                        NumericFontVariant,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {seriesLabel(series)}
+                    </GameText>
+                  ) : null}
+                  {knockout ? (
+                    <GameText
+                      variant="body"
+                      style={[
+                        styles.koTag,
+                        {
+                          color: colors.text,
+                          backgroundColor: colors.backgroundTertiary,
+                        },
+                      ]}
+                    >
+                      KO
+                    </GameText>
+                  ) : null}
+                </View>
+              ) : (
+                <View />
+              )}
+              {date ? (
+                <GameText
+                  variant="caption"
+                  style={[styles.date, { color: colors.textTertiary }]}
+                >
+                  {date}
+                </GameText>
+              ) : null}
+            </View>
+            {canLeaveBattleStatus(item.status) ? (
+              <BattleLeaveAction
+                battle={item}
+                userId={userId}
+                color={colors.error}
+                onLeft={() => {
+                  // Optimistic removal makes a successful leave visible before
+                  // the refetch round-trip. The server remains authoritative.
+                  setBattles((current) =>
+                    current.filter((battle) => battle.id !== item.id),
+                  );
+                  void loadBattles();
+                }}
+              />
             ) : null}
           </View>
-          {canLeaveBattleStatus(item.status) ? (
-            <BattleLeaveAction
-              battle={item}
-              userId={userId}
-              color={colors.error}
-              onLeft={() => {
-                // Optimistic removal makes a successful leave visible before
-                // the refetch round-trip. The server remains authoritative.
-                setBattles((current) =>
-                  current.filter((battle) => battle.id !== item.id),
-                );
-                void loadBattles();
-              }}
-            />
-          ) : null}
-        </View>
-      </Pressable>
+        </Pressable>
+        {opponentId && !identity.isBot ? (
+          <PlayerSafetyActions profileId={opponentId} name={name} />
+        ) : null}
+      </View>
     );
   };
 
@@ -366,10 +469,14 @@ export default function BattlesScreen() {
       accessibilityRole="header"
       accessibilityLabel={battleSectionLabel(section)}
     >
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+      <GameText
+        variant="title"
+        style={[styles.sectionTitle, { color: colors.textSecondary }]}
+      >
         {section.title}
-      </Text>
-      <Text
+      </GameText>
+      <GameText
+        variant="body"
         style={[
           styles.sectionCount,
           NumericFontVariant,
@@ -377,7 +484,7 @@ export default function BattlesScreen() {
         ]}
       >
         {section.data.length}
-      </Text>
+      </GameText>
     </View>
   );
 
@@ -402,12 +509,7 @@ export default function BattlesScreen() {
         },
       ]}
     >
-      <Text
-        style={[styles.title, { color: colors.text }]}
-        accessibilityRole="header"
-      >
-        Battles
-      </Text>
+      <GameHeader title="Battles" style={{ marginBottom: 16 }} />
       {isLoading ? (
         <ListSkeleton label="Loading your battles" />
       ) : (
@@ -438,10 +540,14 @@ export default function BattlesScreen() {
                   accessibilityElementsHidden
                   importantForAccessibility="no"
                 />
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                <GameText
+                  variant="title"
+                  style={[styles.emptyTitle, { color: colors.text }]}
+                >
                   No battles yet
-                </Text>
-                <Text
+                </GameText>
+                <GameText
+                  variant="body"
                   style={[
                     styles.emptyText,
                     accessibleText,
@@ -449,24 +555,31 @@ export default function BattlesScreen() {
                   ]}
                 >
                   Your battles and results will show up here.
-                </Text>
-                <TouchableOpacity
+                </GameText>
+                <GameButton
                   style={[styles.emptyCta, { backgroundColor: colors.primary }]}
                   onPress={openBattleSheet}
                   accessibilityRole="button"
                   accessibilityLabel="Start a battle"
-                >
-                  <Text
-                    style={[
-                      styles.emptyCtaText,
-                      { color: inkFor(colors.primary) },
-                    ]}
-                  >
-                    Start a battle
-                  </Text>
-                </TouchableOpacity>
+                  tone="primary"
+                  label="Start a battle"
+                />
               </View>
             )
+          }
+          onViewableItemsChanged={onViewableItemsChanged}
+          extraData={visibleIds}
+          ListFooterComponent={
+            nextCursor ? (
+              <GameButton
+                accessibilityRole="button"
+                disabled={loadingMore}
+                onPress={() => void loadMore()}
+                style={styles.emptyCta}
+                tone="secondary"
+                label={loadingMore ? 'Loading…' : 'Load older battles'}
+              />
+            ) : null
           }
           refreshControl={
             <RefreshControl
@@ -509,13 +622,13 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
   },
   sectionTitle: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.bold,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   sectionCount: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
   battleCard: {
@@ -523,11 +636,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.sm,
     marginBottom: Spacing.sm,
   },
   battleBody: {
     flex: 1,
+    minWidth: 0,
+    alignSelf: 'stretch',
   },
   battleHeader: {
     flexDirection: 'row',
@@ -548,21 +663,33 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   status: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
   meta: {
     fontSize: Typography.sizes.sm,
     marginBottom: Spacing.xs,
   },
+  stackedBody: { flex: 0, width: '100%' },
+  stackedOpponent: { flex: 0, width: '100%' },
+  stackedCard: { flexDirection: 'column', alignItems: 'flex-start' },
+  stackedHeader: { flexDirection: 'column', alignItems: 'flex-start' },
+  stackedFooter: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: Spacing.xs,
+  },
   battleFooter: {
+    flexWrap: 'wrap',
+    columnGap: Spacing.sm,
+    rowGap: Spacing.xs,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   rowLeaveAction: {
     alignSelf: 'flex-start',
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: 'center',
     paddingHorizontal: Spacing.sm,
     marginLeft: -Spacing.sm,
@@ -574,6 +701,8 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   outcomeRow: {
+    flexWrap: 'wrap',
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
@@ -588,7 +717,7 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.xs,
   },
   koTag: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.bold,
     letterSpacing: 0.6,
     paddingHorizontal: Spacing.xs,
@@ -598,7 +727,7 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.xs,
   },
   date: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
   },
   emptyState: {
     alignItems: 'center',

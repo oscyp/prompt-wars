@@ -101,7 +101,10 @@ export async function fetchEditPrice(
 export async function fetchEditPricing(
   characterId: string,
 ): Promise<EditPricing> {
-  const [{ data: priceRows }, { data: editRows }] = await Promise.all([
+  const [
+    { data: priceRows, error: priceError },
+    { data: editRows, error: editError },
+  ] = await Promise.all([
     supabase
       .from('character_edit_prices')
       .select('edit_kind, credits, cooldown_seconds'),
@@ -113,13 +116,30 @@ export async function fetchEditPricing(
       .limit(EDIT_SCAN_LIMIT),
   ]);
 
+  if (priceError || editError)
+    throw new Error(
+      priceError?.message ??
+        editError?.message ??
+        'Could not load drawing prices.',
+    );
   const prices: Partial<Record<EditPriceKey, EditPrice>> = {};
   for (const row of priceRows ?? []) {
-    prices[row.edit_kind as EditPriceKey] = {
-      credits: Number(row.credits ?? 0),
-      cooldownSeconds: Number(row.cooldown_seconds ?? 0),
-    };
+    const credits = Number(row.credits),
+      cooldownSeconds = Number(row.cooldown_seconds);
+    if (
+      row.credits == null ||
+      row.cooldown_seconds == null ||
+      !Number.isFinite(credits) ||
+      credits < 0 ||
+      !Number.isFinite(cooldownSeconds) ||
+      cooldownSeconds < 0
+    )
+      throw new Error('Drawing prices are incomplete. Try again.');
+    prices[row.edit_kind as EditPriceKey] = { credits, cooldownSeconds };
   }
+
+  if (!prices.render_look || !prices.random_character)
+    throw new Error('Drawing prices are unavailable. Try again.');
 
   // Rows arrive newest-first, so the first sighting of a kind is its latest.
   const latestByLogKind = new Map<string, number>();

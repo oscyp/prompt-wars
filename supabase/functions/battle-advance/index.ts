@@ -17,20 +17,11 @@ import {
   hasSupabaseSecretAuthorization,
   successResponse,
 } from '../_shared/utils.ts';
+import { resolveCombatSeries, roundDeadline } from '../_shared/combat.ts';
 import { computeRatingDeltas } from '../_shared/glicko2.ts';
 import { RATING_QUALITY_FLOOR } from '../_shared/judge.ts';
 import { notifyBattleResult, notifyRoundStarted } from '../_shared/push.ts';
 import { enqueueAutoBattleVideo } from '../_shared/auto-video.ts';
-
-// Round 1's clock starts at face-off, when both players are present and
-// looking at the screen. Rounds 2 and 3 start whenever the previous round
-// happens to resolve, which in an async game can be hours later and while the
-// player is asleep -- so they get the longer window that §7.5 specifies for
-// ranked play. Pairing this with the round_start push (added alongside) is what
-// stops players losing rounds to a clock they were never told about.
-const RANKED_ROUND_ONE_TIMEOUT_MIN = 45;
-const RANKED_LATER_ROUND_TIMEOUT_MIN = 120; // 2h, per §7.5
-const FRIEND_ROUND_TIMEOUT_MIN = 120; // 2h
 
 interface AdvanceRequest {
   battle_id: string;
@@ -60,10 +51,10 @@ Deno.serve(async (req) => {
       .from('battles')
       .select(
         `
-        id, format, status, mode,
+        id, format, status, mode, rules_version,
         player_one_id, player_two_id, is_player_two_bot,
         current_round, best_of,
-        player_one_hp, player_two_hp,
+        player_one_hp, player_two_hp, player_one_hp_max, player_two_hp_max,
         player_one_rounds_won, player_two_rounds_won,
         player_one:profiles!battles_player_one_id_fkey(id, rating, rating_deviation, rating_volatility),
         player_two:profiles!battles_player_two_id_fkey(id, rating, rating_deviation, rating_volatility)
@@ -77,10 +68,16 @@ Deno.serve(async (req) => {
       return successResponse({ skipped: true, reason: 'not_bo3' });
     }
 
+    if (!['waiting_for_prompts', 'resolving'].includes(battle.status))
+      return successResponse({
+        skipped: true,
+        reason: 'terminal_or_ineligible',
+      });
+
     // Pull the most recent resolved round to check KO.
     const { data: lastRound } = await supabase
       .from('battle_rounds')
-      .select('id, round_number, is_ko, round_winner_id, score_gap')
+      .select('id, round_number, status, is_ko, round_winner_id, score_gap')
       .eq('battle_id', battle_id)
       .order('round_number', { ascending: false })
       .limit(1)
@@ -88,44 +85,55 @@ Deno.serve(async (req) => {
 
     const p1Wins = battle.player_one_rounds_won ?? 0;
     const p2Wins = battle.player_two_rounds_won ?? 0;
-    const koWinner = lastRound?.is_ko ? lastRound.round_winner_id : null;
 
-    const winsRequired = Math.ceil((battle.best_of ?? 3) / 2); // 2 for Bo3
-    let winnerId: string | null = null;
-    let isDraw = false;
-    let matchOver = false;
-
-    if (koWinner) {
-      winnerId = koWinner;
-      matchOver = true;
-    } else if (p1Wins >= winsRequired) {
-      winnerId = battle.player_one_id;
-      matchOver = true;
-    } else if (p2Wins >= winsRequired) {
-      winnerId = battle.player_two_id;
-      matchOver = true;
-    } else if ((battle.current_round ?? 1) >= (battle.best_of ?? 3)) {
-      // Exhausted all rounds without a 2-win majority — apply all-draw tiebreaker.
-      matchOver = true;
-      const tieResult = await resolveAllDrawTiebreaker(supabase, {
-        id: battle.id,
-        player_one_id: battle.player_one_id,
-        player_two_id: battle.player_two_id,
-        player_one_hp: battle.player_one_hp,
-        player_two_hp: battle.player_two_hp,
-      });
-      winnerId = tieResult.winnerId;
-      isDraw = tieResult.isDraw;
-    }
-
+    if (!lastRound || !['result_ready', 'expired'].includes(lastRound.status))
+      return successResponse({ skipped: true, reason: 'round_not_resolved' });
+    const { data: comparisonRounds } = await supabase
+      .from('battle_rounds')
+      .select('player_one_score,player_two_score')
+      .eq('battle_id', battle_id);
+    const decision = resolveCombatSeries({
+      rulesVersion: battle.rules_version ?? 1,
+      roundsPlayed: battle.current_round ?? 1,
+      bestOf: battle.best_of ?? 3,
+      playerOneWins: p1Wins,
+      playerTwoWins: p2Wins,
+      playerOneHp: battle.player_one_hp ?? 0,
+      playerTwoHp: battle.player_two_hp ?? 0,
+      playerOneHpMax: battle.player_one_hp_max ?? 100,
+      playerTwoHpMax: battle.player_two_hp_max ?? 100,
+      playerOneTotal: (comparisonRounds ?? []).reduce(
+        (sum, r) => sum + Number(r.player_one_score ?? 0),
+        0,
+      ),
+      playerTwoTotal: (comparisonRounds ?? []).reduce(
+        (sum, r) => sum + Number(r.player_two_score ?? 0),
+        0,
+      ),
+      koWinner: lastRound.is_ko
+        ? lastRound.round_winner_id === battle.player_one_id
+          ? 1
+          : 2
+        : null,
+    });
+    const winnerId =
+      decision.winner === 1
+        ? battle.player_one_id
+        : decision.winner === 2
+          ? battle.player_two_id
+          : null;
+    const isDraw = decision.isDraw;
+    const matchOver = decision.complete;
     if (!matchOver) {
       // Spawn next round.
       const nextRound = (battle.current_round ?? 1) + 1;
-      const timeoutMin =
-        battle.mode === 'ranked'
-          ? RANKED_LATER_ROUND_TIMEOUT_MIN
-          : FRIEND_ROUND_TIMEOUT_MIN;
-      const deadline = new Date(Date.now() + timeoutMin * 60_000).toISOString();
+      const deadline = roundDeadline(
+        Date.now(),
+        battle.mode,
+        battle.is_player_two_bot,
+        battle.rules_version ?? 1,
+        nextRound,
+      );
 
       const { error: insertErr } = await supabase.from('battle_rounds').insert({
         battle_id,
@@ -147,7 +155,9 @@ Deno.serve(async (req) => {
           status: 'waiting_for_prompts',
           updated_at: new Date().toISOString(),
         })
-        .eq('id', battle_id);
+        .eq('id', battle_id)
+        .eq('current_round', battle.current_round ?? 1)
+        .in('status', ['waiting_for_prompts', 'resolving']);
 
       // Fire-and-forget: the round is already open, so a push failure must not
       // fail the advance.
@@ -171,6 +181,10 @@ Deno.serve(async (req) => {
       )
       .eq('battle_id', battle_id)
       .order('round_number', { ascending: true });
+
+    const mockAssisted = (allRounds ?? []).some(
+      (r) => r.judge_payload?.mock_assisted === true,
+    );
 
     // §7.8 quality floor, match-level: when every scored round had BOTH
     // players below the floor, the whole match is a throwaway pair and must
@@ -216,7 +230,7 @@ Deno.serve(async (req) => {
     if (
       battle.mode === 'ranked' &&
       !battle.is_player_two_bot &&
-      !isDraw &&
+      !mockAssisted &&
       !ratingGatedByQualityFloor &&
       !ratingGatedByDiversity
     ) {
@@ -250,8 +264,11 @@ Deno.serve(async (req) => {
 
     const scorePayload = {
       format: 'bo3',
+      mock_assisted: mockAssisted,
+      competitive_eligible: !(battle.mode === 'ranked' && mockAssisted),
+      resolution_metadata: decision,
       rounds_won: { player_one: p1Wins, player_two: p2Wins },
-      ko: !!koWinner,
+      ko: !!lastRound?.is_ko,
       rounds: allRounds ?? [],
       ...(ratingGatedByQualityFloor ? { rating_gated: 'quality_floor' } : {}),
     };
@@ -261,8 +278,9 @@ Deno.serve(async (req) => {
     // requires status='resolving' first.
     await supabase
       .from('battles')
-      .update({ status: 'resolving' })
-      .eq('id', battle_id);
+      .update({ status: 'resolving', resolution_metadata: decision })
+      .eq('id', battle_id)
+      .in('status', ['waiting_for_prompts', 'resolving']);
 
     const { error: resolveErr } = await supabase.rpc('resolve_battle', {
       p_battle_id: battle_id,
@@ -324,7 +342,7 @@ Deno.serve(async (req) => {
       completed: true,
       winner_id: winnerId,
       is_draw: isDraw,
-      ko: !!koWinner,
+      ko: !!lastRound?.is_ko,
     });
   } catch (error) {
     console.error('battle-advance error:', error);
@@ -334,50 +352,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-
-/**
- * All-draw tiebreaker (per concept §7.7): lower HP loses → higher cumulative
- * judge score → earlier final-round lock timestamp. If none of these can break
- * the tie, the battle is recorded as a draw.
- */
-async function resolveAllDrawTiebreaker(
-  supabase: ReturnType<typeof createServiceClient>,
-  battle: {
-    id?: string;
-    player_one_id: string;
-    player_two_id: string;
-    player_one_hp: number | null;
-    player_two_hp: number | null;
-  },
-): Promise<{ winnerId: string | null; isDraw: boolean }> {
-  const p1Hp = battle.player_one_hp ?? 0;
-  const p2Hp = battle.player_two_hp ?? 0;
-  if (p1Hp !== p2Hp) {
-    return {
-      winnerId: p1Hp > p2Hp ? battle.player_one_id : battle.player_two_id,
-      isDraw: false,
-    };
-  }
-
-  const { data: rounds } = await supabase
-    .from('battle_rounds')
-    .select('player_one_score, player_two_score, both_locked_at, round_number')
-    .eq('battle_id', battle.id ?? '')
-    .order('round_number', { ascending: true });
-
-  let p1Total = 0;
-  let p2Total = 0;
-  for (const r of rounds ?? []) {
-    p1Total += Number(r.player_one_score ?? 0);
-    p2Total += Number(r.player_two_score ?? 0);
-  }
-  if (p1Total !== p2Total) {
-    return {
-      winnerId: p1Total > p2Total ? battle.player_one_id : battle.player_two_id,
-      isDraw: false,
-    };
-  }
-
-  // No deterministic break — record draw.
-  return { winnerId: null, isDraw: true };
-}

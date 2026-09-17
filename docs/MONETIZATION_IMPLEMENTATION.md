@@ -30,7 +30,7 @@ This document describes the implemented monetization infrastructure for Prompt W
 | Big      | 80      | 9.99  | `credits_80`    |
 | Whale    | 200     | 19.99 | `credits_200`   |
 
-One credit = one Tier 1 video reveal.
+One credit upgrades one named round to a Tier 1 cinematic. A Bo3 purchase never implicitly covers all rounds; the final round is the default. The free automatic cinematic remains one shared final-round job per eligible completed series.
 
 ### Free-to-Play Credit Spine
 
@@ -61,12 +61,13 @@ New accounts receive **3 free Tier 1 video reveals in the first 7 days** to expe
 **Benefits**:
 - 30 video reveals per month (monthly allowance)
 - Exclusive subscriber badge
-- Priority generation queue
-- Full video history retention
-- Expanded prompt draft slots
 - Cosmetic unlocks
 
-**No Pay-to-Win**: Subscription never grants ranked stat boosts, paid archetypes, or scoring modifiers.
+**Competitive constraints**: Subscription never grants ranked stat boosts, paid archetypes, or scoring modifiers. Priority queue and full-retention claims are unsupported and removed. Active-round drafts are free for everyone.
+
+**Additional suggestions**: The first suggestion set per battle/round/move remains free; later sets use the displayed credit price, including in ranked play. The same provider, moderation, and quality policy applies to free and paid suggestions. More suggestions do not guarantee a higher score. Payment metadata never enters the judge payload. This is the explicitly approved assistance policy, not a claim that additional candidate access has no competitive effect.
+
+**Exits**: Parking and permitted forfeits cost zero credits. No top-up prompt or leave-battle fee is part of the game loop. Ranked human forfeits remain losses; casual/practice abandonment and unmatched queues cancel. Completed/judging results are protected by server status checks.
 
 ## Purchase Flow
 
@@ -135,7 +136,7 @@ const balance = await getWalletBalance();
 import { requestVideoUpgrade } from '@/utils/monetization';
 
 // Get cost preview
-const result = await requestVideoUpgrade('battle_id', false);
+const result = await requestVideoUpgrade('battle_id', false, 'final_round_id');
 /*
 {
   can_upgrade: true,
@@ -153,7 +154,7 @@ const result = await requestVideoUpgrade('battle_id', false);
 
 ```typescript
 // Proceed with upgrade
-const result = await requestVideoUpgrade('battle_id', true);
+const result = await requestVideoUpgrade('battle_id', true, 'final_round_id');
 /*
 {
   success: true,
@@ -404,3 +405,11 @@ Use RevenueCat dashboard to resend webhook events for testing.
 **Date**: 2026-05-06  
 **Version**: 1.0  
 **Status**: MVP Implementation Complete
+
+## Recovery and display requirements (2026-09-13)
+
+Use localized store prices and currency. Best value is calculated from comparable price-per-credit values; omit it when the offering cannot be compared reliably. Credit packs use full-width rows at large text sizes.
+
+The wallet refreshes on focus, foreground, successful purchase, and return from Shop. A store purchase reference remains pending until server validation is observed. Polling timeout shows Still processing and Check again; that action only reads state and never starts another purchase. Failed ledger reads are errors, not empty histories.
+
+Playable-media loading is independent of generation status. A successful job with an expired/failed signed URL offers Retry and refreshes on foreground/reconnect, without creating another job or spending. Caption failure does not block playback. Pre/post moderation and automatic provider-failure refunds remain mandatory.

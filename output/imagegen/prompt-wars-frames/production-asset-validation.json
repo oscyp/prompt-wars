@@ -1,0 +1,90 @@
+[
+  {
+    "file": "assets/cosmetics/frames/astral-codex-avatar.png",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "center_alpha": 0,
+    "corner_alpha": 0,
+    "transparent_fraction": 0.7415,
+    "bytes": 1040303,
+    "sha256": "8bf2c132aa8ca46defc99776142cc6178680bc5e2e67f34e6bc8d171489497b8"
+  },
+  {
+    "file": "assets/cosmetics/frames/astral-codex-portrait.png",
+    "width": 1024,
+    "height": 1536,
+    "mode": "RGBA",
+    "center_alpha": 0,
+    "corner_alpha": 0,
+    "transparent_fraction": 0.7043,
+    "bytes": 1929149,
+    "sha256": "db49ad54e0c7ffdb57df3f23aef37e7baf0d1d36a298f33e68824d87d2b2d2db"
+  },
+  {
+    "file": "assets/cosmetics/frames/emberforge-avatar.png",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "center_alpha": 0,
+    "corner_alpha": 0,
+    "transparent_fraction": 0.7376,
+    "bytes": 1082251,
+    "sha256": "099530289dc10727c9db0f24023c3a99a10127f55cc425e58b139f8b637036d5"
+  },
+  {
+    "file": "assets/cosmetics/frames/emberforge-portrait.png",
+    "width": 1024,
+    "height": 1536,
+    "mode": "RGBA",
+    "center_alpha": 0,
+    "corner_alpha": 0,
+    "transparent_fraction": 0.7382,
+    "bytes": 1767927,
+    "sha256": "18a324379d4976ba66d346284089536ce7428661dc8e26452759bd8397e833d9"
+  },
+  {
+    "file": "assets/cosmetics/frames/laureate-avatar.png",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "center_alpha": 0,
+    "corner_alpha": 0,
+    "transparent_fraction": 0.7335,
+    "bytes": 1111230,
+    "sha256": "fdddc9e4b2ed73cc7fb026d8c97526604c2ed8cc143e0961ccddf1a1ab9e4f82"
+  },
+  {
+    "file": "assets/cosmetics/frames/laureate-portrait.png",
+    "width": 1024,
+    "height": 1536,
+    "mode": "RGBA",
+    "center_alpha": 0,
+    "corner_alpha": 0,
+    "transparent_fraction": 0.7622,
+    "bytes": 1731558,
+    "sha256": "c5b9af37a3c6ff8487b2e63e2abe87bd092e4d0cc19a0c321f4a12ccef91e20e"
+  },
+  {
+    "file": "assets/cosmetics/frames/neon-circuit-avatar.png",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "center_alpha": 0,
+    "corner_alpha": 0,
+    "transparent_fraction": 0.6941,
+    "bytes": 1169415,
+    "sha256": "110636ed28523fa318130570b5ab616cac29f79b10022c72b4e186b1f43508b3"
+  },
+  {
+    "file": "assets/cosmetics/frames/neon-circuit-portrait.png",
+    "width": 1024,
+    "height": 1536,
+    "mode": "RGBA",
+    "center_alpha": 0,
+    "corner_alpha": 0,
+    "transparent_fraction": 0.7142,
+    "bytes": 1641061,
+    "sha256": "ac2e940920fdfc99513fb899bc68d796dc91d58f2ed0ac174a3b7bd396e59280"
+  }
+]

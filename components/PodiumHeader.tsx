@@ -1,6 +1,7 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GamePanel, GameText } from '@/components/game';
+
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -48,6 +49,8 @@ export default function PodiumHeader({
 }: PodiumHeaderProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = width < 390 || fontScale > 1.15;
   if (rows.length < 3) return null;
 
   const medalColor = (rank: number | null) => {
@@ -64,8 +67,14 @@ export default function PodiumHeader({
   };
 
   return (
-    <View style={styles.podium} testID="podium-header">
-      {PODIUM_ORDER.map((index) => {
+    <View
+      style={[
+        styles.podium,
+        stacked && { flexDirection: 'column', alignItems: 'stretch' },
+      ]}
+      testID="podium-header"
+    >
+      {(stacked ? [0, 1, 2] : PODIUM_ORDER).map((index) => {
         const row = rows[index];
         if (!row) return null;
         const isFirst = index === 0;
@@ -77,10 +86,12 @@ export default function PodiumHeader({
           : colors.border;
         const name = rankingPlayerName(row);
         return (
-          <View
+          <GamePanel
+            tone="ornate"
             key={row.id || row.profile_id}
             style={[
               styles.card,
+              stacked && { flex: 0, width: '100%' },
               isFirst && styles.firstCard,
               {
                 backgroundColor: isViewer
@@ -94,14 +105,17 @@ export default function PodiumHeader({
             testID={`podium-${row.rank}`}
           >
             <View style={styles.place}>
-              <Ionicons
+              <GameSymbol
                 name={medalFor(row.rank) === 'gold' ? 'trophy' : 'medal'}
                 size={14}
                 color={medal}
               />
-              <Text style={[styles.rank, NumericFontVariant, { color: medal }]}>
+              <GameText
+                variant="label"
+                style={[styles.rank, NumericFontVariant, { color: medal }]}
+              >
                 {rankDisplay(row.rank)}
-              </Text>
+              </GameText>
             </View>
             <PortraitPreview
               uri={archetypeIllustrationUri(player?.archetype ?? null) ?? ''}
@@ -113,25 +127,27 @@ export default function PodiumHeader({
               accessibilityLabel={`${name}'s archetype`}
             />
             <View style={styles.nameRow}>
-              <Text
+              <GameText
+                variant="fighter"
                 style={[styles.name, accessibleText, { color: colors.text }]}
-                numberOfLines={1}
               >
                 {name}
-              </Text>
+              </GameText>
               <CosmeticBadge badge={player?.cosmetics.badge} size={12} />
             </View>
             {isViewer ? (
-              <Text
+              <GameText
+                variant="body"
                 style={[
                   styles.youTag,
                   { color: colors.primary, borderColor: colors.primary },
                 ]}
               >
                 You
-              </Text>
+              </GameText>
             ) : null}
-            <Text
+            <GameText
+              variant="label"
               style={[
                 styles.rating,
                 NumericFontVariant,
@@ -139,8 +155,8 @@ export default function PodiumHeader({
               ]}
             >
               {Math.round(row.rating)}
-            </Text>
-          </View>
+            </GameText>
+          </GamePanel>
         );
       })}
     </View>
@@ -160,7 +176,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.xs,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.sm,
     borderWidth: 1.5,
   },
   // The winner stands taller: same bottom edge, more headroom.
@@ -189,7 +205,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   youTag: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
     borderWidth: 1,
     borderRadius: BorderRadius.full,

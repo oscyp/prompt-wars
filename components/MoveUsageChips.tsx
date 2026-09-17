@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameText } from '@/components/game';
+
+import { View, StyleSheet } from 'react-native';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -53,11 +54,12 @@ export default function MoveUsageChips({
 
   if (usage.length === 0 || total === 0) {
     return (
-      <Text
+      <GameText
+        variant="body"
         style={[styles.empty, accessibleText, { color: colors.textSecondary }]}
       >
         {emptyText}
-      </Text>
+      </GameText>
     );
   }
 
@@ -85,7 +87,7 @@ export default function MoveUsageChips({
             ]}
           >
             <View style={[styles.icon, { backgroundColor: accent }]}>
-              <Ionicons
+              <GameSymbol
                 name={MOVE_META[u.move].icon}
                 size={14}
                 color={inkFor(accent)}
@@ -93,13 +95,14 @@ export default function MoveUsageChips({
             </View>
             <View style={styles.text}>
               <View style={styles.headline}>
-                <Text
+                <GameText
+                  variant="fighter"
                   style={[styles.name, accessibleText, { color: colors.text }]}
-                  numberOfLines={1}
                 >
                   {moveLabel(u.move)}
-                </Text>
-                <Text
+                </GameText>
+                <GameText
+                  variant="body"
                   style={[
                     styles.share,
                     NumericFontVariant,
@@ -107,19 +110,19 @@ export default function MoveUsageChips({
                   ]}
                 >
                   {moveShareLabel(u.share)}
-                </Text>
+                </GameText>
               </View>
-              <Text
+              <GameText
+                variant="body"
                 style={[
                   styles.detail,
                   NumericFontVariant,
                   accessibleText,
                   { color: colors.textSecondary },
                 ]}
-                numberOfLines={1}
               >
                 {roundWinRateLabel(u.winRate)}
-              </Text>
+              </GameText>
             </View>
           </View>
         );
@@ -159,6 +162,7 @@ const styles = StyleSheet.create({
   },
   headline: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.xs,
@@ -173,7 +177,7 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
   },
   detail: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
   },
   empty: {
     fontSize: Typography.sizes.sm,

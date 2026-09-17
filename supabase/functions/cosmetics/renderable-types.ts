@@ -1,8 +1,8 @@
 /**
  * Cosmetic types with a display surface today.
  *
- * `reveal_style` is deliberately absent: it can be owned and equipped, but
- * nothing renders it yet, so it must not be purchasable. Selling an effect that
+ * `reveal_style` is deliberately absent: legacy ownership is retained, but
+ * nothing renders it yet, so it must not be purchased or equipped. Selling an effect that
  * never appears is how 25 credits were already spent on cosmetics with no
  * display surface at all.
  *

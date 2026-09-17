@@ -1,11 +1,9 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-  StyleSheet,
-} from 'react-native';
+import type { SheetFocusRef } from '@/hooks/useSheetReturnFocus';
+import { GameButton } from '@/components/game';
+import { GamePanel, GameText } from '@/components/game';
+
+import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
@@ -14,7 +12,7 @@ import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 export interface SaveBarProps {
   changeCount: number;
   busy?: boolean;
-  onSave: () => void;
+  onSave: (opener: SheetFocusRef) => void;
   onClear: () => void;
 }
 
@@ -32,12 +30,14 @@ export default function SaveBar({
   onSave,
   onClear,
 }: SaveBarProps) {
+  const saveRef = React.useRef<View>(null);
   const colors = useThemedColors();
   const insets = useSafeAreaInsets();
   const accessibleText = useAccessibleTextStyle();
 
   return (
-    <View
+    <GamePanel
+      tone="ornate"
       style={[
         styles.bar,
         {
@@ -48,28 +48,31 @@ export default function SaveBar({
       ]}
     >
       <View style={styles.summary}>
-        <Text style={[styles.title, accessibleText, { color: colors.text }]}>
+        <GameText
+          variant="title"
+          style={[styles.title, accessibleText, { color: colors.text }]}
+        >
           {changeCount} change{changeCount === 1 ? '' : 's'}
-        </Text>
-        <Text
+        </GameText>
+        <GameText
+          variant="caption"
           style={[styles.sub, accessibleText, { color: colors.textSecondary }]}
         >
           Free
-        </Text>
+        </GameText>
       </View>
-      <TouchableOpacity
+      <GameButton
         onPress={onClear}
         disabled={busy}
         accessibilityRole="button"
         accessibilityLabel="Discard staged changes"
         style={styles.clear}
-      >
-        <Text style={[styles.clearText, { color: colors.textSecondary }]}>
-          Clear
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={onSave}
+        tone="secondary"
+        label="Clear"
+      />
+      <GameButton
+        ref={saveRef}
+        onPress={() => onSave(saveRef)}
         disabled={busy}
         accessibilityRole="button"
         accessibilityLabel={`Save ${changeCount} change${changeCount === 1 ? '' : 's'}`}
@@ -79,20 +82,17 @@ export default function SaveBar({
           { backgroundColor: colors.primary },
           busy && styles.disabled,
         ]}
-      >
-        {busy ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text style={styles.saveText}>Save changes</Text>
-        )}
-      </TouchableOpacity>
-    </View>
+        label="Save changes"
+        busy={busy}
+      />
+    </GamePanel>
   );
 }
 
 const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
@@ -106,10 +106,10 @@ const styles = StyleSheet.create({
   },
   sub: {
     marginTop: 1,
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
   },
   clear: {
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: 'center',
     paddingHorizontal: Spacing.sm,
   },
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.sm,
   },
   save: {
-    minHeight: 44,
+    minHeight: 48,
     minWidth: 120,
     alignItems: 'center',
     justifyContent: 'center',

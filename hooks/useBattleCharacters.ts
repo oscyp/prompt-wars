@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { supabase, invokeFunctionResult } from '@/utils/supabase';
+import { AppState } from 'react-native';
+import { invokeFunctionResult } from '@/utils/supabase';
+import { useAuth } from '@/providers/AuthProvider';
 import {
   resolveEquippedCosmetics,
-  NO_COSMETICS,
   type EquippedCosmetics,
 } from '@/utils/cosmetics';
+import type { BattleIdentitySnapshot } from '@/types/battle';
 
 export interface BattleCharacterInfo {
   name: string;
@@ -25,32 +27,35 @@ interface BattleLike {
   player_one_character_id?: string | null;
   player_two_character_id?: string | null;
   is_player_two_bot?: boolean | null;
+  identity_snapshot?: BattleIdentitySnapshot | null;
 }
-
-const DEFAULT_COLOR = '#8B5CF6';
-
-/**
- * Character identity (name / archetype / signature color) plus signed portrait
- * URLs for both sides of a battle. Mirrors the face-off screen's data flow:
- * character rows are read under RLS, portraits come from the
- * sign-battle-portraits edge function (~1h TTL signed URLs into the private
- * bucket) and degrade silently to null — callers fall back to the bundled
- * archetype illustrations. Never blocks the caller's screen.
- */
 interface SignedSide {
+  name: string | null;
+  archetype: string | null;
+  signature_color: string | null;
   portrait_url: string | null;
   fighter_url: string | null;
-  archetype: string | null;
-  name: string | null;
-  signature_color: string | null;
   cosmetics: Record<string, string> | null;
 }
-
 interface SignedSides {
   player_one: SignedSide | null;
   player_two: SignedSide | null;
 }
-
+const cache = new Map<string, { value: SignedSides; expires: number }>();
+function toInfo(
+  side: SignedSide | null | undefined,
+): BattleCharacterInfo | null {
+  return side
+    ? {
+        name: side.name ?? 'Fighter',
+        archetype: side.archetype ?? 'strategist',
+        signatureColor: side.signature_color ?? '#8B5CF6',
+        portraitUrl: side.portrait_url,
+        fighterUrl: side.fighter_url,
+        cosmetics: resolveEquippedCosmetics(side.cosmetics),
+      }
+    : null;
+}
 export function useBattleCharacters(
   battleId: string | null,
   battle: BattleLike | null,
@@ -59,155 +64,69 @@ export function useBattleCharacters(
   p2: BattleCharacterInfo | null;
   refreshPortraits: () => void;
 } {
-  const [p1, setP1] = useState<BattleCharacterInfo | null>(null);
-  const [p2, setP2] = useState<BattleCharacterInfo | null>(null);
-  // Signed URLs last ~1h but a Bo3 round can run to 2h, and nothing cached
-  // them or refreshed them -- so a portrait opened late in a long round showed
-  // a broken frame. Bumping this re-signs.
-  const [signNonce, setSignNonce] = useState(0);
-
-  const p1CharId = battle?.player_one_character_id ?? null;
-  const p2CharId = battle?.player_two_character_id ?? null;
-  const isBot = !!battle?.is_player_two_bot;
-
+  const { user } = useAuth();
+  const accountId = user?.id ?? null;
+  const key = accountId && battleId ? `${accountId}:${battleId}` : null;
+  const [signed, setSigned] = useState<{
+    key: string;
+    value: SignedSides;
+  } | null>(null);
+  const [nonce, setNonce] = useState(0);
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const ids = [p1CharId, p2CharId].filter(Boolean) as string[];
-      if (ids.length === 0) return;
-      const { data, error } = await supabase
-        .from('characters')
-        .select('id, name, archetype, signature_color, cosmetic_config')
-        .in('id', ids);
-      if (cancelled || error || !data) return;
-      const byId = new Map(data.map((c) => [c.id as string, c]));
-      const toInfo = (
-        id: string | null,
-        fallbackName: string,
-      ): BattleCharacterInfo | null => {
-        if (!id) return null;
-        const row = byId.get(id);
-        if (!row) return null;
-        return {
-          name: (row.name as string | null) ?? fallbackName,
-          archetype: (row.archetype as string | null) ?? 'fighter',
-          signatureColor:
-            (row.signature_color as string | null) ?? DEFAULT_COLOR,
-          portraitUrl: null,
-          fighterUrl: null,
-          cosmetics: resolveEquippedCosmetics(
-            row.cosmetic_config as Record<string, string> | null,
-          ),
-        };
-      };
-      setP1((prev) => {
-        const next = toInfo(p1CharId, 'Player 1');
-        return next
-          ? {
-              ...next,
-              portraitUrl: prev?.portraitUrl ?? null,
-              fighterUrl: prev?.fighterUrl ?? null,
-            }
-          : prev;
-      });
-      if (isBot) {
-        setP2((prev) => ({
-          name: 'Bot Opponent',
-          archetype: 'fighter',
-          signatureColor: DEFAULT_COLOR,
-          portraitUrl: prev?.portraitUrl ?? null,
-          fighterUrl: prev?.fighterUrl ?? null,
-          // Bots own no cosmetics.
-          cosmetics: NO_COSMETICS,
-        }));
-      } else {
-        setP2((prev) => {
-          const next = toInfo(p2CharId, 'Player 2');
-          return next
-            ? {
-                ...next,
-                portraitUrl: prev?.portraitUrl ?? null,
-                fighterUrl: prev?.fighterUrl ?? null,
-              }
-            : prev;
-        });
-      }
-    }
-    load();
+    const listener = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setNonce((n) => n + 1);
+    });
+    const timer = setInterval(() => setNonce((n) => n + 1), 50 * 60 * 1000);
     return () => {
-      cancelled = true;
+      listener.remove();
+      clearInterval(timer);
     };
-  }, [p1CharId, p2CharId, isBot]);
-
+  }, []);
   useEffect(() => {
-    if (!battleId) return;
-    let cancelled = false;
-    async function signPortraits() {
+    if (!key || !battleId) {
+      setSigned(null);
+      if (!accountId) cache.clear();
+      return;
+    }
+    let active = true;
+    const cached = cache.get(key);
+    if (cached) setSigned({ key, value: cached.value });
+    async function sign() {
       try {
         const { data, error } = await invokeFunctionResult<SignedSides>(
           'sign-battle-portraits',
           { battle_id: battleId },
         );
-        if (cancelled || error || !data) return;
-
-        // Merge the server payload INTO whatever the direct query produced,
-        // creating the side when it produced nothing.
-        //
-        // This previously read `prev ? {...prev, portraitUrl} : prev`, which
-        // dropped the result whenever `prev` was null -- and `prev` is null for
-        // exactly the side the client cannot read. RLS on `characters` is
-        // `profile_id = auth.uid()`, so that is always the OPPONENT: their
-        // portrait was fetched successfully and then discarded, and their name
-        // and archetype had no path at all. The face-off screen showed a blank
-        // circle, "Player 1"/"Player 2" and "fighter" for every human opponent.
-        const apply =
-          (side: SignedSide | null | undefined, fallbackName: string) =>
-          (prev: BattleCharacterInfo | null): BattleCharacterInfo | null => {
-            if (!side) return prev;
-            if (prev) {
-              // Own side: keep the authoritative local row, add the portrait.
-              // The bot side is the exception: the first effect could only
-              // write a placeholder ("Bot Opponent", default colour) because
-              // bot_personas is unreadable by clients, so the server's
-              // identity wins there.
-              const identity =
-                isBot && side.name
-                  ? {
-                      name: side.name,
-                      archetype: side.archetype ?? prev.archetype,
-                      signatureColor:
-                        side.signature_color ?? prev.signatureColor,
-                    }
-                  : {};
-              return {
-                ...prev,
-                ...identity,
-                portraitUrl: side.portrait_url ?? prev.portraitUrl,
-                fighterUrl: side.fighter_url ?? prev.fighterUrl,
-              };
-            }
-            // Opponent: the server payload is the only source we have.
-            return {
-              name: side.name ?? fallbackName,
-              archetype: side.archetype ?? 'fighter',
-              signatureColor: side.signature_color ?? DEFAULT_COLOR,
-              portraitUrl: side.portrait_url ?? null,
-              fighterUrl: side.fighter_url ?? null,
-              cosmetics: resolveEquippedCosmetics(side.cosmetics),
-            };
-          };
-
-        setP1(apply(data.player_one, 'Player 1'));
-        setP2(apply(data.player_two, isBot ? 'Bot Opponent' : 'Player 2'));
+        if (!active || error || !data) return;
+        cache.set(key!, { value: data, expires: Date.now() + 50 * 60 * 1000 });
+        setSigned({ key: key!, value: data });
       } catch {
-        // Degrade silently to bundled archetype illustrations.
+        /* Keep frozen identity; a manual or foreground retry re-signs. */
       }
     }
-    signPortraits();
+    if (!cached || cached.expires <= Date.now() || nonce > 0) void sign();
     return () => {
-      cancelled = true;
+      active = false;
     };
-  }, [battleId, isBot, signNonce]);
-
-  return { p1, p2, refreshPortraits: () => setSignNonce((n) => n + 1) };
+  }, [key, battleId, accountId, nonce]);
+  const snapshot = battle?.identity_snapshot;
+  const fallback = (
+    side: BattleIdentitySnapshot['player_one'] | undefined,
+  ): SignedSide | null =>
+    side
+      ? {
+          name: side.name,
+          archetype: side.archetype,
+          signature_color: side.signature_color,
+          portrait_url: null,
+          fighter_url: null,
+          cosmetics: side.cosmetic_config,
+        }
+      : null;
+  const value = signed?.key === key ? signed?.value : null;
+  return {
+    p1: toInfo(value?.player_one ?? fallback(snapshot?.player_one)),
+    p2: toInfo(value?.player_two ?? fallback(snapshot?.player_two)),
+    refreshPortraits: () => setNonce((n) => n + 1),
+  };
 }

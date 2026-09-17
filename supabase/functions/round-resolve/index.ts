@@ -1,3 +1,4 @@
+import { forfeitRoundPayload } from '../_shared/round-forfeit.ts';
 // Round Resolve Edge Function (Bo3, Phase 2)
 //
 // Triggered by either submit-prompt (when both players lock for a round) or
@@ -26,10 +27,10 @@ import {
 import { assertNoMonetizationDataInScoring } from '../_shared/anti-p2w.ts';
 import {
   JUDGE_PROMPT_VERSION,
-  MOVE_TYPE_POINTS_WIN,
-  moveTypePoints,
+  aggregateScore,
   runJudgePipeline,
 } from '../_shared/judge.ts';
+import { resolveCombatRound } from '../_shared/combat.ts';
 import { createJudgeProvider } from '../_shared/providers.ts';
 import { MoveType } from '../_shared/types.ts';
 import {
@@ -43,80 +44,12 @@ interface RoundResolveRequest {
   forfeit_profile_id?: string; // when called by expire-battles for single-sided lock
 }
 
-// Move-type points come from _shared/judge.ts so the Bo3 and legacy
-// single-format paths cannot drift apart.
-
-const STAT_MOD_CAP = 0.05;
-const COMBINED_MOD_CAP = 0.2;
-
-/**
- * Floor for the combined cap, in aggregate points.
- *
- * The §7.7 combined cap is ±20% of the base aggregate. Now that move-type is an
- * absolute ±0.9/-0.6 rather than a fraction, a very low-scoring round (base ~5,
- * so a 20% cap of 1.0) could trip the guard on a structurally legal modifier.
- * The floor keeps the cap meaningful at normal scores (base 40 -> ±8) without
- * false-positives on floor-scraping rounds.
- */
-const COMBINED_POINTS_FLOOR = 2.0;
-
-const KO_SCORE_GAP_THRESHOLD = 7;
-
 interface StatsSnapshot {
   strength: number;
   stamina: number;
   agility: number;
   focus: number;
 }
-
-/**
- * Compute the stat modifier for a player given their snapshot and opponent
- * snapshot. Bounded to ±5% by formula; hard-capped server-side anyway.
- *
- * Formula (per concept §7.7):
- *   raw = (strength_delta / 20) + (focus_delta / 40)
- *   stat_mod = clamp(raw, -0.05, +0.05)
- *
- * Each 1-stat point gap in Strength contributes 0.5% (max 4.5% from a 10v1
- * gap); Focus contributes 0.25% (and dampens variance).
- */
-function computeStatModifier(self: StatsSnapshot, opp: StatsSnapshot): number {
-  const raw =
-    (self.strength - opp.strength) / 20 + (self.focus - opp.focus) / 40;
-  return Math.max(-STAT_MOD_CAP, Math.min(STAT_MOD_CAP, raw));
-}
-
-/**
- * Deterministic damage: 12 + gap*2.2 + (strength-5)*1.5, clamped 8..60.
- *
- * The previous formula was `gap * (8 + strength/2)` clamped to 40. Because
- * DRAW_EPSILON is 3.0, every non-draw round had a gap of at least 3, and at
- * default strength any gap above ~3.8 already hit the clamp -- so damage was
- * effectively the constant 40. With HP_max = 60 + stamina*8 (100 at default
- * stamina) and a match ending at two round wins, a player could absorb at most
- * 80 damage. KO (hp <= 0) was therefore mathematically unreachable at stamina
- * >= 5, and the "lower HP loses" all-draw tiebreaker could never discriminate
- * because both players always sat on identical HP.
- *
- * Under the new curve damage rises continuously with the score gap:
- *
- *   gap  3 (narrow)   -> 19    two of them = 38   -> survivable at any stamina
- *   gap 10 (clear)    -> 34    two of them = 68   -> KO only at stamina 1 (68 HP)
- *   gap 20 (blowout)  -> 56    two of them = 112  -> KO at stamina 5 (100 HP),
- *                                                    survivable at stamina 10 (140)
- *
- * So stamina buys real KO resistance, a genuine two-round blowout can finish a
- * match, an even series cannot, and HP almost never ties -- which makes the
- * tiebreaker functional again.
- *
- * HP_max is unchanged, so the battles.player_*_hp_max CHECK constraint (floor
- * 68, migration 20260525170000) still holds and needs no migration.
- */
-function computeDamage(scoreGap: number, winnerStrength: number): number {
-  const raw = 12 + Math.abs(scoreGap) * 2.2 + (winnerStrength - 5) * 1.5;
-  return Math.max(8, Math.min(60, Math.round(raw)));
-}
-
 function readStatsSnapshot(raw: unknown): StatsSnapshot {
   const obj = (raw ?? {}) as Record<string, unknown>;
   const num = (k: string, d: number) =>
@@ -159,7 +92,7 @@ Deno.serve(async (req) => {
       .from('battles')
       .select(
         `
-        id, format, status, mode,
+        id, format, status, mode, rules_version,
         player_one_id, player_two_id, is_player_two_bot, bot_persona_id,
         theme, current_round, best_of,
         player_one_hp, player_two_hp,
@@ -182,14 +115,16 @@ Deno.serve(async (req) => {
     const roundNumber: number = body.round_number ?? battle.current_round ?? 1;
 
     // Idempotent claim: waiting_for_prompts -> resolving
-    const { data: claimedRound, error: claimErr } = await supabase
-      .from('battle_rounds')
-      .update({ status: 'resolving', updated_at: new Date().toISOString() })
-      .eq('battle_id', battle_id)
-      .eq('round_number', roundNumber)
-      .eq('status', 'waiting_for_prompts')
-      .select('*')
-      .maybeSingle();
+    const { data: claimedRows, error: claimErr } = await supabase.rpc(
+      'claim_battle_round',
+      {
+        p_battle_id: battle_id,
+        p_round_number: roundNumber,
+      },
+    );
+    const claimedRound = Array.isArray(claimedRows)
+      ? claimedRows[0]
+      : claimedRows;
 
     if (claimErr) {
       return errorResponse(`Failed to claim round: ${claimErr.message}`, 500);
@@ -208,7 +143,8 @@ Deno.serve(async (req) => {
       .from('battle_prompts')
       .select('*')
       .eq('battle_id', battle_id)
-      .eq('round_number', roundNumber);
+      .eq('round_number', roundNumber)
+      .eq('is_locked', true);
 
     if (promptsErr) {
       return errorResponse('Failed to fetch round prompts', 500);
@@ -221,7 +157,8 @@ Deno.serve(async (req) => {
 
     // Handle forfeits — if one side is missing and a forfeit was declared.
     const p1Forfeit =
-      forfeit_profile_id === battle.player_one_id || (!p1Row && !!p2Row);
+      forfeit_profile_id === battle.player_one_id ||
+      (!p1Row && (!!p2Row || battle.is_player_two_bot));
     const p2Forfeit =
       forfeit_profile_id === battle.player_two_id ||
       (!battle.is_player_two_bot && !!p1Row && !p2Row);
@@ -326,123 +263,54 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ---- Compute final scores with move-type + stat modifier (capped) ----
     const p1Stats = readStatsSnapshot(battle.player_one_stats_snapshot);
     const p2Stats = readStatsSnapshot(battle.player_two_stats_snapshot);
-
-    const aggregate = (s: {
-      clarity: number;
-      originality: number;
-      specificity: number;
-      theme_fit: number;
-      archetype_fit: number;
-      dramatic_potential: number;
-    }) =>
-      s.clarity +
-      s.originality +
-      s.specificity +
-      s.theme_fit +
-      s.archetype_fit +
-      s.dramatic_potential;
-
-    // Move-type is now an absolute aggregate-point adjustment; the stat
-    // modifier stays fractional (±5% of base) per §7.7 and is materialized into
-    // points at application time so the two can be summed and capped together.
-    const p1MovePoints = moveTypePoints(p1.moveType, p2.moveType);
-    const p2MovePoints = moveTypePoints(p2.moveType, p1.moveType);
-    const p1StatMod = computeStatModifier(p1Stats, p2Stats);
-    const p2StatMod = computeStatModifier(p2Stats, p1Stats);
-
-    // HARD CAP enforcement — raise rather than silently clamp.
-    if (
-      Math.abs(p1StatMod) > STAT_MOD_CAP + 1e-9 ||
-      Math.abs(p2StatMod) > STAT_MOD_CAP + 1e-9
-    ) {
-      return errorResponse('stat_modifier exceeded ±5% cap', 500);
-    }
-    if (
-      Math.abs(p1MovePoints) > MOVE_TYPE_POINTS_WIN + 1e-9 ||
-      Math.abs(p2MovePoints) > MOVE_TYPE_POINTS_WIN + 1e-9
-    ) {
-      return errorResponse('move_type modifier exceeded its point bound', 500);
-    }
-
-    let p1Score = 0;
-    let p2Score = 0;
-    let scoreGap = 0;
-    let roundWinnerId: string | null = null;
-    let isDraw = false;
-
-    if (judgeResult) {
-      const p1Base = aggregate(judgeResult.player_one_normalized_scores);
-      const p2Base = aggregate(judgeResult.player_two_normalized_scores);
-
-      const p1CombinedPoints = p1Base * p1StatMod + p1MovePoints;
-      const p2CombinedPoints = p2Base * p2StatMod + p2MovePoints;
-
-      // §7.7 caps the combined modifier at ±20% of the base, with a small
-      // absolute floor so floor-scraping rounds cannot false-trip the guard.
-      const p1Cap = Math.max(COMBINED_MOD_CAP * p1Base, COMBINED_POINTS_FLOOR);
-      const p2Cap = Math.max(COMBINED_MOD_CAP * p2Base, COMBINED_POINTS_FLOOR);
-      if (
-        Math.abs(p1CombinedPoints) > p1Cap + 1e-9 ||
-        Math.abs(p2CombinedPoints) > p2Cap + 1e-9
-      ) {
-        return errorResponse('combined modifier exceeded ±20% cap', 500);
-      }
-
-      p1Score = Math.max(0, p1Base + p1CombinedPoints);
-      p2Score = Math.max(0, p2Base + p2CombinedPoints);
-      scoreGap = Math.abs(p1Score - p2Score);
-
-      const DRAW_EPSILON = 3.0;
-      if (scoreGap < DRAW_EPSILON) {
-        isDraw = true;
-      } else {
-        roundWinnerId =
-          p1Score > p2Score ? battle.player_one_id : battle.player_two_id;
-      }
-    } else {
-      // Forfeit path — non-forfeiting side wins by walkover.
-      if (p1Forfeit && !p2Forfeit) {
-        roundWinnerId = battle.player_two_id;
-        scoreGap = KO_SCORE_GAP_THRESHOLD;
-      } else if (p2Forfeit && !p1Forfeit) {
-        roundWinnerId = battle.player_one_id;
-        scoreGap = KO_SCORE_GAP_THRESHOLD;
-      }
-    }
-
-    // ---- Damage and HP-after ----
-    let p1Damage = 0;
-    let p2Damage = 0;
-    const p1HpBefore = battle.player_one_hp ?? battle.player_one_hp_max ?? 100;
-    const p2HpBefore = battle.player_two_hp ?? battle.player_two_hp_max ?? 100;
-
-    if (!isDraw && roundWinnerId) {
-      if (roundWinnerId === battle.player_one_id) {
-        p2Damage = computeDamage(scoreGap, p1Stats.strength);
-      } else {
-        p1Damage = computeDamage(scoreGap, p2Stats.strength);
-      }
-    }
-    const p1HpAfter = Math.max(0, p1HpBefore - p1Damage);
-    const p2HpAfter = Math.max(0, p2HpBefore - p2Damage);
-
-    const isKo =
-      !isDraw &&
-      roundWinnerId !== null &&
-      scoreGap >= KO_SCORE_GAP_THRESHOLD &&
-      ((roundWinnerId === battle.player_one_id && p2HpAfter <= 0) ||
-        (roundWinnerId === battle.player_two_id && p1HpAfter <= 0));
+    const combat = resolveCombatRound({
+      rulesVersion: battle.rules_version ?? 1,
+      playerOne: p1Stats,
+      playerTwo: p2Stats,
+      playerOneBase: judgeResult
+        ? aggregateScore(judgeResult.player_one_normalized_scores)
+        : 0,
+      playerTwoBase: judgeResult
+        ? aggregateScore(judgeResult.player_two_normalized_scores)
+        : 0,
+      playerOneMove: p1.moveType,
+      playerTwoMove: p2.moveType,
+      playerOneHp: battle.player_one_hp ?? battle.player_one_hp_max ?? 100,
+      playerTwoHp: battle.player_two_hp ?? battle.player_two_hp_max ?? 100,
+      forfeitWinner:
+        p1Forfeit && !p2Forfeit ? 2 : p2Forfeit && !p1Forfeit ? 1 : null,
+    });
+    const {
+      playerOneScore: p1Score,
+      playerTwoScore: p2Score,
+      scoreGap,
+      isDraw,
+      isKo,
+      playerOneStatModifier: p1StatMod,
+      playerTwoStatModifier: p2StatMod,
+      playerOneMovePoints: p1MovePoints,
+      playerTwoMovePoints: p2MovePoints,
+      playerOneDamage: p1Damage,
+      playerTwoDamage: p2Damage,
+      playerOneHpAfter: p1HpAfter,
+      playerTwoHpAfter: p2HpAfter,
+    } = combat;
+    const roundWinnerId =
+      combat.winner === 1
+        ? battle.player_one_id
+        : combat.winner === 2
+          ? battle.player_two_id
+          : null;
 
     // ---- Persist judge_runs row (per-round audit) ----
     if (judgeResult) {
       await supabase.from('judge_runs').insert({
         battle_id,
         judge_prompt_version: JUDGE_PROMPT_VERSION,
-        model_id: judgeProvider.getModelId(),
-        seed: Math.floor(Math.random() * 10000),
+        model_id: judgeResult.calls.map((c) => c.model_id).join(','),
+        seed: judgeResult.calls[0]?.seed ?? 0,
         player_one_raw_scores: judgeResult.player_one_raw_scores,
         player_two_raw_scores: judgeResult.player_two_raw_scores,
         player_one_normalized_scores: judgeResult.player_one_normalized_scores,
@@ -467,40 +335,66 @@ Deno.serve(async (req) => {
           player_two_normalized_scores:
             judgeResult.player_two_normalized_scores,
           explanation: judgeResult.explanation,
+          calls: judgeResult.calls,
+          aggregation: judgeResult.aggregation,
+          mock_assisted: judgeResult.mock_assisted,
+          combat,
+          frozen_inputs: {
+            player_one: p1,
+            player_two: p2,
+            theme: battle.theme,
+            rules_version: battle.rules_version ?? 1,
+          },
           move_type_matchup: {
             player_one: p1.moveType,
             player_two: p2.moveType,
           },
           forfeit_profile_id: forfeit_profile_id ?? null,
         }
-      : { forfeit_profile_id: forfeit_profile_id ?? null };
+      : forfeitRoundPayload({
+          loserId:
+            p1Forfeit && !p2Forfeit
+              ? battle.player_one_id
+              : p2Forfeit && !p1Forfeit
+                ? battle.player_two_id
+                : null,
+          explicit: Boolean(forfeit_profile_id),
+          playerOne: p1,
+          playerTwo: p2,
+          theme: battle.theme,
+          rulesVersion: battle.rules_version ?? 1,
+        });
 
-    const { error: roundUpdateErr } = await supabase
-      .from('battle_rounds')
-      .update({
-        status: 'result_ready',
-        round_winner_id: roundWinnerId,
-        is_draw: isDraw,
-        player_one_score: p1Score,
-        player_two_score: p2Score,
-        score_gap: scoreGap,
-        player_one_damage: p1Damage,
-        player_two_damage: p2Damage,
-        player_one_hp_after: p1HpAfter,
-        player_two_hp_after: p2HpAfter,
-        is_ko: isKo,
-        judge_payload: judgePayload,
-        judge_prompt_version: JUDGE_PROMPT_VERSION,
-        judge_model_id: judgeProvider.getModelId(),
-        stat_modifier_player_one: p1StatMod,
-        stat_modifier_player_two: p2StatMod,
-        // Absolute aggregate points, not a fraction (migration 20260822170000).
-        move_type_modifier_player_one: p1MovePoints,
-        move_type_modifier_player_two: p2MovePoints,
-        resolved_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', claimedRound.id);
+    const { error: roundUpdateErr } = await supabase.rpc(
+      'complete_battle_round',
+      {
+        p_round_id: claimedRound.id,
+        p_result: {
+          status: 'result_ready',
+          round_winner_id: roundWinnerId,
+          is_draw: isDraw,
+          player_one_score: p1Score,
+          player_two_score: p2Score,
+          score_gap: scoreGap,
+          player_one_damage: p1Damage,
+          player_two_damage: p2Damage,
+          player_one_hp_after: p1HpAfter,
+          player_two_hp_after: p2HpAfter,
+          is_ko: isKo,
+          judge_payload: judgePayload,
+          judge_prompt_version: JUDGE_PROMPT_VERSION,
+          judge_model_id:
+            judgeResult?.calls.map((c) => c.model_id).join(',') ?? 'forfeit',
+          stat_modifier_player_one: p1StatMod,
+          stat_modifier_player_two: p2StatMod,
+          // Absolute aggregate points, not a fraction (migration 20260822170000).
+          move_type_modifier_player_one: p1MovePoints,
+          move_type_modifier_player_two: p2MovePoints,
+          resolved_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      },
+    );
 
     if (roundUpdateErr) {
       return errorResponse(
@@ -508,25 +402,6 @@ Deno.serve(async (req) => {
         500,
       );
     }
-
-    // ---- Update battle HP & round-win tally atomically ----
-    const newP1Wins =
-      (battle.player_one_rounds_won ?? 0) +
-      (roundWinnerId === battle.player_one_id ? 1 : 0);
-    const newP2Wins =
-      (battle.player_two_rounds_won ?? 0) +
-      (roundWinnerId === battle.player_two_id ? 1 : 0);
-
-    await supabase
-      .from('battles')
-      .update({
-        player_one_hp: p1HpAfter,
-        player_two_hp: p2HpAfter,
-        player_one_rounds_won: newP1Wins,
-        player_two_rounds_won: newP2Wins,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', battle_id);
 
     // ---- Compose Tier 0 reveal SYNCHRONOUSLY (always present) ----
     // The base RevealPayloadV1 is produced here so the reveal is guaranteed the
@@ -615,7 +490,7 @@ async function invokeFunctionAsync(
 
   // @ts-ignore EdgeRuntime not declared in Deno types
   if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
-    // @ts-ignore
+    // @ts-ignore EdgeRuntime exists in deployed Supabase workers.
     EdgeRuntime.waitUntil(task);
   } else {
     await task;

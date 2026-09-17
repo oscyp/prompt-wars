@@ -1,7 +1,10 @@
+import { GamePanel } from '@/components/game';
+import BrandMark from '@/components/game/BrandMark';
+import { GameHeader, GameField, GameButton } from '@/components/game';
+import { GameText } from '@/components/game';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -12,7 +15,7 @@ import {
   AccessibilityInfo,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import { useThemedColors } from '@/hooks/useThemedColors';
@@ -100,14 +103,10 @@ export default function ResetPasswordScreen() {
   let body: React.ReactNode;
   if (session) {
     body = (
-      <View style={styles.form}>
-        <Text
-          accessibilityRole="header"
-          style={[styles.title, accessibleText, { color: colors.text }]}
-        >
-          Set a new password
-        </Text>
-        <Text
+      <GamePanel tone="ornate" style={styles.form}>
+        <GameHeader title="Set a new password" style={{ marginBottom: 16 }} />
+        <GameText
+          variant="caption"
           style={[
             styles.subtitle,
             accessibleText,
@@ -115,10 +114,11 @@ export default function ResetPasswordScreen() {
           ]}
         >
           At least {MIN_PASSWORD_LENGTH} characters.
-        </Text>
+        </GameText>
 
         <View style={styles.passwordRow}>
-          <TextInput
+          <GameField
+            containerStyle={{ flex: 1 }}
             style={[
               inputStyle,
               styles.passwordInput,
@@ -153,7 +153,7 @@ export default function ResetPasswordScreen() {
             }
             style={styles.reveal}
           >
-            <Ionicons
+            <GameSymbol
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={22}
               color={colors.textSecondary}
@@ -162,7 +162,7 @@ export default function ResetPasswordScreen() {
         </View>
         <FieldError text={passwordError} />
 
-        <TextInput
+        <GameField
           ref={confirmationRef}
           style={[
             inputStyle,
@@ -193,7 +193,7 @@ export default function ResetPasswordScreen() {
           </View>
         ) : null}
 
-        <TouchableOpacity
+        <GameButton
           style={[
             styles.button,
             { backgroundColor: colors.primary },
@@ -204,22 +204,17 @@ export default function ResetPasswordScreen() {
           accessibilityRole="button"
           accessibilityLabel="Save new password"
           accessibilityState={{ disabled: busy, busy }}
-        >
-          {busy ? (
-            <ActivityIndicator color={Ink.onAccentLight} />
-          ) : (
-            <Text style={[styles.buttonText, accessibleText]}>
-              Save new password
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
+          label="Save new password"
+          busy={busy}
+        />
+      </GamePanel>
     );
   } else if (recoveryProcessing) {
     body = (
       <View style={styles.holding}>
         <ActivityIndicator color={colors.primary} size="large" />
-        <Text
+        <GameText
+          variant="caption"
           accessibilityLiveRegion="polite"
           style={[
             styles.subtitle,
@@ -228,19 +223,15 @@ export default function ResetPasswordScreen() {
           ]}
         >
           Opening your reset link…
-        </Text>
+        </GameText>
       </View>
     );
   } else {
     body = (
       <View style={styles.form}>
-        <Text
-          accessibilityRole="header"
-          style={[styles.title, accessibleText, { color: colors.text }]}
-        >
-          Reset link expired
-        </Text>
-        <Text
+        <GameHeader title="Reset link expired" style={{ marginBottom: 16 }} />
+        <GameText
+          variant="caption"
           style={[
             styles.subtitle,
             accessibleText,
@@ -249,17 +240,15 @@ export default function ResetPasswordScreen() {
         >
           This reset link has expired or was already used. Request a new one
           from the sign-in screen.
-        </Text>
-        <TouchableOpacity
+        </GameText>
+        <GameButton
           style={[styles.button, { backgroundColor: colors.primary }]}
           onPress={() => router.replace('/(auth)/sign-in')}
           accessibilityRole="button"
           accessibilityLabel="Request a new link"
-        >
-          <Text style={[styles.buttonText, accessibleText]}>
-            Request a new link
-          </Text>
-        </TouchableOpacity>
+          tone="primary"
+          label="Request a new link"
+        />
       </View>
     );
   }
@@ -274,6 +263,10 @@ export default function ResetPasswordScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <BrandMark
+          size={260}
+          style={{ alignSelf: 'center', marginBottom: 24 }}
+        />
         {body}
       </ScrollView>
     </KeyboardAvoidingView>
@@ -289,13 +282,14 @@ function FieldError({ text }: { text: string | null }) {
   }, [text]);
   if (!text) return null;
   return (
-    <Text
+    <GameText
+      variant="body"
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
       style={[styles.fieldError, accessibleText, { color: colors.error }]}
     >
       {text}
-    </Text>
+    </GameText>
   );
 }
 
@@ -327,12 +321,15 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    padding: Spacing.md,
   },
   input: {
     minHeight: Layout.buttonHeight,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: '#79633E',
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.sm,
     fontSize: Typography.sizes.base,

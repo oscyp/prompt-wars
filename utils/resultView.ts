@@ -407,3 +407,13 @@ export function moveMatchupLine(
 ): string {
   return `Your ${moveLabel(myMove)} vs their ${moveLabel(oppMove)} · ${formatPoints(moveModifier)}`;
 }
+
+/** Both modifiers use their wire units: move points, fractional stat adjustment. */
+export function roundCombatSummary(
+  dealt: number,
+  taken: number,
+  moveModifier: number | null | undefined,
+  statModifier: number | null | undefined,
+): string {
+  return `You dealt ${dealt} damage and took ${taken}. Move modifier: ${formatPoints(moveModifier)}. Stat modifier: ${formatPct(statModifier)}.`;
+}

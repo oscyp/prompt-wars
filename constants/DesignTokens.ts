@@ -68,7 +68,7 @@ export const Layout = {
   tabBarHeight: 60,
   headerHeight: 56,
   buttonHeight: 48,
-  inputHeight: 44,
+  inputHeight: 48,
 } as const;
 
 /**
@@ -162,7 +162,7 @@ export interface GradientStop {
 }
 
 export const Gradients = {
-  brand: ['#7C3AED', '#EC4899'] as [string, string],
+  brand: ['#C4AFFE', '#A78BFA'] as [string, string],
   poster: (base: string): GradientStop[] => [
     { color: base, offset: '0%', opacity: 0.95 },
     { color: base, offset: '42%', opacity: 0.5 },
@@ -194,4 +194,35 @@ export const Scrim = {
 export const Ink = {
   onAccentDark: '#0B0B0F',
   onAccentLight: '#FFFFFF',
+} as const;
+
+/** Native collectible UI; display aliases are loaded by the app root. */
+export const GameFonts = {
+  label: 'BarlowCondensed-Bold',
+  display: 'BarlowCondensed-ExtraBoldItalic',
+} as const;
+
+export const GameType = {
+  body: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
+  caption: { fontSize: 14, lineHeight: 21, fontWeight: '400' },
+  label: {
+    fontSize: 16,
+    lineHeight: 23,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  title: { fontSize: 28, lineHeight: 34, fontWeight: '700' },
+  display: { fontSize: 40, lineHeight: 46, fontWeight: '800' },
+  fighter: { fontSize: 32, lineHeight: 39, fontWeight: '800' },
+} satisfies Record<string, TextStyle>;
+
+export const GameChrome = {
+  cut: 10,
+  borderWidth: 1,
+  selectedBorderWidth: 2,
+  minControlSize: 48,
+  controlPaddingHorizontal: 20,
+  controlPaddingVertical: 12,
+  panelPadding: 16,
+  contentMaxWidth: 720,
 } as const;

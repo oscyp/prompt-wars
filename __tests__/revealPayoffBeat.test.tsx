@@ -13,6 +13,9 @@ import {
 } from '@/utils/revealBeats';
 import type { RewardSummary } from '@/types/battle';
 import { hapticSuccess } from '@/utils/haptics';
+jest.mock('@/components/game/battle/useBattlePresentationActive', () => ({
+  useBattlePresentationActive: jest.fn(() => true),
+}));
 
 jest.mock('@/utils/haptics', () => ({ hapticSuccess: jest.fn() }));
 // Counters snap to their final value under Reduce Motion, so the text is

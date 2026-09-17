@@ -1,3 +1,7 @@
+import {
+  useSheetReturnFocus,
+  type SheetFocusRef,
+} from '@/hooks/useSheetReturnFocus';
 /**
  * Opening a fighter's portrait full-screen from an avatar tap.
  *
@@ -28,21 +32,26 @@ interface ViewerState {
 }
 
 export function usePortraitViewer(onSignedUrlExpired?: () => void) {
+  const { remember, returnFocusRef } = useSheetReturnFocus();
   const [state, setState] = useState<ViewerState | null>(null);
 
-  const open = useCallback((character: BattleCharacterInfo | null) => {
-    if (!character) return;
-    const uri =
-      character.fighterUrl ??
-      character.portraitUrl ??
-      archetypeIllustrationUri(character.archetype);
-    if (!uri) return;
-    setState({
-      uri,
-      caption: character.name,
-      aspect: character.fighterUrl ? 1.5 : 1,
-    });
-  }, []);
+  const open = useCallback(
+    (character: BattleCharacterInfo | null, opener?: SheetFocusRef) => {
+      if (!character) return;
+      const uri =
+        character.fighterUrl ??
+        character.portraitUrl ??
+        archetypeIllustrationUri(character.archetype);
+      if (!uri) return;
+      if (opener) remember(opener);
+      setState({
+        uri,
+        caption: character.name,
+        aspect: character.fighterUrl ? 1.5 : 1,
+      });
+    },
+    [remember],
+  );
 
   const close = useCallback(() => setState(null), []);
 
@@ -73,6 +82,7 @@ export function usePortraitViewer(onSignedUrlExpired?: () => void) {
   );
 
   return {
+    returnFocusRef,
     viewer: state,
     open,
     close,

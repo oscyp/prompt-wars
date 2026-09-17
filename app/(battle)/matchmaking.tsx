@@ -1,7 +1,15 @@
+import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  GameText as Text,
+  GameFooter,
+  GameButton,
+  GameBevel,
+} from '@/components/game';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
+  ScrollView,
   StyleSheet,
   ActivityIndicator,
   Alert,
@@ -38,6 +46,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import FighterEntrance from '@/components/FighterEntrance';
 import ArenaTips from '@/components/ArenaTips';
 import { generateIdempotencyKey } from '@/utils/characters';
+import { inkFor } from '@/utils/contrast';
 import { useBattleAudio } from '@/providers/BattleAudioProvider';
 
 type Status = 'finding' | 'matched' | 'error';
@@ -94,15 +103,32 @@ export default function MatchmakingScreen() {
   // The 1 s "Match found" beat before routing. Held in a ref so unmounting
   // (the player backed out) can cancel it -- a replace that fires after the
   // screen is gone drops the player into a battle they just walked away from.
+  const activeVisit = useRef(true);
+  const visitNumber = useRef(0);
   const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    activeVisit.current = true;
+    requestInFlightRef.current = false;
+    const visit = visitNumber.current;
     return () => {
+      activeVisit.current = false;
+      visitNumber.current = visit + 1;
       if (navTimerRef.current) {
         clearTimeout(navTimerRef.current);
         navTimerRef.current = null;
       }
     };
   }, []);
+
+  const park = useCallback(() => {
+    activeVisit.current = false;
+    visitNumber.current++;
+    if (navTimerRef.current) {
+      clearTimeout(navTimerRef.current);
+      navTimerRef.current = null;
+    }
+    router.dismissTo('/(tabs)/home');
+  }, [router]);
 
   // Stage the player's fighter. Separate from the search on purpose: this is
   // decoration for the wait, so nothing here may delay or fail the queue.
@@ -164,8 +190,9 @@ export default function MatchmakingScreen() {
         navTimerRef.current = null;
       }
       const result = await leaveBattle(battleId);
+      if (!activeVisit.current) return;
       if (result.success) {
-        router.replace('/(tabs)/home');
+        router.dismissTo('/(tabs)/home');
         return;
       }
       cancelInFlightRef.current = false;
@@ -212,6 +239,8 @@ export default function MatchmakingScreen() {
       return;
     }
     requestInFlightRef.current = true;
+    const visit = visitNumber.current;
+    const current = () => activeVisit.current && visitNumber.current === visit;
 
     setStatus('finding');
     setErrorCopy(null);
@@ -229,6 +258,7 @@ export default function MatchmakingScreen() {
         .limit(1)
         .maybeSingle();
 
+      if (!current()) return;
       if (charError) {
         throw new Error(charError.message);
       }
@@ -240,6 +270,7 @@ export default function MatchmakingScreen() {
         requestId: requestIdRef.current,
       });
 
+      if (!current()) return;
       if (!result.battle_id) {
         throw new Error(result.message || 'Matchmaking failed');
       }
@@ -257,6 +288,7 @@ export default function MatchmakingScreen() {
         .eq('id', result.battle_id)
         .single();
 
+      if (!current()) return;
       const opponentReady = Boolean(battleRow) && hasOpponent(battleRow!);
       const matched = result.matched && opponentReady;
 
@@ -271,6 +303,7 @@ export default function MatchmakingScreen() {
 
       navTimerRef.current = setTimeout(() => {
         navTimerRef.current = null;
+        if (!current()) return;
         if (matched) {
           router.replace(`/(battle)/face-off?battleId=${result.battle_id}`);
           return;
@@ -280,6 +313,7 @@ export default function MatchmakingScreen() {
         );
       }, 1000);
     } catch (err) {
+      if (!current()) return;
       requestInFlightRef.current = false;
       console.error('Matchmaking error:', err);
       const copy = matchmakingErrorCopy(
@@ -313,99 +347,125 @@ export default function MatchmakingScreen() {
     >
       {/* Scrim keeps overlay text AA on top of the arena illustration. */}
       <View style={styles.scrim} />
-      <View style={styles.content}>
-        {status === 'error' ? (
-          <Image
-            source={UiArt.clash}
-            style={styles.clash}
-            resizeMode="cover"
-            accessibilityElementsHidden
-            importantForAccessibility="no"
-          />
-        ) : (
-          // The fighter stays on stage through the "Match found" beat; a swap
-          // to the clash emblem for one second would read as a glitch.
-          <View style={styles.entrance}>
-            <FighterEntrance
-              name={fighter.name}
-              archetype={fighter.archetype}
-              signatureColor={fighter.signatureColor ?? colors.primary}
-              portraitUrl={fighter.portraitUrl}
-              cosmetics={fighter.cosmetics}
-              modeLabel={modeLabel(mode)}
-              reduceMotion={reduceMotion}
+      <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.content}>
+          {status === 'error' ? (
+            <Image
+              source={UiArt.clash}
+              style={styles.clash}
+              resizeMode="cover"
+              accessibilityElementsHidden
+              importantForAccessibility="no"
             />
-          </View>
-        )}
+          ) : (
+            // The fighter stays on stage through the "Match found" beat; a swap
+            // to the clash emblem for one second would read as a glitch.
+            <View style={styles.entrance}>
+              <GameBevel
+                color={colors.ornament}
+                insetColor={colors.ornamentMuted}
+              />
+              <FighterEntrance
+                name={fighter.name}
+                archetype={fighter.archetype}
+                signatureColor={fighter.signatureColor ?? colors.primary}
+                portraitUrl={fighter.portraitUrl}
+                cosmetics={fighter.cosmetics}
+                modeLabel={modeLabel(mode)}
+                reduceMotion={reduceMotion}
+              />
+            </View>
+          )}
 
-        <Text style={styles.title} accessibilityRole="header">
-          {title}
-        </Text>
+          <GameDisplayTitle style={styles.title} accessibilityRole="header">
+            {title}
+          </GameDisplayTitle>
 
-        {status === 'finding' && (
-          <ActivityIndicator
-            size="small"
-            color="#FFFFFF"
-            style={styles.spinner}
-            accessibilityLabel="Finding an opponent"
-          />
-        )}
+          {status === 'finding' && (
+            <ActivityIndicator
+              size="small"
+              color="#FFFFFF"
+              style={styles.spinner}
+              accessibilityLabel="Finding an opponent"
+            />
+          )}
 
-        <Text style={styles.message}>{message}</Text>
+          <Text style={styles.message}>{message}</Text>
 
-        {status === 'error' ? (
-          <View style={styles.actions}>
-            {errorCopy?.canRetry !== false ? (
+          {status === 'error' ? (
+            <View style={styles.actions}>
+              {errorCopy?.canRetry !== false ? (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    {
+                      backgroundColor: colors.primary,
+                      opacity: pressed ? 0.85 : 1,
+                    },
+                  ]}
+                  onPress={() => setAttempt((n) => n + 1)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Try again"
+                >
+                  <Text
+                    style={[
+                      styles.primaryButtonText,
+                      { color: inkFor(colors.primary) },
+                    ]}
+                  >
+                    Try again
+                  </Text>
+                </Pressable>
+              ) : null}
               <Pressable
                 style={({ pressed }) => [
-                  styles.primaryButton,
-                  {
-                    backgroundColor: colors.primary,
-                    opacity: pressed ? 0.85 : 1,
-                  },
+                  styles.secondaryButton,
+                  { opacity: pressed ? 0.85 : 1 },
                 ]}
-                onPress={() => setAttempt((n) => n + 1)}
+                onPress={park}
                 accessibilityRole="button"
-                accessibilityLabel="Try again"
+                accessibilityLabel="Back"
               >
-                <Text style={styles.primaryButtonText}>Try again</Text>
+                <Text style={styles.secondaryButtonText}>Back</Text>
               </Pressable>
-            ) : null}
-            <Pressable
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                { opacity: pressed ? 0.85 : 1 },
-              ]}
-              onPress={() => router.back()}
-              accessibilityRole="button"
-              accessibilityLabel="Back"
-            >
-              <Text style={styles.secondaryButtonText}>Back</Text>
-            </Pressable>
-          </View>
-        ) : null}
+            </View>
+          ) : null}
 
-        {status === 'finding' ? (
-          <>
-            <ArenaTips seed={tipSeed} reduceMotion={reduceMotion} />
-            <Pressable
-              style={({ pressed }) => [
-                styles.cancelSearchButton,
-                { opacity: pressed || isCancelling ? 0.65 : 1 },
-              ]}
-              onPress={confirmCancelSearch}
-              disabled={isCancelling}
-              accessibilityRole="button"
-              accessibilityLabel="Cancel search"
-              accessibilityState={{ disabled: isCancelling }}
-            >
-              <Text style={styles.cancelSearchText}>
-                {isCancelling ? 'Canceling…' : 'Cancel search'}
-              </Text>
-            </Pressable>
-          </>
-        ) : null}
-      </View>
+          {status === 'finding' ? (
+            <>
+              <ArenaTips seed={tipSeed} reduceMotion={reduceMotion} />
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cancelSearchButton,
+                  { opacity: pressed || isCancelling ? 0.65 : 1 },
+                ]}
+                onPress={confirmCancelSearch}
+                disabled={isCancelling}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel search"
+                accessibilityState={{ disabled: isCancelling }}
+              >
+                <Text style={styles.cancelSearchText}>
+                  {isCancelling ? 'Canceling…' : 'Cancel search'}
+                </Text>
+              </Pressable>
+            </>
+          ) : null}
+        </ScrollView>
+      </SafeAreaView>
+      <SafeAreaView
+        edges={['bottom']}
+        style={{ backgroundColor: colors.background }}
+      >
+        <GameFooter>
+          <GameButton
+            tone="secondary"
+            label="Arena · Keep search active"
+            accessibilityLabel="Return to Arena; keep search active"
+            onPress={park}
+          />
+        </GameFooter>
+      </SafeAreaView>
     </ImageBackground>
   );
 }
@@ -420,15 +480,17 @@ const styles = StyleSheet.create({
   },
   scrim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(11, 11, 15, 0.45)',
+    backgroundColor: 'rgba(11, 11, 15, 0.68)',
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.lg,
+    paddingTop: Spacing.lg + 44,
   },
   entrance: {
+    padding: 16,
     marginBottom: Spacing.xl,
   },
   spinner: {
@@ -444,7 +506,6 @@ const styles = StyleSheet.create({
   // dark arena illustration in both light and dark app themes.
   title: {
     fontSize: Typography.sizes.xxxl,
-    fontWeight: Typography.weights.bold,
     color: '#FFFFFF',
     marginBottom: Spacing.md,
     textAlign: 'center',
@@ -472,7 +533,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   secondaryButton: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: BorderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -487,7 +548,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   cancelSearchButton: {
-    minHeight: 44,
+    minHeight: 48,
     minWidth: 160,
     marginTop: Spacing.lg,
     alignItems: 'center',

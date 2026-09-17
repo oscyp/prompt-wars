@@ -1,6 +1,8 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameButton } from '@/components/game';
+import { GameText } from '@/components/game';
+
+import { View, StyleSheet } from 'react-native';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { Spacing, Typography } from '@/constants/DesignTokens';
@@ -71,7 +73,21 @@ export default function ArchetypeSheet({
       onClose={onClose}
       closeAccessibilityLabel="Close archetype"
       title="Archetype"
-      subtitle="Shapes how the judge reads your persona, and your portrait."
+      subtitle="A free identity preset for your fighter and portrait. No scoring bonus."
+      footer={
+        <GameButton
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Done"
+          style={[
+            s.primaryBtn,
+            styles.done,
+            { backgroundColor: colors.primary },
+          ]}
+          tone="primary"
+          label="Done"
+        />
+      }
     >
       <View style={inert ? s.cooledDown : undefined}>
         <OptionGrid
@@ -86,12 +102,13 @@ export default function ArchetypeSheet({
 
       {statusLine ? (
         <View style={styles.statusRow}>
-          <Ionicons
+          <GameSymbol
             name={cooling || disabled ? 'lock-closed-outline' : 'time-outline'}
             size={14}
             color={cooling || disabled ? colors.warning : colors.textTertiary}
           />
-          <Text
+          <GameText
+            variant="caption"
             style={[
               s.hint,
               accessibleText,
@@ -102,12 +119,13 @@ export default function ArchetypeSheet({
             ]}
           >
             {statusLine}
-          </Text>
+          </GameText>
         </View>
       ) : null}
 
       {unsaved ? (
-        <Text
+        <GameText
+          variant="caption"
           style={[
             s.hint,
             accessibleText,
@@ -116,17 +134,8 @@ export default function ArchetypeSheet({
           ]}
         >
           Unsaved · applied when you save.
-        </Text>
+        </GameText>
       ) : null}
-
-      <TouchableOpacity
-        onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Done"
-        style={[s.primaryBtn, styles.done, { backgroundColor: colors.primary }]}
-      >
-        <Text style={s.primaryBtnText}>Done</Text>
-      </TouchableOpacity>
     </BottomSheet>
   );
 }

@@ -1,5 +1,7 @@
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, AccessibilityInfo } from 'react-native';
+import { GameText as Text } from '@/components/game';
+import { Animated, StyleSheet, AccessibilityInfo } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
@@ -30,24 +32,27 @@ export interface ToastProps {
 export default function Toast({ text }: ToastProps) {
   const colors = useThemedColors();
   const insets = useSafeAreaInsets();
-  const reduceMotion = useReducedMotion();
+  const active = useBattlePresentationActive();
+  const reduceMotion = useReducedMotion() || !active;
   const accessibleText = useAccessibleTextStyle();
   const opacity = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
 
   useEffect(() => {
-    AccessibilityInfo.announceForAccessibility(text);
-  }, [text]);
+    if (active) AccessibilityInfo.announceForAccessibility(text);
+  }, [text, active]);
 
   useEffect(() => {
     if (reduceMotion) {
       opacity.setValue(1);
       return;
     }
-    Animated.timing(opacity, {
+    const entrance = Animated.timing(opacity, {
       toValue: 1,
       duration: Motion.durations.fast,
       useNativeDriver: true,
-    }).start();
+    });
+    entrance.start();
+    return () => entrance.stop();
   }, [opacity, reduceMotion, text]);
 
   return (
@@ -57,7 +62,7 @@ export default function Toast({ text }: ToastProps) {
         styles.toast,
         {
           backgroundColor: colors.card,
-          borderColor: colors.border,
+          borderColor: colors.ornamentMuted,
           opacity,
           bottom: insets.bottom + Spacing.lg,
         },

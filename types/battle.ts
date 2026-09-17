@@ -34,6 +34,28 @@ export interface RubricScoreSet {
 }
 
 export interface RoundJudgePayload {
+  aggregation?: 'mean_agreeing' | 'third_run';
+  mock_assisted?: boolean;
+  calls?: {
+    model_id: string;
+    prompt_version: string;
+    seed: number;
+    fallback: boolean;
+    player_one_raw_scores: RubricScoreSet;
+    player_two_raw_scores: RubricScoreSet;
+    player_one_normalized_scores: RubricScoreSet;
+    player_two_normalized_scores: RubricScoreSet;
+    explanation: string;
+    cost_usd?: number;
+  }[];
+  combat?: {
+    playerOneScore: number;
+    playerTwoScore: number;
+    playerOneDamage: number;
+    playerTwoDamage: number;
+    scoreGap: number;
+    [key: string]: unknown;
+  };
   player_one_raw_scores?: RubricScoreSet;
   player_two_raw_scores?: RubricScoreSet;
   player_one_normalized_scores?: RubricScoreSet;
@@ -113,3 +135,36 @@ export interface RewardSummary {
 }
 
 export type RewardPayload = Record<string, RewardSummary>;
+
+export interface BattleIdentitySide {
+  id: string | null;
+  name: string;
+  archetype: string;
+  signature_color: string;
+  battle_cry: string;
+  art_style: string | null;
+  cosmetic_config: Record<string, string> | null;
+  avatar: {
+    image_path: string;
+    thumb_path: string | null;
+    seed: number | null;
+  } | null;
+  fighter: {
+    image_path: string;
+    thumb_path: string | null;
+    seed: number | null;
+  } | null;
+}
+export interface BattleIdentitySnapshot {
+  player_one: BattleIdentitySide;
+  player_two: BattleIdentitySide;
+}
+export interface BattleIntegrityFields {
+  rules_version?: 1 | 2;
+  identity_snapshot?: BattleIdentitySnapshot | null;
+  resolution_metadata?: {
+    decidingRule: string;
+    comparison: Record<string, number>;
+  } | null;
+  adjudication_revision?: number;
+}

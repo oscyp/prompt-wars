@@ -1,18 +1,19 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { GameText as Text } from './game';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { GameIcon } from './game/icons/GameIcon';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import {
   Spacing,
   Typography,
-  BorderRadius,
   NumericFontVariant,
 } from '@/constants/DesignTokens';
 import AnimatedCounter from './AnimatedCounter';
 
 export interface CreditChipProps {
   credits: number;
+  focusRef?: React.RefObject<View | null>;
   /**
    * The balance could not be read. Shows a dash instead of a number so the
    * chip never claims "0 credits" on a network failure; still opens the
@@ -32,6 +33,7 @@ export interface CreditChipProps {
  */
 export default function CreditChip({
   credits,
+  focusRef,
   unavailable = false,
   onPress,
 }: CreditChipProps) {
@@ -40,6 +42,7 @@ export default function CreditChip({
 
   return (
     <Pressable
+      ref={focusRef}
       onPress={onPress ?? (() => router.push('/(profile)/wallet'))}
       accessibilityRole="button"
       accessibilityLabel={
@@ -50,13 +53,18 @@ export default function CreditChip({
       style={({ pressed }) => [
         styles.chip,
         {
-          backgroundColor: colors.card,
-          borderColor: colors.border,
+          backgroundColor: 'transparent',
+          borderColor: colors.ornamentMuted,
           opacity: pressed ? 0.7 : 1,
         },
       ]}
     >
-      <Ionicons name="sparkles" size={13} color={colors.primary} />
+      <GameIcon
+        name="crystal"
+        size={29}
+        color={colors.primary}
+        accent="#E8D9FF"
+      />
       {unavailable ? (
         <Text
           style={[
@@ -83,14 +91,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    // 44pt: the design language's minimum target, met by the visible control.
-    minHeight: 44,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.full,
-    borderWidth: StyleSheet.hairlineWidth,
+    minHeight: 48,
+    minWidth: 48,
+    maxWidth: '100%',
+    paddingHorizontal: Spacing.sm,
   },
   text: {
-    fontSize: Typography.sizes.sm,
+    flexShrink: 1,
+    fontSize: Typography.sizes.xl,
     fontWeight: Typography.weights.semibold,
   },
 });

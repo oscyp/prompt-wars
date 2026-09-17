@@ -12,6 +12,7 @@ const mockPreventFlags: boolean[] = [];
 let mockCapturedCallback: ((e: { data: { action: unknown } }) => void) | null =
   null;
 const mockDispatch = jest.fn();
+const mockReplace = jest.fn();
 const mockConfirmLeave = jest.fn();
 
 jest.mock('@react-navigation/native', () => ({
@@ -26,6 +27,7 @@ jest.mock('@react-navigation/native', () => ({
 
 const mockFocusListeners: (() => void)[] = [];
 jest.mock('expo-router', () => ({
+  useRouter: () => ({ dismissTo: mockReplace }),
   useNavigation: () => ({
     dispatch: mockDispatch,
     addListener: (event: string, cb: () => void) => {
@@ -65,6 +67,7 @@ beforeEach(() => {
   mockPreventFlags.length = 0;
   mockCapturedCallback = null;
   mockDispatch.mockClear();
+  mockReplace.mockClear();
   mockConfirmLeave.mockClear();
 });
 
@@ -111,15 +114,51 @@ describe('useBattleExitGuard', () => {
     expect(mockPreventFlags.at(-1)).toBe(true);
   });
 
-  it('an intercepted removal asks first and hands the action back on confirm', () => {
+  it('an intercepted removal parks in Arena without forfeiting', async () => {
     setup();
-    const action = { type: 'POP' };
-    act(() => {
-      mockCapturedCallback?.({ data: { action } });
+    await act(async () => {
+      mockCapturedCallback?.({ data: { action: { type: 'POP' } } });
     });
-    expect(mockConfirmLeave).toHaveBeenCalledTimes(1);
-    const onLeft = mockConfirmLeave.mock.calls[0][0] as () => void;
-    onLeft();
-    expect(mockDispatch).toHaveBeenCalledWith(action);
+    expect(mockConfirmLeave).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/home');
   });
+});
+
+it('parking waits for the draft write and a failed write keeps the editor open', async () => {
+  let finish!: () => void;
+  const saved = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  const { result } = renderHook(() =>
+    useBattleExitGuard('battle-1', {
+      format: 'bo3',
+      mode: 'bot',
+      isBot: true,
+      myProfileId: 'me',
+      beforeExit: () => saved,
+    }),
+  );
+  act(() => result.current.park());
+  expect(mockReplace).not.toHaveBeenCalled();
+  await act(async () => {
+    finish();
+    await saved;
+  });
+  expect(mockReplace).toHaveBeenCalledWith('/(tabs)/home');
+});
+it('parking does not navigate or forfeit after a failed storage write', async () => {
+  const { result } = renderHook(() =>
+    useBattleExitGuard('battle-1', {
+      format: 'bo3',
+      mode: 'bot',
+      isBot: true,
+      myProfileId: 'me',
+      beforeExit: async () => {
+        throw new Error('Disk full');
+      },
+    }),
+  );
+  await act(async () => result.current.park());
+  expect(mockReplace).not.toHaveBeenCalled();
+  expect(mockConfirmLeave).not.toHaveBeenCalled();
 });

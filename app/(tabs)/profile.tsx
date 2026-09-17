@@ -1,18 +1,25 @@
+import PracticeReplayButton from '@/components/PracticeReplayButton';
+import PlayerSafetyActions from '@/components/PlayerSafetyActions';
 import React, { useCallback, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import {
+  GameText as Text,
+  GameButton,
+  GameHeader,
+  GamePanel,
+  GameNavRow,
+} from '@/components/game';
+import BrandMark from '@/components/game/BrandMark';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import type { GameIconName } from '@/components/game/icons/GameIcon';
 import { useAuth } from '@/providers/AuthProvider';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
@@ -81,51 +88,8 @@ function settled<T>(
   return fallback;
 }
 
-interface NavCardProps {
-  title: string;
-  description: string;
-  onPress: () => void;
-  /** Defaults to the visible title, so what is read matches what is seen. */
-  accessibilityLabel?: string;
-}
-
-function NavCard({
-  title,
-  description,
-  onPress,
-  accessibilityLabel,
-}: NavCardProps) {
-  const colors = useThemedColors();
-  const accessibleText = useAccessibleTextStyle();
-  return (
-    <TouchableOpacity
-      style={[styles.navCard, { backgroundColor: colors.card }]}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? title}
-      accessibilityHint={description}
-    >
-      <View style={styles.navText}>
-        <Text style={[styles.navTitle, accessibleText, { color: colors.text }]}>
-          {title}
-        </Text>
-        <Text
-          style={[
-            styles.navDescription,
-            accessibleText,
-            { color: colors.textSecondary },
-          ]}
-        >
-          {description}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-    </TouchableOpacity>
-  );
-}
-
 interface ActionPillProps {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
+  gameIcon: GameIconName;
   label: string;
   onPress: () => void;
   busy?: boolean;
@@ -133,82 +97,37 @@ interface ActionPillProps {
 }
 
 function ActionPill({
-  icon,
+  gameIcon,
   label,
   onPress,
   busy = false,
   disabled = false,
 }: ActionPillProps) {
-  const colors = useThemedColors();
-  const accessibleText = useAccessibleTextStyle();
-  const inactive = busy || disabled;
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.pill,
-        { backgroundColor: colors.card, borderColor: colors.border },
-        pressed && !inactive ? styles.pressed : null,
-        inactive ? styles.pillDisabled : null,
-      ]}
+    <GameButton
+      gameIcon={gameIcon}
+      label={label}
+      busy={busy}
+      disabled={disabled}
+      tone="secondary"
       onPress={() => {
         hapticSelection();
         onPress();
       }}
-      disabled={inactive}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: inactive, busy }}
-    >
-      {busy ? (
-        <ActivityIndicator size="small" color={colors.primary} />
-      ) : (
-        <Ionicons name={icon} size={18} color={colors.text} />
-      )}
-      <Text
-        style={[styles.pillText, accessibleText, { color: colors.text }]}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
-    </Pressable>
+      style={{ flexGrow: 1 }}
+    />
   );
 }
 
 function ProfileErrorCard({ onRetry }: { onRetry: () => void }) {
-  const colors = useThemedColors();
-  const accessibleText = useAccessibleTextStyle();
   return (
-    <View style={[styles.errorCard, { backgroundColor: colors.card }]}>
-      <Text
-        style={[styles.errorTitle, accessibleText, { color: colors.text }]}
-        accessibilityRole="header"
-      >
+    <GamePanel style={{ gap: 12 }}>
+      <Text variant="title" accessibilityRole="header">
         {PROFILE_ERROR_COPY.title}
       </Text>
-      <Text
-        style={[
-          styles.errorBody,
-          accessibleText,
-          { color: colors.textSecondary },
-        ]}
-      >
-        {PROFILE_ERROR_COPY.body}
-      </Text>
-      <Pressable
-        style={({ pressed }) => [
-          styles.retryButton,
-          { backgroundColor: colors.primary },
-          pressed ? styles.pressed : null,
-        ]}
-        onPress={onRetry}
-        accessibilityRole="button"
-        accessibilityLabel={PROFILE_ERROR_COPY.retry}
-      >
-        <Text style={[styles.retryText, { color: colors.background }]}>
-          {PROFILE_ERROR_COPY.retry}
-        </Text>
-      </Pressable>
-    </View>
+      <Text>{PROFILE_ERROR_COPY.body}</Text>
+      <GameButton label={PROFILE_ERROR_COPY.retry} onPress={onRetry} />
+    </GamePanel>
   );
 }
 
@@ -435,7 +354,11 @@ export default function ProfileScreen() {
           <>
             {/* Plain wrapper with a native view behind it: this is what the
                 share action captures. */}
-            <View ref={heroRef} collapsable={false}>
+            <View
+              ref={heroRef}
+              collapsable={false}
+              style={{ backgroundColor: colors.background, padding: 8 }}
+            >
               <FighterHero
                 name={character.name}
                 archetype={character.archetype}
@@ -465,17 +388,13 @@ export default function ProfileScreen() {
 
         <View style={styles.actions}>
           <ActionPill
-            icon="brush-outline"
+            gameIcon="hanger"
             label="Edit look"
             onPress={openEditCharacter}
           />
+          <ActionPill gameIcon="mask" label="Cosmetics" onPress={openShop} />
           <ActionPill
-            icon="sparkles-outline"
-            label="Cosmetics"
-            onPress={openShop}
-          />
-          <ActionPill
-            icon="share-outline"
+            gameIcon="share"
             label="Share card"
             onPress={() => void handleShareCard()}
             busy={isSharing}
@@ -541,40 +460,56 @@ export default function ProfileScreen() {
               Who you have battled most in the last 30 days
             </Text>
             {data.rivals.map((r) => (
-              <RivalRow
-                key={r.summary.rivalProfileId}
-                name={r.identity.name ?? r.summary.displayName}
-                archetype={r.identity.archetype}
-                signatureColor={r.identity.signatureColor}
-                record={r.record}
-                battlesCount={r.summary.battlesCount}
-              />
+              <View key={r.summary.rivalProfileId}>
+                <RivalRow
+                  name={r.identity.name ?? r.summary.displayName}
+                  archetype={r.identity.archetype}
+                  signatureColor={r.identity.signatureColor}
+                  record={r.record}
+                  battlesCount={r.summary.battlesCount}
+                />
+                <PlayerSafetyActions
+                  profileId={r.summary.rivalProfileId}
+                  name={r.identity.name ?? r.summary.displayName}
+                />
+              </View>
             ))}
           </View>
         ) : null}
 
-        <NavCard
+        <GameNavRow
+          style={styles.navCard}
+          gameIcon="stats"
           title="Stats"
           description="History, rating and past battles"
           accessibilityLabel="View your stats"
           onPress={() => router.push('/(profile)/stats')}
         />
-        <NavCard
+        <GameNavRow
+          style={styles.navCard}
+          gameIcon="wallet"
           title="Wallet & Subscription"
           description="Credits, Prompt Wars+ subscription"
           onPress={() => router.push('/(profile)/wallet')}
         />
-        <NavCard
+        <GameNavRow
+          style={styles.navCard}
+          gameIcon="mask"
           title="Cosmetic shop"
           description="Frames, titles, badges and colours"
           onPress={openShop}
         />
-        <NavCard
+        <GameNavRow
+          style={styles.navCard}
+          gameIcon="blocked"
           title="Blocked users"
           description="Manage who you’ve blocked"
           onPress={() => router.push('/(profile)/blocked')}
         />
-        <NavCard
+        <PracticeReplayButton />
+        <GameNavRow
+          style={styles.navCard}
+          gameIcon="settings"
           title="Settings"
           description="Audio, notifications and account"
           onPress={() => router.push('/(profile)/settings')}
@@ -598,6 +533,8 @@ export default function ProfileScreen() {
         />
       }
     >
+      <BrandMark size={168} />
+      <GameHeader title="Your fighter" />
       {content}
     </ScrollView>
   );
@@ -616,6 +553,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.sm,
     marginTop: Spacing.md,
     marginBottom: Spacing.lg,
@@ -687,8 +625,8 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.sm,
   },
   inlineRetry: {
-    minHeight: 44,
-    minWidth: 44,
+    minHeight: 48,
+    minWidth: 48,
     justifyContent: 'center',
     paddingHorizontal: Spacing.sm,
   },
@@ -696,23 +634,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
   },
-  navCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    minHeight: 56,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.sm,
-  },
-  navText: {
-    flex: 1,
-  },
-  navTitle: {
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
-    marginBottom: Spacing.xs,
-  },
+  navCard: { marginBottom: Spacing.sm },
   navDescription: {
     fontSize: Typography.sizes.sm,
   },

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Prompt Wars — Collectible direction</title>
+  <style>
+    :root { color-scheme:dark; font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:#f7f4ff; background:#0c0c12; }
+    * { box-sizing:border-box; }
+    body { margin:0; }
+    button,a { -webkit-tap-highlight-color:transparent; }
+    button { font:inherit; cursor:pointer; }
+    button:focus-visible,a:focus-visible { outline:3px solid #c4affe; outline-offset:5px; }
+    header,main,footer { max-width:1440px; margin:auto; padding:32px; }
+    header { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; padding-top:48px; }
+    .eyebrow { color:#c4affe; font-size:12px; letter-spacing:.16em; text-transform:uppercase; margin:0 0 12px; }
+    h1 { font-size:clamp(27px,4vw,46px); line-height:1.1; letter-spacing:-.04em; margin:0; font-weight:650; }
+    .intro { color:#bebaca; max-width:590px; font-size:15px; line-height:1.6; margin:15px 0 0; }
+    .status { white-space:nowrap; color:#b8b3c4; font-size:12px; padding:10px 0; }
+    main { padding-top:8px; }
+    .gallery { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; }
+    figure { margin:0; min-width:0; }
+    .screen-label { display:flex; align-items:center; gap:10px; font-size:15px; font-weight:600; margin:0 0 16px; }
+    .number { color:#9991ac; font-size:12px; font-variant-numeric:tabular-nums; }
+    .open { display:block; width:100%; padding:0; background:#080910; border:1px solid #302938; border-radius:12px; overflow:hidden; transition:border-color .15s; }
+    .open:hover { border-color:#9d85c7; }
+    .open img { display:block; width:100%; height:auto; }
+    figcaption { font-size:14px; line-height:1.55; color:#bdb7cc; padding:18px 0; }
+    figcaption strong { color:#e7e0f3; font-weight:550; }
+    .caption-action { display:block; color:#c4affe; font-size:12px; margin-top:10px; }
+    footer { border-top:1px solid #282430; padding-top:24px; padding-bottom:36px; color:#a9a1b6; font-size:13px; display:flex; flex-wrap:wrap; justify-content:space-between; gap:16px; }
+    a { color:#d1bef9; text-underline-offset:4px; }
+    dialog { width:min(100vw,1400px); height:100dvh; max-height:100dvh; max-width:100vw; margin:auto; padding:0; border:0; background:#0c0c12; color:#f7f4ff; }
+    dialog::backdrop { background:#000d; }
+    .dialog-shell { display:flex; flex-direction:column; height:100%; }
+    .viewer-bar { min-height:76px; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 24px; border-bottom:1px solid #302938; }
+    #viewer-title { font-weight:550; font-size:16px; }
+    .viewer-controls { display:flex; gap:8px; }
+    .viewer-controls button { min-height:44px; min-width:44px; padding:8px 14px; color:#efe6ff; border:1px solid #4e4264; border-radius:6px; background:#201b2a; }
+    .image-viewport { min-height:0; flex:1; overflow:auto; text-align:center; padding:16px; }
+    #viewer-image { display:block; width:auto; height:auto; max-width:100%; max-height:100%; margin:auto; }
+    .viewer-note { margin:0; padding:8px 24px 16px; text-align:center; font-size:12px; color:#b8b0c4; }
+    @media(max-width:800px) { header { align-items:flex-start; flex-direction:column; gap:10px; } header,main,footer { padding-left:20px; padding-right:20px; } .gallery { grid-template-columns:1fr; max-width:470px; margin:auto; gap:24px; } .status { padding:0; } .viewer-bar { padding:10px 12px; } .viewer-controls button { padding:8px 10px; } }
+    @media(prefers-reduced-motion:reduce) { * { transition:none!important; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <p class="eyebrow">Prompt Wars / Visual exploration 01</p>
+      <h1>A fighter worth showing off.</h1>
+      <p class="intro">Collectible cards, expressive artwork, and a focused writing workspace. One visual language across Arena, battle, and equipment.</p>
+    </div>
+    <span class="status">14 September 2026 · Three screen concepts</span>
+  </header>
+  <main>
+    <div class="gallery">
+      <figure>
+        <h2 class="screen-label"><span class="number">01</span> Arena</h2>
+        <button class="open" data-index="0" aria-label="Enlarge Arena mockup"><img src="arena.png" alt="Arena concept: Mira's illustrated fighter card with four stats, customization controls, rounds needing action, and a raised Battle button in the middle of the navigation bar."></button>
+        <figcaption><strong>Your fighter takes center stage.</strong> One card establishes identity; the central Battle action and pending rounds remain easy to find.<span class="caption-action">Select the screen to enlarge</span></figcaption>
+      </figure>
+      <figure>
+        <h2 class="screen-label"><span class="number">02</span> Battle workspace</h2>
+        <button class="open" data-index="1" aria-label="Enlarge battle workspace mockup"><img src="battle-workspace.png" alt="Battle workspace concept: compact Mira versus Rook score banner, Last Library theme, exact deadline, Attack Defense Finisher controls, spacious prompt editor, draft saved status and Hold to lock in action."></button>
+        <figcaption><strong>Game atmosphere around comfortable writing.</strong> Theme, move, deadline, saved draft, and submission share one workspace. This view shows the keyboard closed.<span class="caption-action">Select the screen to enlarge</span></figcaption>
+      </figure>
+      <figure>
+        <h2 class="screen-label"><span class="number">03</span> Cosmetic Shop</h2>
+        <button class="open" data-index="2" aria-label="Enlarge Cosmetic Shop mockup"><img src="cosmetic-shop.png" alt="Cosmetic Shop concept: two-column gallery of Astral Codex, Emberforge, Neon Circuit and Laureate frames around the same Mira fighter, showing equipped state, credit prices, earned alternative and separate Preview controls."></button>
+        <figcaption><strong>Equipment becomes a collection.</strong> The same fighter makes frame differences clear. Preview opens the purchase or equipment details; price and ownership stay visible.<span class="caption-action">Select the screen to enlarge</span></figcaption>
+      </figure>
+    </div>
+  </main>
+  <footer>
+    <span>Static visual concepts · Sample fighter and battle data · Existing frame designs</span>
+    <span><a href="README.md">Design notes</a> · <a href="prompts.json">Generation prompts</a></span>
+  </footer>
+  <dialog id="viewer" aria-labelledby="viewer-title">
+    <div class="dialog-shell">
+      <div class="viewer-bar">
+        <span id="viewer-title">Arena</span>
+        <div class="viewer-controls">
+          <button id="previous" aria-label="Previous mockup">←</button>
+          <button id="next" aria-label="Next mockup">→</button>
+          <button id="close">Close</button>
+        </div>
+      </div>
+      <div class="image-viewport"><img id="viewer-image" alt=""></div>
+      <p class="viewer-note">Use the arrow buttons to compare screens. Escape closes this view.</p>
+    </div>
+  </dialog>
+  <script>
+    const screenButtons = [...document.querySelectorAll('.open')];
+    const screenNames = ['Arena', 'Battle workspace', 'Cosmetic Shop'];
+    const viewer = document.getElementById('viewer');
+    const viewerImage = document.getElementById('viewer-image');
+    const viewerTitle = document.getElementById('viewer-title');
+    let active = 0;
+    function display(index) {
+      active = (index + screenButtons.length) % screenButtons.length;
+      const source = screenButtons[active].querySelector('img');
+      viewerImage.src = source.src;
+      viewerImage.alt = source.alt;
+      viewerTitle.textContent = screenNames[active] + ' · ' + (active + 1) + ' / 3';
+    }
+    screenButtons.forEach((button, index) => button.addEventListener('click', () => { display(index); viewer.showModal(); }));
+    document.getElementById('previous').addEventListener('click', () => display(active - 1));
+    document.getElementById('next').addEventListener('click', () => display(active + 1));
+    document.getElementById('close').addEventListener('click', () => viewer.close());
+    viewer.addEventListener('keydown', event => { if (event.key === 'ArrowLeft') { event.preventDefault(); display(active - 1); } if (event.key === 'ArrowRight') { event.preventDefault(); display(active + 1); } });
+  </script>
+</body>
+</html>

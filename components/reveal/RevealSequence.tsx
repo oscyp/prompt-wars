@@ -1,12 +1,8 @@
+import { GameButton, GameFooter } from '@/components/game';
+import type { EquippedCosmetics } from '@/utils/cosmetics';
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  AccessibilityInfo,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemedColors } from '@/hooks/useThemedColors';
@@ -20,7 +16,6 @@ import {
   Spacing,
   Typography,
 } from '@/constants/DesignTokens';
-import { inkFor } from '@/utils/contrast';
 import type { BattleFormat, RewardSummary } from '@/types/battle';
 import {
   REVEAL_DONE_LABEL,
@@ -45,7 +40,6 @@ import {
   REVEAL_BOTTOM_BAR_HEIGHT,
   judgeBeatLabel,
   payoffBeatLabel,
-  revealContentInsets,
 } from '@/utils/revealLayout';
 import RevealVerdictBeat from './RevealVerdictBeat';
 import RevealWinnerBeat from './RevealWinnerBeat';
@@ -57,6 +51,8 @@ export interface RevealPortraits {
   meAvatarUrl: string | null;
   themFighterUrl: string | null;
   themAvatarUrl: string | null;
+  meCosmetics?: EquippedCosmetics;
+  themCosmetics?: EquippedCosmetics;
 }
 
 export interface RevealSequenceProps {
@@ -128,7 +124,8 @@ export default function RevealSequence({
   onDone,
 }: RevealSequenceProps) {
   const colors = useThemedColors();
-  const reduceMotion = useReducedMotion();
+  const active = useBattlePresentationActive();
+  const reduceMotion = useReducedMotion() || !active;
   const screenReader = useScreenReaderEnabled();
   const safe = useSafeAreaInsets();
   const manualPacing = reduceMotion || screenReader;
@@ -138,12 +135,14 @@ export default function RevealSequence({
     [outcome, model],
   );
   const { index, current, isLast, autoAdvancing, next, skipAll } =
-    useRevealBeats({ beats, reduceMotion: manualPacing, onDone });
+    useRevealBeats({
+      beats,
+      reduceMotion: manualPacing,
+      enabled: active,
+      onDone,
+    });
 
-  const insets = useMemo(
-    () => revealContentInsets({ top: safe.top, bottom: safe.bottom }),
-    [safe.top, safe.bottom],
-  );
+  const insets = useMemo(() => ({ top: 16, bottom: 16 }), []);
 
   // --- Per-beat view models -------------------------------------------------
   const verdict = verdictCopy({
@@ -191,9 +190,9 @@ export default function RevealSequence({
   });
 
   useEffect(() => {
-    if (!current) return;
+    if (!current || !active) return;
     AccessibilityInfo.announceForAccessibility(announcement);
-  }, [current, announcement]);
+  }, [current, announcement, active]);
 
   if (!current) return null;
 
@@ -224,6 +223,9 @@ export default function RevealSequence({
             avatarUrl={
               winnerIsMe ? portraits.meAvatarUrl : portraits.themAvatarUrl
             }
+            cosmetics={
+              winnerIsMe ? portraits.meCosmetics : portraits.themCosmetics
+            }
             sting={sting}
             reduceMotion={reduceMotion}
             insets={insets}
@@ -252,13 +254,44 @@ export default function RevealSequence({
     }
   };
 
-  const primaryInk = inkFor(colors.primary);
-
   return (
     <View
       style={[styles.root, { backgroundColor: colors.background }]}
       testID="reveal-sequence"
     >
+      <View
+        style={[
+          styles.flowTopBar,
+          { paddingTop: safe.top + REVEAL_HEADER_OFFSET },
+        ]}
+      >
+        <View
+          style={styles.dots}
+          accessible
+          accessibilityLabel={`Part ${index + 1} of ${beats.length}`}
+        >
+          {beats.map((beat, i) => (
+            <View
+              key={beat}
+              testID="reveal-progress-dot"
+              style={[
+                styles.progressDot,
+                {
+                  backgroundColor:
+                    i === index ? colors.ornament : 'transparent',
+                  borderColor: colors.ornament,
+                  opacity: i < index ? 0.5 : 1,
+                },
+              ]}
+            />
+          ))}
+        </View>
+        <GameButton
+          tone="secondary"
+          label={REVEAL_SKIP_LABEL}
+          onPress={skipAll}
+        />
+      </View>
       <Pressable
         style={styles.stage}
         onPress={next}
@@ -281,75 +314,17 @@ export default function RevealSequence({
           {renderBeat(current)}
         </Animated.View>
       </Pressable>
-
-      {/* Progress + Skip, below the transparent header so both stay tappable. */}
-      <View
-        style={[styles.topBar, { top: safe.top + REVEAL_HEADER_OFFSET }]}
-        pointerEvents="box-none"
-      >
-        <View
-          style={styles.dots}
-          accessible
-          accessibilityLabel={`Part ${index + 1} of ${beats.length}`}
-        >
-          {beats.map((beat, i) => (
-            <View
-              key={beat}
-              testID="reveal-progress-dot"
-              style={[
-                styles.progressDot,
-                {
-                  backgroundColor:
-                    i === index ? Ink.onAccentLight : 'transparent',
-                  opacity: i < index ? 0.5 : 1,
-                },
-              ]}
-            />
-          ))}
-        </View>
-        <TouchableOpacity
-          style={styles.skip}
-          onPress={skipAll}
-          accessibilityRole="button"
-          accessibilityLabel={REVEAL_SKIP_LABEL}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.skipText}>{REVEAL_SKIP_LABEL}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View
-        style={[styles.bottomBar, { bottom: safe.bottom + Spacing.lg }]}
-        pointerEvents="box-none"
+      <GameFooter
+        style={{ paddingHorizontal: 20, paddingBottom: safe.bottom + 12 }}
       >
         {isLast ? (
-          <TouchableOpacity
-            style={[styles.primary, { backgroundColor: colors.primary }]}
-            onPress={next}
-            accessibilityRole="button"
-            accessibilityLabel={REVEAL_DONE_LABEL}
-          >
-            <Text style={[styles.primaryText, { color: primaryInk }]}>
-              {REVEAL_DONE_LABEL}
-            </Text>
-          </TouchableOpacity>
+          <GameButton label={REVEAL_DONE_LABEL} onPress={next} />
         ) : manualPacing ? (
-          <TouchableOpacity
-            style={[styles.primary, { backgroundColor: colors.primary }]}
-            onPress={next}
-            accessibilityRole="button"
-            accessibilityLabel={REVEAL_NEXT_LABEL}
-          >
-            <Text style={[styles.primaryText, { color: primaryInk }]}>
-              {REVEAL_NEXT_LABEL}
-            </Text>
-          </TouchableOpacity>
+          <GameButton label={REVEAL_NEXT_LABEL} onPress={next} />
         ) : autoAdvancing ? (
-          <View style={styles.hintPill} importantForAccessibility="no">
-            <Text style={styles.hintText}>{REVEAL_TAP_HINT}</Text>
-          </View>
+          <GameButton tone="secondary" label={REVEAL_TAP_HINT} onPress={next} />
         ) : null}
-      </View>
+      </GameFooter>
     </View>
   );
 }
@@ -380,6 +355,15 @@ function labelFor(
 }
 
 const styles = StyleSheet.create({
+  flowTopBar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
   root: {
     flex: 1,
   },

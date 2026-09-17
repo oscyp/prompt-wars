@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameText as Text } from './game';
+import { View, StyleSheet } from 'react-native';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { Spacing, Typography } from '@/constants/DesignTokens';
 import { MOVE_META } from '@/constants/MoveTypes';
 import { MoveType } from '@/utils/battles';
 import { moveLabel } from '@/utils/battleCopy';
@@ -68,8 +69,8 @@ export default function MoveTypeChipRow({
                   },
                 ]}
               >
-                <Ionicons name={MOVE_META[m].icon} size={12} color={ink} />
-                <Text style={[styles.chipText, { color: ink }]}>
+                <GameSymbol name={MOVE_META[m].icon} size={12} color={ink} />
+                <Text variant="label" style={[styles.chipText, { color: ink }]}>
                   {m.toUpperCase()}
                 </Text>
               </View>
@@ -103,11 +104,11 @@ const styles = StyleSheet.create({
     minHeight: 28,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
-    borderRadius: BorderRadius.full,
+    borderRadius: 2,
     borderWidth: 1,
   },
   chipText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
     fontWeight: Typography.weights.bold,
     letterSpacing: 0.5,
   },

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { GameText as Text } from './game';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 
@@ -34,7 +35,7 @@ export default function StatBar({
       accessibilityValue={{ min: 0, max: safeMax, now: clamped }}
     >
       <View style={styles.row}>
-        <Text style={[styles.label, { color: colors.text }]} numberOfLines={1}>
+        <Text variant="label" style={[styles.label, { color: colors.text }]}>
           {label}
         </Text>
         <Text style={[styles.value, { color: colors.textSecondary }]}>
@@ -68,16 +69,20 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 2,
   },
   label: {
+    flexShrink: 1,
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
     letterSpacing: 0.5,
   },
   value: {
+    flexShrink: 1,
     fontSize: Typography.sizes.sm,
     fontVariant: ['tabular-nums'],
   },

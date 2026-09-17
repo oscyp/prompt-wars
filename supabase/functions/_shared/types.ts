@@ -111,7 +111,23 @@ export interface JudgeRubricScores {
   dramatic_potential: number;
 }
 
+export interface JudgeCallProvenance {
+  response_id?: string;
+  model_id: string;
+  prompt_version: string;
+  seed: number;
+  fallback: boolean;
+  player_one_raw_scores: JudgeRubricScores;
+  player_two_raw_scores: JudgeRubricScores;
+  player_one_normalized_scores: JudgeRubricScores;
+  player_two_normalized_scores: JudgeRubricScores;
+  explanation: string;
+  cost_usd?: number;
+}
 export interface JudgeRunResult {
+  calls: JudgeCallProvenance[];
+  aggregation: 'mean_agreeing' | 'third_run';
+  mock_assisted: boolean;
   player_one_raw_scores: JudgeRubricScores;
   player_two_raw_scores: JudgeRubricScores;
   player_one_normalized_scores: JudgeRubricScores;

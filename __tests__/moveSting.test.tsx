@@ -1,3 +1,4 @@
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
 /**
  * The per-move sting: nothing for no preset, a labelled badge under Reduce
  * Motion (with the landing callback at once), and a timed landing otherwise.
@@ -14,11 +15,16 @@ jest.mock('@/hooks/useReducedMotion', () => ({
   useReducedMotion: jest.fn(() => true),
 }));
 
+jest.mock('@/components/game/battle/useBattlePresentationActive', () => ({
+  useBattlePresentationActive: jest.fn(() => true),
+}));
+
 const PRESETS: StingPreset[] = ['attack', 'defense', 'finisher'];
 
 describe('MoveSting', () => {
   beforeEach(() => {
     (useReducedMotion as jest.Mock).mockReturnValue(true);
+    jest.mocked(useBattlePresentationActive).mockReturnValue(true);
   });
 
   it('renders nothing for a null preset and never lands', () => {
@@ -71,4 +77,29 @@ describe('MoveSting', () => {
       }
     },
   );
+});
+
+it('keeps the static move caption offscreen without firing an impact, then lands once on return', () => {
+  jest.mocked(useBattlePresentationActive).mockReturnValue(false);
+  jest.mocked(useReducedMotion).mockReturnValue(true);
+  const onLanded = jest.fn();
+  const view = render(
+    <MoveSting preset="attack" color="#EF4444" onLanded={onLanded} />,
+  );
+  expect(view.getByLabelText('Attack move')).toBeTruthy();
+  expect(onLanded).not.toHaveBeenCalled();
+  jest.mocked(useBattlePresentationActive).mockReturnValue(true);
+  view.rerender(
+    <MoveSting preset="attack" color="#EF4444" onLanded={onLanded} />,
+  );
+  expect(onLanded).toHaveBeenCalledTimes(1);
+  jest.mocked(useBattlePresentationActive).mockReturnValue(false);
+  view.rerender(
+    <MoveSting preset="attack" color="#EF4444" onLanded={onLanded} />,
+  );
+  jest.mocked(useBattlePresentationActive).mockReturnValue(true);
+  view.rerender(
+    <MoveSting preset="attack" color="#EF4444" onLanded={onLanded} />,
+  );
+  expect(onLanded).toHaveBeenCalledTimes(1);
 });

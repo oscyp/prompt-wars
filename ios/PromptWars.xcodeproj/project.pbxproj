@@ -14,6 +14,8 @@
 		9D55554A4D8BC87ECA9A6000 /* libPods-PromptWars.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D543695FD7022825FAFB7D1 /* libPods-PromptWars.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		DD6B703F5AB74E0CA172407C /* BarlowCondensed-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 20B0E380A00F4C9FBC52BF35 /* BarlowCondensed-Bold.ttf */; };
+		ACC26EBE61D64E66B0FC2455 /* BarlowCondensed-ExtraBoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 41D028915C7543469EC1C480 /* BarlowCondensed-ExtraBoldItalic.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +32,8 @@
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = PromptWars/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* PromptWars-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "PromptWars-Bridging-Header.h"; path = "PromptWars/PromptWars-Bridging-Header.h"; sourceTree = "<group>"; };
+		20B0E380A00F4C9FBC52BF35 /* BarlowCondensed-Bold.ttf */ = {isa = PBXFileReference; name = "BarlowCondensed-Bold.ttf"; path = "../assets/fonts/BarlowCondensed-Bold.ttf"; sourceTree = "<group>"; lastKnownFileType = file; includeInIndex = 0; };
+		41D028915C7543469EC1C480 /* BarlowCondensed-ExtraBoldItalic.ttf */ = {isa = PBXFileReference; name = "BarlowCondensed-ExtraBoldItalic.ttf"; path = "../assets/fonts/BarlowCondensed-ExtraBoldItalic.ttf"; sourceTree = "<group>"; lastKnownFileType = file; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -91,6 +95,7 @@
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				C61CA73194A6126C2E42E495 /* Pods */,
 				5E3DCDC2F1F297408A971FB6 /* ExpoModulesProviders */,
+				877253BB82904A69BAE156D7 /* Resources */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -131,6 +136,16 @@
 			);
 			name = PromptWars;
 			sourceTree = "<group>";
+		};
+		877253BB82904A69BAE156D7 /* Resources */ = {
+			isa = "PBXGroup";
+			children = (
+				20B0E380A00F4C9FBC52BF35 /* BarlowCondensed-Bold.ttf */,
+				41D028915C7543469EC1C480 /* BarlowCondensed-ExtraBoldItalic.ttf */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+			path = "";
 		};
 /* End PBXGroup section */
 
@@ -200,6 +215,8 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				5864449D32062F1682A91300 /* PrivacyInfo.xcprivacy in Resources */,
+				DD6B703F5AB74E0CA172407C /* BarlowCondensed-Bold.ttf in Resources */,
+				ACC26EBE61D64E66B0FC2455 /* BarlowCondensed-ExtraBoldItalic.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -385,7 +402,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.3.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -419,7 +436,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.3.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",

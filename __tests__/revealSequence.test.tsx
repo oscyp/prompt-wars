@@ -1,3 +1,5 @@
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
+import { hapticVictory, hapticSelection } from '@/utils/haptics';
 /**
  * The series reveal as a whole: which beat opens, how Skip and Next move it,
  * and that the choreography drops beats the data cannot support. Animated
@@ -16,6 +18,9 @@ import {
   type RevealSide,
 } from '@/utils/revealBeats';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+jest.mock('@/components/game/battle/useBattlePresentationActive', () => ({
+  useBattlePresentationActive: jest.fn(() => true),
+}));
 
 jest.mock('@/utils/haptics', () => ({
   hapticSelection: jest.fn(),
@@ -96,11 +101,28 @@ const baseProps: RevealSequenceProps = {
 describe('RevealSequence', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    (useBattlePresentationActive as jest.Mock).mockReturnValue(true);
+    jest.clearAllMocks();
     (useReducedMotion as jest.Mock).mockReturnValue(false);
     (baseProps.onDone as jest.Mock).mockReset();
   });
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('pauses the reveal and pending haptics while backgrounded without losing its beat', () => {
+    const view = render(<RevealSequence {...baseProps} />);
+    (useBattlePresentationActive as jest.Mock).mockReturnValue(false);
+    view.rerender(<RevealSequence {...baseProps} />);
+    act(() => jest.advanceTimersByTime(30_000));
+    view.getByText('You won the series 2–1');
+    expect(hapticVictory).not.toHaveBeenCalled();
+    expect(hapticSelection).not.toHaveBeenCalled();
+    expect(baseProps.onDone).not.toHaveBeenCalled();
+    (useBattlePresentationActive as jest.Mock).mockReturnValue(true);
+    view.rerender(<RevealSequence {...baseProps} />);
+    fireEvent.press(view.getByLabelText(REVEAL_SKIP_LABEL));
+    expect(baseProps.onDone).toHaveBeenCalledTimes(1);
   });
 
   it('opens on the verdict beat with the headline and the knockout stamp', () => {

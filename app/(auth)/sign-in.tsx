@@ -1,7 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { GamePanel } from '@/components/game';
+import BrandMark from '@/components/game/BrandMark';
+import { GameHeader, GameField, GameButton } from '@/components/game';
+import { GameText } from '@/components/game';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -11,7 +14,7 @@ import {
   AccessibilityInfo,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { supabase } from '@/utils/supabase';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
@@ -176,13 +179,16 @@ export default function SignInScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text
-          accessibilityRole="header"
-          style={[styles.title, accessibleText, { color: colors.text }]}
-        >
-          Welcome to Prompt Wars
-        </Text>
-        <Text
+        <BrandMark
+          size={260}
+          style={{ alignSelf: 'center', marginBottom: 24 }}
+        />
+        <GameHeader
+          title="Welcome to Prompt Wars"
+          style={{ marginBottom: 16 }}
+        />
+        <GameText
+          variant="caption"
           style={[
             styles.subtitle,
             accessibleText,
@@ -190,10 +196,10 @@ export default function SignInScreen() {
           ]}
         >
           Sign in to battle
-        </Text>
+        </GameText>
 
-        <View style={styles.form}>
-          <TextInput
+        <GamePanel tone="ornate" style={styles.form}>
+          <GameField
             style={[
               inputStyle,
               emailError ? { borderColor: colors.error } : null,
@@ -218,7 +224,8 @@ export default function SignInScreen() {
           <FieldError text={emailError} />
 
           <View style={styles.passwordRow}>
-            <TextInput
+            <GameField
+              containerStyle={{ flex: 1 }}
               ref={passwordRef}
               style={[
                 inputStyle,
@@ -253,7 +260,7 @@ export default function SignInScreen() {
               }
               style={styles.reveal}
             >
-              <Ionicons
+              <GameSymbol
                 name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                 size={22}
                 color={colors.textSecondary}
@@ -279,7 +286,7 @@ export default function SignInScreen() {
             </View>
           ) : null}
 
-          <TouchableOpacity
+          <GameButton
             style={[
               styles.button,
               { backgroundColor: colors.primary },
@@ -290,13 +297,11 @@ export default function SignInScreen() {
             accessibilityLabel="Sign in"
             accessibilityRole="button"
             accessibilityState={{ disabled: isBusy, busy: busy === 'signIn' }}
-          >
-            <Text style={[styles.buttonText, accessibleText]}>
-              {busy === 'signIn' ? 'Signing in…' : 'Sign in'}
-            </Text>
-          </TouchableOpacity>
+            tone="primary"
+            label={busy === 'signIn' ? 'Signing in…' : 'Sign in'}
+          />
 
-          <TouchableOpacity
+          <GameButton
             onPress={handleForgotPassword}
             disabled={isBusy}
             accessibilityLabel="Forgot password?"
@@ -304,24 +309,22 @@ export default function SignInScreen() {
             accessibilityRole="button"
             accessibilityState={{ disabled: isBusy, busy: busy === 'reset' }}
             style={styles.textButton}
-          >
-            <Text style={[styles.link, accessibleText, { color: colors.link }]}>
-              {busy === 'reset' ? 'Sending reset link…' : 'Forgot password?'}
-            </Text>
-          </TouchableOpacity>
+            tone="secondary"
+            label={
+              busy === 'reset' ? 'Sending reset link…' : 'Forgot password?'
+            }
+          />
 
-          <TouchableOpacity
+          <GameButton
             onPress={() => router.push('/(auth)/sign-up')}
             disabled={isBusy}
             accessibilityLabel="Don’t have an account? Sign up"
             accessibilityRole="button"
             style={styles.textButton}
-          >
-            <Text style={[styles.link, accessibleText, { color: colors.link }]}>
-              Don’t have an account? Sign up
-            </Text>
-          </TouchableOpacity>
-        </View>
+            tone="secondary"
+            label="Don’t have an account? Sign up"
+          />
+        </GamePanel>
       </ScrollView>
       {toast ? <Toast text={toast} /> : null}
     </KeyboardAvoidingView>
@@ -341,13 +344,14 @@ function FieldError({ text }: { text: string | null }) {
   }, [text]);
   if (!text) return null;
   return (
-    <Text
+    <GameText
+      variant="body"
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
       style={[styles.fieldError, accessibleText, { color: colors.error }]}
     >
       {text}
-    </Text>
+    </GameText>
   );
 }
 
@@ -374,12 +378,15 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    padding: Spacing.md,
   },
   input: {
     minHeight: Layout.buttonHeight,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: '#79633E',
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.sm,
     fontSize: Typography.sizes.base,

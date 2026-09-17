@@ -1,4 +1,5 @@
 import type { Ionicons } from '@expo/vector-icons';
+import type { GameIconName } from '@/components/game/icons/GameIcon';
 import type { MoveType } from '@/utils/battles';
 
 /**
@@ -9,11 +10,31 @@ import type { MoveType } from '@/utils/battles';
  */
 export const MOVE_META: Record<
   MoveType,
-  { icon: keyof typeof Ionicons.glyphMap; beats: MoveType; losesTo: MoveType }
+  {
+    icon: keyof typeof Ionicons.glyphMap;
+    gameIcon: GameIconName;
+    beats: MoveType;
+    losesTo: MoveType;
+  }
 > = {
-  attack: { icon: 'flash', beats: 'finisher', losesTo: 'defense' },
-  defense: { icon: 'shield', beats: 'attack', losesTo: 'finisher' },
-  finisher: { icon: 'skull', beats: 'defense', losesTo: 'attack' },
+  attack: {
+    icon: 'flash',
+    gameIcon: 'attack',
+    beats: 'finisher',
+    losesTo: 'defense',
+  },
+  defense: {
+    icon: 'shield',
+    gameIcon: 'defense',
+    beats: 'attack',
+    losesTo: 'finisher',
+  },
+  finisher: {
+    icon: 'skull',
+    gameIcon: 'finisher',
+    beats: 'defense',
+    losesTo: 'attack',
+  },
 };
 
 /** The move type that counters (beats) the given move. */

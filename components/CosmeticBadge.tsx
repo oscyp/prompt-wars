@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, type ViewStyle, type StyleProp } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import type { BadgePresentation } from '@/constants/Cosmetics';
 
 export interface CosmeticBadgeProps {
@@ -29,7 +29,7 @@ export default function CosmeticBadge({
       accessibilityRole="image"
       accessibilityLabel={`Badge: ${badge.label}`}
     >
-      <Ionicons name={badge.icon} size={size} color={badge.color} />
+      <GameSymbol name={badge.icon} size={size} color={badge.color} />
     </View>
   );
 }

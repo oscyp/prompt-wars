@@ -33,15 +33,15 @@ export const ARCHETYPES: Record<ArchetypeId, Archetype> = {
   strategist: {
     id: 'strategist',
     name: 'The Strategist',
-    description: 'Precise, tactical, rewards Defense moves',
+    description: 'Precise and tactical, expressed through careful plans',
     trait: 'Tactical Precision',
     color: '#3B82F6', // Blue
-    rewards: 'Defense moves',
+    rewards: 'careful plans',
   },
   trickster: {
     id: 'trickster',
     name: 'The Trickster',
-    description: 'Creative, chaotic, rewards unexpected angles',
+    description: 'Creative and chaotic, expressed through unexpected angles',
     trait: 'Unpredictable Chaos',
     color: '#F59E0B', // Orange
     rewards: 'unexpected angles',
@@ -49,15 +49,15 @@ export const ARCHETYPES: Record<ArchetypeId, Archetype> = {
   titan: {
     id: 'titan',
     name: 'The Titan',
-    description: 'Direct, powerful, rewards Attack moves',
+    description: 'Direct and powerful, expressed through bold actions',
     trait: 'Raw Power',
     color: '#EF4444', // Red
-    rewards: 'Attack moves',
+    rewards: 'bold actions',
   },
   mystic: {
     id: 'mystic',
     name: 'The Mystic',
-    description: 'Poetic, abstract, rewards Originality',
+    description: 'Poetic and abstract, expressed through Originality',
     trait: 'Abstract Vision',
     color: '#8B5CF6', // Purple
     rewards: 'Originality',
@@ -65,7 +65,7 @@ export const ARCHETYPES: Record<ArchetypeId, Archetype> = {
   engineer: {
     id: 'engineer',
     name: 'The Engineer',
-    description: 'Structured, technical, rewards Specificity',
+    description: 'Structured and technical, expressed through Specificity',
     trait: 'Technical Mastery',
     color: '#10B981', // Green
     rewards: 'Specificity',

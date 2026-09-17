@@ -1,0 +1,22 @@
+{
+  "checkedAt": "2026-09-16T10:06:44.112Z",
+  "method": "Source-level, nonvisual jsdom state checks. No browser renderer or network.",
+  "checks": [
+    "Three independent editor states render in a nonvisual DOM.",
+    "Written draft survives guided/written mode changes, including Unicode.",
+    "Gear preview stages the selected item independently of drawing.",
+    "Review includes sample price/balance and free Save enters saved state.",
+    "Full portrait opens and Escape closes it.",
+    "Catalogue expands to all 15 existing items and 8 art styles.",
+    "Fighter tab exposes identity fields without a drawer.",
+    "Illustrated keyboard can be dismissed.",
+    "10 rendered artwork/font references resolve to existing local files.",
+    "Both JavaScript files pass syntax compilation."
+  ],
+  "status": "passed",
+  "limitations": [
+    "Local browser preview was blocked by browser URL policy.",
+    "No browser layout, native keyboard, accessibility service or device acceptance checks performed.",
+    "Generated concept board is a design illustration."
+  ]
+}

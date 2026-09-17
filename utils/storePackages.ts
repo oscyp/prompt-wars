@@ -7,6 +7,8 @@
  * store wins: the USD figure is wrong for every non-US storefront.
  */
 
+import { CREDIT_PACK_CREDITS } from './revenuecat';
+
 import type {
   PurchasesOfferings,
   PurchasesPackage,
@@ -71,4 +73,33 @@ export function offerPriceStrings(
     priceString: pkg.product.priceString || null,
     referencePriceString: usdOrUnknown ? undefined : null,
   };
+}
+
+/** Omit a comparative badge unless every displayed pack uses the same known currency. */
+export function bestValueProductId(
+  packages: readonly {
+    product: { identifier: string; price: number; currencyCode?: string };
+  }[],
+): string | null {
+  const credits = CREDIT_PACK_CREDITS;
+  const packs = packages.filter((pkg) => credits[pkg.product.identifier]);
+  if (packs.length < 2) return null;
+  const currency = packs[0].product.currencyCode?.toUpperCase();
+  if (
+    !currency ||
+    packs.some(
+      ({ product }) =>
+        product.currencyCode?.toUpperCase() !== currency ||
+        !Number.isFinite(product.price) ||
+        product.price <= 0,
+    )
+  )
+    return null;
+  const sorted = packs
+    .map(({ product }) => ({
+      id: product.identifier,
+      unit: product.price / credits[product.identifier],
+    }))
+    .sort((a, b) => a.unit - b.unit);
+  return sorted[0].unit < sorted[1].unit ? sorted[0].id : null;
 }

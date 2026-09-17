@@ -7,9 +7,9 @@
 // router, because the bug it pins lives in how the real router dispatches.
 jest.unmock('expo-router');
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Text, Pressable } from 'react-native';
-import { fireEvent, waitFor } from '@testing-library/react-native';
+import { fireEvent } from '@testing-library/react-native';
 import { renderRouter, screen } from 'expo-router/testing-library';
 import { Stack, useRouter } from 'expo-router';
 import { useBattleExitGuard } from '@/hooks/useBattleExitGuard';
@@ -63,6 +63,8 @@ function BattleLayout() {
 function mount() {
   return renderRouter(
     {
+      _layout: BattleLayout,
+      '(tabs)/home': () => <Text>Arena home</Text>,
       '(battle)/_layout': BattleLayout,
       '(battle)/face-off': FaceOff,
       '(battle)/move-select': MoveSelect,
@@ -74,12 +76,13 @@ function mount() {
 beforeEach(() => mockConfirmLeave.mockClear());
 
 describe('useBattleExitGuard against expo-router', () => {
-  it('a bare router.replace is intercepted by the guard', async () => {
+  it('an accidental route removal parks safely in Arena', async () => {
     viaExitTo = false;
     mount();
     await screen.findByText('Face-off');
     fireEvent.press(screen.getByLabelText('Continue'));
-    await waitFor(() => expect(mockConfirmLeave).toHaveBeenCalledTimes(1));
+    await screen.findByText('Arena home');
+    expect(mockConfirmLeave).not.toHaveBeenCalled();
     expect(screen.queryByText('Move select')).toBeNull();
   });
 
@@ -91,4 +94,45 @@ describe('useBattleExitGuard against expo-router', () => {
     await screen.findByText('Move select');
     expect(mockConfirmLeave).not.toHaveBeenCalled();
   });
+});
+
+function StatefulArena() {
+  const [value, setValue] = useState(0);
+  const router = useRouter();
+  return (
+    <>
+      <Text>Arena count {value}</Text>
+      <Pressable
+        accessibilityLabel="Increment"
+        onPress={() => setValue((v) => v + 1)}
+      >
+        <Text>Add</Text>
+      </Pressable>
+      <Pressable
+        accessibilityLabel="Open battle"
+        onPress={() => router.push('/(battle)/face-off')}
+      >
+        <Text>Open</Text>
+      </Pressable>
+    </>
+  );
+}
+it('parking a pushed battle preserves the existing Arena state', async () => {
+  viaExitTo = false;
+  renderRouter(
+    {
+      _layout: BattleLayout,
+      '(tabs)/home': StatefulArena,
+      '(battle)/_layout': BattleLayout,
+      '(battle)/face-off': FaceOff,
+      '(battle)/move-select': MoveSelect,
+    },
+    { initialUrl: '/(tabs)/home' },
+  );
+  await screen.findByText('Arena count 0');
+  fireEvent.press(screen.getByLabelText('Increment'));
+  fireEvent.press(screen.getByLabelText('Open battle'));
+  await screen.findByText('Face-off');
+  fireEvent.press(screen.getByLabelText('Continue'));
+  await screen.findByText('Arena count 1');
 });

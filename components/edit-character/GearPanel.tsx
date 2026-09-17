@@ -1,30 +1,23 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
-  TouchableOpacity,
   ActivityIndicator,
   Keyboard,
   StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
+import { GameButton, GameField, GamePanel, GameText } from '@/components/game';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
-import { TRAIT_LABELS } from '@/constants/CharacterTraits';
-
+import { useSheetReturnFocus } from '@/hooks/useSheetReturnFocus';
 import type { CatalogSignatureItem } from '@/utils/characters';
-import ItemGrid from '../ItemGrid';
 import InlineBanner from '../InlineBanner';
 import ItemDetailSheet from './ItemDetailSheet';
-import { editStyles as s } from './styles';
-
-/** Two rows are enough to offer a choice without turning Gear into a wall. */
-const CATALOG_PREVIEW = 6;
-
+import EditorItemArt from './EditorItemArt';
 export interface GearPanelProps {
   items: CatalogSignatureItem[];
-  /** Never null: a character always has an item. */
   equippedId: string;
+  currentItem?: CatalogSignatureItem | null;
+  savedItemId?: string;
   loading: boolean;
   error: string | null;
   busy?: boolean;
@@ -35,26 +28,72 @@ export interface GearPanelProps {
   onRetry: () => void;
   onEquip: (id: string) => void;
 }
-
-/**
- * Equipped item first, followed by the predefined shared catalogue.
- *
- * Custom signature items remain in storage for backwards compatibility, but
- * are intentionally filtered out of this beta surface. Only curated items can
- * be browsed or equipped here.
- *
- * Tapping a tile opens `ItemDetailSheet` rather than inserting a preview card
- * at the top of the panel: that card usually landed off-screen, above the grid
- * the player was looking at, so the tap appeared to do nothing. The tapped
- * tile stays highlighted behind the sheet, and the equipped tile opens the
- * sheet in its "Equipped" state so every tile answers a tap the same way.
- *
- * Layout only: the screen's outer scroll owns scrolling, so this renders a
- * plain `View` and never a scroll view of its own.
- */
+function GearTile({
+  item,
+  selected,
+  previewing,
+  busy,
+  onPreview,
+  onRetry,
+}: {
+  item: CatalogSignatureItem;
+  selected: boolean;
+  previewing: boolean;
+  busy: boolean;
+  onPreview: (ref: React.RefObject<View | null>) => void;
+  onRetry: () => void;
+}) {
+  const colors = useThemedColors();
+  const { width, fontScale } = useWindowDimensions();
+  const ref = useRef<View>(null);
+  const [artFailed, setArtFailed] = useState(false);
+  return (
+    <GamePanel
+      tone={selected ? 'selected' : 'quiet'}
+      style={{
+        width: width >= 390 && fontScale <= 1.15 ? '48%' : '100%',
+        alignItems: 'center',
+        gap: 7,
+        padding: 10,
+      }}
+    >
+      <EditorItemArt item={item} size={82} onError={() => setArtFailed(true)} />
+      <GameText variant="fighter" style={{ fontSize: 22, textAlign: 'center' }}>
+        {item.name}
+      </GameText>
+      <GameText variant="caption" style={{ color: colors.textSecondary }}>
+        {selected ? 'Selected' : 'Signature item'}
+      </GameText>
+      {artFailed && (
+        <GameButton
+          label="Retry artwork"
+          chrome="text"
+          onPress={() => {
+            setArtFailed(false);
+            onRetry();
+          }}
+        />
+      )}
+      <GameButton
+        ref={ref}
+        label="Preview"
+        accessibilityLabel={'Preview ' + item.name}
+        accessibilityState={{ expanded: previewing || undefined, selected }}
+        gameIcon="look"
+        chrome="text"
+        tone="secondary"
+        disabled={busy}
+        onPress={() => onPreview(ref)}
+        style={{ alignSelf: 'stretch' }}
+      />
+    </GamePanel>
+  );
+}
 export default function GearPanel({
   items,
   equippedId,
+  currentItem,
+  savedItemId,
   loading,
   error,
   busy = false,
@@ -66,144 +105,119 @@ export default function GearPanel({
   onEquip,
 }: GearPanelProps) {
   const colors = useThemedColors();
-  const accessibleText = useAccessibleTextStyle();
   const [query, setQuery] = useState('');
   const [showAll, setShowAll] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
-
+  const { remember, returnFocusRef } = useSheetReturnFocus();
   const predefinedItems = useMemo(
     () => items.filter((item) => !item.isCustom),
     [items],
   );
-  const catalog = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return predefinedItems;
-    return predefinedItems.filter(
-      (i) =>
-        i.name.toLowerCase().includes(q) ||
-        i.description.toLowerCase().includes(q),
-    );
-  }, [predefinedItems, query]);
-  const equipped = predefinedItems.find((i) => i.id === equippedId) ?? null;
-
-  // Searching is itself a request to see everything that matches.
-  const searching = query.trim().length > 0;
-  const visibleCatalog =
-    showAll || searching ? catalog : catalog.slice(0, CATALOG_PREVIEW);
-  const hiddenCount = catalog.length - visibleCatalog.length;
-
-  const preview = predefinedItems.find((i) => i.id === previewId) ?? null;
-
-  const openPreview = (id: string) => {
-    if (busy) return;
-    // The search field may hold focus; a sheet over a live keyboard is cramped.
-    Keyboard.dismiss();
-    setPreviewId(id);
-  };
-
-  if (loading) {
+  const catalog = useMemo(
+    () =>
+      predefinedItems.filter((item) =>
+        (item.name + ' ' + item.description)
+          .toLowerCase()
+          .includes(query.trim().toLowerCase()),
+      ),
+    [predefinedItems, query],
+  );
+  const equipped =
+    items.find((item) => item.id === equippedId) ??
+    (currentItem?.id === equippedId ? currentItem : null);
+  const preview = predefinedItems.find((item) => item.id === previewId) ?? null;
+  const visible = showAll || query.trim() ? catalog : catalog.slice(0, 6);
+  if (loading && !items.length && !currentItem)
     return (
-      <View style={[s.panel, styles.centered, { minHeight: 200 }]}>
+      <View style={{ padding: 32 }}>
         <ActivityIndicator color={colors.primary} />
       </View>
     );
-  }
-
   return (
     <>
-      <View style={s.panel}>
-        {error ? (
+      <View style={styles.panel}>
+        {error && (
           <InlineBanner
             tone="error"
             text={error}
             actionLabel="Retry"
             onAction={onRetry}
           />
-        ) : null}
-
-        <View style={[s.card, { backgroundColor: colors.card }]}>
-          <Text style={[s.cardTitle, accessibleText, { color: colors.text }]}>
-            Equipped item
-          </Text>
-          {/* No unequip. signature_item_id is NOT NULL and the item feeds the
-              portrait prompt, so "none" only ever meant a blander render nobody
-              chose. Gear is which one, not whether. */}
-          {equipped ? (
-            <>
-              <Text style={[s.cardSub, accessibleText, { color: colors.text }]}>
-                {`${equipped.name} · ${TRAIT_LABELS.itemClass[equipped.itemClass]}`}
-              </Text>
-              <Text
-                style={[
-                  s.cardSub,
-                  accessibleText,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                {equipped.description}
-              </Text>
-            </>
-          ) : (
-            <Text
-              style={[
-                s.cardSub,
-                accessibleText,
-                { color: colors.textSecondary },
-              ]}
-            >
-              Choose a catalogue item below.
-            </Text>
-          )}
-        </View>
-
-        <Text style={[s.sectionLabel, { color: colors.textTertiary }]}>
-          Choose another
-        </Text>
-        {showAll ? (
-          <TextInput
+        )}
+        <GamePanel
+          tone="ornate"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}
+        >
+          {equipped && <EditorItemArt item={equipped} size={64} />}
+          <View style={{ flex: 1, gap: 5 }}>
+            <GameText variant="caption" style={{ color: colors.ornament }}>
+              {savedItemId && savedItemId !== equippedId
+                ? 'SELECTED · NOT SAVED'
+                : 'CURRENT SIGNATURE ITEM'}
+            </GameText>
+            <GameText variant="fighter" style={{ fontSize: 25 }}>
+              {equipped?.name ?? 'Current item unavailable'}
+            </GameText>
+            <GameText variant="caption" style={{ color: colors.textSecondary }}>
+              {equipped?.isCustom
+                ? 'Retained custom item'
+                : (equipped?.description ??
+                  'Your current item is kept. Retry to load its details.')}
+            </GameText>
+          </View>
+        </GamePanel>
+        <GameText variant="title" style={{ fontSize: 23 }}>
+          Choose a signature item
+        </GameText>
+        <GameText variant="caption" style={{ color: colors.textSecondary }}>
+          All choices are free. A new drawing brings your chosen item into the
+          artwork.
+        </GameText>
+        {showAll && (
+          <GameField
             value={query}
             onChangeText={setQuery}
             placeholder="Search the catalogue"
-            placeholderTextColor={colors.textTertiary}
-            style={[
-              s.input,
-              { backgroundColor: colors.card, color: colors.text },
-            ]}
             accessibilityLabel="Search the item catalogue"
           />
-        ) : null}
-        {visibleCatalog.length === 0 ? (
-          <Text
-            style={[s.hint, accessibleText, { color: colors.textSecondary }]}
-          >
-            {searching
-              ? `Nothing matches “${query.trim()}”.`
-              : 'No catalogue items yet.'}
-          </Text>
-        ) : (
-          <ItemGrid
-            items={visibleCatalog}
-            selectedId={equippedId}
-            previewId={previewId}
-            onSelect={openPreview}
+        )}
+        <View style={styles.grid}>
+          {visible.map((item) => (
+            <GearTile
+              key={item.id}
+              item={item}
+              selected={item.id === equippedId}
+              previewing={item.id === previewId}
+              busy={busy}
+              onRetry={onRetry}
+              onPreview={(ref) => {
+                if (busy) return;
+                Keyboard.dismiss();
+                remember(ref);
+                setPreviewId(item.id);
+              }}
+            />
+          ))}
+        </View>
+        {!visible.length && (
+          <GameText variant="body">
+            {query.trim()
+              ? 'No matching items.'
+              : 'No catalogue items available.'}
+          </GameText>
+        )}
+        {!showAll && catalog.length > visible.length && (
+          <GameButton
+            label={'Browse all ' + catalog.length + ' items'}
+            chrome="text"
+            tone="secondary"
+            endIcon="chevron-right"
+            onPress={() => setShowAll(true)}
           />
         )}
-        {hiddenCount > 0 ? (
-          <TouchableOpacity
-            onPress={() => setShowAll(true)}
-            accessibilityRole="button"
-            accessibilityLabel={`Browse all ${catalog.length} catalogue items`}
-            style={[s.secondaryBtn, { borderColor: colors.border }]}
-          >
-            <Text style={[s.secondaryBtnText, { color: colors.text }]}>
-              {`Browse all ${catalog.length} items`}
-            </Text>
-          </TouchableOpacity>
-        ) : null}
       </View>
-
       <ItemDetailSheet
-        visible={preview !== null}
+        visible={!!preview}
         item={preview}
         equipped={preview?.id === equippedId}
         busy={busy}
@@ -211,7 +225,9 @@ export default function GearPanel({
         disabledReason={disabledReason}
         disabledActionLabel={disabledActionLabel}
         onDisabledAction={onDisabledAction}
+        returnFocusRef={returnFocusRef}
         onChoose={(id) => {
+          if (disabled || busy) return;
           onEquip(id);
           setPreviewId(null);
         }}
@@ -220,10 +236,12 @@ export default function GearPanel({
     </>
   );
 }
-
 const styles = StyleSheet.create({
-  centered: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  panel: { padding: 16, gap: 12 },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
   },
 });

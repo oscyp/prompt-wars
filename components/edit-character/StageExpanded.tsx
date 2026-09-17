@@ -1,15 +1,18 @@
+import type { SheetFocusRef } from '@/hooks/useSheetReturnFocus';
+import { GameText } from '@/components/game';
+import { inkFor } from '@/utils/contrast';
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   Image,
   Pressable,
   TouchableOpacity,
   ActivityIndicator,
   AccessibilityInfo,
   StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import {
   ForcedColorSchemeProvider,
   useThemedColors,
@@ -30,7 +33,6 @@ import {
 import type { EquippedCosmetics } from '@/utils/cosmetics';
 import type { PortraitHistoryEntry } from '@/utils/characters';
 import { describeChangedSinceRender } from '@/utils/lookDiff';
-import PosterGradient from '../PosterGradient';
 import PortraitPreview from '../PortraitPreview';
 import InlineBanner from '../InlineBanner';
 import CosmeticTitle from '../CosmeticTitle';
@@ -66,10 +68,10 @@ export interface StageExpandedProps {
   renderStartedAt: number | null;
   renderExpectedCopy: string;
   renderingCaption: string;
-  onRender: () => void;
-  onRandom: () => void;
-  onOpenViewer: () => void;
-  onSelectHistory: (portraitId: string) => void;
+  onRender: (opener: SheetFocusRef) => void;
+  onRandom: (opener: SheetFocusRef) => void;
+  onOpenViewer: (opener: SheetFocusRef) => void;
+  onSelectHistory: (portraitId: string, opener: SheetFocusRef) => void;
 }
 
 const WHITE = '#FFFFFF';
@@ -122,20 +124,33 @@ function StageExpandedBody({
   onOpenViewer,
   onSelectHistory,
 }: StageExpandedProps) {
+  const renderRef = React.useRef<View>(null);
+  const randomRef = React.useRef<View>(null);
+  const portraitRef = React.useRef<View>(null);
+  const historyRefs = React.useRef(new Map<string, SheetFocusRef>());
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
+  const largeText = useWindowDimensions().fontScale >= 1.3;
 
   const fighterWidth = Math.round(fighterHeight / 1.5);
   const historyRows = historyRowsThatFit(fighterHeight);
-  const visibleHistory = history.slice(0, historyRows);
+  const visibleHistory = largeText ? history : history.slice(0, historyRows);
   const changedLine = describeChangedSinceRender(changedFields, portraitStale);
 
   const renderDisabled = rendering || renderButton.intent === 'disabled';
   const randomDisabled = rendering || randomButton.intent === 'disabled';
 
   return (
-    <View style={styles.root}>
-      <PosterGradient base={accentColor} />
+    <View
+      style={[
+        styles.root,
+        {
+          backgroundColor: colors.background,
+          borderBottomColor: colors.ornamentMuted,
+          borderBottomWidth: 1,
+        },
+      ]}
+    >
       <View style={styles.content}>
         {notice ? (
           <InlineBanner
@@ -146,9 +161,10 @@ function StageExpandedBody({
           />
         ) : null}
 
-        <View style={styles.columns}>
+        <View style={[styles.columns, largeText && styles.stackedColumns]}>
           <Pressable
-            onPress={onOpenViewer}
+            ref={portraitRef}
+            onPress={() => onOpenViewer(portraitRef)}
             disabled={!hasPortrait}
             accessibilityRole="button"
             accessibilityLabel={`View ${name}'s portrait full screen`}
@@ -165,12 +181,12 @@ function StageExpandedBody({
             />
             {hasPortrait ? (
               <View style={styles.expandPill} pointerEvents="none">
-                <Ionicons name="expand-outline" size={14} color={WHITE} />
+                <GameSymbol name="expand-outline" size={14} color={WHITE} />
               </View>
             ) : null}
           </Pressable>
 
-          <View style={styles.side}>
+          <View style={[styles.side, largeText && styles.fullWidthSide]}>
             <PortraitPreview
               variant="circle"
               size={AVATAR_SIZE}
@@ -180,43 +196,63 @@ function StageExpandedBody({
               avatarEffect={cosmetics.avatarEffect}
               accessibilityLabel={`${name}, battle avatar`}
             />
-            <Text style={[styles.sideCaption, accessibleText]}>In battle</Text>
+            <GameText
+              variant="caption"
+              style={[
+                styles.sideCaption,
+                accessibleText,
+                largeText && styles.fullWidthCaption,
+              ]}
+            >
+              In battle
+            </GameText>
 
             {visibleHistory.length > 0 ? (
               <View style={styles.history}>
-                <Text
+                <GameText
+                  variant="caption"
                   style={[styles.historyCaption, accessibleText]}
-                  numberOfLines={2}
                 >
                   Previous renders · free to restore
-                </Text>
+                </GameText>
                 {visibleHistory.map((entry) => {
+                  let historyRef = historyRefs.current.get(entry.portraitId);
+                  if (!historyRef) {
+                    historyRef = React.createRef<View>();
+                    historyRefs.current.set(entry.portraitId, historyRef);
+                  }
                   const restoring = restoringId === entry.portraitId;
                   return (
                     <TouchableOpacity
                       key={entry.portraitId}
-                      onPress={() => onSelectHistory(entry.portraitId)}
+                      ref={historyRef}
+                      onPress={() =>
+                        onSelectHistory(entry.portraitId, historyRef!)
+                      }
                       disabled={Boolean(restoringId)}
                       accessibilityRole="button"
                       accessibilityLabel="Preview this earlier render"
                       accessibilityState={{ disabled: Boolean(restoringId) }}
                       style={[
                         styles.historyRow,
+                        largeText && styles.historyRowLarge,
                         restoringId && !restoring && styles.dimmed,
                       ]}
                     >
                       <Image
-                        source={{ uri: entry.imageUrl }}
+                        source={
+                          entry.imageUrl ? { uri: entry.imageUrl } : undefined
+                        }
                         style={styles.historyThumb}
-                        resizeMode="cover"
+                        resizeMode="contain"
                         accessibilityLabel=""
                       />
-                      <Text
+                      <GameText
+                        variant="body"
                         style={[styles.historyText, accessibleText]}
-                        numberOfLines={1}
                       >
                         Earlier render
-                      </Text>
+                      </GameText>
                       {restoring ? (
                         <ActivityIndicator size="small" color={WHITE} />
                       ) : null}
@@ -229,37 +265,32 @@ function StageExpandedBody({
         </View>
 
         <View style={styles.nameRow}>
-          <Text
-            style={[styles.name, accessibleText]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.6}
-          >
+          <GameText variant="fighter" style={[styles.name, accessibleText]}>
             {name}
-          </Text>
+          </GameText>
           <CosmeticBadge badge={cosmetics.badge} size={20} />
         </View>
         {archetypeChip ? (
           <View style={styles.chipRow}>{archetypeChip}</View>
         ) : null}
         <CosmeticTitle title={cosmetics.title} />
-        <Text style={[styles.subtitle, accessibleText]} numberOfLines={2}>
+        <GameText variant="caption" style={[styles.subtitle, accessibleText]}>
           {subtitle}
-        </Text>
+        </GameText>
 
         {changedLine ? (
           <View style={styles.changedRow}>
-            <Ionicons name="sync-outline" size={14} color={colors.warning} />
-            <Text
+            <GameSymbol name="sync-outline" size={14} color={colors.warning} />
+            <GameText
+              variant="body"
               style={[
                 styles.changed,
                 accessibleText,
                 { color: colors.warning },
               ]}
-              numberOfLines={2}
             >
               {changedLine}
-            </Text>
+            </GameText>
           </View>
         ) : null}
 
@@ -273,7 +304,8 @@ function StageExpandedBody({
         ) : (
           <View style={styles.actions}>
             <TouchableOpacity
-              onPress={onRender}
+              ref={renderRef}
+              onPress={() => onRender(renderRef)}
               disabled={renderDisabled}
               accessibilityRole="button"
               accessibilityLabel={renderButton.accessibilityLabel}
@@ -284,30 +316,39 @@ function StageExpandedBody({
                 renderDisabled && styles.disabled,
               ]}
             >
-              <Text
-                style={[styles.renderLabel, accessibleText]}
-                numberOfLines={1}
+              <GameText
+                variant="label"
+                style={[
+                  styles.renderLabel,
+                  accessibleText,
+                  { color: inkFor(colors.primary) },
+                ]}
               >
                 {renderButton.label}
-              </Text>
+              </GameText>
               {renderButton.caption ? (
-                <Text
-                  style={[styles.renderCaption, accessibleText]}
-                  numberOfLines={1}
+                <GameText
+                  variant="caption"
+                  style={[
+                    styles.renderCaption,
+                    accessibleText,
+                    { color: inkFor(colors.primary) },
+                  ]}
                 >
                   {renderButton.caption}
-                </Text>
+                </GameText>
               ) : null}
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={onRandom}
+              ref={randomRef}
+              onPress={() => onRandom(randomRef)}
               disabled={randomDisabled}
               accessibilityRole="button"
               accessibilityLabel={randomButton.accessibilityLabel}
               accessibilityState={{ disabled: randomDisabled }}
               style={[styles.diceBtn, randomDisabled && styles.disabled]}
             >
-              <Ionicons name="dice-outline" size={22} color={WHITE} />
+              <GameSymbol name="dice-outline" size={22} color={WHITE} />
             </TouchableOpacity>
           </View>
         )}
@@ -355,22 +396,26 @@ function DrawingBlock({
     <View style={styles.drawing}>
       <View style={styles.drawingHead}>
         <ActivityIndicator color={WHITE} />
-        <Text style={[styles.drawingPhase, accessibleText]} numberOfLines={2}>
+        <GameText variant="body" style={[styles.drawingPhase, accessibleText]}>
           {label}
-        </Text>
-        <Text
+        </GameText>
+        <GameText
+          variant="body"
           style={[styles.drawingElapsed, accessibleText]}
           accessibilityLabel={`${elapsed} seconds elapsed`}
         >
           {`${elapsed}s`}
-        </Text>
+        </GameText>
       </View>
-      <Text style={[styles.drawingExpected, accessibleText]} numberOfLines={1}>
+      <GameText variant="body" style={[styles.drawingExpected, accessibleText]}>
         {expectedCopy}
-      </Text>
-      <Text style={[styles.drawingCaption, accessibleText]} numberOfLines={2}>
+      </GameText>
+      <GameText
+        variant="caption"
+        style={[styles.drawingCaption, accessibleText]}
+      >
         {caption}
-      </Text>
+      </GameText>
     </View>
   );
 }
@@ -389,6 +434,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: Spacing.md,
   },
+  stackedColumns: { flexDirection: 'column', alignItems: 'stretch' },
+  fullWidthSide: { flex: 0, alignSelf: 'stretch' },
+  fullWidthCaption: { width: '100%', textAlign: 'left' },
   fighter: {
     alignSelf: 'flex-start',
   },
@@ -410,7 +458,7 @@ const styles = StyleSheet.create({
   sideCaption: {
     marginTop: Spacing.xs,
     minHeight: 16,
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     color: WHITE_72,
     // The avatar is 72 wide; centre the caption under it.
     width: AVATAR_SIZE,
@@ -422,15 +470,16 @@ const styles = StyleSheet.create({
   },
   historyCaption: {
     minHeight: 16,
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     color: WHITE_72,
   },
   historyRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    minHeight: 44,
+    minHeight: 48,
   },
+  historyRowLarge: { minHeight: 48 },
   historyThumb: {
     width: HISTORY_THUMB_W,
     height: Math.round(HISTORY_THUMB_W * 1.5),
@@ -447,7 +496,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    minHeight: 44,
+    minHeight: 48,
   },
   name: {
     flexShrink: 1,
@@ -472,7 +521,7 @@ const styles = StyleSheet.create({
   },
   changed: {
     flex: 1,
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
   actions: {
@@ -488,22 +537,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.sm,
   },
   renderLabel: {
-    color: WHITE,
+    textAlign: 'center',
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
   },
   renderCaption: {
-    color: WHITE_72,
-    fontSize: Typography.sizes.xs,
+    textAlign: 'center',
+    fontSize: Typography.sizes.sm,
     marginTop: 2,
   },
   diceBtn: {
     width: DICE_SIZE,
     height: DICE_SIZE,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.14)',
@@ -534,7 +583,7 @@ const styles = StyleSheet.create({
   },
   drawingExpected: {
     minHeight: 16,
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     color: WHITE_72,
   },
   drawingCaption: {

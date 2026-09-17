@@ -78,7 +78,7 @@ const ARCHETYPE_OPTIONS: readonly OptionGridOption[] = Object.freeze(
   ARCHETYPE_LIST.map((a) => ({
     value: a.id,
     label: a.name,
-    description: `Rewards ${a.rewards}`,
+    description: a.description,
     swatch: a.color,
   })),
 );

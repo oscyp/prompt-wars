@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameText } from '@/components/game';
+
+import { View, Pressable, StyleSheet } from 'react-native';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
@@ -21,10 +22,10 @@ export interface ArchetypeChipProps {
 
 const WHITE = '#FFFFFF';
 
-/** The class as label text: "The Strategist · rewards Defense moves". */
+/** Free identity preset and its expressive theme; never a scoring bonus. */
 export function archetypeChipText(archetype: ArchetypeId): string {
   const a = ARCHETYPES[archetype];
-  return a ? `${a.name} · rewards ${a.rewards}` : archetype;
+  return a ? `${a.name} · ${a.rewards}` : archetype;
 }
 
 /**
@@ -77,14 +78,14 @@ export default function ArchetypeChip({
       ]}
     >
       <View style={[styles.dot, { backgroundColor: swatch }]} />
-      <Text
+      <GameText
+        variant="body"
         style={[styles.text, accessibleText, { color: textColor }]}
-        numberOfLines={1}
       >
         {archetypeChipText(archetype)}
-      </Text>
+      </GameText>
       {locked ? (
-        <Ionicons
+        <GameSymbol
           name="lock-closed-outline"
           size={12}
           color={onStage ? 'rgba(255,255,255,0.72)' : colors.textSecondary}
@@ -98,7 +99,7 @@ export default function ArchetypeChip({
           ]}
         />
       ) : null}
-      <Ionicons
+      <GameSymbol
         name="chevron-forward"
         size={12}
         color={onStage ? 'rgba(255,255,255,0.72)' : colors.textSecondary}
@@ -113,7 +114,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    minHeight: 32,
+    minHeight: 48,
     paddingVertical: Spacing.xs,
     paddingLeft: Spacing.sm,
     paddingRight: Spacing.sm,

@@ -1,0 +1,26 @@
+{
+  "projectRef": "uoyjhudegdpanrgllfoj",
+  "threshold": 0.9,
+  "promptVersion": "v1.0.0-mvp",
+  "locale": "en",
+  "featureEnabled": false,
+  "results": [
+    {
+      "model": "grok-4.20-0309-non-reasoning",
+      "runId": "f0d0f663-e60b-4437-a327-8d7bb0c3d6d0",
+      "status": "failed",
+      "correct": 2,
+      "total": 3,
+      "recordedAt": "2026-09-14T14:51:46.414441Z"
+    },
+    {
+      "model": "grok-4.20-0309-reasoning",
+      "runId": "82094e81-797e-4173-80d9-940c63759b3c",
+      "status": "passed",
+      "correct": 3,
+      "total": 3,
+      "recordedAt": "2026-09-14T14:54:10.417669Z"
+    }
+  ],
+  "limitation": "Existing three fixtures provide smoke calibration only. Broader quality and reviewed-series checks remain required before enabling appeals."
+}

@@ -1,3 +1,13 @@
+import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
+import { GameIcon } from '@/components/game/icons/GameIcon';
+import { BattleLockInControl } from '@/components/game/battle/BattleLockInControl';
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
+import { BattleThemePlaque } from '@/components/game/battle/BattleThemePlaque';
+import { BattleMovePicker } from '@/components/game/battle/BattleMovePicker';
+import { GameText as Text, GameFooter, GameField } from '@/components/game';
+import BattleOpponentSafety from '@/components/BattleOpponentSafety';
+import TutorialCoach from '@/components/TutorialCoach';
+import { recordFunnelEvent } from '@/utils/tutorial';
 import React, {
   useCallback,
   useEffect,
@@ -7,27 +17,26 @@ import React, {
 } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Pressable,
   ActivityIndicator,
   AccessibilityInfo,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
+  useWindowDimensions,
 } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { ImpactFeedbackStyle } from 'expo-haptics';
 import Animated, {
   cancelAnimation,
   Easing,
   FadeIn,
-  useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
@@ -39,7 +48,6 @@ import {
   Typography,
   BorderRadius,
   Layout,
-  Ink,
   Motion,
   NumericFontVariant,
 } from '@/constants/DesignTokens';
@@ -69,11 +77,12 @@ import {
   useRealtimeBattle,
   type PromptUpdate,
 } from '@/hooks/useRealtimeBattle';
-import { useLeaveBattle } from '@/hooks/useLeaveBattle';
+import { useBattleExitGuard } from '@/hooks/useBattleExitGuard';
+import { useBattleDraft } from '@/hooks/useBattleDraft';
+import { resolveRoundParam } from '@/utils/prebattleCopy';
+import { BattleDeadline } from '@/components/game/battle/BattleDeadline';
 import { useBattleCharacters } from '@/hooks/useBattleCharacters';
 import { usePortraitViewer } from '@/hooks/usePortraitViewer';
-import SeriesScoreIndicator from '@/components/SeriesScoreIndicator';
-import HPBar from '@/components/HPBar';
 import VersusStrip from '@/components/VersusStrip';
 import PortraitViewer from '@/components/PortraitViewer';
 import HeaderLeaveButton from '@/components/HeaderLeaveButton';
@@ -117,9 +126,12 @@ type PromptRow = PromptUpdate & { custom_prompt_text?: string | null };
 
 export default function PromptEntryScreen() {
   const colors = useThemedColors();
+  const { fontScale } = useWindowDimensions();
+  const largeText = fontScale >= 1.5;
   // Dyslexia-friendly spacing on the theme + prompt-writing surface (§22a).
   const accessibleText = useAccessibleTextStyle();
   const reduceMotion = useReducedMotion();
+  const presentationActive = useBattlePresentationActive();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -133,14 +145,41 @@ export default function PromptEntryScreen() {
     moveType?: string;
   }>();
 
-  // The move type is chosen on move-select and arrives as a param. It is NOT
+  // A legacy deep link may supply the initial move. It is NOT
   // defaulted: a silent fallback to 'attack' would submit a move the player
   // never picked, and they would not find out until the reveal.
-  const moveType = MOVE_TYPES.includes(moveTypeParam as MoveType)
-    ? (moveTypeParam as MoveType)
-    : null;
+  const [moveType, setMoveType] = useState<MoveType | null>(
+    MOVE_TYPES.includes(moveTypeParam as MoveType)
+      ? (moveTypeParam as MoveType)
+      : null,
+  );
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const editorRef = useRef<TextInput>(null);
+  const workspaceScroll = useRef<ScrollView>(null);
+  const editorTop = useRef(0);
+  const [workspaceHeight, setWorkspaceHeight] = useState(360);
+  useEffect(() => {
+    if (editorRef.current?.isFocused())
+      workspaceScroll.current?.scrollTo({
+        y: Math.max(0, editorTop.current - 8),
+        animated: false,
+      });
+  }, [workspaceHeight]);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () =>
+      setKeyboardVisible(true),
+    );
+    const hide = Keyboard.addListener('keyboardDidHide', () =>
+      setKeyboardVisible(false),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const [battle, setBattle] = useState<{ theme?: string | null } | null>(null);
+  const suggestionRunRef = useRef(0);
   const [suggestions, setSuggestions] = useState<MoveSuggestion[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   // Reading an existing set is a single indexed select; generating one is an
@@ -188,13 +227,45 @@ export default function PromptEntryScreen() {
     format,
     current_round,
     series_score,
-    hp,
-    hp_max,
     isSubscribed,
   } = useRealtimeBattle(battleId || null);
   const battleAudio = useBattleAudio(rtBattle?.theme ?? battle?.theme);
 
-  const roundNumber = round ? Number(round) : current_round;
+  const roundNumber = resolveRoundParam(round, current_round);
+  const draft = useBattleDraft(user?.id, battleId, roundNumber);
+  const { save: saveDraft, clear: clearDraft } = draft;
+  const [restoredScope, setRestoredScope] = useState<string | null>(null);
+  const draftScope = `${user?.id}:${battleId}:${roundNumber}`;
+  const [acceptedSubmission, setAcceptedSubmission] = useState<{
+    scope: string;
+    move: MoveType;
+    text: string;
+  } | null>(null);
+  const submitAccepted = acceptedSubmission?.scope === draftScope;
+  const authoringScopeRef = useRef(draftScope);
+  authoringScopeRef.current = draftScope;
+  const authoringBlockedRef = useRef(false);
+  useEffect(() => {
+    if (!draft.ready || restoredScope === draftScope) return;
+    setRestoredScope(draftScope);
+    if (draft.draft && battleId)
+      void recordFunnelEvent('draft_recovered', battleId);
+    setCustomText(draft.draft?.text ?? '');
+    setIsCustom(draft.draft?.editMode ?? true);
+    setMoveType(
+      draft.draft?.move ??
+        (MOVE_TYPES.includes(moveTypeParam as MoveType)
+          ? (moveTypeParam as MoveType)
+          : null),
+    );
+  }, [
+    draft.ready,
+    draft.draft,
+    draftScope,
+    moveTypeParam,
+    restoredScope,
+    battleId,
+  ]);
 
   // Derive the round from the number THIS SCREEN is showing, not from
   // battle.current_round.
@@ -214,23 +285,30 @@ export default function PromptEntryScreen() {
   const waitingHref =
     `/(battle)/waiting?battleId=${battleId}&round=${roundNumber}` as const;
 
-  // useLeaveBattle, not useBattleExitGuard: back from this screen returns to
-  // move-select, which is still inside the battle. Guarding it would ask a
-  // player whether they want to forfeit every time they changed their mind
-  // about attack vs defense. Leaving gets its own explicit button instead.
-  const leave = useLeaveBattle(battleId || null, {
+  // Back parks the battle and flushes the draft; forfeiting is explicit.
+  const leave = useBattleExitGuard(battleId || null, {
     format,
     mode: (rtBattle?.mode ?? 'ranked') as BattleMode,
     isBot: Boolean(rtBattle?.is_player_two_bot),
     prompts,
     myProfileId: user?.id,
+    status: rtBattle?.status,
+    hasOpponent: Boolean(
+      rtBattle?.player_two_id || rtBattle?.is_player_two_bot,
+    ),
+    beforeExit: draft.flush,
   });
 
+  const { exitTo } = leave;
   const isPlayerOne = rtBattle?.player_one_id === user?.id;
-  const myHp = isPlayerOne ? hp.p1 : hp.p2;
-  const myHpMax = isPlayerOne ? hp_max.p1 : hp_max.p2;
-  const oppHp = isPlayerOne ? hp.p2 : hp.p1;
-  const oppHpMax = isPlayerOne ? hp_max.p2 : hp_max.p1;
+  const myHp = isPlayerOne ? rtBattle?.player_one_hp : rtBattle?.player_two_hp;
+  const myHpMax = isPlayerOne
+    ? rtBattle?.player_one_hp_max
+    : rtBattle?.player_two_hp_max;
+  const oppHp = isPlayerOne ? rtBattle?.player_two_hp : rtBattle?.player_one_hp;
+  const oppHpMax = isPlayerOne
+    ? rtBattle?.player_two_hp_max
+    : rtBattle?.player_one_hp_max;
 
   // Both characters for the versus header strip (names + signed portraits).
   const {
@@ -254,8 +332,13 @@ export default function PromptEntryScreen() {
     [prompts, user?.id, roundNumber],
   );
   const alreadyLocked = Boolean(myPrompt?.is_locked);
-  const lockedMove: MoveType | null = myPrompt?.move_type ?? moveType;
-  const lockedText = myPrompt?.custom_prompt_text ?? null;
+  authoringBlockedRef.current = alreadyLocked || submitAccepted || isSubmitting;
+  const lockedMove: MoveType | null =
+    myPrompt?.move_type ??
+    (submitAccepted ? acceptedSubmission.move : moveType);
+  const lockedText =
+    myPrompt?.custom_prompt_text ??
+    (submitAccepted ? acceptedSubmission.text : null);
 
   // Lock-in deadline for the countdown: per-round for Bo3, per-player for single.
   const myDeadline = isBo3
@@ -348,18 +431,47 @@ export default function PromptEntryScreen() {
     [suggestions, customText],
   );
 
-  // Mount guard: no valid move type means this screen was reached without a
-  // choice being made. Redirect rather than defaulting -- a silent 'attack'
-  // would submit a move the player never picked and they would only find out
-  // at the reveal. `replace` so back does not bounce them straight back here.
+  const [draftSaving, setDraftSaving] = useState(false);
   useEffect(() => {
-    if (!battleId) return;
-    if (!moveType) {
-      router.replace(
-        `/(battle)/move-select?battleId=${battleId}&round=${roundNumber}`,
-      );
-    }
-  }, [battleId, moveType, roundNumber, router]);
+    if (
+      !draft.ready ||
+      restoredScope !== draftScope ||
+      alreadyLocked ||
+      submitAccepted
+    )
+      return;
+    let active = true;
+    setDraftSaving(true);
+    void saveDraft({
+      text: customText,
+      move: moveType,
+      editMode: isCustom,
+      selectedSuggestion:
+        selectedSuggestion >= 0
+          ? (suggestions[selectedSuggestion]?.body ?? null)
+          : null,
+    }).finally(() => {
+      if (active) setDraftSaving(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [
+    draft.ready,
+    saveDraft,
+    draftScope,
+    restoredScope,
+    customText,
+    moveType,
+    isCustom,
+    selectedSuggestion,
+    suggestions,
+    alreadyLocked,
+    submitAccepted,
+  ]);
+  useEffect(() => {
+    if (alreadyLocked) void clearDraft();
+  }, [alreadyLocked, clearDraft]);
 
   // The battle moved on underneath this screen: the round resolved or expired,
   // the battle ended, or the server opened a later round. Hand off to waiting,
@@ -373,9 +485,22 @@ export default function PromptEntryScreen() {
     const roundMovedOn = (rtBattle.current_round ?? 1) > roundNumber;
     if (battleClosed || roundClosed || roundMovedOn) {
       redirectedRef.current = true;
-      router.replace(waitingHref);
+      void clearDraft().then((deleted) => {
+        if (deleted) exitTo(() => router.replace(waitingHref));
+        else redirectedRef.current = false;
+      });
     }
-  }, [battleId, rtBattle, isBo3, roundData, roundNumber, router, waitingHref]);
+  }, [
+    battleId,
+    rtBattle,
+    isBo3,
+    roundData,
+    roundNumber,
+    router,
+    waitingHref,
+    clearDraft,
+    exitTo,
+  ]);
 
   useEffect(() => {
     if (!battleId) {
@@ -415,7 +540,14 @@ export default function PromptEntryScreen() {
    */
   const loadSuggestions = useCallback(
     async (paid: boolean) => {
-      if (!battleId || !moveType) return;
+      if (
+        !battleId ||
+        !moveType ||
+        authoringBlockedRef.current ||
+        authoringScopeRef.current !== draftScope
+      )
+        return;
+      const run = ++suggestionRunRef.current;
       setSuggestionsLoading(true);
       setSuggestionsGenerating(true);
       setSuggestionsError(null);
@@ -427,6 +559,7 @@ export default function PromptEntryScreen() {
           moveType,
           roundNumber,
         );
+        if (run !== suggestionRunRef.current) return;
         if (result.set) {
           setSuggestions(result.set.suggestions);
           setSuggestionRetry(null);
@@ -456,11 +589,13 @@ export default function PromptEntryScreen() {
           setSuggestionRetry('generate');
         }
       } finally {
-        setSuggestionsLoading(false);
-        setSuggestionsGenerating(false);
+        if (run === suggestionRunRef.current) {
+          setSuggestionsLoading(false);
+          setSuggestionsGenerating(false);
+        }
       }
     },
-    [battleId, moveType, roundNumber],
+    [battleId, moveType, roundNumber, draftScope],
   );
 
   // On mount, READ any set already generated for this slot; only generate
@@ -468,8 +603,8 @@ export default function PromptEntryScreen() {
   //
   // Generating on every mount would charge the player for navigating: the free
   // slot is spent on the first call and every later call for the same
-  // (battle, round, move type) is a paid reroll. Walking back to change the
-  // move and forward again is normal use, not a purchase.
+  // (battle, round, move type) is a paid reroll. Switching moves in the
+  // workspace is normal use, not a purchase.
   //
   // Never retried automatically either -- every generate call costs money
   // server-side, and a retry loop during a provider outage would burn the
@@ -478,13 +613,18 @@ export default function PromptEntryScreen() {
 
   // Guards against a stale read landing after the player has changed move or
   // round: only the newest call may write state.
-  const suggestionRunRef = useRef(0);
-
   const readOrGenerateSuggestions = useCallback(async () => {
-    if (!battleId || !moveType) return;
+    if (
+      !battleId ||
+      !moveType ||
+      authoringBlockedRef.current ||
+      authoringScopeRef.current !== draftScope
+    )
+      return;
     const run = ++suggestionRunRef.current;
     const isStale = () => run !== suggestionRunRef.current;
 
+    setSuggestions([]);
     setSuggestionsLoading(true);
     setSuggestionsGenerating(false);
     setSuggestionsError(null);
@@ -515,13 +655,32 @@ export default function PromptEntryScreen() {
     }
     if (isStale()) return;
     await loadSuggestions(false);
-  }, [battleId, moveType, roundNumber, loadSuggestions]);
+  }, [battleId, moveType, roundNumber, loadSuggestions, draftScope]);
 
+  const hasLoadedBattle = Boolean(rtBattle);
   useEffect(() => {
     // Nothing to read for once the prompt is in; the editor is not shown.
-    if (alreadyLocked) return;
+    if (
+      alreadyLocked ||
+      submitAccepted ||
+      !draft.ready ||
+      restoredScope !== draftScope ||
+      !hasLoadedBattle
+    )
+      return;
     readOrGenerateSuggestions();
-  }, [readOrGenerateSuggestions, alreadyLocked]);
+    return () => {
+      suggestionRunRef.current += 1;
+    };
+  }, [
+    readOrGenerateSuggestions,
+    alreadyLocked,
+    submitAccepted,
+    draft.ready,
+    hasLoadedBattle,
+    restoredScope,
+    draftScope,
+  ]);
 
   // Shared pre-flight validation: used both before starting the hold gesture
   // (so a hold never ends in a validation error) and inside the submit path.
@@ -540,12 +699,17 @@ export default function PromptEntryScreen() {
   // it asks. Text that IS one of the ideas (tapped, not typed) is not a draft.
   const applySuggestion = useCallback(
     (index: number, openEditor: boolean) => {
+      if (
+        authoringBlockedRef.current ||
+        authoringScopeRef.current !== draftScope
+      )
+        return;
       const idea = suggestions[index];
       if (!idea) return;
       setCustomText(idea.body);
       if (openEditor) setIsCustom(true);
     },
-    [suggestions],
+    [suggestions, draftScope],
   );
   const handleUseSuggestion = useCallback(
     (index: number, openEditor: boolean) => {
@@ -579,6 +743,9 @@ export default function PromptEntryScreen() {
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hintFlash, setHintFlash] = useState(false);
+  const [holding, setHolding] = useState(false);
+  const [submitFailed, setSubmitFailed] = useState(false);
+  const submissionInFlight = useRef(false);
 
   // Screen readers can't perform a timed hold; fall back to tap + confirm.
   const [screenReaderEnabled, setScreenReaderEnabled] = useState(false);
@@ -607,13 +774,53 @@ export default function PromptEntryScreen() {
     [],
   );
 
-  const lockDisabled = isSubmitting || deadlinePassed || alreadyLocked;
+  useEffect(() => {
+    if (presentationActive) return;
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = null;
+    setHolding(false);
+    cancelAnimation(holdProgress);
+    holdProgress.value = 0;
+  }, [presentationActive, holdProgress]);
+
+  const lockDisabled =
+    isSubmitting ||
+    submitAccepted ||
+    deadlinePassed ||
+    alreadyLocked ||
+    !moveType ||
+    !draft.ready ||
+    !rtBattle ||
+    Boolean(validatePromptText(customText));
+
+  useEffect(() => {
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = null;
+    setHolding(false);
+    cancelAnimation(holdProgress);
+    holdProgress.value = 0;
+  }, [customText, moveType, lockDisabled, holdProgress]);
+
+  const lockDisabledRef = useRef(lockDisabled);
+  lockDisabledRef.current = lockDisabled;
 
   const handleSubmit = async () => {
-    if (!battleId || !moveType) return;
+    if (
+      !battleId ||
+      !moveType ||
+      authoringScopeRef.current !== draftScope ||
+      lockDisabledRef.current ||
+      submissionInFlight.current
+    )
+      return;
 
     if (!validateSelection()) return;
 
+    submissionInFlight.current = true;
+    authoringBlockedRef.current = true;
+    const submission = { scope: draftScope, move: moveType, text: customText };
+    setSubmitFailed(false);
+    setHolding(false);
     setIsSubmitting(true);
 
     try {
@@ -624,15 +831,26 @@ export default function PromptEntryScreen() {
         isBo3 ? roundNumber : undefined,
       );
 
+      // This route can be reused for another round while the request settles.
+      // Its authoritative prompt will be recovered when that round reopens.
+      if (authoringScopeRef.current !== submission.scope) return;
+
       if (result.success) {
+        authoringBlockedRef.current = true;
+        setAcceptedSubmission(submission);
+        if (roundNumber === 1)
+          void recordFunnelEvent('first_prompt_submitted', battleId);
         // Optimistic transition; no Alert interstitial.
         battleAudio.playSound('promptLocked');
-        router.replace(waitingHref);
+        if (!(await clearDraft())) return;
+        if (authoringScopeRef.current !== submission.scope) return;
+        exitTo(() => router.replace(waitingHref));
         return;
       }
 
       // Status and code decide the words; the server's message is developer
       // prose and never reaches the player (utils/battleCopy.ts).
+      setSubmitFailed(true);
       const copy = describeSubmitError({
         status: result.status,
         code: result.code,
@@ -640,16 +858,25 @@ export default function PromptEntryScreen() {
       });
       if (copy.roundClosed) {
         Alert.alert(copy.title, copy.message, [
-          { text: 'OK', onPress: () => router.replace(waitingHref) },
+          {
+            text: 'OK',
+            onPress: () => {
+              void clearDraft().then((deleted) => {
+                if (deleted) exitTo(() => router.replace(waitingHref));
+              });
+            },
+          },
         ]);
       } else {
         Alert.alert(copy.title, copy.message);
       }
     } catch (err) {
+      setSubmitFailed(true);
       console.error('Submit error:', err);
       const copy = describeSubmitError({});
       Alert.alert(copy.title, copy.message);
     } finally {
+      submissionInFlight.current = false;
       setIsSubmitting(false);
       holdProgress.value = 0;
     }
@@ -662,8 +889,9 @@ export default function PromptEntryScreen() {
   };
 
   const startHold = () => {
-    if (lockDisabled) return;
+    if (lockDisabled || holdTimerRef.current) return;
     if (!validateSelection()) return;
+    setHolding(true);
     hapticSelection();
     cancelAnimation(holdProgress);
     holdProgress.value = 0;
@@ -689,6 +917,7 @@ export default function PromptEntryScreen() {
     if (!holdTimerRef.current) return;
     clearTimeout(holdTimerRef.current);
     holdTimerRef.current = null;
+    setHolding(false);
     cancelAnimation(holdProgress);
     holdProgress.value = reduceMotion ? 0 : withTiming(0, { duration: 150 });
     flashHoldHint();
@@ -707,22 +936,26 @@ export default function PromptEntryScreen() {
     );
   };
 
-  const holdFillStyle = useAnimatedStyle(() => ({
-    width: `${holdProgress.value * 100}%`,
-  }));
+  const lockReason = submitAccepted
+    ? 'Your prompt is locked in'
+    : deadlinePassed
+      ? 'The deadline for this round has passed'
+      : !draft.ready
+        ? 'Restore your draft before submitting'
+        : !rtBattle
+          ? 'Waiting for battle details'
+          : !moveType
+            ? 'Choose a move before locking in'
+            : validatePromptText(customText)?.message;
+  const holdHintText =
+    lockReason ??
+    (hintFlash
+      ? 'Keep holding to lock in'
+      : submitFailed
+        ? 'Couldn’t submit. Your draft is kept; try again.'
+        : 'Your prompt stays editable until you submit.');
 
-  // The standing hint carries the irreversibility so it is said once, visibly,
-  // before the gesture; the early-release nudge swaps the text in place so the
-  // footer never changes height.
-  const holdHintText = deadlinePassed
-    ? ''
-    : screenReaderEnabled
-      ? 'Tap to lock in · you can’t change it afterward'
-      : hintFlash
-        ? 'Keep holding to lock in'
-        : 'Hold to lock in · you can’t change it afterward';
-
-  const primaryInk = Ink.onAccentLight;
+  const primaryInk = inkFor(colors.primary);
 
   // The read-only move badge: text and glyph ink chosen for the move colour,
   // never a fixed white. Renders nothing for a null move -- the mount guard is
@@ -733,7 +966,7 @@ export default function PromptEntryScreen() {
     const ink = inkFor(fill);
     return (
       <View style={[styles.moveChipBadge, { backgroundColor: fill }]}>
-        <Ionicons name={MOVE_META[move].icon} size={14} color={ink} />
+        <GameSymbol name={MOVE_META[move].icon} size={14} color={ink} />
         <Text style={[styles.moveChipBadgeText, { color: ink }]}>
           {move.toUpperCase()}
         </Text>
@@ -741,7 +974,7 @@ export default function PromptEntryScreen() {
     );
   };
 
-  if (isLoading) {
+  if (isLoading || (!draft.ready && !draft.error)) {
     return (
       <View
         style={[
@@ -757,153 +990,173 @@ export default function PromptEntryScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[
+        styles.container,
+        { backgroundColor: colors.background, paddingTop: insets.top + 44 },
+      ]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* headerRight, not headerLeft: the chevron on this screen means "change
-          my move" and must keep meaning that. */}
+      {/* Parking preserves the draft; forfeiting remains a separate action. */}
       <Stack.Screen
         options={{
+          headerLeft: () => (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Save draft and return to Arena"
+              onPress={leave.park}
+              style={{
+                minHeight: 48,
+                minWidth: largeText ? 140 : 64,
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ color: colors.text }}>Arena</Text>
+            </TouchableOpacity>
+          ),
           headerRight: () => (
             <HeaderLeaveButton
               onPress={() => leave.confirmLeave()}
-              disabled={leave.isLeaving}
+              disabled={leave.isLeaving || !leave.canForfeit}
             />
           ),
         }}
       />
-      {/* Pinned battle bar: opponent, theme, and countdown stay locked to the
-          top so they never scroll out of view while you write. The top inset +
-          44 clears the transparent stack header (floating back button). */}
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: colors.background,
-            borderBottomColor: colors.border,
-            paddingTop: insets.top + 44,
-          },
-        ]}
-      >
-        {/* You-vs-opponent context strip (replaces the old screen title). */}
-        <VersusStrip
-          left={{
-            name: myChar?.name ?? 'You',
-            archetype: myChar?.archetype ?? '',
-            signatureColor: myChar?.signatureColor ?? colors.primary,
-            portraitUrl: myChar?.portraitUrl,
-            cosmetics: myChar?.cosmetics,
-            label: 'YOU',
-            onAvatarPress: portraitViewer.canOpen(myChar)
-              ? () => portraitViewer.open(myChar)
-              : undefined,
-          }}
-          right={{
-            name: oppChar?.name ?? 'Opponent',
-            archetype: oppChar?.archetype ?? '',
-            signatureColor: oppChar?.signatureColor ?? colors.textSecondary,
-            portraitUrl: oppChar?.portraitUrl,
-            cosmetics: oppChar?.cosmetics,
-            label: 'OPPONENT',
-            onAvatarPress: portraitViewer.canOpen(oppChar)
-              ? () => portraitViewer.open(oppChar)
-              : undefined,
-          }}
-          subtitle={isBo3 ? `Round ${roundNumber}` : null}
-          deadline={myDeadline}
-        />
-
-        {/* Theme — the creative constraint — stays pinned while you write. */}
-        {battle?.theme ? (
-          <View style={[styles.themeBar, { backgroundColor: colors.card }]}>
-            <Ionicons name="sparkles" size={14} color={colors.primary} />
-            <Text
-              style={[styles.themeBarLabel, { color: colors.textTertiary }]}
-            >
-              THEME
-            </Text>
-            <Text
-              style={[
-                styles.themeBarText,
-                { color: colors.primary },
-                accessibleText,
-              ]}
-              numberOfLines={2}
-            >
-              {battle.theme}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* Opponent lock status only — never their move type or content. */}
-        {opponentHasLocked && !alreadyLocked ? (
-          <View
-            style={[
-              styles.opponentLockedBanner,
-              { backgroundColor: colors.card, borderColor: colors.warning },
-            ]}
-            accessible
-            accessibilityRole="text"
-            accessibilityLiveRegion="polite"
-            accessibilityLabel="Opponent has locked in. Your move."
-          >
-            <Ionicons name="lock-closed" size={14} color={colors.warning} />
-            <Text style={[styles.opponentLockedText, { color: colors.text }]}>
-              Opponent has locked in — your move
-            </Text>
-          </View>
-        ) : null}
-
-        {showReconnecting ? (
-          <Text
-            style={[styles.reconnecting, { color: colors.textTertiary }]}
-            accessibilityLiveRegion="polite"
-          >
-            Reconnecting…
-          </Text>
-        ) : null}
-      </View>
-
-      {/* Scrolling decision surface: move reminder + prompt authoring. */}
+      {/* Only navigator clearance sits above this flexible viewport. Full
+          identity/theme/status stay scrollable at every size and while typing;
+          keyboard changes never move or remount the controlled editor. */}
       <ScrollView
+        testID="battle-workspace-scroll"
+        ref={workspaceScroll}
+        onLayout={(event) =>
+          setWorkspaceHeight(event.nativeEvent.layout.height)
+        }
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
+        automaticallyAdjustKeyboardInsets={false}
+        contentInsetAdjustmentBehavior="never"
       >
-        {isBo3 ? (
-          <>
-            <SeriesScoreIndicator
-              score={series_score}
-              currentRound={roundNumber}
-              format={format}
-              bestOf={rtBattle?.best_of ?? 3}
-              viewer={isPlayerOne ? 'p1' : 'p2'}
-            />
-            <View style={styles.hpRow}>
-              <View style={styles.hpCol}>
-                <HPBar
-                  current={myHp}
-                  max={myHpMax}
-                  side="left"
-                  playerName="You"
-                  compact
-                />
-              </View>
-              <View style={styles.hpCol}>
-                <HPBar
-                  current={oppHp}
-                  max={oppHpMax}
-                  side="right"
-                  playerName="Opponent"
-                  compact
-                />
-              </View>
-            </View>
-          </>
-        ) : null}
+        <View testID="battle-workspace-context" style={styles.battleContext}>
+          <GameDisplayTitle
+            accessibilityRole="header"
+            style={{ textAlign: 'center', fontSize: 34, lineHeight: 40 }}
+          >
+            {isBo3
+              ? `ROUND ${roundNumber} OF ${rtBattle?.best_of ?? 3}`
+              : 'YOUR MOVE'}
+          </GameDisplayTitle>
+          <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
+            {rtBattle?.is_player_two_bot
+              ? 'Practice · AI opponent'
+              : rtBattle?.mode
+                ? rtBattle.mode.charAt(0).toUpperCase() + rtBattle.mode.slice(1)
+                : ''}
+            {isBo3 ? ' · First to 2 wins' : ''}
+          </Text>
+          {/* You-vs-opponent context strip (replaces the old screen title). */}
+          <VersusStrip
+            compact={keyboardVisible}
+            series={
+              isBo3 &&
+              rtBattle?.player_one_rounds_won != null &&
+              rtBattle?.player_two_rounds_won != null
+                ? {
+                    score: series_score,
+                    currentRound: roundNumber,
+                    format,
+                    bestOf: rtBattle?.best_of ?? 3,
+                    viewer: isPlayerOne ? 'p1' : 'p2',
+                  }
+                : undefined
+            }
+            left={{
+              hp: isBo3 ? (myHp ?? undefined) : undefined,
+              hpMax: isBo3 ? (myHpMax ?? undefined) : undefined,
+              name: myChar?.name ?? 'You',
+              archetype: myChar?.archetype ?? '',
+              signatureColor: myChar?.signatureColor ?? colors.primary,
+              portraitUrl: myChar?.portraitUrl,
+              cosmetics: myChar?.cosmetics,
+              label: 'YOU',
+              onAvatarPress: portraitViewer.canOpen(myChar)
+                ? (opener) => portraitViewer.open(myChar, opener)
+                : undefined,
+            }}
+            right={{
+              hp: isBo3 ? (oppHp ?? undefined) : undefined,
+              hpMax: isBo3 ? (oppHpMax ?? undefined) : undefined,
+              name: oppChar?.name ?? 'Opponent',
+              archetype: oppChar?.archetype ?? '',
+              signatureColor: oppChar?.signatureColor ?? colors.textSecondary,
+              portraitUrl: oppChar?.portraitUrl,
+              cosmetics: oppChar?.cosmetics,
+              label: rtBattle?.is_player_two_bot ? 'AI OPPONENT' : 'OPPONENT',
+              onAvatarPress: portraitViewer.canOpen(oppChar)
+                ? (opener) => portraitViewer.open(oppChar, opener)
+                : undefined,
+            }}
+          />
+          {/* The authoritative theme is never replaced with invented scene copy. */}
+          {battle?.theme ? (
+            <BattleThemePlaque theme={battle.theme} compact={keyboardVisible} />
+          ) : null}
+          <BattleDeadline deadline={myDeadline} />
 
-        {alreadyLocked ? (
+          {/* Opponent lock status only — never their move type or content. */}
+          {opponentHasLocked && !alreadyLocked ? (
+            <View
+              style={[
+                styles.opponentLockedBanner,
+                { backgroundColor: colors.card, borderColor: colors.warning },
+              ]}
+              accessible
+              accessibilityRole="text"
+              accessibilityLiveRegion="polite"
+              accessibilityLabel="Opponent has locked in. Your move."
+            >
+              <GameSymbol name="lock-closed" size={14} color={colors.warning} />
+              <Text style={[styles.opponentLockedText, { color: colors.text }]}>
+                Opponent has locked in — your move
+              </Text>
+            </View>
+          ) : null}
+
+          {showReconnecting ? (
+            <Text
+              style={[styles.reconnecting, { color: colors.textTertiary }]}
+              accessibilityLiveRegion="polite"
+            >
+              Reconnecting…
+            </Text>
+          ) : null}
+        </View>
+
+        {draft.error && (
+          <>
+            <InlineBanner tone="warning" text={draft.error} />
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={async () => {
+                if (!(await draft.retry())) return;
+                const closed =
+                  rtBattle &&
+                  (CLOSED_BATTLE_STATUSES.has(rtBattle.status) ||
+                    (rtBattle.current_round ?? 1) > roundNumber ||
+                    (isBo3 &&
+                      roundData &&
+                      CLOSED_ROUND_STATUSES.has(roundData.status)));
+                if (alreadyLocked || submitAccepted || closed)
+                  exitTo(() => router.replace(waitingHref));
+              }}
+              style={{ minHeight: 48, justifyContent: 'center' }}
+            >
+              <Text style={{ color: colors.primary }}>Retry draft storage</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {alreadyLocked || submitAccepted ? (
           /* Locked panel: the prompt is in. No editor, no ideas, no hold. */
           <View
             style={[
@@ -912,12 +1165,13 @@ export default function PromptEntryScreen() {
             ]}
           >
             <View style={styles.lockedHeader}>
-              <Ionicons
+              <GameSymbol
                 name="checkmark-circle"
                 size={20}
                 color={colors.success}
               />
               <Text
+                variant="display"
                 style={[styles.lockedTitle, { color: colors.text }]}
                 accessibilityRole="header"
               >
@@ -954,48 +1208,68 @@ export default function PromptEntryScreen() {
           </View>
         ) : (
           <>
-            {/* Read-only move chip. The choice was made on move-select; this is
-                a reminder plus a way back, not a second selector -- two places
-                to change one value is how a player ends up submitting a move
-                they thought they had changed. */}
-            {moveType ? (
+            <TutorialCoach
+              battleId={battleId}
+              stage={
+                !moveType
+                  ? 'theme'
+                  : customText.trim().length === 0
+                    ? 'move'
+                    : customText.trim().length < 80
+                      ? 'write'
+                      : 'lock'
+              }
+            />
+            <BattleMovePicker
+              value={moveType}
+              onChange={(move) => {
+                if (authoringBlockedRef.current) return;
+                hapticSelection();
+                setMoveType(move);
+              }}
+            />
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+              }}
+            >
+              <Text variant="label">YOUR PROMPT</Text>
               <TouchableOpacity
-                style={[styles.moveChip, { backgroundColor: colors.card }]}
+                accessibilityRole="button"
+                accessibilityLabel="Open prompt ideas"
                 onPress={() => {
                   hapticSelection();
-                  router.back();
+                  setIsCustom(false);
                 }}
-                accessibilityLabel={`Move: ${moveLabel(moveType)}. Beats ${moveLabel(
-                  MOVE_META[moveType].beats,
-                )}. Tap to change.`}
-                accessibilityRole="button"
+                style={{
+                  minHeight: 48,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
               >
-                {renderMoveBadge(moveType)}
+                <GameIcon name="ideas" size={24} />
                 <Text
-                  style={[styles.moveChipHint, { color: colors.textSecondary }]}
+                  style={{
+                    textDecorationLine: 'underline',
+                    color: colors.primary,
+                  }}
                 >
-                  beats {MOVE_META[moveType].beats.toUpperCase()}
+                  Ideas
                 </Text>
-                <View style={styles.moveChipChange}>
-                  <Ionicons
-                    name="swap-horizontal"
-                    size={14}
-                    color={colors.primary}
-                  />
-                  <Text
-                    style={[
-                      styles.moveChipChangeText,
-                      { color: colors.primary },
-                    ]}
-                  >
-                    Change
-                  </Text>
-                </View>
               </TouchableOpacity>
-            ) : null}
-
+            </View>
             {/* Ideas / Write-your-own segmented control */}
-            <View style={[styles.segmented, { backgroundColor: colors.card }]}>
+            <View
+              style={[
+                styles.segmented,
+                { backgroundColor: colors.card },
+                largeText && { flexDirection: 'column', alignItems: 'stretch' },
+              ]}
+            >
               <TouchableOpacity
                 style={[
                   styles.segment,
@@ -1009,7 +1283,7 @@ export default function PromptEntryScreen() {
                 accessibilityRole="button"
                 accessibilityState={{ selected: !isCustom }}
               >
-                <Ionicons
+                <GameSymbol
                   name="sparkles"
                   size={16}
                   color={!isCustom ? primaryInk : colors.textSecondary}
@@ -1036,7 +1310,7 @@ export default function PromptEntryScreen() {
                 accessibilityRole="button"
                 accessibilityState={{ selected: isCustom }}
               >
-                <Ionicons
+                <GameSymbol
                   name="create"
                   size={16}
                   color={isCustom ? primaryInk : colors.textSecondary}
@@ -1063,8 +1337,18 @@ export default function PromptEntryScreen() {
                 empty tab has to say why it is empty and offer a way out. */}
             {!isCustom ? (
               <View style={styles.section}>
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    marginBottom: Spacing.sm,
+                  }}
+                >
+                  First idea set per move and round is free. Further sets:{' '}
+                  {rerollChip}. Ideas do not guarantee a higher score.
+                </Text>
+
                 <View style={styles.suggestionHeader}>
-                  <Ionicons name="bulb" size={14} color={colors.primary} />
+                  <GameSymbol name="bulb" size={14} color={colors.primary} />
                   <Text
                     style={[styles.suggestionTitle, { color: colors.text }]}
                   >
@@ -1109,7 +1393,7 @@ export default function PromptEntryScreen() {
                           accessibilityLabel="Top up credits"
                           accessibilityRole="button"
                         >
-                          <Ionicons
+                          <GameSymbol
                             name="wallet-outline"
                             size={14}
                             color={colors.primary}
@@ -1141,7 +1425,7 @@ export default function PromptEntryScreen() {
                           accessibilityLabel="Try loading ideas again"
                           accessibilityRole="button"
                         >
-                          <Ionicons
+                          <GameSymbol
                             name="refresh"
                             size={14}
                             color={colors.textSecondary}
@@ -1168,7 +1452,7 @@ export default function PromptEntryScreen() {
                         accessibilityLabel="Write your own prompt instead"
                         accessibilityRole="button"
                       >
-                        <Ionicons
+                        <GameSymbol
                           name="create-outline"
                           size={14}
                           color={colors.textSecondary}
@@ -1224,7 +1508,7 @@ export default function PromptEntryScreen() {
                           </Text>
                           {selected ? (
                             <View style={styles.suggestionSelectedTag}>
-                              <Ionicons
+                              <GameSymbol
                                 name="checkmark-circle"
                                 size={14}
                                 color={colors.primary}
@@ -1260,7 +1544,7 @@ export default function PromptEntryScreen() {
                             accessibilityRole="button"
                             accessibilityState={{ selected }}
                           >
-                            <Ionicons
+                            <GameSymbol
                               name="checkmark"
                               size={16}
                               color={primaryInk}
@@ -1284,7 +1568,7 @@ export default function PromptEntryScreen() {
                             accessibilityLabel={`Edit idea: ${suggestion.title}`}
                             accessibilityRole="button"
                           >
-                            <Ionicons
+                            <GameSymbol
                               name="create-outline"
                               size={16}
                               color={colors.primary}
@@ -1338,7 +1622,7 @@ export default function PromptEntryScreen() {
                     }
                     accessibilityRole="button"
                   >
-                    <Ionicons
+                    <GameSymbol
                       name="refresh"
                       size={14}
                       color={colors.textSecondary}
@@ -1357,99 +1641,172 @@ export default function PromptEntryScreen() {
             ) : null}
 
             {/* Custom Prompt Input */}
-            {isCustom ? (
-              <View style={styles.section}>
-                <TextInput
-                  style={[
-                    styles.customInput,
-                    { backgroundColor: colors.card, color: colors.text },
-                    accessibleText,
-                  ]}
-                  placeholder="Write your prompt (20–800 characters)…"
-                  placeholderTextColor={colors.textTertiary}
-                  value={customText}
-                  onChangeText={setCustomText}
-                  multiline
-                  maxLength={CUSTOM_PROMPT_MAX_LENGTH}
-                  accessibilityLabel="Your prompt"
-                  accessibilityHint="20 to 800 characters"
-                />
-                <View style={styles.qualityRow}>
-                  <View
-                    style={styles.qualityItem}
-                    accessible
-                    accessibilityRole="text"
-                    accessibilityLiveRegion="polite"
-                    accessibilityLabel={coach.label}
-                  >
-                    <Ionicons
-                      name={coach.icon}
-                      size={13}
-                      color={toneColor[coach.tone]}
-                    />
-                    <Text
-                      style={[
-                        styles.qualityText,
-                        { color: toneColor[coach.tone] },
-                      ]}
-                    >
-                      {coach.label}
-                    </Text>
-                  </View>
+            <View
+              style={styles.section}
+              onLayout={(event) => {
+                editorTop.current = event.nativeEvent.layout.y;
+              }}
+            >
+              <GameField
+                testID="battle-prompt-editor"
+                ref={editorRef}
+                editable={draft.ready && !isSubmitting && !submitAccepted}
+                scrollEnabled
+                onFocus={() =>
+                  workspaceScroll.current?.scrollTo({
+                    y: Math.max(0, editorTop.current - 8),
+                    animated: false,
+                  })
+                }
+                style={[
+                  styles.customInput,
+                  {
+                    backgroundColor: colors.fieldSurface,
+                    color: colors.text,
+                    height: Math.max(80, Math.min(240, workspaceHeight - 48)),
+                    minHeight: 80,
+                  },
+                  accessibleText,
+                ]}
+                placeholder="Write your prompt (20–800 characters)…"
+                placeholderTextColor={colors.textTertiary}
+                value={customText}
+                onChangeText={setCustomText}
+                multiline
+                maxLength={CUSTOM_PROMPT_MAX_LENGTH}
+                accessibilityLabel="Your prompt"
+                accessibilityHint="20 to 800 characters"
+              />
+              <View
+                style={[
+                  styles.qualityRow,
+                  largeText && {
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    gap: 8,
+                  },
+                ]}
+              >
+                <View
+                  style={styles.qualityItem}
+                  accessible
+                  accessibilityRole="text"
+                  accessibilityLiveRegion="polite"
+                  accessibilityLabel={coach.label}
+                >
+                  <GameSymbol
+                    name={coach.icon}
+                    size={13}
+                    color={toneColor[coach.tone]}
+                  />
                   <Text
                     style={[
-                      styles.charCount,
-                      NumericFontVariant,
-                      { color: colors.textTertiary },
+                      styles.qualityText,
+                      { color: toneColor[coach.tone] },
                     ]}
                   >
-                    {coach.counter}
+                    {coach.label}
                   </Text>
                 </View>
-                {battle?.theme && coach.words > 0 ? (
-                  <View style={styles.qualityItem}>
-                    <Ionicons
-                      name={
-                        referencesTheme ? 'checkmark-circle' : 'bulb-outline'
-                      }
-                      size={13}
-                      color={
-                        referencesTheme ? colors.success : colors.textTertiary
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.qualityText,
-                        {
-                          color: referencesTheme
-                            ? colors.success
-                            : colors.textTertiary,
-                        },
-                      ]}
-                    >
-                      {referencesTheme
-                        ? 'References the theme'
-                        : 'Tip: work the theme into your prompt'}
-                    </Text>
-                  </View>
-                ) : null}
+                <Text
+                  style={[
+                    styles.charCount,
+                    NumericFontVariant,
+                    { color: colors.textTertiary },
+                  ]}
+                >
+                  {coach.counter}
+                </Text>
               </View>
-            ) : null}
+              {battle?.theme && coach.words > 0 ? (
+                <View style={styles.qualityItem}>
+                  <GameSymbol
+                    name={referencesTheme ? 'checkmark-circle' : 'bulb-outline'}
+                    size={13}
+                    color={
+                      referencesTheme ? colors.success : colors.textTertiary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.qualityText,
+                      {
+                        color: referencesTheme
+                          ? colors.success
+                          : colors.textTertiary,
+                      },
+                    ]}
+                  >
+                    {referencesTheme
+                      ? 'References the theme'
+                      : 'Tip: work the theme into your prompt'}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            <Text
+              accessibilityLiveRegion="polite"
+              style={{
+                color: draft.error ? colors.warning : colors.textSecondary,
+              }}
+            >
+              {draft.error
+                ? 'Draft not saved — retry storage above'
+                : draftSaving
+                  ? 'Saving draft on this device…'
+                  : 'Draft saved on this device'}
+            </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() =>
+                Alert.alert(
+                  'Discard draft?',
+                  'This removes the saved text and move on this device.',
+                  [
+                    { text: 'Keep draft', style: 'cancel' },
+                    {
+                      text: 'Discard',
+                      style: 'destructive',
+                      onPress: () => {
+                        if (
+                          authoringBlockedRef.current ||
+                          authoringScopeRef.current !== draftScope
+                        )
+                          return;
+                        void draft.clear(false);
+                        setCustomText('');
+                        setMoveType(null);
+                      },
+                    },
+                  ],
+                )
+              }
+              style={{ minHeight: 48, justifyContent: 'center' }}
+            >
+              <Text style={{ color: colors.textSecondary }}>Discard draft</Text>
+            </TouchableOpacity>
           </>
         )}
+        <BattleOpponentSafety
+          battle={rtBattle}
+          myId={user?.id}
+          name={oppChar?.name}
+        />
       </ScrollView>
 
       {/* Pinned footer: the primary action is always reachable and never
           hidden behind the keyboard. Press-and-hold ceremony; tap + confirm
           under a screen reader, where a timed hold isn't feasible. Once the
           prompt is in, the only action left is to go and wait. */}
-      <View
+      <GameFooter
+        testID="battle-workspace-footer"
+        keyboardVisible={keyboardVisible}
         style={[
           styles.footer,
           {
             backgroundColor: colors.background,
             borderTopColor: colors.border,
-            paddingBottom: insets.bottom + Spacing.sm,
+            paddingBottom: (keyboardVisible ? 0 : insets.bottom) + Spacing.sm,
           },
         ]}
       >
@@ -1458,14 +1815,21 @@ export default function PromptEntryScreen() {
             style={[styles.submitButton, { backgroundColor: colors.primary }]}
             onPress={() => {
               hapticSelection();
-              router.replace(waitingHref);
+              exitTo(() => router.replace(waitingHref));
             }}
             accessibilityLabel="Wait for your opponent"
             accessibilityRole="button"
           >
             <View style={styles.submitButtonInner}>
-              <Ionicons name="hourglass-outline" size={18} color={primaryInk} />
-              <Text style={[styles.submitButtonText, { color: primaryInk }]}>
+              <GameSymbol
+                name="hourglass-outline"
+                size={18}
+                color={primaryInk}
+              />
+              <Text
+                variant="label"
+                style={[styles.submitButtonText, { color: primaryInk }]}
+              >
                 Wait for your opponent
               </Text>
             </View>
@@ -1481,62 +1845,66 @@ export default function PromptEntryScreen() {
                 />
               </View>
             ) : null}
-            <Pressable
-              style={[
-                styles.submitButton,
-                { backgroundColor: colors.primary },
-                lockDisabled && styles.buttonDisabled,
-              ]}
-              onPressIn={screenReaderEnabled ? undefined : startHold}
-              onPressOut={screenReaderEnabled ? undefined : cancelHold}
-              onPress={screenReaderEnabled ? confirmLockIn : undefined}
-              disabled={lockDisabled}
-              accessibilityLabel="Lock in prompt"
-              accessibilityHint={
-                deadlinePassed
-                  ? 'The deadline for this round has passed'
-                  : screenReaderEnabled
-                    ? 'Activates a confirmation to lock in your prompt. You can’t change it afterward.'
-                    : 'Press and hold to lock in your prompt. You can’t change it afterward.'
+            <BattleLockInControl
+              state={
+                submitAccepted
+                  ? 'submitted'
+                  : isSubmitting
+                    ? 'submitting'
+                    : lockDisabled
+                      ? 'unavailable'
+                      : holding
+                        ? 'holding'
+                        : submitFailed
+                          ? 'failure'
+                          : 'ready'
               }
-              accessibilityRole="button"
-              accessibilityState={{
-                disabled: lockDisabled,
-                busy: isSubmitting,
-              }}
-            >
-              {/* Hold progress fill. */}
-              <Animated.View
-                style={[styles.holdFill, holdFillStyle]}
-                pointerEvents="none"
-              />
-              {isSubmitting ? (
-                <ActivityIndicator color={primaryInk} />
-              ) : (
-                <View style={styles.submitButtonInner}>
-                  <Ionicons name="lock-closed" size={18} color={primaryInk} />
-                  <Text
-                    style={[styles.submitButtonText, { color: primaryInk }]}
-                  >
-                    Lock In
-                  </Text>
-                </View>
-              )}
-            </Pressable>
+              reason={lockReason}
+              progress={holdProgress}
+              screenReaderEnabled={screenReaderEnabled}
+              onStart={startHold}
+              onCancel={cancelHold}
+              onConfirm={confirmLockIn}
+            />
             {/* Reserved height: the hint changes words, never the footer's size. */}
-            <Text
-              style={[
-                styles.holdHint,
-                { color: hintFlash ? colors.warning : colors.textSecondary },
-              ]}
-              accessibilityLiveRegion={hintFlash ? 'polite' : 'none'}
-            >
-              {holdHintText}
-            </Text>
+            {!largeText && (
+              <Text
+                style={[
+                  styles.holdHint,
+                  { color: hintFlash ? colors.warning : colors.textSecondary },
+                ]}
+                accessibilityLiveRegion={hintFlash ? 'polite' : 'none'}
+              >
+                {holdHintText}
+              </Text>
+            )}
+            {!keyboardVisible && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityState={{ disabled: lockDisabled }}
+                onPress={confirmLockIn}
+                disabled={lockDisabled}
+                style={{
+                  minHeight: 48,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    textDecorationLine: 'underline',
+                    color: lockDisabled ? colors.textTertiary : colors.primary,
+                  }}
+                >
+                  Use confirmation instead
+                </Text>
+              </TouchableOpacity>
+            )}
           </>
         )}
-      </View>
+      </GameFooter>
       <PortraitViewer
+        returnFocusRef={portraitViewer.returnFocusRef}
         visible={portraitViewer.visible}
         uri={portraitViewer.viewer?.uri ?? null}
         caption={portraitViewer.viewer?.caption}
@@ -1556,14 +1924,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+  battleContext: {
     gap: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   scroll: {
     flex: 1,
+    minHeight: 0,
   },
   scrollContent: {
     padding: Spacing.lg,
@@ -1594,7 +1961,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   themeBarLabel: {
-    fontSize: 10,
+    fontSize: 14,
     fontWeight: Typography.weights.bold,
     letterSpacing: 0.8,
   },
@@ -1604,7 +1971,7 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
   },
   reconnecting: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
     textAlign: 'center',
   },
   section: {
@@ -1629,13 +1996,13 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
   },
   moveChipBadgeText: {
-    fontSize: 10,
+    fontSize: 14,
     fontWeight: Typography.weights.bold,
     letterSpacing: 0.5,
   },
   moveChipHint: {
     flex: 1,
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
   },
   moveChipChange: {
     flexDirection: 'row',
@@ -1643,7 +2010,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   moveChipChangeText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
     fontWeight: Typography.weights.semibold,
   },
   lockedPanel: {
@@ -1706,12 +2073,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   suggestionSelectedText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
     fontWeight: Typography.weights.semibold,
   },
   suggestionCardBody: {
-    fontSize: Typography.sizes.xs,
-    lineHeight: 18,
+    fontSize: 16,
+    lineHeight: 24,
   },
   suggestionActions: {
     flexDirection: 'row',
@@ -1735,7 +2102,7 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.semibold,
   },
   suggestionError: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
     marginBottom: Spacing.sm,
   },
   suggestionFallback: {
@@ -1755,7 +2122,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   rerollText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
     fontWeight: Typography.weights.semibold,
   },
   segmented: {
@@ -1780,19 +2147,20 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.semibold,
   },
   segmentHelp: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
     marginBottom: Spacing.lg,
     lineHeight: 16,
   },
   customInput: {
     minHeight: 120,
+    lineHeight: 26,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     fontSize: Typography.sizes.base,
     textAlignVertical: 'top',
   },
   charCount: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
     textAlign: 'right',
   },
   qualityRow: {
@@ -1808,7 +2176,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   qualityText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
   },
   opponentLockedBanner: {
     flexDirection: 'row',
@@ -1825,8 +2193,8 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.semibold,
   },
   submitButton: {
-    height: 56,
-    borderRadius: BorderRadius.lg,
+    minHeight: 56,
+    borderRadius: 0,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',

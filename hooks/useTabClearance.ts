@@ -5,7 +5,7 @@ export const RAISED_BATTLE_BUTTON_SIZE = 60;
 
 /**
  * How far the raised button pokes above the tab bar's top edge and into the
- * screen above it. Mirrors the `marginTop` in `(tabs)/_layout.tsx`.
+ * screen above it. Shared with the wrapper in `components/ArenaTabBar.tsx`.
  */
 export const RAISED_BATTLE_BUTTON_OVERHANG = RAISED_BATTLE_BUTTON_SIZE / 2 - 6;
 

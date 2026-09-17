@@ -42,12 +42,16 @@ describe('ItemDetailSheet', () => {
     expect(getByText('Lucky Coin')).toBeTruthy();
     expect(getByText('Relic')).toBeTruthy();
     expect(getByText('A coin that always lands your way.')).toBeTruthy();
-    expect(getByText('Applied when you save.')).toBeTruthy();
+    expect(
+      getByText(
+        'Select for free, then save your choices. A new drawing brings this item into your artwork.',
+      ),
+    ).toBeTruthy();
   });
 
   it('chooses the item by id', () => {
     const { getByLabelText, props } = renderSheet();
-    fireEvent.press(getByLabelText('Choose Lucky Coin'));
+    fireEvent.press(getByLabelText('Use Lucky Coin · Free'));
     expect(props.onChoose).toHaveBeenCalledWith('coin');
   });
 
@@ -55,15 +59,15 @@ describe('ItemDetailSheet', () => {
     const { getByText, queryByLabelText, props } = renderSheet({
       equipped: true,
     });
-    const button = getByText('Equipped');
-    expect(queryByLabelText('Choose Lucky Coin')).toBeNull();
+    const button = getByText('Selected');
+    expect(queryByLabelText('Use Lucky Coin · Free')).toBeNull();
     fireEvent.press(button);
     expect(props.onChoose).not.toHaveBeenCalled();
   });
 
   it('does not choose while disabled', () => {
     const { getByLabelText, props } = renderSheet({ disabled: true });
-    fireEvent.press(getByLabelText('Choose Lucky Coin'));
+    fireEvent.press(getByLabelText('Use Lucky Coin · Free'));
     expect(props.onChoose).not.toHaveBeenCalled();
   });
 
@@ -76,7 +80,7 @@ describe('ItemDetailSheet', () => {
 
   it('closes from the close button', () => {
     const { getByLabelText, props } = renderSheet();
-    fireEvent.press(getByLabelText('Close'));
+    fireEvent.press(getByLabelText('Close item details'));
     expect(props.onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -87,6 +91,10 @@ describe('ItemDetailSheet', () => {
 
   it('tolerates a null item while hidden', () => {
     const { queryByText } = renderSheet({ visible: false, item: null });
-    expect(queryByText('Applied when you save.')).toBeNull();
+    expect(
+      queryByText(
+        'Select for free, then save your choices. A new drawing brings this item into your artwork.',
+      ),
+    ).toBeNull();
   });
 });

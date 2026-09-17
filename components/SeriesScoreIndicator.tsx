@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { GameText as Text, GameBevel } from './game';
+import { View, StyleSheet } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -15,6 +16,7 @@ export interface SeriesScoreIndicatorProps {
   currentRound: number;
   format: BattleFormat;
   bestOf?: number;
+  compact?: boolean;
   /**
    * Which side the viewer is. The score is always shown as "you – opponent",
    * so player two sees a 2–1 lead as 2–1, not as the raw 1–2 the row stores.
@@ -46,6 +48,7 @@ export default function SeriesScoreIndicator({
   format,
   bestOf,
   viewer = 'p1',
+  compact = false,
 }: SeriesScoreIndicatorProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
@@ -58,6 +61,21 @@ export default function SeriesScoreIndicator({
   const safeRound = Math.max(1, Math.min(currentRound, totalRounds));
   const { mine, theirs } = orientSeriesScore(score, viewer);
 
+  if (compact)
+    return (
+      <Text
+        variant="label"
+        testID="battle-integrated-score"
+        accessibilityLabel={`Series: you ${mine}, opponent ${theirs}.`}
+        style={[
+          NumericFontVariant,
+          { fontSize: 15, color: colors.textSecondary, textAlign: 'center' },
+        ]}
+      >
+        {mine} – {theirs}
+      </Text>
+    );
+
   const dots = Array.from({ length: totalRounds }, (_, i) => i + 1);
 
   return (
@@ -67,10 +85,12 @@ export default function SeriesScoreIndicator({
       accessibilityRole="header"
       accessibilityLabel={`Series: you ${mine}, opponent ${theirs}. Round ${safeRound} of ${totalRounds}.`}
     >
+      <GameBevel color={colors.ornamentMuted} />
       <View style={styles.row}>
         <View style={styles.scoreBlock}>
           <View style={styles.scoreCol}>
             <Text
+              variant="label"
               style={[styles.score, NumericFontVariant, { color: colors.text }]}
             >
               {mine}
@@ -88,6 +108,7 @@ export default function SeriesScoreIndicator({
           <Text style={[styles.dash, { color: colors.textTertiary }]}>–</Text>
           <View style={styles.scoreCol}>
             <Text
+              variant="label"
               style={[styles.score, NumericFontVariant, { color: colors.text }]}
             >
               {theirs}
@@ -140,10 +161,13 @@ export default function SeriesScoreIndicator({
 
 const styles = StyleSheet.create({
   wrap: {
+    padding: 12,
     width: '100%',
     marginBottom: Spacing.md,
   },
   row: {
+    flexWrap: 'wrap',
+    gap: 12,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
@@ -168,7 +192,7 @@ const styles = StyleSheet.create({
     lineHeight: Typography.sizes.xxl * 1.2,
   },
   who: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
     fontWeight: Typography.weights.semibold,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
@@ -185,6 +209,6 @@ const styles = StyleSheet.create({
   dot: {
     width: 12,
     height: 12,
-    borderRadius: 6,
+    borderRadius: 2,
   },
 });

@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { GamePanel, GameText as Text } from '@/components/game';
+import { View, StyleSheet, ViewStyle } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { Spacing, Typography } from '@/constants/DesignTokens';
 
 interface SectionCardProps {
   title?: string;
@@ -29,7 +30,7 @@ export default function SectionCard({
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
   return (
-    <View
+    <GamePanel
       style={[
         styles.card,
         {
@@ -44,6 +45,7 @@ export default function SectionCard({
           <View style={styles.headerText}>
             {title ? (
               <Text
+                variant="title"
                 style={[styles.title, { color: colors.text }]}
                 accessibilityRole="header"
               >
@@ -57,7 +59,6 @@ export default function SectionCard({
                   accessibleText,
                   { color: colors.textSecondary },
                 ]}
-                numberOfLines={2}
               >
                 {subtitle}
               </Text>
@@ -67,14 +68,12 @@ export default function SectionCard({
         </View>
       ) : null}
       {children}
-    </View>
+    </GamePanel>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: BorderRadius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.md,
     marginBottom: Spacing.md,
   },
@@ -92,8 +91,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   title: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.semibold,
+    fontSize: 24,
+    lineHeight: 30,
   },
   subtitle: {
     fontSize: Typography.sizes.sm,

@@ -1,3 +1,4 @@
+import { seasonAvailability } from '@/utils/rankingsView';
 import {
   medalFor,
   rankDisplay,
@@ -143,5 +144,22 @@ describe('standing card copy', () => {
     expect(
       standingLabel({ rank: null, rated: false, ratingValue: 'Unrated' }),
     ).toBe('Your standing: unranked, unrated. Opens rankings');
+  });
+});
+
+describe('season availability', () => {
+  const state = seasonAvailability;
+  it('distinguishes upcoming, ended and active empty standings', () => {
+    const now = Date.parse('2026-09-13T12:00:00Z');
+    expect(state({ starts_at: '2026-09-14', ends_at: '2026-09-20' }, now)).toBe(
+      'upcoming',
+    );
+    expect(state({ starts_at: '2026-09-01', ends_at: '2026-09-12' }, now)).toBe(
+      'ended',
+    );
+    expect(state({ starts_at: '2026-09-01', ends_at: '2026-09-20' }, now)).toBe(
+      'active',
+    );
+    expect(state(null, now)).toBe('unavailable');
   });
 });

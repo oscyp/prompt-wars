@@ -23,7 +23,9 @@ export const PRICES_UNAVAILABLE = 'Prices unavailable right now.';
 
 /**
  * Price-table keys with a player-facing label. Keys absent here (identity
- * edits, capability flags) are never listed, whatever their price.
+ * edits, capability flags, retired leave_battle charges) are never listed,
+ * whatever their price. Forfeiting is free even if an older backend still
+ * returns the retired price row.
  */
 export const CREDIT_USE_LABELS: Readonly<Record<string, string>> = {
   render_look: 'Draw a new look',
@@ -31,7 +33,6 @@ export const CREDIT_USE_LABELS: Readonly<Record<string, string>> = {
   custom_item_image: 'Custom item with icon',
   custom_item_text: 'Custom item',
   prompt_suggestions_reroll: 'New move suggestions',
-  leave_battle: 'Leave a battle after locking in',
   regenerate_avatar: 'Redraw the avatar',
   regenerate_portrait: 'Redraw the portrait',
 };

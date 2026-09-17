@@ -1,7 +1,8 @@
-import React, { useCallback, useRef, useState } from 'react';
+import { GameButton, GameHeader } from '@/components/game';
+import { GameText, GamePanel } from '@/components/game';
+import { useCallback, useRef, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
@@ -10,7 +11,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -184,18 +185,20 @@ export default function StatsScreen() {
           { backgroundColor: colors.background, paddingTop: topInset },
         ]}
       >
-        <Ionicons
+        <GameSymbol
           name="stats-chart-outline"
           size={32}
           color={colors.textTertiary}
         />
-        <Text
+        <GameText
+          variant="body"
           accessibilityRole="header"
           style={[styles.errorTitle, accessibleText, { color: colors.text }]}
         >
           Couldn’t load your stats
-        </Text>
-        <Text
+        </GameText>
+        <GameText
+          variant="body"
           style={[
             styles.errorBody,
             accessibleText,
@@ -203,15 +206,15 @@ export default function StatsScreen() {
           ]}
         >
           Check your connection and try again.
-        </Text>
-        <TouchableOpacity
+        </GameText>
+        <GameButton
           onPress={retry}
           accessibilityRole="button"
           accessibilityLabel="Retry"
           style={[styles.retryButton, { backgroundColor: colors.primary }]}
-        >
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
+          tone="primary"
+          label="Retry"
+        />
       </View>
     );
   }
@@ -256,21 +259,20 @@ export default function StatsScreen() {
         />
       }
     >
-      <Text
-        accessibilityRole="header"
-        style={[styles.title, accessibleText, { color: colors.text }]}
-      >
-        Your Stats
-      </Text>
+      <GameHeader title="Your Stats" style={{ marginBottom: 16 }} />
 
       {/* Overall Stats */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text
+      <GamePanel
+        tone="ornate"
+        style={[styles.card, { backgroundColor: colors.card }]}
+      >
+        <GameText
+          variant="title"
           accessibilityRole="header"
           style={[styles.cardTitle, accessibleText, { color: colors.text }]}
         >
           Overall Record
-        </Text>
+        </GameText>
         <View style={styles.statsGrid}>
           <StatBox
             label="Battles"
@@ -302,7 +304,8 @@ export default function StatsScreen() {
           accessible
           accessibilityLabel={`Win rate ${winRate}`}
         >
-          <Text
+          <GameText
+            variant="label"
             style={[
               styles.keyLabel,
               accessibleText,
@@ -310,8 +313,9 @@ export default function StatsScreen() {
             ]}
           >
             Win Rate
-          </Text>
-          <Text
+          </GameText>
+          <GameText
+            variant="label"
             style={[
               styles.keyValue,
               NumericFontVariant,
@@ -319,7 +323,7 @@ export default function StatsScreen() {
             ]}
           >
             {winRate}
-          </Text>
+          </GameText>
         </View>
         <View
           style={[styles.keyValueRow, { borderTopColor: colors.border }]}
@@ -328,7 +332,8 @@ export default function StatsScreen() {
             profile.best_streak ?? 0
           }`}
         >
-          <Text
+          <GameText
+            variant="label"
             style={[
               styles.keyLabel,
               accessibleText,
@@ -336,8 +341,9 @@ export default function StatsScreen() {
             ]}
           >
             Win Streak
-          </Text>
-          <Text
+          </GameText>
+          <GameText
+            variant="label"
             style={[
               styles.keyValue,
               NumericFontVariant,
@@ -345,23 +351,28 @@ export default function StatsScreen() {
             ]}
           >
             {`${profile.current_streak ?? 0} now · ${profile.best_streak ?? 0} best`}
-          </Text>
+          </GameText>
         </View>
-      </View>
+      </GamePanel>
 
       {/* Rating: the number, then how it got there. "Unrated" until a ranked
           battle against a human has been played -- the 1500 default is not a
           rating anyone earned. */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text
+      <GamePanel
+        tone="ornate"
+        style={[styles.card, { backgroundColor: colors.card }]}
+      >
+        <GameText
+          variant="title"
           accessibilityRole="header"
           style={[styles.cardTitle, accessibleText, { color: colors.text }]}
         >
           Rating
-        </Text>
+        </GameText>
         {rating ? (
           <View accessible accessibilityLabel={ratingA11y}>
-            <Text
+            <GameText
+              variant="body"
               style={[
                 styles.ratingValue,
                 NumericFontVariant,
@@ -369,9 +380,10 @@ export default function StatsScreen() {
               ]}
             >
               {rating.value}
-            </Text>
+            </GameText>
             {rating.rated ? null : (
-              <Text
+              <GameText
+                variant="caption"
                 style={[
                   styles.ratingCaption,
                   accessibleText,
@@ -379,7 +391,7 @@ export default function StatsScreen() {
                 ]}
               >
                 {rating.caption}
-              </Text>
+              </GameText>
             )}
           </View>
         ) : (
@@ -395,39 +407,54 @@ export default function StatsScreen() {
         ) : (
           <InsightError text={INSIGHT_ERROR.trend} onRetry={retryInsights} />
         )}
-      </View>
+      </GamePanel>
 
       {/* Your moves */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text
+      <GamePanel
+        tone="ornate"
+        style={[styles.card, { backgroundColor: colors.card }]}
+      >
+        <GameText
+          variant="title"
           accessibilityRole="header"
           style={[styles.cardTitle, accessibleText, { color: colors.text }]}
         >
           Your moves
-        </Text>
+        </GameText>
         {usage ? (
           <MoveUsageChips usage={usage} emptyText={MOVES_EMPTY} />
         ) : (
           <InsightError text={INSIGHT_ERROR.moves} onRetry={retryInsights} />
         )}
-      </View>
+      </GamePanel>
 
       {/* Best prompts: the prompt journal, derived from the player's own
           prompts and round scores. Each row opens the battle it came from. */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text
+      <GamePanel
+        tone="ornate"
+        style={[styles.card, { backgroundColor: colors.card }]}
+      >
+        <GameText
+          variant="title"
           accessibilityRole="header"
           style={[styles.cardTitle, accessibleText, { color: colors.text }]}
         >
           Best prompts
-        </Text>
+        </GameText>
+        {prompts && battles ? (
+          <GameText variant="body" style={{ color: colors.textSecondary }}>
+            Latest {prompts.length} prompts (up to 200), matched to the latest{' '}
+            {battles.length} battles (up to 50).
+          </GameText>
+        ) : null}
         {best === null ? (
           <InsightError
             text={INSIGHT_ERROR.bestPrompts}
             onRetry={retryInsights}
           />
         ) : best.length === 0 ? (
-          <Text
+          <GameText
+            variant="caption"
             style={[
               styles.emptyHint,
               accessibleText,
@@ -435,7 +462,7 @@ export default function StatsScreen() {
             ]}
           >
             {BEST_PROMPTS_EMPTY}
-          </Text>
+          </GameText>
         ) : (
           best.map((row, index) => (
             <TouchableOpacity
@@ -450,42 +477,49 @@ export default function StatsScreen() {
               ]}
             >
               <View style={styles.promptBody}>
-                <Text
+                <GameText
+                  variant="body"
                   style={[
                     styles.promptExcerpt,
                     accessibleText,
                     { color: colors.text },
                   ]}
-                  numberOfLines={2}
                 >
                   “{row.excerpt}”
-                </Text>
+                </GameText>
                 <View style={styles.promptMetaRow}>
                   {row.won ? (
-                    <Ionicons name="trophy" size={14} color={colors.success} />
+                    <GameSymbol
+                      name="trophy"
+                      size={14}
+                      color={colors.success}
+                    />
                   ) : null}
-                  <Text
+                  <GameText
+                    variant="caption"
                     style={[
                       styles.promptMeta,
                       NumericFontVariant,
                       { color: colors.textSecondary },
                     ]}
-                    numberOfLines={1}
                   >
                     {bestPromptMeta(row)}
-                  </Text>
+                  </GameText>
                   {row.ko ? (
                     <View
                       style={[styles.koTag, { borderColor: colors.warning }]}
                     >
-                      <Text style={[styles.koText, { color: colors.warning }]}>
+                      <GameText
+                        variant="body"
+                        style={[styles.koText, { color: colors.warning }]}
+                      >
                         KO
-                      </Text>
+                      </GameText>
                     </View>
                   ) : null}
                 </View>
               </View>
-              <Ionicons
+              <GameSymbol
                 name="chevron-forward"
                 size={16}
                 color={colors.textTertiary}
@@ -493,22 +527,32 @@ export default function StatsScreen() {
             </TouchableOpacity>
           ))
         )}
-      </View>
+      </GamePanel>
 
       {/* Recent Battles: the last few with mode and date; the full list lives
           on the Battles tab. */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text
+      <GamePanel
+        tone="ornate"
+        style={[styles.card, { backgroundColor: colors.card }]}
+      >
+        <GameText
+          variant="title"
           accessibilityRole="header"
           style={[styles.cardTitle, accessibleText, { color: colors.text }]}
         >
           Recent Battles
-        </Text>
+        </GameText>
+        {battles ? (
+          <GameText variant="body" style={{ color: colors.textSecondary }}>
+            Based on {battles.length} recent battles, up to 50.
+          </GameText>
+        ) : null}
         {recent === null ? (
           <InsightError text={INSIGHT_ERROR.recent} onRetry={retryInsights} />
         ) : recent.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text
+            <GameText
+              variant="title"
               style={[
                 styles.emptyTitle,
                 accessibleText,
@@ -516,8 +560,9 @@ export default function StatsScreen() {
               ]}
             >
               No battles yet
-            </Text>
-            <Text
+            </GameText>
+            <GameText
+              variant="caption"
               style={[
                 styles.emptyHint,
                 styles.emptyHintCentered,
@@ -527,7 +572,7 @@ export default function StatsScreen() {
             >
               Your record fills in as you fight. Start one from the Battle
               button.
-            </Text>
+            </GameText>
           </View>
         ) : (
           <>
@@ -550,35 +595,38 @@ export default function StatsScreen() {
                   ]}
                 >
                   <View style={styles.battleBody}>
-                    <Text
+                    <GameText
+                      variant="body"
                       style={[
                         styles.battleOpponent,
                         accessibleText,
                         { color: colors.text },
                       ]}
-                      numberOfLines={1}
                     >
                       vs {row.opponentLabel}
-                    </Text>
-                    <Text
+                    </GameText>
+                    <GameText
+                      variant="caption"
                       style={[
                         styles.battleMeta,
                         accessibleText,
                         { color: colors.textSecondary },
                       ]}
-                      numberOfLines={1}
                     >
                       {row.date
                         ? `${row.modeLabel} · ${row.date}`
                         : row.modeLabel}
-                    </Text>
+                    </GameText>
                   </View>
                   <View style={styles.battleTrailing}>
-                    <Text style={[styles.battleResult, { color }]}>
+                    <GameText
+                      variant="body"
+                      style={[styles.battleResult, { color }]}
+                    >
                       {row.label}
-                    </Text>
+                    </GameText>
                     {route ? (
-                      <Ionicons
+                      <GameSymbol
                         name="chevron-forward"
                         size={16}
                         color={colors.textTertiary}
@@ -594,10 +642,13 @@ export default function StatsScreen() {
               accessibilityLabel="See all in Battles. Opens the Battles tab"
               style={[styles.seeAll, { borderTopColor: colors.border }]}
             >
-              <Text style={[styles.seeAllText, { color: colors.primary }]}>
+              <GameText
+                variant="body"
+                style={[styles.seeAllText, { color: colors.primary }]}
+              >
                 See all in Battles
-              </Text>
-              <Ionicons
+              </GameText>
+              <GameSymbol
                 name="chevron-forward"
                 size={16}
                 color={colors.primary}
@@ -605,7 +656,7 @@ export default function StatsScreen() {
             </TouchableOpacity>
           </>
         )}
-      </View>
+      </GamePanel>
     </ScrollView>
   );
 }
@@ -627,12 +678,18 @@ function StatBox({
       accessible
       accessibilityLabel={`${label} ${value}`}
     >
-      <Text style={[styles.statValue, NumericFontVariant, { color }]}>
+      <GameText
+        variant="body"
+        style={[styles.statValue, NumericFontVariant, { color }]}
+      >
         {value}
-      </Text>
-      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+      </GameText>
+      <GameText
+        variant="label"
+        style={[styles.statLabel, { color: colors.textSecondary }]}
+      >
         {label}
-      </Text>
+      </GameText>
     </View>
   );
 }
@@ -649,7 +706,8 @@ function InsightError({
   const accessibleText = useAccessibleTextStyle();
   return (
     <View style={styles.insightError}>
-      <Text
+      <GameText
+        variant="body"
         style={[
           styles.insightErrorText,
           accessibleText,
@@ -657,17 +715,15 @@ function InsightError({
         ]}
       >
         {text}
-      </Text>
-      <TouchableOpacity
+      </GameText>
+      <GameButton
         onPress={onRetry}
         accessibilityRole="button"
         accessibilityLabel={INSIGHT_ERROR.retry}
         style={styles.insightRetry}
-      >
-        <Text style={[styles.insightRetryText, { color: colors.primary }]}>
-          {INSIGHT_ERROR.retry}
-        </Text>
-      </TouchableOpacity>
+        tone="secondary"
+        label={INSIGHT_ERROR.retry}
+      />
     </View>
   );
 }
@@ -706,7 +762,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   retryText: {
-    color: '#FFFFFF',
+    color: '#171225',
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
   },
@@ -717,7 +773,7 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.sm,
     marginBottom: Spacing.md,
   },
   cardTitle: {
@@ -727,10 +783,14 @@ const styles = StyleSheet.create({
   },
   statsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.md,
     justifyContent: 'space-around',
     marginBottom: Spacing.md,
   },
   statBox: {
+    flexGrow: 1,
+    flexBasis: 100,
     alignItems: 'center',
   },
   statValue: {
@@ -738,11 +798,13 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
   },
   statLabel: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     marginTop: Spacing.xs,
   },
   keyValueRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: Spacing.md,
@@ -838,7 +900,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   koText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.bold,
     letterSpacing: 0.5,
   },

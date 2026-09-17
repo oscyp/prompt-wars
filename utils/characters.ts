@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 /**
  * Character + portrait Edge Function wrappers.
  *
@@ -65,6 +66,7 @@ export interface TraitSet {
 }
 
 export interface GeneratePortraitInput {
+  freeOnly?: boolean;
   characterId?: string;
   archetype: ArchetypeForTraits;
   mode: 'prompt' | 'guided';
@@ -104,8 +106,24 @@ export interface PortraitJobResult {
   idempotent?: boolean;
 }
 
+/** Raw references are delivered before URL signing or waiting for async work. */
+export interface PortraitResultReferences {
+  /** Full server response/replay confirms publication; a job event alone does not. */
+  completed?: boolean;
+  jobId?: string;
+  portraitId?: string;
+  avatarPortraitId?: string | null;
+  avatarJobId?: string | null;
+  avatarPending?: boolean;
+  creditsSpent?: number;
+  seed?: string;
+}
+
 export interface RenderLookInput {
   characterId: string;
+  requestKey?: string;
+  accountId?: string;
+  onReferences?: (references: PortraitResultReferences) => Promise<void> | void;
   /**
    * `render` redraws the saved look for `render_look`. `random` shuffles every
    * trait first and costs `random_character`. `avatar_only` redraws just the
@@ -395,6 +413,7 @@ export async function loadPortraitRef(
 async function waitForPortraitJob(
   profileId: string,
   jobId: string,
+  onReferences?: RenderLookInput['onReferences'],
 ): Promise<PortraitJobResult> {
   return new Promise<PortraitJobResult>((resolve, reject) => {
     let settled = false;
@@ -419,7 +438,9 @@ async function waitForPortraitJob(
       if (row.status === 'succeeded' && row.result_portrait_id) {
         const portraitId = row.result_portrait_id;
         const seed = row.seed ?? '';
-        resolvePortraitImageUrl(portraitId)
+        Promise.resolve()
+          .then(() => onReferences?.({ jobId: row.id, portraitId, seed }))
+          .then(() => resolvePortraitImageUrl(portraitId))
           .then((imageUrl) => {
             settleResolve({
               jobId: row.id,
@@ -608,9 +629,23 @@ export function normalizePortraitJobResponse(
 async function startPortraitJob(
   functionName: 'generate-portrait' | 'regenerate-portrait',
   body: Record<string, unknown>,
+  options?: Pick<RenderLookInput, 'requestKey' | 'accountId' | 'onReferences'>,
 ): Promise<PortraitJobResult> {
-  const profileId = await getCurrentProfileId();
-  const idempotencyKey = generateIdempotencyKey();
+  let profileId: string;
+  try {
+    profileId = await getCurrentProfileId();
+    if (options?.accountId && options.accountId !== profileId)
+      throw new Error('Your account changed. Reopen Edit Look to continue.');
+  } catch (error) {
+    if (!options?.accountId) throw error;
+    // The durable paid operation exists, but no generation request has left this
+    // client. Preserve that proof without guessing from an authentication message.
+    throw new EditError(
+      'portrait_not_dispatched',
+      error instanceof Error ? error.message : 'Sign in again to continue.',
+    );
+  }
+  const idempotencyKey = options?.requestKey ?? generateIdempotencyKey();
 
   const response = await invokeAuthenticatedFunction<
     FunctionEnvelope<PortraitJobStartResponse>
@@ -627,6 +662,19 @@ async function startPortraitJob(
 
   switch (shape.kind) {
     case 'sync': {
+      await options?.onReferences?.({
+        completed:
+          !shape.avatarJobId ||
+          shape.avatarPending === false ||
+          !!shape.avatarPortraitId,
+        jobId: shape.jobId,
+        portraitId: shape.portraitId,
+        avatarPortraitId: shape.avatarPortraitId,
+        avatarJobId: shape.avatarJobId,
+        avatarPending: shape.avatarPending,
+        creditsSpent: shape.creditsSpent,
+        seed: shape.seed,
+      });
       // Happy path: the Edge Function returned the completed render(s).
       const [imageUrl, avatarImageUrl] = await Promise.all([
         signPortraitUrl(shape.imagePath),
@@ -650,6 +698,12 @@ async function startPortraitJob(
       };
     }
     case 'replay': {
+      await options?.onReferences?.({
+        completed: true,
+        portraitId: shape.portraitId,
+        avatarPortraitId: shape.avatarPortraitId,
+        creditsSpent: shape.creditsSpent,
+      });
       // An older server acknowledged a replay with ids only. Nothing was
       // charged; resolve the images ourselves rather than failing the call.
       const [imageUrl, avatarImageUrl] = await Promise.all([
@@ -673,9 +727,39 @@ async function startPortraitJob(
     }
     case 'job':
       // Fallback: HTTP response only included job_id (async / dropped response).
-      return waitForPortraitJob(profileId, shape.jobId);
+      await options?.onReferences?.({ jobId: shape.jobId });
+      return waitForPortraitJob(profileId, shape.jobId, options?.onReferences);
     default:
       return throwEditError(response, 'Failed to start portrait generation.');
+  }
+}
+
+// Short per-key storage transactions only; provider/database calls never hold this queue.
+const initialPortraitIdentityWrites = new Map<string, Promise<void>>();
+async function replaceInitialPortraitIdentity(
+  key: string,
+  expected: string | null,
+  next: string | null,
+): Promise<boolean> {
+  const previous = initialPortraitIdentityWrites.get(key) ?? Promise.resolve();
+  const operation = previous
+    .catch(() => undefined)
+    .then(async () => {
+      if ((await AsyncStorage.getItem(key)) !== expected) return false;
+      if (next === null) await AsyncStorage.removeItem(key);
+      else await AsyncStorage.setItem(key, next);
+      return true;
+    });
+  const tail = operation.then(
+    () => undefined,
+    () => undefined,
+  );
+  initialPortraitIdentityWrites.set(key, tail);
+  try {
+    return await operation;
+  } finally {
+    if (initialPortraitIdentityWrites.get(key) === tail)
+      initialPortraitIdentityWrites.delete(key);
   }
 }
 
@@ -687,12 +771,116 @@ export async function generatePortrait(
   // in the request body under the field names the Edge Function reads. Sending
   // `prompt` instead of `portrait_prompt_raw` silently dropped everything the
   // player typed and rendered from archetype alone.
-  return startPortraitJob('generate-portrait', {
+  const profileId = await getCurrentProfileId();
+  const pendingKey = `prompt-wars:initial-portrait:${profileId}:${input.characterId}`;
+  const previousId = await AsyncStorage.getItem(pendingKey);
+  let requestId = previousId;
+  if (requestId) {
+    const { data, error } = await supabase
+      .from('initial_portrait_requests')
+      .select('status')
+      .eq('character_id', input.characterId)
+      .eq('request_id', requestId)
+      .maybeSingle();
+    if (error)
+      throw new Error('Could not check the previous portrait. Try again.');
+    if (data?.status === 'failed') requestId = null;
+  }
+  requestId ??= generateIdempotencyKey();
+  if (
+    !(await replaceInitialPortraitIdentity(pendingKey, previousId, requestId))
+  )
+    throw new Error('A newer render needs checking. Try again.');
+  const result = await startPortraitJob('generate-portrait', {
+    request_id: requestId,
+    free_only: input.freeOnly,
+
     character_id: input.characterId,
     portrait_prompt_raw: input.mode === 'prompt' ? input.prompt : undefined,
     traits: input.mode === 'guided' ? input.traits : undefined,
     art_style: input.artStyle,
   });
+  await replaceInitialPortraitIdentity(pendingKey, requestId, null);
+  return result;
+}
+
+export interface InitialPortraitRecovery {
+  requestId: string;
+  status: 'reserved' | 'succeeded' | 'failed';
+}
+/** A persisted request is independent of free slots: a reservation consumes its slot immediately. */
+export async function readInitialPortraitRecovery(
+  characterId: string,
+): Promise<InitialPortraitRecovery | null> {
+  const profileId = await getCurrentProfileId();
+  const key = `prompt-wars:initial-portrait:${profileId}:${characterId}`;
+  const localId = await AsyncStorage.getItem(key);
+  // A terminal/missing local reference must never hide another device's active reservation.
+  const active = await supabase
+    .from('initial_portrait_requests')
+    .select('request_id,status')
+    .eq('character_id', characterId)
+    .eq('status', 'reserved')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (active.error)
+    throw new Error('Could not check your initial render. Try again.');
+  let data = active.data;
+  if (!data && localId) {
+    const previous = await supabase
+      .from('initial_portrait_requests')
+      .select('request_id,status')
+      .eq('character_id', characterId)
+      .eq('request_id', localId)
+      .maybeSingle();
+    if (previous.error)
+      throw new Error('Could not check your initial render. Try again.');
+    data = previous.data;
+  }
+  if (
+    !(await replaceInitialPortraitIdentity(
+      key,
+      localId,
+      data?.request_id ?? null,
+    ))
+  )
+    throw new Error('A newer render needs checking. Try again.');
+  if (!data) return null;
+  return { requestId: data.request_id, status: data.status };
+}
+export async function reconcileInitialPortrait(
+  characterId: string,
+  requestId: string,
+): Promise<InitialPortraitRecovery | null> {
+  const profileId = await getCurrentProfileId();
+  const result = await invokeAuthenticatedFunction<{
+    ok: boolean;
+    data?: {
+      request: {
+        request_id: string;
+        status: InitialPortraitRecovery['status'];
+      } | null;
+    };
+    error?: { message?: string };
+  }>('generate-portrait', {
+    character_id: characterId,
+    request_id: requestId,
+    action: 'status',
+    free_only: true,
+  });
+  if (!result.ok || !result.data)
+    throw new Error(
+      result.error?.message ?? 'Could not check render. Try again.',
+    );
+  const request = result.data.request;
+  if (!request || request.status !== 'reserved') {
+    const key = `prompt-wars:initial-portrait:${profileId}:${characterId}`;
+    await replaceInitialPortraitIdentity(key, requestId, null);
+  }
+  return request
+    ? { requestId: request.request_id, status: request.status }
+    : null;
 }
 
 /**
@@ -706,10 +894,11 @@ export async function generatePortrait(
 export async function renderLook(
   input: RenderLookInput,
 ): Promise<PortraitJobResult> {
-  return startPortraitJob('regenerate-portrait', {
-    character_id: input.characterId,
-    mode: input.mode ?? 'render',
-  });
+  return startPortraitJob(
+    'regenerate-portrait',
+    { character_id: input.characterId, mode: input.mode ?? 'render' },
+    input,
+  );
 }
 
 /**
@@ -729,7 +918,8 @@ export async function retryAvatar(input: {
 
 export interface PortraitHistoryEntry {
   portraitId: string;
-  imageUrl: string;
+  imageUrl: string | null;
+  imageError?: string;
   createdAt: string;
 }
 
@@ -756,23 +946,31 @@ export async function listPortraitHistory(
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  if (error || !data) return [];
+  if (error)
+    throw new Error(error.message || 'Could not load portrait history.');
+  if (!data) return [];
 
-  const entries = await Promise.all(
-    data.map(async (row) => {
-      const imageUrl = await signPortraitUrl(row.image_path as string).catch(
-        () => null,
-      );
-      return imageUrl
-        ? {
-            portraitId: row.id as string,
-            imageUrl,
-            createdAt: row.created_at as string,
-          }
-        : null;
+  return Promise.all(
+    data.map(async (row): Promise<PortraitHistoryEntry> => {
+      const entry = {
+        portraitId: row.id as string,
+        createdAt: row.created_at as string,
+      };
+      try {
+        return {
+          ...entry,
+          imageUrl: await signPortraitUrl(row.image_path as string),
+        };
+      } catch (error) {
+        return {
+          ...entry,
+          imageUrl: null,
+          imageError:
+            error instanceof Error ? error.message : 'Could not load image.',
+        };
+      }
     }),
   );
-  return entries.filter((e): e is PortraitHistoryEntry => e !== null);
 }
 
 interface RestorePortraitResponse {

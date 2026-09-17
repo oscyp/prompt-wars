@@ -1,5 +1,6 @@
+import { GamePanel, GameText } from '@/components/game';
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { formatCredits } from '@/utils/credits';
@@ -43,13 +44,16 @@ export default function EditCardShell({
   const inert = cooling || disabled;
 
   return (
-    <View style={[s.card, { backgroundColor: colors.card }]}>
+    <GamePanel tone="quiet" style={[s.card, { backgroundColor: colors.card }]}>
       <View style={s.cardHeader}>
         <View style={s.flex1}>
           <View style={s.titleWrap}>
-            <Text style={[s.cardTitle, accessibleText, { color: colors.text }]}>
+            <GameText
+              variant="title"
+              style={[s.cardTitle, accessibleText, { color: colors.text }]}
+            >
               {title}
-            </Text>
+            </GameText>
             {changed ? (
               <View
                 style={[s.changedDot, { backgroundColor: colors.primary }]}
@@ -57,7 +61,8 @@ export default function EditCardShell({
             ) : null}
           </View>
           {subtitle ? (
-            <Text
+            <GameText
+              variant="caption"
               style={[
                 s.cardSub,
                 accessibleText,
@@ -65,34 +70,37 @@ export default function EditCardShell({
               ]}
             >
               {subtitle}
-            </Text>
+            </GameText>
           ) : null}
         </View>
-        <View style={s.badge}>
-          <Text
-            style={[
-              s.badgeText,
-              {
-                color: cooling
-                  ? colors.warning
-                  : cost === 0
-                    ? colors.success
-                    : colors.primary,
-              },
-            ]}
-          >
-            {cooling
-              ? `Available in ${formatCooldown(cooldownMs)}`
-              : formatCredits(cost)}
-          </Text>
-        </View>
+        {(cooling || cost > 0) && (
+          <View style={s.badge}>
+            <GameText
+              variant="body"
+              style={[
+                s.badgeText,
+                {
+                  color: cooling
+                    ? colors.warning
+                    : cost === 0
+                      ? colors.success
+                      : colors.primary,
+                },
+              ]}
+            >
+              {cooling
+                ? `Available in ${formatCooldown(cooldownMs)}`
+                : formatCredits(cost)}
+            </GameText>
+          </View>
+        )}
       </View>
       <View
         pointerEvents={inert ? 'none' : 'auto'}
-        style={inert ? s.cooledDown : undefined}
+        accessibilityState={{ disabled: inert }}
       >
         {children}
       </View>
-    </View>
+    </GamePanel>
   );
 }

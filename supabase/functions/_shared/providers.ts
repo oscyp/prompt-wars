@@ -22,6 +22,8 @@ export interface JudgeRequest {
 }
 
 export interface JudgeResponse {
+  fallback?: boolean;
+  responseId?: string;
   playerOneScores: JudgeRubricScores;
   playerTwoScores: JudgeRubricScores;
   explanation: string;
@@ -684,7 +686,7 @@ export class XAIJudgeProvider implements AiJudgeProvider {
   private baseUrl: string;
   private model: string;
 
-  constructor() {
+  constructor(private readonly modelOverride?: string) {
     // JUDGE_API_KEY lets the judge use a separate key/quota from video and
     // portraits; falls back to the shared xAI key.
     this.apiKey =
@@ -699,7 +701,7 @@ export class XAIJudgeProvider implements AiJudgeProvider {
     // battle -- model choice here is an economics decision, not just a quality
     // one. Use grok-4.6 if judging quality matters more than cost.
     // grok-3 and grok-2 are no longer in the xAI catalog; do not default to them.
-    this.model = Deno.env.get('JUDGE_MODEL_ID') || 'grok-4.3';
+    this.model = modelOverride || Deno.env.get('JUDGE_MODEL_ID') || 'grok-4.3';
 
     if (!this.apiKey) {
       console.warn('JUDGE_API_KEY/XAI_API_KEY not set; judge calls will fail');
@@ -798,6 +800,15 @@ export class XAIJudgeProvider implements AiJudgeProvider {
         );
       }
 
+      if (
+        this.modelOverride &&
+        (typeof data.model !== 'string' || !data.model)
+      ) {
+        throw new JudgeProviderError(
+          'malformed_response',
+          'Independent judge response missing actual model ID',
+        );
+      }
       const usage = data?.usage as
         | { prompt_tokens?: number; completion_tokens?: number }
         | undefined;
@@ -806,7 +817,9 @@ export class XAIJudgeProvider implements AiJudgeProvider {
         playerOneScores: parsed.playerOneScores as JudgeRubricScores,
         playerTwoScores: parsed.playerTwoScores as JudgeRubricScores,
         explanation: String(parsed.explanation ?? ''),
-        modelId: this.getModelId(),
+        modelId:
+          typeof data.model === 'string' ? data.model : this.getModelId(),
+        responseId: typeof data.id === 'string' ? data.id : undefined,
         promptVersion: req.promptVersion,
         costUsd: estimateJudgeCostUsd(
           this.model,
@@ -861,7 +874,7 @@ export class FallbackJudgeProvider implements AiJudgeProvider {
         'Judge provider failed, falling back to mock:',
         err instanceof Error ? `${err.name}: ${err.message}` : err,
       );
-      return await this.fallback.judge(req);
+      return { ...(await this.fallback.judge(req)), fallback: true };
     }
   }
 }

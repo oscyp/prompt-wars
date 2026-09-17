@@ -397,10 +397,12 @@ describe('groupBattlesForList', () => {
       ['yourTurn', 'Your turn'],
       ['inProgress', 'In progress'],
       ['finished', 'Finished'],
+      ['canceled', 'Canceled or unmatched'],
     ]);
     expect(sections[0].data.map((b) => b.id)).toEqual(['result', 'turn-old']);
     expect(sections[1].data.map((b) => b.id)).toEqual(['judging', 'waiting']);
-    expect(sections[2].data.map((b) => b.id)).toEqual(['done-new', 'done-old']);
+    expect(sections[2].data.map((b) => b.id)).toEqual(['done-old']);
+    expect(sections[3].data.map((b) => b.id)).toEqual(['done-new']);
   });
 
   it('omits empty sections and files a failed generation under finished', () => {

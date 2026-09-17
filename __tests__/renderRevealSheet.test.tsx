@@ -6,6 +6,12 @@ import {
   DEFAULT_ACCESSIBILITY_PREFERENCES,
 } from '@/utils/accessibilitySettings';
 import { hapticSuccess } from '@/utils/haptics';
+jest.mock('@/components/game/battle/useBattlePresentationActive', () => ({
+  useBattlePresentationActive: jest.fn(() => true),
+}));
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+}));
 
 jest.mock('@/utils/haptics', () => ({
   hapticSuccess: jest.fn(),
@@ -109,4 +115,14 @@ describe('RenderRevealSheet', () => {
     );
     getByLabelText('Avatar still drawing');
   });
+});
+
+test('a completed drawing offers media-only retry independently from avatar repair', () => {
+  const retry = jest.fn();
+  const view = render(
+    <RenderRevealSheet {...baseProps} mediaError onRetryMedia={retry} />,
+  );
+  fireEvent.press(view.getByText('Retry loading artwork'));
+  expect(retry).toHaveBeenCalledTimes(1);
+  expect(baseProps.onRetryAvatar).not.toHaveBeenCalled();
 });

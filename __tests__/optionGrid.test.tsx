@@ -3,6 +3,11 @@ import { render, fireEvent } from '@testing-library/react-native';
 import OptionGrid, { type OptionGridOption } from '@/components/OptionGrid';
 import { hapticSelection } from '@/utils/haptics';
 
+const ReactNative =
+  jest.requireActual<typeof import('react-native')>('react-native');
+afterEach(() => jest.restoreAllMocks());
+
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 jest.mock('@/utils/haptics', () => ({ hapticSelection: jest.fn() }));
 
 const OPTIONS: OptionGridOption[] = [
@@ -147,4 +152,43 @@ describe('OptionGrid', () => {
     expect(onChange).not.toHaveBeenCalled();
     expect(hapticSelection).not.toHaveBeenCalled();
   });
+});
+
+test('large text uses full-width cards and untruncated labels while retaining selection', () => {
+  const dimensions = jest.spyOn(ReactNative, 'useWindowDimensions');
+  dimensions.mockReturnValue({
+    width: 393,
+    height: 852,
+    scale: 3,
+    fontScale: 1,
+  });
+  const onChange = jest.fn();
+  const props = { options: OPTIONS, value: 'heroic', label: 'Vibe', onChange };
+  const view = render(<OptionGrid {...props} />);
+  expect(
+    ReactNative.StyleSheet.flatten(
+      view.getByLabelText('Vibe: Heroic').props.style,
+    ).width,
+  ).toBe('48%');
+  dimensions.mockReturnValue({
+    width: 393,
+    height: 852,
+    scale: 3,
+    fontScale: 3.1,
+  });
+  view.rerender(<OptionGrid {...props} />);
+  for (const option of OPTIONS) {
+    const card = view.getByLabelText(`Vibe: ${option.label}`);
+    const style = ReactNative.StyleSheet.flatten(card.props.style);
+    expect(style.width).toBe('100%');
+    expect(style.minHeight).toBeGreaterThanOrEqual(48);
+    expect(style.height).toBeUndefined();
+    const text = view.getByText(option.label);
+    expect(text.props.numberOfLines).toBeUndefined();
+    expect(text.props.allowFontScaling).not.toBe(false);
+  }
+  expect(onChange).not.toHaveBeenCalled();
+  fireEvent.press(view.getByLabelText('Vibe: Regal'));
+  expect(onChange).toHaveBeenCalledWith('regal');
+  dimensions.mockRestore();
 });

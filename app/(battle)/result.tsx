@@ -1,3 +1,21 @@
+import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
+import { useSheetReturnFocus } from '@/hooks/useSheetReturnFocus';
+import HPBar from '@/components/HPBar';
+import {
+  GameText as Text,
+  GameFooter,
+  GameButton,
+  GamePanel,
+  GameBevel,
+} from '@/components/game';
+import { humanOpponentId } from '@/components/BattleOpponentSafety';
+import {
+  seriesDecisionExplanation,
+  isUnratedExhibition,
+  EXHIBITION_EXPLANATION,
+} from '@/utils/battleExplanation';
+import { markBattleResultRead } from '@/utils/battleAttention';
+import { useMediaRecovery } from '@/hooks/useMediaRecovery';
 import React, {
   useCallback,
   useEffect,
@@ -7,7 +25,6 @@ import React, {
 } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -18,7 +35,7 @@ import {
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemedColors } from '@/hooks/useThemedColors';
@@ -34,7 +51,11 @@ import {
 } from '@/constants/DesignTokens';
 import { inkFor } from '@/utils/contrast';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
-import { appealBattle } from '@/utils/battles';
+import { useBattleAppeal } from '@/hooks/useBattleAppeal';
+import { BattleAppealPanel } from '@/components/BattleAppealPanel';
+import { reviewedRounds } from '@/utils/appeals';
+import TutorialCoach from '@/components/TutorialCoach';
+import { recordFunnelEvent } from '@/utils/tutorial';
 import {
   requestVideoUpgrade,
   type EntitlementCheck,
@@ -79,7 +100,7 @@ type ScorePayload = {
 
 type RatingDeltaPayload = Record<string, { delta?: unknown }> | null;
 
-/** Header offset shared with move-select / prompt-entry under the transparent header. */
+/** Header offset shared with the writing workspace under the transparent header. */
 const HEADER_OFFSET = 44;
 
 /** Statuses that carry a result the reveal can play. */
@@ -110,30 +131,96 @@ export default function ResultScreen() {
 
   useEffect(() => stopMusic(), [stopMusic]);
 
-  const { battle, videoJob, refetch, format, series_score, rounds } =
-    useRealtimeBattle(battleId || null);
+  const {
+    battle,
+    videoJob,
+    refetch,
+    format,
+    series_score,
+    rounds: originalRounds,
+  } = useRealtimeBattle(battleId || null);
   const { p1, p2 } = useBattleCharacters(battleId || null, battle);
   const { credits, loading: creditsLoading } = useCredits();
-  const [isAppealing, setIsAppealing] = useState(false);
-  const [appealSubmitted, setAppealSubmitted] = useState(false);
+  const appeal = useBattleAppeal(battleId || null, user?.id || null, refetch);
+  const rounds = reviewedRounds(
+    originalRounds,
+    battle?.resolution_metadata,
+    battle?.player_one_id || '',
+    battle?.player_two_id || null,
+  );
+  const revised = (battle?.adjudication_revision ?? 0) > 0;
+  const noContest =
+    (battle?.resolution_metadata as { status?: string } | null)?.status ===
+    'no_contest';
   const [isCheckingUpgrade, setIsCheckingUpgrade] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   /** Non-null while the cost sheet is open. */
+  const upgradeFocusRef = useRef<View>(null);
+  const battleAgainFocusRef = useRef<View>(null);
+  const {
+    remember: rememberUpgradeOpener,
+    returnFocusRef: upgradeReturnFocusRef,
+  } = useSheetReturnFocus(battleAgainFocusRef);
   const [upgradePreview, setUpgradePreview] = useState<EntitlementCheck | null>(
     null,
   );
   const [isSharing, setIsSharing] = useState(false);
-  const [captionLines, setCaptionLines] = useState<CaptionLine[]>([]);
+
   const cardRef = useRef<View>(null);
   const isBo3 = format === 'bo3';
 
-  const [signedVideoUrl, setSignedVideoUrl] = useState<string | null>(null);
   const [showReportSheet, setShowReportSheet] = useState(false);
-  const videoUrl = videoJob?.status === 'succeeded' ? signedVideoUrl : null;
+  const finalRound = [...rounds]
+    .filter((round) => round.status === 'result_ready')
+    .sort((a, b) => b.round_number - a.round_number)[0];
+  const media = useMediaRecovery<CaptionLine[]>({
+    assetKey:
+      user?.id && videoJob?.id ? `${user.id}:${battleId}:${videoJob.id}` : null,
+    enabled: videoJob?.status === 'succeeded',
+    resolveVideoUrl: async () => {
+      const signed = await invokeAuthenticatedFunction<{ signed_url: string }>(
+        'sign-battle-video',
+        { video_job_id: videoJob?.id },
+      );
+      return signed.signed_url;
+    },
+    resolveCaptions: async () => {
+      const { data: videoRow, error: videoError } = await supabase
+        .from('videos')
+        .select('id')
+        .eq('battle_id', battleId)
+        .eq('video_job_id', videoJob?.id)
+        .limit(1)
+        .maybeSingle();
+      if (videoError) throw videoError;
+      if (!videoRow) return [];
+      const { data: captions, error } = await supabase
+        .from('video_captions')
+        .select('json_payload')
+        .eq('video_id', videoRow.id)
+        .eq('locale', 'en-US')
+        .maybeSingle();
+      if (error) throw error;
+      return (
+        (captions?.json_payload as { lines?: CaptionLine[] } | null)?.lines ??
+        []
+      );
+    },
+  });
+  const { reportPlaybackError } = media;
+  const videoUrl = videoJob?.status === 'succeeded' ? media.videoUrl : null;
+  const captionLines = media.captions ?? [];
   const player = useVideoPlayer(videoUrl, (p) => {
     p.loop = false;
     p.muted = true;
   });
+
+  useEffect(() => {
+    const subscription = player.addListener('statusChange', (event) => {
+      if (event.status === 'error') reportPlaybackError(event.error);
+    });
+    return () => subscription.remove();
+  }, [player, reportPlaybackError]);
 
   // The hook fetches on mount and on (re)subscribe, but applies results only
   // `if (res.data)`, so a failed fetch leaves `battle` null with no error to
@@ -196,57 +283,14 @@ export default function ResultScreen() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-
-    if (videoJob?.status !== 'succeeded' || !battleId || !videoJob?.id) {
-      setCaptionLines([]);
-      setSignedVideoUrl(null);
-      return;
+    if (user?.id && battleId && battle && revealDone === true) {
+      void markBattleResultRead(
+        user.id,
+        battleId,
+        battle.adjudication_revision ?? 0,
+      ).catch(() => {});
     }
-
-    (async () => {
-      try {
-        const { data: videoRow, error: videoErr } = await supabase
-          .from('videos')
-          .select('id')
-          .eq('battle_id', battleId)
-          .eq('video_job_id', videoJob.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (cancelled || videoErr || !videoRow?.id) return;
-
-        const signed = await invokeAuthenticatedFunction<{
-          signed_url: string;
-        }>('sign-battle-video', { video_job_id: videoJob.id });
-        if (cancelled) return;
-        setSignedVideoUrl(signed.signed_url);
-
-        const { data: captionRow, error: captionErr } = await supabase
-          .from('video_captions')
-          .select('json_payload')
-          .eq('video_id', videoRow.id)
-          .eq('locale', 'en-US')
-          .maybeSingle();
-
-        if (cancelled || captionErr || !captionRow?.json_payload) return;
-
-        const payload = captionRow.json_payload as {
-          lines?: CaptionLine[];
-        };
-        if (Array.isArray(payload?.lines)) {
-          setCaptionLines(payload.lines);
-        }
-      } catch {
-        // Captions are nice-to-have; fail silently.
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [battleId, videoJob?.id, videoJob?.status]);
+  }, [user?.id, battleId, battle?.adjudication_revision, revealDone, battle]);
 
   // --- Everything below is from the viewer's side ---------------------------
   const myId = user?.id ?? null;
@@ -265,9 +309,19 @@ export default function ResultScreen() {
     series_score,
     isPlayerOne ? 'p1' : 'p2',
   );
-  const headline = outcome
-    ? outcomeHeadline({ format, outcome, mine, theirs })
-    : '';
+  const headline = noContest
+    ? 'No contest'
+    : outcome
+      ? outcomeHeadline({ format, outcome, mine, theirs })
+      : '';
+  const exhibition =
+    isUnratedExhibition(battle?.mode, battle?.score_payload) ||
+    (battle?.mode === 'ranked' &&
+      rounds.some((round) => round.judge_payload?.mock_assisted));
+  const decisionExplanation = seriesDecisionExplanation(
+    battle?.resolution_metadata,
+    isPlayerOne,
+  );
   const scores = (battle?.score_payload as ScorePayload) ?? null;
   const rating = ratingSummary({
     ratingDeltaPayload: (battle?.rating_delta_payload ??
@@ -290,7 +344,8 @@ export default function ResultScreen() {
     (myId ? battle?.reward_payload?.[myId] : null) ?? null;
 
   const resolved = Boolean(battle) && RESOLVED_STATUSES.has(battle!.status);
-  const showReveal = resolved && revealDone === false;
+  const showReveal =
+    resolved && revealDone === false && (!revised || replayKey > 0);
   const waitingOnSeen = resolved && revealDone === null;
 
   // The reveal's verdict beat carries the outcome haptic and announcement.
@@ -306,57 +361,21 @@ export default function ResultScreen() {
     );
   }, [battle, outcome, resolved, revealDone, headline, rating.line]);
 
-  const handleAppeal = () => {
-    if (!battleId || appealSubmitted) return;
-
-    Alert.alert(
-      'Appeal this result?',
-      'A third, independent judge re-scores the battle. You can appeal once a day.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Appeal',
-          onPress: async () => {
-            setIsAppealing(true);
-            try {
-              const result = await appealBattle(battleId as string);
-              if (result.success) {
-                setAppealSubmitted(true);
-                Alert.alert(
-                  'Appeal submitted',
-                  result.message || 'Your appeal is being reviewed.',
-                );
-              } else {
-                Alert.alert(
-                  'Couldn’t appeal',
-                  result.error ||
-                    'Unable to submit the appeal. Please try again.',
-                );
-              }
-            } catch (err) {
-              Alert.alert(
-                'Couldn’t appeal',
-                err instanceof Error ? err.message : 'Please try again.',
-              );
-            } finally {
-              setIsAppealing(false);
-            }
-          },
-        },
-      ],
-    );
-  };
-
   /**
    * Step 1 of the paid path: ask the server what the video would cost, then
    * show it. Nothing is spent until the sheet's confirm.
    */
   const handleUpgradePreview = async () => {
+    rememberUpgradeOpener(upgradeFocusRef);
     if (!battleId) return;
 
     setIsCheckingUpgrade(true);
     try {
-      const preview = await requestVideoUpgrade(battleId as string, false);
+      const preview = await requestVideoUpgrade(
+        battleId as string,
+        false,
+        finalRound?.id,
+      );
 
       if (preview.can_upgrade) {
         setUpgradePreview(
@@ -399,7 +418,11 @@ export default function ResultScreen() {
 
     setIsUpgrading(true);
     try {
-      const result = await requestVideoUpgrade(battleId as string, true);
+      const result = await requestVideoUpgrade(
+        battleId as string,
+        true,
+        finalRound?.id,
+      );
       if (result.success || result.already_requested) {
         setUpgradePreview(null);
         AccessibilityInfo.announceForAccessibility(
@@ -430,6 +453,7 @@ export default function ResultScreen() {
   };
 
   const handleShareCard = async () => {
+    if (noContest) return;
     setIsSharing(true);
     try {
       const shared = await shareResultCard(cardRef);
@@ -447,6 +471,7 @@ export default function ResultScreen() {
   };
 
   const handleShareVideo = async () => {
+    if (revised) return;
     if (!videoUrl) return;
     setIsSharing(true);
     try {
@@ -464,7 +489,7 @@ export default function ResultScreen() {
     }
   };
 
-  const goHome = () => router.replace('/(tabs)/home');
+  const goHome = () => router.dismissTo('/(tabs)/home');
 
   if (!battle || !outcome || waitingOnSeen) {
     return (
@@ -481,19 +506,20 @@ export default function ResultScreen() {
         <Stack.Screen options={HEADER_OPTIONS} />
         {loadTimedOut && !battle ? (
           <View style={styles.errorState} accessibilityLiveRegion="polite">
-            <Ionicons
+            <GameSymbol
               name="alert-circle-outline"
               size={40}
               color={colors.error}
               accessibilityElementsHidden
               importantForAccessibility="no"
             />
-            <Text
-              style={[styles.errorTitle, { color: colors.text }]}
+            <GameDisplayTitle
+              uppercase={false}
+              style={[styles.errorTitle]}
               accessibilityRole="header"
             >
               Couldn’t load your result
-            </Text>
+            </GameDisplayTitle>
             <Text style={[styles.errorBody, { color: colors.textSecondary }]}>
               Check your connection and try again.
             </Text>
@@ -538,17 +564,39 @@ export default function ResultScreen() {
     return (
       <>
         <Stack.Screen options={HEADER_OPTIONS} />
+        {revised ? (
+          <Text
+            style={{
+              color: colors.warning,
+              backgroundColor: colors.background,
+              paddingTop: insets.top,
+              paddingHorizontal: 16,
+            }}
+          >
+            Original cinematic — this predates independent review.
+          </Text>
+        ) : null}
         <RevealSequence
           key={replayKey}
           model={model}
           format={format}
-          outcome={outcome}
+          outcome={
+            revised
+              ? battleOutcomeFor({
+                  winnerId: model.winnerProfileId,
+                  isDraw: model.isDraw,
+                  myProfileId: myId,
+                })
+              : outcome
+          }
           mine={mine}
           theirs={theirs}
           isBot={isBot}
           mode={battle.mode}
           myProfileId={myId}
           portraits={{
+            meCosmetics: me?.cosmetics,
+            themCosmetics: them?.cosmetics,
             meFighterUrl: me?.fighterUrl ?? null,
             meAvatarUrl: me?.portraitUrl ?? null,
             themFighterUrl: them?.fighterUrl ?? null,
@@ -564,10 +612,9 @@ export default function ResultScreen() {
   }
 
   // --- The summary ------------------------------------------------------------
-  // Needed so the report sheet can offer "also block": report-intake only
+  // Pass a human opponent so the safety sheet can offer an independent block; report-intake only
   // derives the target itself for reported_type 'profile'.
-  const opponentProfileId =
-    (isPlayerOne ? battle.player_two_id : battle.player_one_id) ?? undefined;
+  const opponentProfileId = humanOpponentId(battle, myId);
   const matchup = scores?.move_type_matchup ?? null;
   const myMove = matchup
     ? isPlayerOne
@@ -598,20 +645,17 @@ export default function ResultScreen() {
   // Only reached without a playable url; once one is signed the player card
   // takes over and this card goes away.
   const statusCopy =
-    videoJob && !videoUrl
+    videoJob && !videoUrl && !media.playbackError
       ? videoStatusCopy({ status: videoJob.status, hasUrl: false })
       : null;
   const sheet = upgradePreview
     ? upgradeSheetCopy(upgradePreview, creditsLoading ? null : credits)
     : null;
 
-  const winnerSide: 'me' | 'them' | null = isDraw
-    ? null
-    : isWinner
-      ? 'me'
-      : 'them';
+  const winnerSide: 'me' | 'them' | null =
+    isDraw || noContest ? null : isWinner ? 'me' : 'them';
   const accentColor =
-    model.winnerColor ??
+    (revised ? null : model.winnerColor) ??
     (winnerSide === 'me'
       ? (me?.signatureColor ?? model.me.signatureColor)
       : winnerSide === 'them'
@@ -627,10 +671,16 @@ export default function ResultScreen() {
           styles.content,
           {
             paddingTop: insets.top + HEADER_OFFSET,
-            paddingBottom: insets.bottom + Spacing.xl,
+            paddingBottom: Spacing.xl,
           },
         ]}
       >
+        {revised ? (
+          <Text style={{ color: colors.warning, paddingVertical: 12 }}>
+            The cinematic shows the original verdict before independent review.
+            The current result is shown below.
+          </Text>
+        ) : null}
         <View style={styles.replayRow}>
           <TouchableOpacity
             style={styles.replayButton}
@@ -639,7 +689,7 @@ export default function ResultScreen() {
             accessibilityLabel="Replay reveal"
             hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}
           >
-            <Ionicons
+            <GameSymbol
               name="play-outline"
               size={16}
               color={colors.textSecondary}
@@ -650,6 +700,14 @@ export default function ResultScreen() {
           </TouchableOpacity>
         </View>
 
+        {exhibition ? (
+          <Text
+            accessibilityRole="text"
+            style={{ color: colors.warning, paddingVertical: 12 }}
+          >
+            {EXHIBITION_EXPLANATION}
+          </Text>
+        ) : null}
         {/* Shareable scorecard region (captured by react-native-view-shot) */}
         <View
           ref={cardRef}
@@ -664,9 +722,16 @@ export default function ResultScreen() {
             }
           >
             <ResultShareCard
+              adjudicationRevision={battle.adjudication_revision ?? 0}
               headline={headline}
-              outcome={outcome}
-              isKo={model.isKo}
+              outcome={noContest ? 'draw' : outcome}
+              isKo={
+                noContest
+                  ? false
+                  : revised
+                    ? rounds.some((r) => r.is_ko)
+                    : model.isKo
+              }
               scoreLine={isBo3 ? `${mine}–${theirs}` : null}
               me={{
                 name: model.me.name,
@@ -680,12 +745,71 @@ export default function ResultScreen() {
               }}
               winnerSide={winnerSide}
               theme={battle.theme}
-              ratingLine={rating.line}
+              ratingLine={
+                noContest ||
+                (battle.resolution_metadata as { status?: string } | null)
+                  ?.status === 'overturned'
+                  ? 'Original rating points reversed. No replacement rating.'
+                  : rating.line
+              }
               accentColor={accentColor}
             />
           </Animated.View>
         </View>
         {/* End shareable scorecard region */}
+        {isBo3 &&
+        !noContest &&
+        finalRound?.player_one_hp_after != null &&
+        finalRound.player_two_hp_after != null ? (
+          <GamePanel
+            tone="ornate"
+            style={{ marginBottom: Spacing.md, gap: 12 }}
+          >
+            <Text variant="title" accessibilityRole="header">
+              Final HP
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
+              <View style={{ flex: 1, minWidth: 120 }}>
+                <HPBar
+                  current={
+                    isPlayerOne
+                      ? finalRound.player_one_hp_after
+                      : finalRound.player_two_hp_after
+                  }
+                  max={
+                    (isPlayerOne
+                      ? battle.player_one_hp_max
+                      : battle.player_two_hp_max) ?? 100
+                  }
+                  side="left"
+                  playerName={model.me.name}
+                />
+              </View>
+              <View style={{ flex: 1, minWidth: 120 }}>
+                <HPBar
+                  current={
+                    isPlayerOne
+                      ? finalRound.player_two_hp_after
+                      : finalRound.player_one_hp_after
+                  }
+                  max={
+                    (isPlayerOne
+                      ? battle.player_two_hp_max
+                      : battle.player_one_hp_max) ?? 100
+                  }
+                  side="right"
+                  playerName={model.them.name}
+                />
+              </View>
+            </View>
+          </GamePanel>
+        ) : null}
+
+        {decisionExplanation ? (
+          <Text style={{ color: colors.textSecondary, paddingVertical: 12 }}>
+            {decisionExplanation}
+          </Text>
+        ) : null}
 
         {isBo3 ? (
           <Animated.View
@@ -696,7 +820,9 @@ export default function ResultScreen() {
                 : FadeInDown.duration(Motion.durations.base).delay(120)
             }
           >
+            <GameBevel color={colors.ornamentMuted} />
             <Text
+              variant="title"
               style={[styles.cardTitle, { color: colors.text }]}
               accessibilityRole="header"
             >
@@ -758,6 +884,7 @@ export default function ResultScreen() {
               }`}
             >
               <Text
+                variant="title"
                 style={[styles.cardTitle, { color: colors.text }]}
                 accessibilityRole="header"
               >
@@ -824,7 +951,9 @@ export default function ResultScreen() {
                 : FadeInDown.duration(Motion.durations.base).delay(180)
             }
           >
+            <GameBevel color={colors.ornamentMuted} />
             <Text
+              variant="title"
               style={[styles.cardTitle, { color: colors.text }]}
               accessibilityRole="header"
             >
@@ -847,21 +976,37 @@ export default function ResultScreen() {
           </Animated.View>
         ) : null}
 
+        <TutorialCoach battleId={battleId} stage="result" />
+
         {/* Share actions */}
         <TouchableOpacity
           style={[styles.shareButton, { backgroundColor: colors.primary }]}
           onPress={handleShareCard}
-          disabled={isSharing}
+          disabled={isSharing || noContest}
           accessibilityLabel="Share result card image"
           accessibilityRole="button"
-          accessibilityState={{ disabled: isSharing, busy: isSharing }}
+          accessibilityState={{
+            disabled: isSharing || noContest,
+            busy: isSharing,
+          }}
         >
           {isSharing ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={inkFor(colors.primary)} />
           ) : (
             <View style={styles.buttonRow}>
-              <Ionicons name="share-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.shareButtonText}>Share result card</Text>
+              <GameSymbol
+                name="share-outline"
+                size={18}
+                color={inkFor(colors.primary)}
+              />
+              <Text
+                style={[
+                  styles.shareButtonText,
+                  { color: inkFor(colors.primary) },
+                ]}
+              >
+                Share result card
+              </Text>
             </View>
           )}
         </TouchableOpacity>
@@ -870,26 +1015,53 @@ export default function ResultScreen() {
           <TouchableOpacity
             style={[styles.shareVideoButton, { borderColor: colors.primary }]}
             onPress={handleShareVideo}
-            disabled={isSharing}
+            disabled={isSharing || revised}
             accessibilityLabel="Share cinematic video"
             accessibilityRole="button"
-            accessibilityState={{ disabled: isSharing }}
+            accessibilityState={{ disabled: isSharing || revised }}
           >
             <View style={styles.buttonRow}>
-              <Ionicons name="film-outline" size={18} color={colors.primary} />
+              <GameSymbol
+                name="film-outline"
+                size={18}
+                color={colors.primary}
+              />
               <Text
                 style={[styles.shareVideoButtonText, { color: colors.primary }]}
               >
-                Share cinematic video
+                {revised
+                  ? 'Original cinematic — sharing unavailable'
+                  : 'Share cinematic video'}
               </Text>
             </View>
           </TouchableOpacity>
         ) : null}
 
         {/* Cinematic video: player, status, or the offer. */}
+        {media.playbackError || media.captionError ? (
+          <View style={{ paddingVertical: 16, gap: 8 }}>
+            <Text style={{ color: colors.textSecondary }}>
+              {media.playbackError
+                ? 'Your cinematic is generated, but playback is unavailable.'
+                : 'Captions could not be loaded. Video is still available.'}
+            </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => void media.retry()}
+              style={{ minHeight: 48, justifyContent: 'center' }}
+            >
+              <Text style={{ color: colors.primary }}>
+                Retry loading media · free
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         {videoUrl ? (
           <View style={styles.videoCard}>
-            <Text style={[styles.videoCardTitle, { color: colors.text }]}>
+            <Text
+              variant="title"
+              style={[styles.videoCardTitle, { color: colors.text }]}
+            >
               Cinematic video
             </Text>
             <VideoView
@@ -931,12 +1103,20 @@ export default function ResultScreen() {
             accessibilityLiveRegion="polite"
             accessibilityLabel={`${statusCopy.title}. ${statusCopy.body}`}
           >
-            <Text style={[styles.cardTitle, { color: colors.text }]}>
+            <GameBevel color={colors.ornamentMuted} />
+            <Text
+              variant="title"
+              style={[styles.cardTitle, { color: colors.text }]}
+            >
               {statusCopy.title}
             </Text>
             <View style={styles.statusRow}>
               {statusCopy.tone === 'error' ? (
-                <Ionicons name="close-circle" size={16} color={colors.error} />
+                <GameSymbol
+                  name="close-circle"
+                  size={16}
+                  color={colors.error}
+                />
               ) : (
                 <ActivityIndicator size="small" color={colors.textSecondary} />
               )}
@@ -950,6 +1130,7 @@ export default function ResultScreen() {
         {offerUpgrade ? (
           <TouchableOpacity
             style={[styles.upgradeButton, { backgroundColor: colors.primary }]}
+            ref={upgradeFocusRef}
             onPress={handleUpgradePreview}
             disabled={isCheckingUpgrade}
             accessibilityLabel="Get the cinematic video. Shows the cost before anything is spent."
@@ -960,18 +1141,32 @@ export default function ResultScreen() {
             }}
           >
             {isCheckingUpgrade ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={inkFor(colors.primary)} />
             ) : (
               <>
                 <View style={styles.buttonRow}>
-                  <Ionicons name="film-outline" size={20} color="#FFFFFF" />
-                  <Text style={styles.upgradeButtonText}>
+                  <GameSymbol
+                    name="film-outline"
+                    size={20}
+                    color={inkFor(colors.primary)}
+                  />
+                  <Text
+                    style={[
+                      styles.upgradeButtonText,
+                      { color: inkFor(colors.primary) },
+                    ]}
+                  >
                     {videoJob?.status === 'failed'
                       ? 'Try the video again'
                       : 'Get the cinematic video'}
                   </Text>
                 </View>
-                <Text style={styles.upgradeButtonSubtext}>
+                <Text
+                  style={[
+                    styles.upgradeButtonSubtext,
+                    { color: inkFor(colors.primary) },
+                  ]}
+                >
                   See the cost before you commit
                 </Text>
               </>
@@ -979,115 +1174,67 @@ export default function ResultScreen() {
           </TouchableOpacity>
         ) : null}
 
-        {/* Appeal */}
-        {canAppeal ? (
-          <TouchableOpacity
-            style={[
-              styles.appealButton,
-              {
-                backgroundColor: appealSubmitted
-                  ? colors.backgroundTertiary
-                  : colors.warning,
-              },
-            ]}
-            onPress={handleAppeal}
-            disabled={isAppealing || appealSubmitted}
-            accessibilityLabel={
-              appealSubmitted ? 'Appeal submitted' : 'Appeal this result'
-            }
-            accessibilityRole="button"
-            accessibilityState={{
-              disabled: isAppealing || appealSubmitted,
-              busy: isAppealing,
-            }}
-          >
-            {isAppealing ? (
-              <ActivityIndicator color={inkFor(colors.warning)} />
-            ) : (
-              <View style={styles.buttonRow}>
-                <MaterialCommunityIcons
-                  name={appealSubmitted ? 'check' : 'scale-balance'}
-                  size={18}
-                  color={
-                    appealSubmitted
-                      ? colors.textSecondary
-                      : inkFor(colors.warning)
-                  }
-                />
-                <Text
-                  style={[
-                    styles.appealButtonText,
-                    {
-                      color: appealSubmitted
-                        ? colors.textSecondary
-                        : inkFor(colors.warning),
-                    },
-                  ]}
-                >
-                  {appealSubmitted ? 'Appeal submitted' : 'Appeal result'}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+        {canAppeal || appeal.data?.appeal ? (
+          <BattleAppealPanel review={appeal} />
         ) : null}
-
-        {/* Actions. Both replace: this screen was itself reached by a replace,
-            so there is nothing sensible for a back gesture to return to. */}
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              { backgroundColor: colors.backgroundTertiary },
-            ]}
-            onPress={goHome}
-            accessibilityLabel="Back to Arena"
-            accessibilityRole="button"
-          >
-            <Text style={[styles.actionButtonText, { color: colors.text }]}>
-              Back to Arena
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: colors.primary }]}
-            onPress={() => router.replace('/(tabs)/create')}
-            accessibilityLabel="Battle again"
-            accessibilityRole="button"
-          >
-            <Text style={styles.actionButtonTextWhite}>Battle Again</Text>
-          </TouchableOpacity>
-        </View>
 
         <TouchableOpacity
           style={styles.reportLink}
           onPress={handleReport}
-          accessibilityLabel="Report this battle"
+          accessibilityLabel={
+            opponentProfileId
+              ? 'Report this battle or block opponent'
+              : 'Report this battle'
+          }
           accessibilityRole="button"
           hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
         >
           <Text
             style={[styles.reportLinkText, { color: colors.textSecondary }]}
           >
-            Report this battle
+            {opponentProfileId ? 'Report / Block' : 'Report this battle'}
           </Text>
         </TouchableOpacity>
       </ScrollView>
+      <GameFooter style={{ paddingBottom: insets.bottom + Spacing.sm }}>
+        <View style={styles.actionsRow}>
+          <GameButton
+            style={{ flex: 1 }}
+            tone="secondary"
+            label="Back to Arena"
+            onPress={goHome}
+          />
+          <GameButton
+            style={{ flex: 1 }}
+            ref={battleAgainFocusRef}
+            label="Battle Again"
+            accessibilityLabel="Battle again"
+            onPress={() => {
+              void recordFunnelEvent('result_next_battle', battleId);
+              router.replace('/create');
+            }}
+          />
+        </View>
+      </GameFooter>
 
-      {sheet ? (
-        <ConfirmSheet
-          visible
-          title={sheet.title}
-          subtitle={sheet.subtitle}
-          lines={sheet.lines}
-          rows={sheet.rows}
-          confirmLabel={sheet.confirmLabel}
-          busy={isUpgrading}
-          onConfirm={handleUpgradeConfirm}
-          onCancel={() => {
-            if (!isUpgrading) setUpgradePreview(null);
-          }}
-        />
-      ) : null}
+      <ConfirmSheet
+        visible={sheet !== null}
+        returnFocusRef={upgradeReturnFocusRef}
+        title={sheet?.title ?? ''}
+        subtitle={
+          finalRound
+            ? `Cinematic for round ${finalRound.round_number}. ${sheet?.subtitle ?? ''}`
+            : sheet?.subtitle
+        }
+        lines={sheet?.lines}
+        rows={sheet?.rows}
+        confirmLabel={sheet?.confirmLabel ?? 'Confirm'}
+        busy={isUpgrading}
+        onConfirm={handleUpgradeConfirm}
+        onCancel={() => {
+          if (!isUpgrading) setUpgradePreview(null);
+        }}
+      />
 
       <ReportBlockSheet
         visible={showReportSheet}
@@ -1121,7 +1268,6 @@ const styles = StyleSheet.create({
   },
   errorTitle: {
     fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.bold,
     textAlign: 'center',
   },
   errorBody: {
@@ -1134,6 +1280,7 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: Spacing.sm,
   },
@@ -1148,7 +1295,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   replayButton: {
-    minHeight: 44,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
@@ -1159,13 +1306,13 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.semibold,
   },
   card: {
+    borderRadius: 0,
     padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
+
     marginBottom: Spacing.md,
   },
   cardTitle: {
     fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.semibold,
     marginBottom: Spacing.sm,
   },
   cardText: {
@@ -1193,7 +1340,6 @@ const styles = StyleSheet.create({
   },
   videoCardTitle: {
     fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.semibold,
     padding: Spacing.md,
   },
   captionsContainer: {
@@ -1215,13 +1361,12 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   upgradeButtonText: {
-    color: '#FFFFFF',
+    flexShrink: 1,
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
     marginBottom: Spacing.xs,
   },
   upgradeButtonSubtext: {
-    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: Typography.sizes.sm,
   },
   appealButton: {
@@ -1249,7 +1394,7 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.semibold,
   },
   rewardDetail: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
   },
   rewardValue: {
     fontSize: Typography.sizes.base,
@@ -1272,7 +1417,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   shareButtonText: {
-    color: '#FFFFFF',
+    flexShrink: 1,
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
   },
@@ -1290,6 +1435,7 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.semibold,
   },
   actionsRow: {
+    flexWrap: 'wrap',
     flexDirection: 'row',
     gap: Spacing.md,
   },
@@ -1307,13 +1453,12 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.semibold,
   },
   actionButtonTextWhite: {
-    color: '#FFFFFF',
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
   },
   reportLink: {
     alignSelf: 'center',
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: 'center',
     marginTop: Spacing.md,
   },
@@ -1373,7 +1518,7 @@ function RoundMiniCard({
         : view.outcome === 'draw'
           ? colors.warning
           : colors.textTertiary;
-  const icon: React.ComponentProps<typeof Ionicons>['name'] =
+  const icon: React.ComponentProps<typeof GameSymbol>['name'] =
     view.outcome === 'won'
       ? 'checkmark'
       : view.outcome === 'lost'
@@ -1393,7 +1538,7 @@ function RoundMiniCard({
       accessibilityLabel={`${title}. ${view.hpLine}`}
     >
       <View style={[styles.miniBadge, { backgroundColor: tone }]}>
-        <Ionicons name={icon} size={18} color={inkFor(tone)} />
+        <GameSymbol name={icon} size={18} color={inkFor(tone)} />
       </View>
       <View style={styles.miniBody}>
         <Text

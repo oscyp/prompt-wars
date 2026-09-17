@@ -1,0 +1,342 @@
+{
+  "projectRef": "uoyjhudegdpanrgllfoj",
+  "recordedAt": "2026-09-14T15:04:56.210Z",
+  "functions": [
+    {
+      "name": "expire-battles",
+      "status": "ACTIVE",
+      "previousVersion": 19,
+      "version": 20,
+      "verifyJwt": true,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "moderate-prompt",
+      "status": "ACTIVE",
+      "previousVersion": 15,
+      "version": 16,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "account-farm-guard",
+      "status": "ACTIVE",
+      "previousVersion": 14,
+      "version": 15,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "matchmaking",
+      "status": "ACTIVE",
+      "previousVersion": 22,
+      "version": 23,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "report-intake",
+      "status": "ACTIVE",
+      "previousVersion": 14,
+      "version": 15,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "revenuecat-webhook",
+      "status": "ACTIVE",
+      "previousVersion": 20,
+      "version": 21,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "run-judge-calibration",
+      "status": "ACTIVE",
+      "previousVersion": 15,
+      "version": 16,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "block-profile",
+      "status": "ACTIVE",
+      "previousVersion": 14,
+      "version": 15,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "grant-credits",
+      "status": "ACTIVE",
+      "previousVersion": 14,
+      "version": 15,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "process-video-job",
+      "status": "ACTIVE",
+      "previousVersion": 21,
+      "version": 22,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "submit-prompt",
+      "status": "ACTIVE",
+      "previousVersion": 25,
+      "version": 26,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "unblock-profile",
+      "status": "ACTIVE",
+      "previousVersion": 14,
+      "version": 15,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "appeal-battle",
+      "status": "ACTIVE",
+      "previousVersion": 14,
+      "version": 15,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "generate-tier0-reveal",
+      "status": "ACTIVE",
+      "previousVersion": 17,
+      "version": 18,
+      "verifyJwt": true,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "moderate-video",
+      "status": "ACTIVE",
+      "previousVersion": 15,
+      "version": 16,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "request-video-upgrade",
+      "status": "ACTIVE",
+      "previousVersion": 17,
+      "version": 18,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "resolve-appeal",
+      "status": "ACTIVE",
+      "previousVersion": 15,
+      "version": 16,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "resolve-battle",
+      "status": "ACTIVE",
+      "previousVersion": 31,
+      "version": 32,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "edit-character",
+      "status": "ACTIVE",
+      "previousVersion": 17,
+      "version": 18,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "create-custom-signature-item",
+      "status": "ACTIVE",
+      "previousVersion": 17,
+      "version": 18,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "list-signature-items-catalog",
+      "status": "ACTIVE",
+      "previousVersion": 12,
+      "version": 13,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "regenerate-portrait",
+      "status": "ACTIVE",
+      "previousVersion": 19,
+      "version": 20,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "generate-portrait",
+      "status": "ACTIVE",
+      "previousVersion": 20,
+      "version": 21,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "dev-generate-video",
+      "status": "ACTIVE",
+      "previousVersion": 11,
+      "version": 12,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "finalize-character-creation",
+      "status": "ACTIVE",
+      "previousVersion": 13,
+      "version": 14,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "leave-battle",
+      "status": "ACTIVE",
+      "previousVersion": 9,
+      "version": 10,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "send-push",
+      "status": "ACTIVE",
+      "previousVersion": 7,
+      "version": 8,
+      "verifyJwt": true,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "daily-meta",
+      "status": "ACTIVE",
+      "previousVersion": 7,
+      "version": 8,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "first-time-offer",
+      "status": "ACTIVE",
+      "previousVersion": 7,
+      "version": 8,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "cosmetics",
+      "status": "ACTIVE",
+      "previousVersion": 8,
+      "version": 9,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "battle-advance",
+      "status": "ACTIVE",
+      "previousVersion": 14,
+      "version": 15,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "sign-battle-portraits",
+      "status": "ACTIVE",
+      "previousVersion": 13,
+      "version": 14,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "round-resolve",
+      "status": "ACTIVE",
+      "previousVersion": 16,
+      "version": 17,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "sign-battle-video",
+      "status": "ACTIVE",
+      "previousVersion": 8,
+      "version": 9,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "delete-account",
+      "status": "ACTIVE",
+      "previousVersion": 6,
+      "version": 7,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "moderation-queue",
+      "status": "ACTIVE",
+      "previousVersion": 6,
+      "version": 7,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "generate-move-suggestions",
+      "status": "ACTIVE",
+      "previousVersion": 4,
+      "version": 5,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "restore-portrait",
+      "status": "ACTIVE",
+      "previousVersion": 3,
+      "version": 4,
+      "verifyJwt": true,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "record-funnel-event",
+      "status": "ACTIVE",
+      "previousVersion": null,
+      "version": 1,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "respec-character",
+      "status": "ACTIVE",
+      "previousVersion": null,
+      "version": 1,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "tutorial",
+      "status": "ACTIVE",
+      "previousVersion": null,
+      "version": 1,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    },
+    {
+      "name": "starter-fighter",
+      "status": "ACTIVE",
+      "previousVersion": null,
+      "version": 1,
+      "verifyJwt": false,
+      "updatedAt": "2026-09-14T14:41:50.316Z"
+    }
+  ]
+}

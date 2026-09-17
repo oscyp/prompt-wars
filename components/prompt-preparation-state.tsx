@@ -1,21 +1,11 @@
+import { GameText as Text, GameButton, GamePanel } from '@/components/game';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import Animated, {
-  FadeIn,
-  cancelAnimation,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import { StyleSheet, View } from 'react-native';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { useReducedMotion } from '@/hooks/useReducedMotion';
 import {
   BorderRadius,
   Layout,
-  Motion,
   Spacing,
   Typography,
 } from '@/constants/DesignTokens';
@@ -47,10 +37,8 @@ export default function PromptPreparationState({
   onWriteOwn,
 }: PromptPreparationStateProps) {
   const colors = useThemedColors();
-  const reduceMotion = useReducedMotion();
   const [visible, setVisible] = useState(generating);
   const [slow, setSlow] = useState(false);
-  const pulseValue = useSharedValue(1);
 
   useEffect(() => {
     if (generating) {
@@ -71,27 +59,6 @@ export default function PromptPreparationState({
     return () => clearTimeout(timer);
   }, [generating]);
 
-  useEffect(() => {
-    if (reduceMotion) {
-      cancelAnimation(pulseValue);
-      pulseValue.value = 1;
-      return;
-    }
-    pulseValue.value = withRepeat(
-      withSequence(
-        withTiming(0.45, { duration: 650 }),
-        withTiming(1, { duration: 650 }),
-      ),
-      -1,
-      false,
-    );
-    return () => cancelAnimation(pulseValue);
-  }, [pulseValue, reduceMotion]);
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    opacity: pulseValue.value,
-  }));
-
   if (!visible) {
     return <View testID="prompt-preparation-grace" />;
   }
@@ -101,10 +68,7 @@ export default function PromptPreparationState({
     : 'Loading prompt ideas already prepared for this move';
 
   return (
-    <Animated.View
-      entering={
-        reduceMotion ? undefined : FadeIn.duration(Motion.durations.base)
-      }
+    <GamePanel
       style={[
         styles.card,
         { backgroundColor: colors.card, borderColor: colors.border },
@@ -121,9 +85,9 @@ export default function PromptPreparationState({
         <View
           style={[styles.icon, { backgroundColor: colors.backgroundTertiary }]}
         >
-          <Ionicons name="sparkles" size={24} color={colors.primary} />
+          <GameSymbol name="sparkles" size={24} color={colors.primary} />
         </View>
-        <Text style={[styles.title, { color: colors.text }]}>
+        <Text variant="title" style={[styles.title, { color: colors.text }]}>
           {generating ? 'Preparing your ideas' : 'Loading your ideas'}
         </Text>
         <Text style={[styles.detail, { color: colors.textSecondary }]}>
@@ -144,8 +108,8 @@ export default function PromptPreparationState({
         </Text>
       </View>
 
-      <Animated.View
-        style={[styles.ideaPreview, pulseStyle]}
+      <View
+        style={styles.ideaPreview}
         pointerEvents="none"
         importantForAccessibility="no-hide-descendants"
       >
@@ -159,21 +123,17 @@ export default function PromptPreparationState({
             testID="prompt-preparation-line"
           />
         ))}
-      </Animated.View>
+      </View>
 
-      <TouchableOpacity
-        style={[styles.writeButton, { borderColor: colors.border }]}
+      <GameButton
+        tone="secondary"
+        label="Write your own now"
+        icon="create-outline"
         onPress={onWriteOwn}
         accessibilityLabel="Write your own prompt now"
         accessibilityHint="Starts the prompt editor while ideas continue preparing"
-        accessibilityRole="button"
-      >
-        <Ionicons name="create-outline" size={17} color={colors.primary} />
-        <Text style={[styles.writeButtonText, { color: colors.primary }]}>
-          Write your own now
-        </Text>
-      </TouchableOpacity>
-    </Animated.View>
+      />
+    </GamePanel>
   );
 }
 

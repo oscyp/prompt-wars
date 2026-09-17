@@ -1,13 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-} from 'react-native';
+import { GameButton } from '@/components/game';
+import { GameField } from '@/components/game';
+import { GameText } from '@/components/game';
+
+import { useEffect, useState } from 'react';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import type { ItemClass } from '@/constants/CharacterTraits';
@@ -65,6 +61,8 @@ export default function CustomItemSheet({
 }: CustomItemSheetProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
+  const { fontScale } = useWindowDimensions();
+  const largeText = fontScale >= 1.3;
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -103,13 +101,25 @@ export default function CustomItemSheet({
       title="Create a signature item"
       keyboardAvoiding
       showCloseButton
+      footer={
+        <GameButton
+          onPress={onPress}
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={copy.accessibilityLabel}
+          accessibilityState={{ disabled, busy }}
+          style={[
+            s.primaryBtn,
+            { backgroundColor: colors.primary },
+            disabled && s.btnDisabled,
+          ]}
+          label={copy.label}
+          busy={busy}
+        />
+      }
     >
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.body}
-        showsVerticalScrollIndicator={false}
-      >
-        <TextInput
+      <View style={styles.body}>
+        <GameField
           value={name}
           onChangeText={setName}
           placeholder="Item name"
@@ -121,7 +131,7 @@ export default function CustomItemSheet({
           ]}
           accessibilityLabel="Custom item name"
         />
-        <TextInput
+        <GameField
           value={description}
           onChangeText={setDescription}
           placeholder="Description"
@@ -135,9 +145,12 @@ export default function CustomItemSheet({
           ]}
           accessibilityLabel="Custom item description"
         />
-        <Text style={[s.counter, { color: colors.textTertiary }]}>
+        <GameText
+          variant="caption"
+          style={[s.counter, { color: colors.textTertiary }]}
+        >
           {`${description.length}/${DESC_MAX}`}
-        </Text>
+        </GameText>
 
         <OptionGrid
           title="Class"
@@ -158,8 +171,12 @@ export default function CustomItemSheet({
           ]}
         >
           {rows.map((row) => (
-            <View key={row.label} style={styles.row}>
-              <Text
+            <View
+              key={row.label}
+              style={[styles.row, largeText && styles.stackedRow]}
+            >
+              <GameText
+                variant="label"
                 style={[
                   styles.rowLabel,
                   accessibleText,
@@ -167,8 +184,9 @@ export default function CustomItemSheet({
                 ]}
               >
                 {row.label}
-              </Text>
-              <Text
+              </GameText>
+              <GameText
+                variant="body"
                 style={[
                   styles.rowValue,
                   accessibleText,
@@ -177,34 +195,20 @@ export default function CustomItemSheet({
                 ]}
               >
                 {row.value}
-              </Text>
+              </GameText>
             </View>
           ))}
         </View>
-        <Text style={[s.hint, accessibleText, { color: colors.textTertiary }]}>
-          Includes a generated icon.
-        </Text>
-
-        <TouchableOpacity
-          onPress={onPress}
-          disabled={disabled}
-          accessibilityRole="button"
-          accessibilityLabel={copy.accessibilityLabel}
-          accessibilityState={{ disabled, busy }}
-          style={[
-            s.primaryBtn,
-            { backgroundColor: colors.primary },
-            disabled && s.btnDisabled,
-          ]}
+        <GameText
+          variant="caption"
+          style={[s.hint, accessibleText, { color: colors.textTertiary }]}
         >
-          {busy ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={s.primaryBtnText}>{copy.label}</Text>
-          )}
-        </TouchableOpacity>
+          Includes a generated icon.
+        </GameText>
+
         {copy.caption ? (
-          <Text
+          <GameText
+            variant="caption"
             style={[
               styles.caption,
               accessibleText,
@@ -217,9 +221,9 @@ export default function CustomItemSheet({
             ]}
           >
             {copy.caption}
-          </Text>
+          </GameText>
         ) : null}
-      </ScrollView>
+      </View>
     </BottomSheet>
   );
 }
@@ -243,6 +247,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 24,
   },
+  stackedRow: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: Spacing.xs,
+  },
   rowLabel: { fontSize: Typography.sizes.sm },
   rowValue: {
     fontSize: Typography.sizes.sm,
@@ -250,7 +259,7 @@ const styles = StyleSheet.create({
   },
   caption: {
     marginTop: -Spacing.xs,
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     textAlign: 'center',
   },
 });

@@ -1,0 +1,11 @@
+{
+  "recordedAt": "2026-09-14T15:45:14.352Z",
+  "version": "1.2.0",
+  "archiveFileCount": 319,
+  "totalBytes": 18458896,
+  "sourceTreeSha256": "15977506f99eaec674e3f92535983030583492823fb0d847df7401bf0373f0c8",
+  "gitHistoryAbsent": true,
+  "excludedFiles": [],
+  "unexpectedCredentialFiles": [],
+  "knownSecretPatternMatches": []
+}

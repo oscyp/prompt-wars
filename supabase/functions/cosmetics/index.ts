@@ -10,24 +10,32 @@ import {
   successResponse,
   getAuthUserId,
 } from '../_shared/utils.ts';
-import { RENDERABLE_TYPES } from './renderable-types.ts';
+import {
+  availableToClient,
+  catalogFromReads,
+  contractVersion,
+  equipPolicy,
+  purchaseResponse,
+} from './policy.ts';
 
 interface CosmeticsRequest {
   action?: 'list' | 'purchase' | 'equip' | 'sync';
   cosmetic_slug?: string;
   cosmetic_type?: string;
   character_id?: string;
+  client_contract_version?: number;
 }
 
 async function listCatalog(
   supabase: ReturnType<typeof createServiceClient>,
   userId: string,
+  version: number,
 ) {
-  const [{ data: catalog }, { data: owned }] = await Promise.all([
+  const [catalog, owned] = await Promise.all([
     supabase
       .from('cosmetics_catalog')
       .select(
-        'id, slug, name, description, cosmetic_type, rarity, acquisition, price_credits, min_subscription_tier, unlock_rule, value, preview_asset_path, sort_order',
+        'id, slug, name, description, cosmetic_type, rarity, acquisition, price_credits, min_subscription_tier, unlock_rule, value, preview_asset_path, sort_order, min_client_contract_version',
       )
       .eq('is_active', true)
       .order('sort_order', { ascending: true }),
@@ -37,14 +45,7 @@ async function listCatalog(
       .eq('profile_id', userId),
   ]);
 
-  const ownedIds = new Set((owned ?? []).map((r) => r.cosmetic_id));
-
-  const items = (catalog ?? []).map((c) => ({
-    ...c,
-    owned: ownedIds.has(c.id),
-  }));
-
-  return { items, owned_count: ownedIds.size };
+  return catalogFromReads(catalog, owned, version);
 }
 
 Deno.serve(async (req) => {
@@ -56,6 +57,7 @@ Deno.serve(async (req) => {
     const userId = await getAuthUserId(req);
     const body: CosmeticsRequest = await req.json().catch(() => ({}));
     const action = body.action ?? 'list';
+    const version = contractVersion(body.client_contract_version);
     const supabase = createServiceClient();
 
     if (action === 'purchase') {
@@ -63,47 +65,49 @@ Deno.serve(async (req) => {
         return errorResponse('cosmetic_slug required');
       }
 
-      // Refuse to sell anything the game cannot yet display.
-      //
-      // reveal_style is equippable but nothing renders it, so selling one takes
-      // credits for an effect that never appears -- the exact harm that had
-      // already cost players 25 credits on cosmetics with no display surface at
-      // all. The shop marks these "Coming soon", but the client is not the
-      // authority on what is for sale.
-      const { data: target } = await supabase
+      const { data: target, error: targetError } = await supabase
         .from('cosmetics_catalog')
-        .select('cosmetic_type')
+        .select('cosmetic_type, min_client_contract_version')
         .eq('slug', body.cosmetic_slug)
+        .eq('is_active', true)
         .maybeSingle();
-      if (
-        target &&
-        !RENDERABLE_TYPES.includes(target.cosmetic_type as string)
-      ) {
-        return errorResponse('That cosmetic is not available yet.', 409);
-      }
+      if (targetError)
+        return errorResponse('Failed to read cosmetic catalog', 500);
+      if (!target) return errorResponse('Cosmetic not found', 404);
+      if (!availableToClient(target, version))
+        return errorResponse('That cosmetic requires a supported client.', 409);
 
       const { data, error } = await supabase.rpc('purchase_cosmetic', {
         p_profile_id: userId,
         p_cosmetic_slug: body.cosmetic_slug,
+        p_client_contract_version: version,
       });
       if (error) {
         console.error('purchase_cosmetic error:', error);
         return errorResponse('Failed to purchase cosmetic', 500);
       }
-      const result = data as { success?: boolean } | null;
-      const catalog = await listCatalog(supabase, userId);
-      return successResponse({ ...result, ...catalog });
+      return successResponse(
+        await purchaseResponse(data, body.cosmetic_slug, () =>
+          listCatalog(supabase, userId, version),
+        ),
+      );
     }
 
     if (action === 'equip') {
       if (!body.character_id || !body.cosmetic_type) {
         return errorResponse('character_id and cosmetic_type required');
       }
+      if (!equipPolicy(body.cosmetic_type))
+        return errorResponse(
+          'That cosmetic slot cannot be equipped in Shop.',
+          409,
+        );
       const { data, error } = await supabase.rpc('equip_cosmetic', {
         p_profile_id: userId,
         p_character_id: body.character_id,
         p_cosmetic_type: body.cosmetic_type,
         p_cosmetic_slug: body.cosmetic_slug ?? null,
+        p_client_contract_version: version,
       });
       if (error) {
         console.error('equip_cosmetic error:', error);
@@ -120,12 +124,12 @@ Deno.serve(async (req) => {
         console.error('sync_unlocked_cosmetics error:', error);
         return errorResponse('Failed to sync cosmetics', 500);
       }
-      const catalog = await listCatalog(supabase, userId);
+      const catalog = await listCatalog(supabase, userId, version);
       return successResponse({ success: true, granted: data ?? 0, ...catalog });
     }
 
     // action === 'list'
-    const catalog = await listCatalog(supabase, userId);
+    const catalog = await listCatalog(supabase, userId, version);
     return successResponse({ success: true, ...catalog });
   } catch (error) {
     console.error('Cosmetics error:', error);

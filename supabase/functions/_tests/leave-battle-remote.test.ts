@@ -2,15 +2,9 @@
 //
 // Gated on PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 and skipped otherwise.
 //
-// This is the only place `claim_leave_battle` is actually executed. A clean
-// `db push` says nothing about whether a PL/pgSQL body works -- bodies are not
-// planned until first call -- and this function moves money, so the properties
-// worth proving are the ones that cost a player if they are wrong: charged
-// exactly once, never charged for a free exit, and never charged for an exit
-// that was blocked.
+// Exercises free permitted exits through the deployed endpoint.
 
 import {
-  assert,
   assertEquals,
   assertExists,
 } from 'https://deno.land/std@0.224.0/assert/mod.ts';
@@ -24,8 +18,6 @@ import {
   skipUnlessRemoteEnabled,
   type TestCharacterFixture,
 } from './remote-character-helpers.ts';
-
-const LEAVE_PRICE = 2;
 
 interface LeaveResponse {
   success: boolean;
@@ -110,42 +102,34 @@ Deno.test('remote leave-battle: free before this player locks', async () => {
   }
 });
 
-Deno.test(
-  'remote leave-battle: charges exactly once after locking',
-  async () => {
-    const config = skipUnlessRemoteEnabled();
-    if (!config) return;
+Deno.test('remote leave-battle: remains free after locking', async () => {
+  const config = skipUnlessRemoteEnabled();
+  if (!config) return;
 
-    let fixture: TestCharacterFixture | undefined;
-    try {
-      fixture = await createTestCharacter(config, 'leave-paid');
-      await grantCredits(fixture, 10);
-      const battleId = await createActiveBattle(fixture);
-      await lockPrompt(fixture, battleId);
+  let fixture: TestCharacterFixture | undefined;
+  try {
+    fixture = await createTestCharacter(config, 'leave-paid');
+    await grantCredits(fixture, 10);
+    const battleId = await createActiveBattle(fixture);
+    await lockPrompt(fixture, battleId);
 
-      const before = await getCreditBalance(fixture);
-      const result = await invokeFunction<LeaveResponse>(
-        config,
-        fixture.accessToken,
-        'leave-battle',
-        { battle_id: battleId },
-      );
+    const before = await getCreditBalance(fixture);
+    const result = await invokeFunction<LeaveResponse>(
+      config,
+      fixture.accessToken,
+      'leave-battle',
+      { battle_id: battleId },
+    );
 
-      assertEquals(result.status, 200, result.bodyText);
-      assertEquals(await getCreditBalance(fixture), before - LEAVE_PRICE);
+    assertEquals(result.status, 200, result.bodyText);
+    assertEquals(await getCreditBalance(fixture), before);
 
-      const txs = await leaveTransactions(fixture, battleId);
-      assertEquals(txs.length, 1);
-      assertEquals(Number(txs[0].amount), -LEAVE_PRICE);
-      assertEquals(
-        txs[0].idempotency_key,
-        `leave_battle_${battleId}_${fixture.profileId}`,
-      );
-    } finally {
-      await cleanupFixture(fixture);
-    }
-  },
-);
+    const txs = await leaveTransactions(fixture, battleId);
+    assertEquals(txs.length, 0);
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
 
 Deno.test(
   'remote leave-battle: a second call does not charge again',
@@ -153,7 +137,7 @@ Deno.test(
     const config = skipUnlessRemoteEnabled();
     if (!config) return;
 
-    // The money test. Two taps landing on one battle must cost one toll.
+    // Retrying a free exit preserves the single terminal transition.
     let fixture: TestCharacterFixture | undefined;
     try {
       fixture = await createTestCharacter(config, 'leave-double');
@@ -174,67 +158,65 @@ Deno.test(
 
       assertEquals(second.status, 200, second.bodyText);
       assertEquals(leaveBody(second).action, 'already_terminal');
-      assertEquals(await getCreditBalance(fixture), before - LEAVE_PRICE);
-      assertEquals((await leaveTransactions(fixture, battleId)).length, 1);
+      assertEquals(await getCreditBalance(fixture), before);
+      assertEquals((await leaveTransactions(fixture, battleId)).length, 0);
     } finally {
       await cleanupFixture(fixture);
     }
   },
 );
 
-Deno.test('remote leave-battle: a blocked exit leaves no trace', async () => {
-  const config = skipUnlessRemoteEnabled();
-  if (!config) return;
+Deno.test(
+  'remote leave-battle: zero-credit player can leave after locking',
+  async () => {
+    const config = skipUnlessRemoteEnabled();
+    if (!config) return;
 
-  // The whole reason claim_leave_battle reads and rejects before it writes
-  // anything: a player who cannot afford the toll must find the battle exactly
-  // as they left it, with no wallet row and no status change to undo.
-  let fixture: TestCharacterFixture | undefined;
-  try {
-    fixture = await createTestCharacter(config, 'leave-broke');
-    const battleId = await createActiveBattle(fixture);
-    await lockPrompt(fixture, battleId);
+    // A zero balance must never trap a player in a battle.
+    let fixture: TestCharacterFixture | undefined;
+    try {
+      fixture = await createTestCharacter(config, 'leave-broke');
+      const battleId = await createActiveBattle(fixture);
+      await lockPrompt(fixture, battleId);
 
-    // New accounts get a welcome grant, so being broke has to be arranged.
-    // Spent rather than deleted, so the ledger stays a real ledger.
-    const granted = await getCreditBalance(fixture);
-    if (granted > 0) {
-      const { error: spendErr } = await fixture.admin.rpc('spend_credits', {
-        p_profile_id: fixture.profileId,
-        p_amount: granted,
-        p_reason: 'test_zero_out',
-        p_idempotency_key: `zero_${fixture.profileId}`,
-        p_battle_id: null,
-        p_video_job_id: null,
-        p_metadata: {},
-      });
-      assertEquals(spendErr, null, spendErr?.message);
+      // New accounts get a welcome grant, so being broke has to be arranged.
+      // Spent rather than deleted, so the ledger stays a real ledger.
+      const granted = await getCreditBalance(fixture);
+      if (granted > 0) {
+        const { error: spendErr } = await fixture.admin.rpc('spend_credits', {
+          p_profile_id: fixture.profileId,
+          p_amount: granted,
+          p_reason: 'test_zero_out',
+          p_idempotency_key: `zero_${fixture.profileId}`,
+          p_battle_id: null,
+          p_video_job_id: null,
+          p_metadata: {},
+        });
+        assertEquals(spendErr, null, spendErr?.message);
+      }
+
+      const balance = await getCreditBalance(fixture);
+      assertEquals(balance, 0);
+
+      const result = await invokeFunction<LeaveResponse>(
+        config,
+        fixture.accessToken,
+        'leave-battle',
+        { battle_id: battleId },
+      );
+
+      assertEquals(result.status, 200, result.bodyText);
+      assertEquals(leaveBody(result).action, 'canceled');
+
+      assertEquals(await getCreditBalance(fixture), balance);
+      assertEquals((await leaveTransactions(fixture, battleId)).length, 0);
+      // The permitted exit completed without a wallet operation.
+      assertEquals((await battleRow(fixture, battleId))?.status, 'canceled');
+    } finally {
+      await cleanupFixture(fixture);
     }
-
-    const balance = await getCreditBalance(fixture);
-    assert(balance < LEAVE_PRICE, `fixture should be broke, had ${balance}`);
-
-    const result = await invokeFunction<LeaveResponse>(
-      config,
-      fixture.accessToken,
-      'leave-battle',
-      { battle_id: battleId },
-    );
-
-    assertEquals(result.status, 402, result.bodyText);
-    assertEquals(leaveBody(result).code, 'insufficient_credits');
-
-    assertEquals(await getCreditBalance(fixture), balance);
-    assertEquals((await leaveTransactions(fixture, battleId)).length, 0);
-    // Still playable. The player can write, or wait out the deadline.
-    assertEquals(
-      (await battleRow(fixture, battleId))?.status,
-      'waiting_for_prompts',
-    );
-  } finally {
-    await cleanupFixture(fixture);
-  }
-});
+  },
+);
 
 Deno.test('remote leave-battle: bo3 closes the open round', async () => {
   const config = skipUnlessRemoteEnabled();

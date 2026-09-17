@@ -1,8 +1,16 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import { GameHeader } from '@/components/game';
+import { GamePanel, GameText } from '@/components/game';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  useWindowDimensions,
+} from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { useTabClearance } from '@/hooks/useTabClearance';
@@ -17,6 +25,7 @@ import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import { CosmeticBadge, InlineBanner, PortraitPreview } from '@/components';
 import ListSkeleton from '@/components/ListSkeleton';
+import PlayerSafetyActions from '@/components/PlayerSafetyActions';
 import PodiumHeader from '@/components/PodiumHeader';
 import {
   fetchPublicPlayers,
@@ -33,6 +42,7 @@ import {
   recordLabel,
   shouldPinViewerRow,
   splitPodium,
+  seasonAvailability,
   type RankingRow,
 } from '@/utils/rankingsView';
 
@@ -45,6 +55,7 @@ const AVATAR_SIZE = 40;
 interface SeasonRow {
   id: string;
   name: string;
+  starts_at?: string;
   ends_at: string;
 }
 
@@ -65,6 +76,8 @@ function RankingCard({
 }: RankingCardProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = width < 390 || fontScale > 1.15;
   const medal = medalFor(row.rank);
   const medalColor =
     medal === 'gold'
@@ -86,9 +99,11 @@ function RankingCard({
     : colors.border;
 
   return (
-    <View
+    <GamePanel
+      tone="ornate"
       style={[
         styles.rankingCard,
+        stacked && styles.stackedRankingCard,
         {
           backgroundColor: isViewer ? colors.backgroundSecondary : colors.card,
           borderColor,
@@ -99,58 +114,84 @@ function RankingCard({
       accessible
       accessibilityLabel={pinned ? `Your standing. ${label}` : label}
     >
-      <View style={styles.rankCell}>
-        {/* Podium places get a glyph, never colour alone. */}
-        {medal ? (
-          <Ionicons
-            name={medal === 'gold' ? 'trophy' : 'medal'}
-            size={16}
-            color={medalColor ?? colors.text}
-          />
-        ) : null}
-        <Text
-          style={[
-            styles.rank,
-            NumericFontVariant,
-            { color: medalColor ?? colors.text },
-          ]}
-        >
-          {rankDisplay(row.rank)}
-        </Text>
-      </View>
-      {/* Other players' characters are RLS-protected; the public view gives
+      <View style={[styles.placeAndPortrait, stacked && styles.stackedPlace]}>
+        <View style={[styles.rankCell, stacked && styles.stackedRankCell]}>
+          {/* Podium places get a glyph, never colour alone. */}
+          {medal ? (
+            <GameSymbol
+              name={medal === 'gold' ? 'trophy' : 'medal'}
+              size={16}
+              color={medalColor ?? colors.text}
+            />
+          ) : null}
+          <GameText
+            variant="label"
+            style={[
+              styles.rank,
+              NumericFontVariant,
+              { color: medalColor ?? colors.text },
+            ]}
+          >
+            {rankDisplay(row.rank)}
+          </GameText>
+        </View>
+        {/* Other players' characters are RLS-protected; the public view gives
           the archetype and colour, and the bundled illustration stands in for
           the portrait (never a bare initial). */}
-      <PortraitPreview
-        uri={archetypeIllustrationUri(player?.archetype ?? null) ?? ''}
-        variant="circle"
-        size={AVATAR_SIZE}
-        accentColor={ring}
-        frame={player?.cosmetics.frame ?? null}
-        avatarEffect={player?.cosmetics.avatarEffect ?? null}
-        accessibilityLabel={`${name}'s archetype`}
-      />
-      <View style={styles.playerInfo}>
-        <View style={styles.nameRow}>
-          <Text
-            style={[styles.playerName, accessibleText, { color: colors.text }]}
-            numberOfLines={1}
+        <PortraitPreview
+          uri={archetypeIllustrationUri(player?.archetype ?? null) ?? ''}
+          variant="circle"
+          size={AVATAR_SIZE}
+          accentColor={ring}
+          frame={player?.cosmetics.frame ?? null}
+          avatarEffect={player?.cosmetics.avatarEffect ?? null}
+          accessibilityLabel={`${name}'s archetype`}
+        />
+        {stacked ? (
+          <GameText
+            variant="label"
+            style={[
+              styles.rating,
+              styles.stackedRating,
+              NumericFontVariant,
+              { color: colors.primary },
+            ]}
+          >
+            {Math.round(row.rating)}
+          </GameText>
+        ) : null}
+      </View>
+      <View
+        testID={`ranking-identity-${row.profile_id}`}
+        style={[styles.playerInfo, stacked && styles.stackedPlayerInfo]}
+      >
+        <View style={[styles.nameRow, stacked && styles.stackedNameRow]}>
+          <GameText
+            variant="fighter"
+            style={[
+              styles.playerName,
+              stacked && styles.stackedPlayerName,
+              accessibleText,
+              { color: colors.text },
+            ]}
           >
             {name}
-          </Text>
+          </GameText>
           {isViewer ? (
-            <Text
+            <GameText
+              variant="body"
               style={[
                 styles.youTag,
                 { color: colors.primary, borderColor: colors.primary },
               ]}
             >
               You
-            </Text>
+            </GameText>
           ) : null}
           <CosmeticBadge badge={player?.cosmetics.badge} size={14} />
         </View>
-        <Text
+        <GameText
+          variant="body"
           style={[
             styles.stats,
             NumericFontVariant,
@@ -158,14 +199,17 @@ function RankingCard({
           ]}
         >
           {recordLabel(row)}
-        </Text>
+        </GameText>
       </View>
-      <Text
-        style={[styles.rating, NumericFontVariant, { color: colors.primary }]}
-      >
-        {Math.round(row.rating)}
-      </Text>
-    </View>
+      {!stacked ? (
+        <GameText
+          variant="label"
+          style={[styles.rating, NumericFontVariant, { color: colors.primary }]}
+        >
+          {Math.round(row.rating)}
+        </GameText>
+      ) : null}
+    </GamePanel>
   );
 }
 
@@ -190,12 +234,37 @@ export default function RankingsScreen() {
     try {
       const { data: seasonData, error: seasonError } = await supabase
         .from('seasons')
-        .select('id, name, ends_at')
+        .select('id, name, starts_at, ends_at')
         .eq('is_active', true)
         .maybeSingle();
       if (seasonError) throw seasonError;
-      const activeSeason = (seasonData as SeasonRow | null) ?? null;
+      let activeSeason = (seasonData as SeasonRow | null) ?? null;
+      if (!activeSeason) {
+        const { data: upcoming, error: upcomingError } = await supabase
+          .from('seasons')
+          .select('id, name, starts_at, ends_at')
+          .gt('starts_at', new Date().toISOString())
+          .order('starts_at', { ascending: true })
+          .limit(1);
+        if (upcomingError) throw upcomingError;
+        activeSeason = upcoming?.[0] ?? null;
+        if (!activeSeason) {
+          const { data: ended, error: endedError } = await supabase
+            .from('seasons')
+            .select('id, name, starts_at, ends_at')
+            .order('ends_at', { ascending: false })
+            .limit(1);
+          if (endedError) throw endedError;
+          activeSeason = ended?.[0] ?? null;
+        }
+      }
       setSeason(activeSeason);
+      if (!activeSeason || seasonAvailability(activeSeason) !== 'active') {
+        setRankings([]);
+        setViewerRow(null);
+        setLoadError(false);
+        return;
+      }
 
       // `rankings` is UNIQUE on (profile_id, season_id): without the season
       // filter two seasons interleave and two players both render as rank 1.
@@ -263,16 +332,46 @@ export default function RankingsScreen() {
   // checks the full leaderboard, so a viewer on the podium is not repeated.
   const { podium, rest } = useMemo(() => splitPodium(rankings), [rankings]);
   const pinViewer = shouldPinViewerRow(rankings, viewerRow);
+  const availability = seasonAvailability(season);
+  const emptyTitle =
+    availability === 'upcoming'
+      ? 'Season starts soon'
+      : availability === 'ended'
+        ? 'Season ended'
+        : availability === 'unavailable'
+          ? 'No season scheduled'
+          : 'No rankings yet';
+  const emptyBody =
+    availability === 'upcoming'
+      ? `Starts ${new Date(season!.starts_at!).toLocaleString()}`
+      : availability === 'ended'
+        ? 'The next season has not started yet.'
+        : availability === 'unavailable'
+          ? 'Check back for the next season.'
+          : 'Standings will appear after ranked battles are played.';
   const seasonLine = season
-    ? [season.name, seasonEndsLabel(season.ends_at)].filter(Boolean).join(' · ')
+    ? [
+        season.name,
+        availability === 'active' ? seasonEndsLabel(season.ends_at) : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
     : null;
 
   const renderRanking = ({ item }: { item: RankingRow }) => (
-    <RankingCard
-      row={item}
-      isViewer={item.profile_id === userId}
-      player={players.get(item.profile_id)}
-    />
+    <View>
+      <RankingCard
+        row={item}
+        isViewer={item.profile_id === userId}
+        player={players.get(item.profile_id)}
+      />
+      {item.profile_id !== userId ? (
+        <PlayerSafetyActions
+          profileId={item.profile_id}
+          name={rankingPlayerName(item)}
+        />
+      ) : null}
+    </View>
   );
 
   const errorBanner = (
@@ -296,14 +395,10 @@ export default function RankingsScreen() {
         },
       ]}
     >
-      <Text
-        style={[styles.title, { color: colors.text }]}
-        accessibilityRole="header"
-      >
-        Rankings
-      </Text>
+      <GameHeader title="Rankings" style={{ marginBottom: 16 }} />
       {seasonLine ? (
-        <Text
+        <GameText
+          variant="body"
           style={[
             styles.season,
             accessibleText,
@@ -311,7 +406,7 @@ export default function RankingsScreen() {
           ]}
         >
           {seasonLine}
-        </Text>
+        </GameText>
       ) : (
         <View style={styles.seasonSpacer} />
       )}
@@ -333,32 +428,60 @@ export default function RankingsScreen() {
               <>
                 {loadError && rankings.length > 0 ? errorBanner : null}
                 {podium.length === 3 ? (
-                  <PodiumHeader
-                    rows={podium}
-                    players={players}
-                    viewerId={userId}
-                  />
+                  <>
+                    <PodiumHeader
+                      rows={podium}
+                      players={players}
+                      viewerId={userId}
+                    />
+                    {podium
+                      .filter((row) => row.profile_id !== userId)
+                      .map((row) => (
+                        <View
+                          key={row.profile_id}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <GameText
+                            variant="body"
+                            style={{ color: colors.text }}
+                          >
+                            {rankingPlayerName(row)}
+                          </GameText>
+                          <PlayerSafetyActions
+                            profileId={row.profile_id}
+                            name={rankingPlayerName(row)}
+                          />
+                        </View>
+                      ))}
+                  </>
                 ) : null}
               </>
             }
             ListEmptyComponent={
-              loadError ? (
+              rankings.length > 0 ? null : loadError ? (
                 errorBanner
               ) : (
                 <View style={styles.emptyState}>
-                  <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                    No rankings yet
-                  </Text>
-                  <Text
+                  <GameText
+                    variant="title"
+                    style={[styles.emptyTitle, { color: colors.text }]}
+                  >
+                    {emptyTitle}
+                  </GameText>
+                  <GameText
+                    variant="body"
                     style={[
                       styles.emptyText,
                       accessibleText,
                       { color: colors.textSecondary },
                     ]}
                   >
-                    The season standings will appear here once ranked battles
-                    are played.
-                  </Text>
+                    {emptyBody}
+                  </GameText>
                 </View>
               )
             }
@@ -419,9 +542,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
     padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.sm,
     marginBottom: Spacing.sm,
   },
+  stackedRankingCard: { flexDirection: 'column', alignItems: 'stretch' },
+  placeAndPortrait: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  stackedPlace: { flexWrap: 'wrap', width: '100%' },
+  stackedRankCell: { width: 'auto', flexShrink: 1 },
+  stackedRating: { marginLeft: 'auto', flexShrink: 1 },
+  stackedPlayerInfo: { flex: 0, width: '100%' },
+  stackedNameRow: { flexWrap: 'wrap', alignItems: 'flex-start' },
+  stackedPlayerName: { width: '100%' },
   pinnedCard: {
     marginBottom: 0,
   },
@@ -453,14 +588,14 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   youTag: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
     borderWidth: 1,
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.xs,
   },
   stats: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
   },
   rating: {
     fontSize: Typography.sizes.lg,

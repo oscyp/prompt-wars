@@ -1,5 +1,6 @@
 import React from 'react';
-import { Text, StyleSheet, type TextStyle, type StyleProp } from 'react-native';
+import { StyleSheet, type TextStyle, type StyleProp } from 'react-native';
+import { GameText as Text } from './game';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { Typography } from '@/constants/DesignTokens';
 import type { TitlePresentation } from '@/constants/Cosmetics';
@@ -21,8 +22,8 @@ export default function CosmeticTitle({ title, style }: CosmeticTitleProps) {
 
   return (
     <Text
+      variant="label"
       style={[styles.title, accessibleText, { color: title.color }, style]}
-      numberOfLines={1}
       accessibilityLabel={`Title: ${title.label}`}
     >
       {title.label}
@@ -32,6 +33,7 @@ export default function CosmeticTitle({ title, style }: CosmeticTitleProps) {
 
 const styles = StyleSheet.create({
   title: {
+    flexShrink: 1,
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.semibold,
     letterSpacing: 0.4,

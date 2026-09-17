@@ -1,13 +1,13 @@
-import React from 'react';
+import { GameText } from '@/components/game';
+
 import {
   View,
-  Text,
   Image,
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import type { PortraitHistoryEntry } from '@/utils/characters';
@@ -43,10 +43,13 @@ export default function PortraitHistoryStrip({
   return (
     <View style={styles.wrap}>
       <View style={styles.header}>
-        <Ionicons name="time-outline" size={13} color={colors.textTertiary} />
-        <Text style={[styles.title, { color: colors.textTertiary }]}>
+        <GameSymbol name="time-outline" size={13} color={colors.textTertiary} />
+        <GameText
+          variant="title"
+          style={[styles.title, { color: colors.textTertiary }]}
+        >
           Previous renders · free to restore
-        </Text>
+        </GameText>
       </View>
       <View style={styles.row}>
         {entries.map((entry) => {
@@ -67,12 +70,16 @@ export default function PortraitHistoryStrip({
                 },
               ]}
             >
-              <Image
-                source={{ uri: entry.imageUrl }}
-                style={styles.image}
-                resizeMode="cover"
-                accessibilityLabel=""
-              />
+              {entry.imageUrl ? (
+                <Image
+                  source={{ uri: entry.imageUrl }}
+                  style={styles.image}
+                  resizeMode="contain"
+                  accessibilityLabel=""
+                />
+              ) : (
+                <GameText variant="caption">Preview</GameText>
+              )}
               {busy ? (
                 <View style={styles.busyOverlay}>
                   <ActivityIndicator color="#FFFFFF" />
@@ -86,7 +93,7 @@ export default function PortraitHistoryStrip({
   );
 }
 
-const THUMB_W = 46;
+const THUMB_W = 56;
 
 const styles = StyleSheet.create({
   wrap: {
@@ -99,10 +106,11 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   title: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
   },
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.sm,
   },
   thumb: {

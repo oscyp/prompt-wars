@@ -6,10 +6,8 @@
 import {
   FunctionInvokeError,
   invokeAuthenticatedFunction,
-  invokeFunctionResult,
   supabase,
 } from './supabase';
-import { formatCredits } from './credits';
 import type { BattleFormat } from '@/types/battle';
 import { generateIdempotencyKey } from './characters';
 
@@ -149,53 +147,25 @@ export interface LeaveDialogArgs {
   /** Whether THIS player has locked a prompt — the thing being paid for. */
   isLocked: boolean;
   price: number;
+  hasOpponent?: boolean;
 }
 
-/**
- * What the confirm dialog says before someone leaves.
- *
- * Pure so it can be tested without mounting a screen, and so the free-path
- * strings can be pinned byte-for-byte: those two dialogs shipped long before
- * the toll existed and players have learned them, so adding a paid case must
- * not quietly reword the free ones.
- *
- * The price goes in the message, never the title, and always in the `sentence`
- * form ("2 credits", not "2 cr") — these are dialogs, and utils/credits.ts owns
- * that distinction.
- */
+/** Free explicit forfeit/cancel copy; parking is a separate local navigation action. */
 export function leaveDialogCopy(args: LeaveDialogArgs): LeaveDialogCopy {
-  const isRankedHuman = args.mode === 'ranked' && !args.isBot;
-
-  if (!args.isLocked) {
-    if (isRankedHuman) {
-      return {
-        title: 'Forfeit Ranked Battle?',
+  const isRankedHuman =
+    args.mode === 'ranked' && !args.isBot && args.hasOpponent !== false;
+  return isRankedHuman
+    ? {
+        title: args.format === 'bo3' ? 'Forfeit series?' : 'Forfeit battle?',
         message:
-          'This will count as a ranked loss and award the win to your opponent.',
+          'This is free. Your opponent wins and this counts as a ranked loss.',
         confirmLabel: 'Forfeit',
+      }
+    : {
+        title: 'Cancel battle?',
+        message: 'This is free. The battle will be canceled.',
+        confirmLabel: 'Cancel battle',
       };
-    }
-    return {
-      title: 'Leave Battle?',
-      message: 'This will cancel the battle before prompt lock.',
-      confirmLabel: 'Leave',
-    };
-  }
-
-  const cost = formatCredits(args.price, 'sentence');
-  const stake =
-    args.format === 'bo3'
-      ? 'Your opponent takes the whole series and your streak resets.'
-      : 'Your opponent takes the win and your streak resets.';
-  // Appended as a clause rather than a third sentence: a two-line dialog gets
-  // read, a four-line one gets dismissed.
-  const rating = isRankedHuman ? ' Your rating will drop.' : '';
-
-  return {
-    title: args.format === 'bo3' ? 'Forfeit the series?' : 'Forfeit and leave?',
-    message: `You've locked a prompt, so leaving costs ${cost}. ${stake}${rating}`,
-    confirmLabel: 'Leave',
-  };
 }
 
 /**
@@ -211,6 +181,7 @@ export async function startMatchmaking(
       'matchmaking',
       {
         character_id: characterId,
+        client_contract_version: 2,
         mode,
         request_id: options.requestId ?? generateIdempotencyKey(),
         resume_battle_id: options.resumeBattleId,

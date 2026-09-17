@@ -10,22 +10,44 @@ const mockPlayers: Array<{
   seekTo: jest.Mock;
   loop: boolean;
   volume: number;
+  released: boolean;
 }> = [];
 jest.mock('expo-audio', () => ({
   setAudioModeAsync: jest.fn(() => Promise.resolve()),
   useAudioPlayer: () => {
-    const ref = jest.requireActual('react').useRef(null);
+    const React = jest.requireActual('react') as typeof import('react');
+    const ref = React.useRef<(typeof mockPlayers)[number] | null>(null);
     if (!ref.current) {
-      ref.current = {
+      const player: (typeof mockPlayers)[number] = {
         pause: jest.fn(),
         play: jest.fn(),
         replace: jest.fn(),
         seekTo: jest.fn(() => Promise.resolve()),
         loop: false,
         volume: 1,
+        released: false,
       };
-      mockPlayers.push(ref.current);
+      player.pause.mockImplementation(() => {
+        if (player.released) throw new Error('AudioPlayer has been released');
+      });
+      player.play.mockImplementation(() => {
+        if (player.released) throw new Error('AudioPlayer has been released');
+      });
+      player.replace.mockImplementation(() => {
+        if (player.released) throw new Error('AudioPlayer has been released');
+      });
+      ref.current = player;
+      mockPlayers.push(player);
     }
+
+    const player = ref.current;
+    React.useEffect(
+      () => () => {
+        player.released = true;
+      },
+      [player],
+    );
+
     return ref.current;
   },
 }));
@@ -98,6 +120,32 @@ describe('BattleAudioProvider', () => {
     // the deliberately silent reveal explicit in the controller contract.
     view.rerender(tree(undefined));
     expect(music.pause).toHaveBeenCalled();
+  });
+
+  it('uses an iOS-compatible audio mode that respects the silent switch', async () => {
+    const { setAudioModeAsync } = jest.requireMock('expo-audio') as {
+      setAudioModeAsync: jest.Mock;
+    };
+
+    render(tree());
+
+    await waitFor(() =>
+      expect(setAudioModeAsync).toHaveBeenCalledWith({
+        playsInSilentMode: false,
+        interruptionMode: 'mixWithOthers',
+        allowsRecording: false,
+        shouldPlayInBackground: false,
+        shouldRouteThroughEarpiece: false,
+      }),
+    );
+  });
+
+  it('does not touch released native players when the battle layout unmounts', async () => {
+    const view = render(tree('The calm before the storm'));
+    await waitFor(() => expect(mockPlayers[0].play).toHaveBeenCalled());
+
+    expect(() => view.unmount()).not.toThrow();
+    expect(mockPlayers.every((player) => player.released)).toBe(true);
   });
 
   it('keeps Music and Sound Effects independent', async () => {

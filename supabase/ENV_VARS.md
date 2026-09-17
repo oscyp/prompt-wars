@@ -74,12 +74,11 @@ legacy single-key fallback.
 
 ```bash
 # Implemented values: "mock" (default) | "xai".
-# Leaving this unset means ranked outcomes are decided by MockJudgeProvider,
-# which scores on word count and seed % 100 -- fine for local work, meaningless
-# as a competitive ladder.
+# Leaving this unset uses MockJudgeProvider. Mock-assisted ranked series
+# complete as unrated exhibitions; no competitive rating/win/streak rewards.
 JUDGE_PROVIDER=xai
 JUDGE_API_KEY=xai-...          # optional; falls back to XAI_API_KEY
-JUDGE_MODEL_ID=grok-4.3        # grok-4.3 (cheapest w/ structured outputs) or grok-4.6 (best)
+JUDGE_MODEL_ID=grok-4.3        # configured example; promote only after calibration
 JUDGE_API_BASE_URL=https://api.x.ai/v1   # optional; falls back to XAI_API_BASE_URL, then api.x.ai/v1
 ```
 
@@ -87,11 +86,10 @@ Notes:
 
 - `JUDGE_PROVIDER=xai` is always wrapped in `FallbackJudgeProvider`. If the
   provider times out or errors, the run falls back to the mock rather than
-  throwing, because `round-resolve` claims the round into `resolving` before
-  calling the judge and nothing sweeps that state -- a throw would strand the
-  round permanently.
-- Fallback runs are auditable: they record `model_id = "mock-judge-v1.0.0"` in
-  `judge_runs`, so they can be excluded from calibration.
+  throwing, so the free result can still complete. Independently, the recovery
+  worker reclaims stale resolving rounds under parent/round locks; exhausted
+  attempts terminalize the series as no contest without competitive rewards.
+- Each call records its actual response model ID, prompt version, seed, scores, and fallback status. Aggregation is recorded. A mock-assisted ranked series completes its free result as an unrated exhibition; mock output cannot silently update competitive records or pass calibration.
 - `JUDGE_PROMPT_VERSION` is **not** an env var. It is frozen in code at
   `_shared/judge.ts` (`JUDGE_PROMPT_VERSION`); bump it there whenever the rubric
   wording in `buildJudgeSystemPrompt()` changes, or historical `judge_runs` stop
@@ -306,6 +304,7 @@ Recorded here because they are commonly mistaken for env vars:
 - **App Store Connect / Google Play signing credentials** — held by EAS
   (`eas credentials`), never in this repo.
 - **`JUDGE_PROMPT_VERSION`** — frozen in `_shared/judge.ts`.
+- **Cosmetics client contract** — `utils/cosmetics.ts` sends version 2. New artwork rows use `cosmetics_catalog.min_client_contract_version = 2`; missing versions default to 1. No secret or runtime image-generation key is needed for these bundled frames. Deploy the additive migration before the cosmetics function, then ship the compatible client. To withdraw a new item, deactivate its catalog row; never delete ownership or wallet history.
 - **Analytics / error-monitoring keys** — no Sentry, PostHog, or Datadog
   integration exists yet. Add the SDK first, then document the key.
 
@@ -330,3 +329,29 @@ Recorded here because they are commonly mistaken for env vars:
 - [ ] Set `EXPO_PUBLIC_EAS_PROJECT_ID` from `eas project:info` for push
 - [ ] Confirm `DEV_FUNCTIONS_ENABLED` is UNSET in production
 - [ ] Store all secrets in 1Password/team vault
+
+## UX and game-integrity rollout
+
+```bash
+# Default off. Deploy additive migrations and compatible client first.
+COMBAT_V2_ENABLED=false
+```
+
+When enabled, new matchmaking requires `client_contract_version >= 2` and stores `rules_version = 2`; incompatible clients receive update-required while existing battles remain accessible. Pair human queues within the same rules version. Do not toggle the rules of an active battle. Rollback turns off creation of new version-2 matches.
+
+Independent appeal review remains separately gated until the configured model/prompt has passed calibration and database correction fixtures have passed. Its model must differ from the original recorded calls; mock fallback is not an independent review. See the appeal configuration section added with that implementation and `docs/UX_GAME_INTEGRITY_ACCEPTANCE.md`.
+
+### Independent appeal reviewer
+
+```bash
+APPEALS_ENABLED=false
+APPEAL_JUDGE_MODEL=your-calibrated-model-id
+APPEAL_JUDGE_LOCALE=en
+APPEAL_CALIBRATION_MAX_AGE_HOURS=168
+```
+
+The reviewer uses the existing server-only judge API credentials, but an explicit independent model ID. Leave submissions off until `run-judge-calibration` with target `appeal` has persisted a passing run for the exact actual model, prompt version and locale. Configure a model different from every original call. The age limit bounds how old that evidence may be; failures, missing evidence, fallback or a mismatched model cannot qualify. Review workers do not use mock fallback.
+
+Appeal work uses a 15-minute worker lease and per-item retries after 10, 20, 40, 80, 160, then 320 minutes. A failed item does not imply that the provider is down. Actual provider failures create a separate, model-scoped 10-minute cooldown; missing original data must not block unrelated submissions.
+
+The availability/status endpoint must report disabled or temporarily unavailable before an allowance-consuming submit. Rollback sets `APPEALS_ENABLED=false`; durable submitted records and original battle evidence remain auditable. Database correction fixtures and concurrent-worker testing are separate requirements from model calibration.

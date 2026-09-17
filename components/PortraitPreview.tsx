@@ -1,12 +1,14 @@
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
+import { GameText as Text } from './game';
 import React, { useEffect, useRef } from 'react';
 import {
   View,
-  Image,
-  Text,
+  type ImageProps,
   Animated,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import CosmeticFrame from './CosmeticFrame';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
@@ -17,6 +19,7 @@ import type {
 
 interface PortraitPreviewProps {
   uri: string;
+  onImageError?: ImageProps['onError'];
   /**
    * Width of the frame in px. For `fullBody` the height is derived from a
    * 2:3 aspect ratio (size * 1.5).
@@ -50,13 +53,12 @@ interface PortraitPreviewProps {
   avatarEffect?: AvatarEffectPresentation | null;
 }
 
-const FRAME_BORDER = 3;
-const FRAME_PADDING = 4;
 /** Full-body renders target a 2:3 (width:height) portrait aspect. */
 const FULL_BODY_ASPECT = 1.5;
 
 export default function PortraitPreview({
   uri,
+  onImageError,
   size = 240,
   loading = false,
   caption,
@@ -67,7 +69,8 @@ export default function PortraitPreview({
   avatarEffect,
 }: PortraitPreviewProps) {
   const colors = useThemedColors();
-  const reduceMotion = useReducedMotion();
+  const active = useBattlePresentationActive();
+  const reduceMotion = useReducedMotion() || !active;
   const pulse = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
@@ -95,12 +98,7 @@ export default function PortraitPreview({
     return () => anim.stop();
   }, [loading, pulse, reduceMotion]);
 
-  // A frame is bought; the signature colour is the default. So the frame wins.
-  // Gradients degrade to their first stop rather than being dropped — a
-  // two-tone frame still reads as that frame's colour, and the alternative is
-  // silently showing no purchase at all.
   const borderColor = frame?.colors[0] ?? accentColor ?? colors.primary;
-  const borderWidth = frame?.width ?? FRAME_BORDER;
   const glow =
     variant === 'circle' ? (avatarEffect?.glow ?? 0) : (frame?.glow ?? 0);
   const glowColor =
@@ -110,11 +108,6 @@ export default function PortraitPreview({
   const frameWidth = size;
   const frameHeight = isFullBody ? Math.round(size * FULL_BODY_ASPECT) : size;
   const frameRadius = isFullBody ? BorderRadius.lg : size / 2;
-  const innerWidth = frameWidth - FRAME_PADDING * 2;
-  const innerHeight = frameHeight - FRAME_PADDING * 2;
-  const innerRadius = isFullBody
-    ? Math.max(BorderRadius.lg - FRAME_PADDING, 0)
-    : innerWidth / 2;
 
   return (
     <View style={styles.wrapper}>
@@ -137,61 +130,17 @@ export default function PortraitPreview({
         }
       >
         <Animated.View
-          style={[
-            styles.frame,
-            {
-              width: frameWidth,
-              height: frameHeight,
-              borderRadius: frameRadius,
-              borderColor,
-              borderWidth,
-              opacity: pulse,
-            },
-          ]}
+          style={{ width: frameWidth, height: frameHeight, opacity: pulse }}
         >
-          {isFullBody ? (
-            // Full-body: never crop. `contain` letterboxes non-2:3 sources
-            // against a neutral fill instead of cutting off head or feet.
-            <View
-              style={{
-                width: innerWidth,
-                height: innerHeight,
-                borderRadius: innerRadius,
-                overflow: 'hidden',
-                backgroundColor: colors.backgroundSecondary,
-              }}
-            >
-              <Image
-                source={{ uri }}
-                style={{ width: innerWidth, height: innerHeight }}
-                resizeMode="contain"
-                accessibilityLabel={accessibilityLabel}
-              />
-            </View>
-          ) : (
-            // Circle avatar: full-body sources are tall — anchor the crop to
-            // the top of the image so the face stays in frame.
-            <View
-              style={{
-                width: innerWidth,
-                height: innerHeight,
-                borderRadius: innerRadius,
-                overflow: 'hidden',
-              }}
-            >
-              <Image
-                source={{ uri }}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  width: innerWidth,
-                  height: Math.round(innerWidth * FULL_BODY_ASPECT),
-                }}
-                resizeMode="cover"
-                accessibilityLabel={accessibilityLabel}
-              />
-            </View>
-          )}
+          <CosmeticFrame
+            source={{ uri }}
+            size={size}
+            variant={variant}
+            frame={frame}
+            accentColor={accentColor}
+            onImageError={onImageError}
+            accessibilityLabel={accessibilityLabel}
+          />
           {loading ? (
             <View
               style={[styles.spinnerOverlay, { borderRadius: frameRadius }]}
@@ -202,10 +151,7 @@ export default function PortraitPreview({
         </Animated.View>
       </View>
       {caption ? (
-        <Text
-          style={[styles.caption, { color: colors.textSecondary }]}
-          numberOfLines={2}
-        >
+        <Text style={[styles.caption, { color: colors.textSecondary }]}>
           {caption}
         </Text>
       ) : null}
@@ -216,12 +162,6 @@ export default function PortraitPreview({
 const styles = StyleSheet.create({
   wrapper: {
     alignItems: 'center',
-  },
-  frame: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: FRAME_BORDER,
-    overflow: 'hidden',
   },
   spinnerOverlay: {
     ...StyleSheet.absoluteFillObject,

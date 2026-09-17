@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { GameText as Text } from '@/components/game';
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import PortraitPreview from '@/components/PortraitPreview';
 import {
   BorderRadius,
@@ -29,7 +31,6 @@ export const PORTRAIT_SIZE = 96;
 const GLOW_SIZE = PORTRAIT_SIZE + 20;
 const GLOW_MIN = 0.4;
 const GLOW_MAX = 0.7;
-const GLOW_HALF_PERIOD_MS = 900;
 
 /** "The Titan" for a known id, a capitalised copy of anything else, null for none. */
 export function archetypeDisplayName(
@@ -74,13 +75,14 @@ export default function FighterEntrance({
   modeLabel,
   reduceMotion,
 }: FighterEntranceProps) {
+  const active = useBattlePresentationActive();
   const scale = useRef(new Animated.Value(reduceMotion ? 1 : 0.9)).current;
   const glow = useRef(
     new Animated.Value(reduceMotion ? (GLOW_MIN + GLOW_MAX) / 2 : GLOW_MIN),
   ).current;
 
   useEffect(() => {
-    if (reduceMotion) {
+    if (reduceMotion || !active) {
       scale.setValue(1);
       glow.setValue((GLOW_MIN + GLOW_MAX) / 2);
       return;
@@ -91,29 +93,12 @@ export default function FighterEntrance({
       easing: Easing.bezier(...Motion.easing.decelerate),
       useNativeDriver: true,
     });
-    const breathe = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glow, {
-          toValue: GLOW_MAX,
-          duration: GLOW_HALF_PERIOD_MS,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(glow, {
-          toValue: GLOW_MIN,
-          duration: GLOW_HALF_PERIOD_MS,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
     entrance.start();
-    breathe.start();
+    glow.setValue((GLOW_MIN + GLOW_MAX) / 2);
     return () => {
       entrance.stop();
-      breathe.stop();
     };
-  }, [reduceMotion, scale, glow]);
+  }, [reduceMotion, active, scale, glow]);
 
   const archetypeName = archetypeDisplayName(archetype);
   const uri = portraitUrl ?? archetypeIllustrationUri(archetype) ?? '';
@@ -144,13 +129,11 @@ export default function FighterEntrance({
         </Animated.View>
       </View>
 
-      <Text style={styles.name} numberOfLines={1}>
+      <Text variant="fighter" style={styles.name}>
         {name}
       </Text>
       {archetypeName ? (
-        <Text style={styles.archetype} numberOfLines={1}>
-          {archetypeName}
-        </Text>
+        <Text style={styles.archetype}>{archetypeName}</Text>
       ) : null}
 
       <View style={styles.modeBadge}>

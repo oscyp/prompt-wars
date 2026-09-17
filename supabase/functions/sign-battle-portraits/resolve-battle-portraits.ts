@@ -84,6 +84,8 @@ export type ResolveBattlePortraitsResult =
   | { kind: 'forbidden' };
 
 interface CharacterLite {
+  avatar?: { image_path: string } | null;
+  fighter?: { image_path: string } | null;
   id?: string | null;
   archetype?: string | null;
   name?: string | null;
@@ -170,8 +172,12 @@ async function resolveSide(
     // preferred — the fighter render is full-body, so a circle crop of it shows
     // mostly torso.
     const [avatar, fighter] = await Promise.all([
-      resolveCurrentPortrait(supabase, characterId, 'avatar'),
-      resolveCurrentPortrait(supabase, characterId, 'fighter'),
+      opts.character && 'avatar' in opts.character
+        ? Promise.resolve(opts.character.avatar)
+        : resolveCurrentPortrait(supabase, characterId, 'avatar'),
+      opts.character && 'fighter' in opts.character
+        ? Promise.resolve(opts.character.fighter)
+        : resolveCurrentPortrait(supabase, characterId, 'fighter'),
     ]);
 
     const portrait = avatar ?? fighter;
@@ -223,7 +229,7 @@ export async function resolveBattlePortraits(
     .select(
       `
       id, player_one_id, player_two_id, is_player_two_bot, bot_persona_id,
-      player_one_character_id, player_two_character_id,
+      player_one_character_id, player_two_character_id, identity_snapshot,
       player_one_character:characters!battles_player_one_character_id_fkey(id, archetype, name, signature_color, cosmetic_config),
       player_two_character:characters!battles_player_two_character_id_fkey(id, archetype, name, signature_color, cosmetic_config)
     `,
@@ -249,6 +255,19 @@ export async function resolveBattlePortraits(
   if (!isParticipant) return { kind: 'forbidden' };
 
   const isBot = !!battle.is_player_two_bot;
+  if (battle.identity_snapshot) {
+    const [player_one, player_two] = await Promise.all([
+      resolveSide(supabase, {
+        isBot: false,
+        character: battle.identity_snapshot.player_one,
+      }),
+      resolveSide(supabase, {
+        isBot,
+        character: battle.identity_snapshot.player_two,
+      }),
+    ]);
+    return { kind: 'ok', payload: { player_one, player_two } };
+  }
 
   const [playerOne, playerTwo] = await Promise.all([
     resolveSide(supabase, {

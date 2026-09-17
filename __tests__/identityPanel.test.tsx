@@ -3,6 +3,7 @@ import { render } from '@testing-library/react-native';
 import IdentityPanel from '@/components/edit-character/IdentityPanel';
 import type { EditPricing } from '@/utils/editCooldowns';
 
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 jest.mock('@/utils/haptics', () => ({ hapticSelection: jest.fn() }));
 
 const CHARACTER = {
@@ -69,4 +70,14 @@ describe('IdentityPanel archetype card', () => {
     );
     expect(queryByText(/locks it for/)).toBeNull();
   });
+});
+
+test('archetype identity copy makes no scoring advantage claim', () => {
+  const view = renderPanel(pricing());
+  expect(
+    view.getByText(
+      'A free identity preset for your fighter and portrait. No scoring bonus.',
+    ),
+  ).toBeTruthy();
+  expect(view.queryByText(/judge weighs/)).toBeNull();
 });

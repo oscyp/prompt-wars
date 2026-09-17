@@ -1,24 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  Pressable,
-  Animated,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useEffect, useState } from 'react';
+import { View, Pressable, StyleSheet, Alert } from 'react-native';
+import { GameText as Text, GameButton } from '@/components/game';
+import BottomSheet from '@/components/sheets/BottomSheet';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { useReducedMotion } from '@/hooks/useReducedMotion';
-import {
-  Spacing,
-  Typography,
-  BorderRadius,
-  Motion,
-} from '@/constants/DesignTokens';
-import { reportContent, ReportContentParams } from '@/utils/safety';
+import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { blockUser, reportContent, ReportContentParams } from '@/utils/safety';
 
 /**
  * Report-and-block sheet.
@@ -63,6 +49,7 @@ export interface ReportBlockSheetProps {
   /** Shown in the title, e.g. "this battle" or a display name. */
   subjectLabel?: string;
   onDone?: (blocked: boolean) => void;
+  returnFocusRef?: React.RefObject<View | null>;
 }
 
 export default function ReportBlockSheet({
@@ -73,12 +60,9 @@ export default function ReportBlockSheet({
   reportedProfileId,
   subjectLabel = 'this content',
   onDone,
+  returnFocusRef,
 }: ReportBlockSheetProps) {
   const colors = useThemedColors();
-  const insets = useSafeAreaInsets();
-  const reduceMotion = useReducedMotion();
-  const translateY = useRef(new Animated.Value(420)).current;
-
   const [reason, setReason] =
     useState<ReportContentParams['reason']>('inappropriate');
   const [alsoBlock, setAlsoBlock] = useState(false);
@@ -93,17 +77,30 @@ export default function ReportBlockSheet({
     setReason('inappropriate');
     setAlsoBlock(false);
     setIsSubmitting(false);
-    if (reduceMotion) {
-      translateY.setValue(0);
-      return;
+  }, [visible]);
+
+  const blockOnly = async () => {
+    const profileId =
+      reportedProfileId || (reportedType === 'profile' ? reportedId : null);
+    if (!profileId || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await blockUser(profileId);
+      onClose();
+      onDone?.(true);
+      Alert.alert(
+        'Player blocked',
+        'You will not be matched with this player again.',
+      );
+    } catch (error) {
+      Alert.alert(
+        'Could not block player',
+        error instanceof Error ? error.message : 'Please try again.',
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-    translateY.setValue(420);
-    Animated.timing(translateY, {
-      toValue: 0,
-      duration: Motion.durations.base,
-      useNativeDriver: true,
-    }).start();
-  }, [visible, reduceMotion, translateY]);
+  };
 
   const submit = async () => {
     setIsSubmitting(true);
@@ -135,162 +132,140 @@ export default function ReportBlockSheet({
   };
 
   return (
-    <Modal
+    <BottomSheet
       visible={visible}
-      transparent
-      animationType="none"
-      onRequestClose={onClose}
-    >
-      <Pressable
-        style={styles.scrim}
-        onPress={isSubmitting ? undefined : onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Close report options"
-      />
-      <Animated.View
-        style={[
-          styles.sheet,
-          {
-            backgroundColor: colors.background,
-            borderColor: colors.border,
-            paddingBottom: insets.bottom + Spacing.lg,
-            transform: [{ translateY }],
-          },
-        ]}
-        accessibilityViewIsModal
-      >
-        <View style={[styles.grabber, { backgroundColor: colors.border }]} />
-        <Text style={[styles.title, { color: colors.text }]}>
-          Report {subjectLabel}
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Tell us what is wrong so we can review it.
-        </Text>
-
-        <View
-          style={styles.reasons}
-          accessibilityRole="radiogroup"
-          accessibilityLabel="Reason for reporting"
-        >
-          {REASONS.map((r) => {
-            const selected = r.value === reason;
-            return (
-              <Pressable
-                key={r.value}
-                onPress={() => setReason(r.value)}
-                disabled={isSubmitting}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                accessibilityLabel={r.label}
-                style={[
-                  styles.reason,
-                  {
-                    borderColor: selected ? colors.primary : colors.border,
-                    backgroundColor: selected
-                      ? colors.backgroundTertiary
-                      : 'transparent',
-                  },
-                ]}
-              >
-                <Text style={[styles.reasonLabel, { color: colors.text }]}>
-                  {r.label}
-                </Text>
-                <Text
-                  style={[styles.reasonHint, { color: colors.textSecondary }]}
-                >
-                  {r.hint}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {canBlock && (
-          <Pressable
-            onPress={() => setAlsoBlock((v) => !v)}
+      onClose={onClose}
+      dismissDisabled={isSubmitting}
+      closeAccessibilityLabel="Close report options"
+      title="Report"
+      returnFocusRef={returnFocusRef}
+      footer={
+        <View style={{ gap: 12 }}>
+          <GameButton
+            label={alsoBlock && canBlock ? 'Report & block' : 'Submit report'}
+            accessibilityLabel="Submit report"
+            tone="danger"
+            onPress={submit}
+            busy={isSubmitting}
+          />
+          <GameButton
+            label="Cancel"
+            tone="secondary"
+            onPress={onClose}
             disabled={isSubmitting}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: alsoBlock }}
-            accessibilityLabel="Also block this player"
-            style={[
-              styles.blockRow,
-              {
-                borderColor: alsoBlock ? colors.primary : colors.border,
-                backgroundColor: alsoBlock
-                  ? colors.backgroundTertiary
-                  : 'transparent',
-              },
-            ]}
-          >
-            <View
+          />
+        </View>
+      }
+    >
+      <Text style={[styles.subject, { color: colors.text }]}>
+        {subjectLabel}
+      </Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+        Tell us what is wrong so we can review it.
+      </Text>
+
+      <View
+        style={styles.reasons}
+        accessibilityRole="radiogroup"
+        accessibilityLabel="Reason for reporting"
+      >
+        {REASONS.map((r) => {
+          const selected = r.value === reason;
+          return (
+            <Pressable
+              key={r.value}
+              onPress={() => setReason(r.value)}
+              disabled={isSubmitting}
+              accessibilityRole="radio"
+              accessibilityState={{
+                selected,
+                checked: selected,
+                disabled: isSubmitting,
+              }}
+              accessibilityLabel={r.label}
               style={[
-                styles.checkbox,
+                styles.reason,
                 {
-                  borderColor: alsoBlock ? colors.primary : colors.border,
-                  backgroundColor: alsoBlock ? colors.primary : 'transparent',
+                  borderColor: selected ? colors.primary : colors.border,
+                  backgroundColor: selected
+                    ? colors.backgroundTertiary
+                    : 'transparent',
                 },
               ]}
             >
-              {alsoBlock && <Text style={styles.checkmark}>✓</Text>}
-            </View>
-            <View style={styles.blockCopy}>
               <Text style={[styles.reasonLabel, { color: colors.text }]}>
-                Also block this player
+                {r.label}
               </Text>
               <Text
                 style={[styles.reasonHint, { color: colors.textSecondary }]}
               >
-                You will never be matched with them again
+                {r.hint}
               </Text>
-            </View>
-          </Pressable>
-        )}
+            </Pressable>
+          );
+        })}
+      </View>
 
-        <View style={styles.actions}>
-          <Pressable
-            onPress={onClose}
-            disabled={isSubmitting}
-            accessibilityRole="button"
-            accessibilityLabel="Cancel"
+      {canBlock && (
+        <Pressable
+          onPress={() => setAlsoBlock((v) => !v)}
+          disabled={isSubmitting}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: alsoBlock }}
+          accessibilityLabel="Also block this player"
+          style={[
+            styles.blockRow,
+            {
+              borderColor: alsoBlock ? colors.primary : colors.border,
+              backgroundColor: alsoBlock
+                ? colors.backgroundTertiary
+                : 'transparent',
+            },
+          ]}
+        >
+          <View
             style={[
-              styles.button,
-              { backgroundColor: colors.backgroundTertiary },
-            ]}
-          >
-            <Text style={[styles.buttonText, { color: colors.text }]}>
-              Cancel
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={submit}
-            disabled={isSubmitting}
-            accessibilityRole="button"
-            accessibilityLabel="Submit report"
-            style={[
-              styles.button,
+              styles.checkbox,
               {
-                backgroundColor: colors.error,
-                opacity: isSubmitting ? 0.6 : 1,
+                borderColor: alsoBlock ? colors.primary : colors.border,
+                backgroundColor: alsoBlock ? colors.primary : 'transparent',
               },
             ]}
           >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={[styles.buttonText, { color: '#fff' }]}>
-                {alsoBlock && canBlock ? 'Report & block' : 'Submit report'}
-              </Text>
-            )}
-          </Pressable>
-        </View>
-      </Animated.View>
-    </Modal>
+            {alsoBlock && <Text style={styles.checkmark}>✓</Text>}
+          </View>
+          <View style={styles.blockCopy}>
+            <Text style={[styles.reasonLabel, { color: colors.text }]}>
+              Also block this player
+            </Text>
+            <Text style={[styles.reasonHint, { color: colors.textSecondary }]}>
+              You will never be matched with them again
+            </Text>
+          </View>
+        </Pressable>
+      )}
+
+      {canBlock ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Block player without reporting"
+          disabled={isSubmitting}
+          onPress={blockOnly}
+          style={[styles.blockRow, { borderColor: colors.border }]}
+        >
+          <Text style={[styles.reasonLabel, { color: colors.text }]}>
+            Block player without reporting
+          </Text>
+        </Pressable>
+      ) : null}
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
   scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
   sheet: {
+    maxHeight: '90%',
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     borderWidth: StyleSheet.hairlineWidth,
@@ -309,6 +284,11 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
     textAlign: 'center',
   },
+  subject: {
+    fontSize: Typography.sizes.base,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+  },
   subtitle: {
     fontSize: Typography.sizes.sm,
     textAlign: 'center',
@@ -321,7 +301,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: 'center',
   },
   reasonLabel: {
@@ -338,7 +318,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     marginTop: Spacing.md,
-    minHeight: 44,
+    minHeight: 48,
   },
   checkbox: {
     width: 22,
@@ -349,7 +329,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkmark: {
-    color: '#fff',
+    color: '#171225',
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.bold,
   },
@@ -357,7 +337,8 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.lg },
   button: {
     flex: 1,
-    height: 48,
+    minHeight: 48,
+    padding: Spacing.sm,
     borderRadius: BorderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, type LayoutChangeEvent } from 'react-native';
+import { GameText } from '@/components/game';
+import { useState } from 'react';
+import { View, StyleSheet, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
@@ -79,12 +80,13 @@ export default function Sparkline({
 
   if (points.length < 2) {
     return (
-      <Text
+      <GameText
+        variant="body"
         style={[styles.empty, accessibleText, { color: colors.textSecondary }]}
         testID={testID}
       >
         {emptyText}
-      </Text>
+      </GameText>
     );
   }
 
@@ -124,7 +126,8 @@ export default function Sparkline({
         ) : null}
       </View>
       <View style={styles.labels}>
-        <Text
+        <GameText
+          variant="label"
           style={[
             styles.label,
             NumericFontVariant,
@@ -132,12 +135,13 @@ export default function Sparkline({
           ]}
         >
           {first}
-        </Text>
-        <Text
+        </GameText>
+        <GameText
+          variant="label"
           style={[styles.label, NumericFontVariant, { color: colors.text }]}
         >
           {last}
-        </Text>
+        </GameText>
       </View>
     </View>
   );
@@ -154,7 +158,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   label: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
   empty: {

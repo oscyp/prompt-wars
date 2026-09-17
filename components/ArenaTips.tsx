@@ -1,3 +1,4 @@
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -62,7 +63,8 @@ export default function ArenaTips({
   screenReader,
 }: ArenaTipsProps) {
   const screenReaderOn = useScreenReaderEnabled(screenReader);
-  const isStatic = reduceMotion || screenReaderOn;
+  const active = useBattlePresentationActive();
+  const isStatic = reduceMotion || screenReaderOn || !active;
 
   const [tick, setTick] = useState(0);
   const tickRef = useRef(0);

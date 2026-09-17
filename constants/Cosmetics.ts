@@ -1,3 +1,4 @@
+import type { ImageSourcePropType } from 'react-native';
 import type { Ionicons } from '@expo/vector-icons';
 
 /**
@@ -19,6 +20,10 @@ export type CosmeticSlug =
   | 'streak_badge'
   | 'crimson_color'
   | 'galaxy_color'
+  | 'astral_codex_frame'
+  | 'emberforge_frame'
+  | 'neon_circuit_frame'
+  | 'laureate_frame'
   | 'classic_frame'
   | 'veteran_frame'
   | 'gold_frame'
@@ -36,12 +41,22 @@ export type CosmeticSlug =
  * Portrait border. `colors` of length 1 is a solid edge; 2+ is a gradient
  * running top-left to bottom-right.
  */
+/** Insets are normalized fractions of the artwork canvas, measured from alpha. */
+export interface FrameArtwork {
+  source: ImageSourcePropType;
+  aspectRatio: number;
+  /** Transparent lower canvas before visible ornament (alpha >= 8); joins native caption plates. */
+  captionOverlap?: number;
+  insets: { top: number; right: number; bottom: number; left: number };
+}
+
 export interface FramePresentation {
   kind: 'frame';
   colors: string[];
   width: number;
   /** Soft outer glow radius. 0 for none. */
   glow?: number;
+  artwork?: { portrait: FrameArtwork; avatar: FrameArtwork };
 }
 
 export interface TitlePresentation {
@@ -89,6 +104,82 @@ export type CosmeticPresentation =
 export const COSMETIC_PRESENTATION: Record<CosmeticSlug, CosmeticPresentation> =
   {
     // --- Frames -------------------------------------------------------------
+    astral_codex_frame: {
+      kind: 'frame',
+      colors: ['#A78BFA', '#F5C542'],
+      width: 4,
+      glow: 8,
+      artwork: {
+        portrait: {
+          source: require('@/assets/cosmetics/frames/astral-codex-portrait.png'),
+          captionOverlap: 0.005859375,
+          aspectRatio: 2 / 3,
+          insets: { top: 0.2324, right: 0.1406, bottom: 0.2285, left: 0.1406 },
+        },
+        avatar: {
+          source: require('@/assets/cosmetics/frames/astral-codex-avatar.png'),
+          aspectRatio: 1,
+          insets: { top: 0.2695, right: 0.2695, bottom: 0.2695, left: 0.2695 },
+        },
+      },
+    },
+    emberforge_frame: {
+      kind: 'frame',
+      colors: ['#F97316', '#F5C542'],
+      width: 4,
+      glow: 8,
+      artwork: {
+        portrait: {
+          source: require('@/assets/cosmetics/frames/emberforge-portrait.png'),
+          captionOverlap: 0.033203125,
+          aspectRatio: 2 / 3,
+          insets: { top: 0.1465, right: 0.1543, bottom: 0.166, left: 0.1562 },
+        },
+        avatar: {
+          source: require('@/assets/cosmetics/frames/emberforge-avatar.png'),
+          aspectRatio: 1,
+          insets: { top: 0.2329, right: 0.2329, bottom: 0.2329, left: 0.2329 },
+        },
+      },
+    },
+    neon_circuit_frame: {
+      kind: 'frame',
+      colors: ['#22D3EE', '#EC4899'],
+      width: 4,
+      glow: 8,
+      artwork: {
+        portrait: {
+          source: require('@/assets/cosmetics/frames/neon-circuit-portrait.png'),
+          captionOverlap: 0.056640625,
+          aspectRatio: 2 / 3,
+          insets: { top: 0.1491, right: 0.1445, bottom: 0.1712, left: 0.1445 },
+        },
+        avatar: {
+          source: require('@/assets/cosmetics/frames/neon-circuit-avatar.png'),
+          aspectRatio: 1,
+          insets: { top: 0.2105, right: 0.2105, bottom: 0.2105, left: 0.2105 },
+        },
+      },
+    },
+    laureate_frame: {
+      kind: 'frame',
+      colors: ['#F5C542', '#B8860B'],
+      width: 4,
+      glow: 8,
+      artwork: {
+        portrait: {
+          source: require('@/assets/cosmetics/frames/laureate-portrait.png'),
+          captionOverlap: 0.040364583333333336,
+          aspectRatio: 2 / 3,
+          insets: { top: 0.1543, right: 0.1719, bottom: 0.1452, left: 0.1699 },
+        },
+        avatar: {
+          source: require('@/assets/cosmetics/frames/laureate-avatar.png'),
+          aspectRatio: 1,
+          insets: { top: 0.2313, right: 0.2313, bottom: 0.2313, left: 0.2313 },
+        },
+      },
+    },
     classic_frame: { kind: 'frame', colors: ['#8B8699'], width: 3 },
     veteran_frame: { kind: 'frame', colors: ['#B08D57'], width: 3 },
     gold_frame: {

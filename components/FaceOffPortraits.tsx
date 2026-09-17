@@ -1,7 +1,8 @@
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
+import { GameText as Text, GameBevel } from '@/components/game';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Animated,
   Pressable,
@@ -65,6 +66,8 @@ export interface FaceOffPortraitsProps {
    * is no clash to wait for.
    */
   continueDelayMs?: number;
+  /** Entrance inside the editable workspace, without a Continue gate. */
+  embedded?: boolean;
 }
 
 /** The four stat rows: what the screen shows and what the screen reader says. */
@@ -98,9 +101,11 @@ export default function FaceOffPortraits({
   leaveLabel = 'Leave Battle',
   actionsDisabled = false,
   continueDelayMs,
+  embedded = false,
 }: FaceOffPortraitsProps) {
   const colors = useThemedColors();
   const reducedMotion = useReducedMotion();
+  const presentationActive = useBattlePresentationActive();
   const gateMs =
     continueDelayMs ?? (reducedMotion ? 0 : Motion.durations.reveal + 300);
   const [canContinue, setCanContinue] = useState(gateMs <= 0);
@@ -117,6 +122,11 @@ export default function FaceOffPortraits({
   // Honors Reduce Motion (OS setting OR the in-app toggle): static/instant,
   // but the haptic still lands -- it is feedback, not motion.
   useEffect(() => {
+    if (!presentationActive) {
+      [themeOpacity, themeScale, vsScale].forEach((value) => value.setValue(1));
+      [leftSlide, rightSlide].forEach((value) => value.setValue(0));
+      return;
+    }
     if (clashPlayedRef.current) return;
     clashPlayedRef.current = true;
 
@@ -130,7 +140,8 @@ export default function FaceOffPortraits({
       return;
     }
 
-    Animated.parallel([
+    let alive = true;
+    const entrance = Animated.parallel([
       Animated.spring(leftSlide, {
         toValue: 0,
         friction: 7,
@@ -143,7 +154,9 @@ export default function FaceOffPortraits({
         tension: 90,
         useNativeDriver: true,
       }),
-    ]).start(() => {
+    ]);
+    entrance.start(({ finished }) => {
+      if (!finished || !alive) return;
       hapticImpact();
       Animated.parallel([
         Animated.spring(vsScale, {
@@ -164,7 +177,22 @@ export default function FaceOffPortraits({
         }),
       ]).start();
     });
-  }, [reducedMotion, themeOpacity, themeScale, vsScale, leftSlide, rightSlide]);
+    return () => {
+      alive = false;
+      entrance.stop();
+      [themeOpacity, themeScale, vsScale, leftSlide, rightSlide].forEach(
+        (value) => value.stopAnimation(),
+      );
+    };
+  }, [
+    reducedMotion,
+    presentationActive,
+    themeOpacity,
+    themeScale,
+    vsScale,
+    leftSlide,
+    rightSlide,
+  ]);
 
   useEffect(() => {
     if (gateMs <= 0) {
@@ -181,10 +209,10 @@ export default function FaceOffPortraits({
   // user cannot see coming; say it once.
   const announcedRef = useRef(false);
   useEffect(() => {
-    if (!canContinue || announcedRef.current) return;
+    if (embedded || !canContinue || announcedRef.current) return;
     announcedRef.current = true;
     AccessibilityInfo.announceForAccessibility(CONTINUE_READY_ANNOUNCEMENT);
-  }, [canContinue]);
+  }, [canContinue, embedded]);
 
   const handleContinue = () => {
     if (!canContinue || actionsDisabled || advancedRef.current) return;
@@ -199,6 +227,41 @@ export default function FaceOffPortraits({
   const bannerA11y = roundLabel
     ? `${roundLabel}. Theme: ${themeText}`
     : `Theme: ${themeText}`;
+
+  if (embedded) {
+    return (
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-around',
+          paddingVertical: 8,
+        }}
+      >
+        {[playerOne, playerTwo].map((player, index) => (
+          <Animated.View
+            key={player.characterId}
+            style={{
+              alignItems: 'center',
+              flex: 1,
+              transform: [{ translateX: index === 0 ? leftSlide : rightSlide }],
+            }}
+          >
+            <Image
+              source={
+                player.portraitUrl
+                  ? { uri: player.portraitUrl }
+                  : getArchetypeAvatar(player.archetype)
+              }
+              resizeMode="contain"
+              accessibilityLabel={`${player.displayName} fighter`}
+              style={{ height: 72, width: 80 }}
+            />
+          </Animated.View>
+        ))}
+      </View>
+    );
+  }
 
   return (
     <ImageBackground
@@ -229,6 +292,7 @@ export default function FaceOffPortraits({
           {bannerLabel}
         </Text>
         <Text
+          variant="title"
           style={[styles.themeText, { color: inkFor(colors.primary) }]}
           numberOfLines={2}
         >
@@ -261,62 +325,64 @@ export default function FaceOffPortraits({
         </Animated.View>
       </View>
 
-      <View
-        style={[
-          styles.footer,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <Pressable
+      {!embedded && (
+        <View
           style={[
-            styles.continueButton,
-            {
-              backgroundColor: canContinue
-                ? colors.primary
-                : colors.backgroundTertiary,
-            },
+            styles.footer,
+            { backgroundColor: colors.card, borderColor: colors.border },
           ]}
-          onPress={handleContinue}
-          disabled={!canContinue || actionsDisabled}
-          accessibilityRole="button"
-          accessibilityLabel="Continue to move select"
-          accessibilityState={{ disabled: !canContinue || actionsDisabled }}
         >
-          <Text
-            style={[
-              styles.continueText,
-              {
-                color: canContinue
-                  ? inkFor(colors.primary)
-                  : colors.textSecondary,
-              },
-            ]}
-          >
-            {canContinue ? 'Continue' : REVEALING_LABEL}
-          </Text>
-        </Pressable>
-
-        {onLeave ? (
           <Pressable
             style={[
-              styles.leaveButton,
+              styles.continueButton,
               {
-                borderColor: colors.border,
-                backgroundColor: colors.background,
+                backgroundColor: canContinue
+                  ? colors.primary
+                  : colors.backgroundTertiary,
               },
             ]}
-            onPress={onLeave}
-            disabled={actionsDisabled}
+            onPress={handleContinue}
+            disabled={!canContinue || actionsDisabled}
             accessibilityRole="button"
-            accessibilityLabel={leaveLabel}
-            accessibilityState={{ disabled: actionsDisabled }}
+            accessibilityLabel="Continue to move select"
+            accessibilityState={{ disabled: !canContinue || actionsDisabled }}
           >
-            <Text style={[styles.leaveText, { color: colors.textSecondary }]}>
-              {leaveLabel}
+            <Text
+              style={[
+                styles.continueText,
+                {
+                  color: canContinue
+                    ? inkFor(colors.primary)
+                    : colors.textSecondary,
+                },
+              ]}
+            >
+              {canContinue ? 'Continue' : REVEALING_LABEL}
             </Text>
           </Pressable>
-        ) : null}
-      </View>
+
+          {onLeave ? (
+            <Pressable
+              style={[
+                styles.leaveButton,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.background,
+                },
+              ]}
+              onPress={onLeave}
+              disabled={actionsDisabled}
+              accessibilityRole="button"
+              accessibilityLabel={leaveLabel}
+              accessibilityState={{ disabled: actionsDisabled }}
+            >
+              <Text style={[styles.leaveText, { color: colors.textSecondary }]}>
+                {leaveLabel}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      )}
     </ImageBackground>
   );
 }
@@ -339,6 +405,7 @@ function PlayerSide({
         },
       ]}
     >
+      <GameBevel color={colors.ornamentMuted} />
       <View style={styles.portraitWrap}>
         {player.portraitUrl ? (
           <Pressable
@@ -382,20 +449,12 @@ function PlayerSide({
         )}
       </View>
       {player.label ? (
-        <Text
-          style={[styles.sideLabel, { color: colors.textTertiary }]}
-          numberOfLines={1}
-        >
+        <Text style={[styles.sideLabel, { color: colors.textTertiary }]}>
           {player.label}
         </Text>
       ) : null}
       <View style={styles.nameRow}>
-        <Text
-          style={[styles.name, { color: colors.text }]}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.7}
-        >
+        <Text variant="fighter" style={[styles.name, { color: colors.text }]}>
           {player.displayName}
         </Text>
         <CosmeticBadge badge={player.cosmetics?.badge} size={14} />
@@ -412,9 +471,6 @@ function PlayerSide({
             styles.archetypeText,
             { color: inkFor(player.signatureColor) },
           ]}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.7}
         >
           {player.archetype.toUpperCase()}
         </Text>
@@ -492,7 +548,7 @@ const styles = StyleSheet.create({
   },
   sideCol: {
     flex: 1,
-    borderRadius: BorderRadius.lg,
+    borderRadius: 0,
     borderWidth: 2,
     padding: Spacing.md,
     alignItems: 'center',
@@ -515,7 +571,7 @@ const styles = StyleSheet.create({
     borderRadius: 56,
   },
   sideLabel: {
-    fontSize: 10,
+    fontSize: 14,
     fontWeight: Typography.weights.bold,
     letterSpacing: 0.8,
     marginBottom: 2,
@@ -528,7 +584,6 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.bold,
     marginBottom: Spacing.xs,
     maxWidth: '100%',
   },
@@ -540,7 +595,7 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   archetypeText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
     fontWeight: Typography.weights.bold,
     letterSpacing: 0.5,
   },
@@ -561,20 +616,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   themeBanner: {
-    borderRadius: BorderRadius.lg,
+    borderRadius: 0,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     alignItems: 'center',
     marginBottom: Spacing.md,
   },
   themeLabel: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
     letterSpacing: 1,
     opacity: 0.85,
   },
   themeText: {
     fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.bold,
     textAlign: 'center',
   },
   vs: {
@@ -584,7 +638,7 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: Spacing.lg,
     padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    borderRadius: 0,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'column',
     alignItems: 'center',

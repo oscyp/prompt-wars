@@ -1,20 +1,15 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  ActivityIndicator,
-  StyleSheet,
-} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { GameButton } from '@/components/game';
+import { GameText } from '@/components/game';
+
+import { View, StyleSheet } from 'react-native';
+import EditorItemArt from './EditorItemArt';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { TRAIT_LABELS } from '@/constants/CharacterTraits';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import type { CatalogSignatureItem } from '@/utils/characters';
 import BottomSheet from '../sheets/BottomSheet';
-import { ITEM_CLASS_ICON } from '../ItemGrid';
+
 import { editStyles as s } from './styles';
 
 export interface ItemDetailSheetProps {
@@ -32,6 +27,7 @@ export interface ItemDetailSheetProps {
   onDisabledAction?: () => void;
   onChoose: (id: string) => void;
   onClose: () => void;
+  returnFocusRef?: React.RefObject<View | null>;
 }
 
 /**
@@ -54,6 +50,7 @@ export default function ItemDetailSheet({
   onDisabledAction,
   onChoose,
   onClose,
+  returnFocusRef,
 }: ItemDetailSheetProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
@@ -63,11 +60,41 @@ export default function ItemDetailSheet({
   return (
     <BottomSheet
       visible={visible}
+      returnFocusRef={returnFocusRef}
       onClose={onClose}
       dismissDisabled={busy}
       closeAccessibilityLabel="Close item details"
       showCloseButton
       testID="item-detail-sheet"
+      footer={
+        item ? (
+          <GameButton
+            onPress={() => {
+              if (canChoose) onChoose(item.id);
+              else if (canResolveDisabled) onDisabledAction?.();
+            }}
+            disabled={!canChoose && !canResolveDisabled}
+            accessibilityRole="button"
+            accessibilityLabel={
+              equipped ? undefined : `Use ${item.name} · Free`
+            }
+            accessibilityState={{ disabled: !canChoose && !canResolveDisabled }}
+            style={[
+              s.primaryBtn,
+              { backgroundColor: colors.primary },
+              !canChoose && !canResolveDisabled && s.btnDisabled,
+            ]}
+            label={
+              equipped
+                ? 'Selected'
+                : canResolveDisabled
+                  ? (disabledActionLabel ?? 'Manage battles')
+                  : 'Use this item · Free'
+            }
+            busy={busy}
+          />
+        ) : undefined
+      }
     >
       {item ? (
         <View style={styles.body}>
@@ -78,78 +105,43 @@ export default function ItemDetailSheet({
                 { backgroundColor: colors.backgroundTertiary },
               ]}
             >
-              {item.iconUrl ? (
-                <Image
-                  source={{ uri: item.iconUrl }}
-                  style={styles.icon}
-                  accessibilityLabel=""
-                />
-              ) : (
-                <MaterialCommunityIcons
-                  name={ITEM_CLASS_ICON[item.itemClass] ?? 'star-four-points'}
-                  size={40}
-                  color={colors.primary}
-                />
-              )}
+              <EditorItemArt item={item} size={64} />
             </View>
             <View style={s.flex1}>
-              <Text
+              <GameText
+                variant="fighter"
                 accessibilityRole="header"
                 style={[styles.name, accessibleText, { color: colors.text }]}
               >
                 {item.name}
-              </Text>
-              <Text
+              </GameText>
+              <GameText
+                variant="caption"
                 style={[s.hint, accessibleText, { color: colors.textTertiary }]}
               >
                 {TRAIT_LABELS.itemClass[item.itemClass] ?? item.itemClass}
-              </Text>
+              </GameText>
             </View>
           </View>
 
-          <Text
+          <GameText
+            variant="caption"
             style={[s.cardSub, accessibleText, { color: colors.textSecondary }]}
           >
             {item.description}
-          </Text>
+          </GameText>
 
           {item.isCustom ? (
-            <Text
+            <GameText
+              variant="caption"
               style={[s.hint, accessibleText, { color: colors.textTertiary }]}
             >
               Your creation
-            </Text>
+            </GameText>
           ) : null}
 
-          <TouchableOpacity
-            onPress={() => {
-              if (canChoose) onChoose(item.id);
-              else if (canResolveDisabled) onDisabledAction?.();
-            }}
-            disabled={!canChoose && !canResolveDisabled}
-            accessibilityRole="button"
-            accessibilityLabel={equipped ? undefined : `Choose ${item.name}`}
-            accessibilityState={{ disabled: !canChoose && !canResolveDisabled }}
-            style={[
-              s.primaryBtn,
-              { backgroundColor: colors.primary },
-              !canChoose && !canResolveDisabled && s.btnDisabled,
-            ]}
-          >
-            {busy ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={s.primaryBtnText}>
-                {equipped
-                  ? 'Equipped'
-                  : canResolveDisabled
-                    ? (disabledActionLabel ?? 'Manage battles')
-                    : 'Choose this item'}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          <Text
+          <GameText
+            variant="caption"
             style={[
               s.hint,
               styles.centered,
@@ -159,8 +151,8 @@ export default function ItemDetailSheet({
           >
             {disabled && !equipped
               ? (disabledReason ?? 'Editing is locked during an active battle.')
-              : 'Applied when you save.'}
-          </Text>
+              : 'Select for free, then save your choices. A new drawing brings this item into your artwork.'}
+          </GameText>
         </View>
       ) : null}
     </BottomSheet>
@@ -183,7 +175,7 @@ const styles = StyleSheet.create({
   iconTile: {
     width: ICON_TILE,
     height: ICON_TILE,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,13 +1,9 @@
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
+import { GameText as Text, GameBevel } from '@/components/game';
 import React, { useEffect, useRef } from 'react';
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import {
   BorderRadius,
@@ -51,6 +47,7 @@ export default function RevealPayoffBeat({
   insets,
 }: RevealPayoffBeatProps) {
   const colors = useThemedColors();
+  const active = useBattlePresentationActive();
 
   // One success haptic, the first time a credits or streak gain is on screen.
   const celebrated = useRef(false);
@@ -58,10 +55,10 @@ export default function RevealPayoffBeat({
     (r) => (r.key === 'credits' || r.key === 'streak') && r.tone === 'up',
   );
   useEffect(() => {
-    if (!hasGain || celebrated.current) return;
+    if (!active || !hasGain || celebrated.current) return;
     celebrated.current = true;
     hapticSuccess();
-  }, [hasGain]);
+  }, [active, hasGain]);
 
   const toneColor = (tone: PayoffRow['tone']) =>
     tone === 'up'
@@ -80,6 +77,7 @@ export default function RevealPayoffBeat({
       showsVerticalScrollIndicator={false}
     >
       <Text
+        variant="display"
         style={[styles.title, { color: colors.text }]}
         accessibilityRole="header"
       >
@@ -101,6 +99,7 @@ export default function RevealPayoffBeat({
           accessible
           accessibilityLabel={payoffRowLabel(row)}
         >
+          <GameBevel color={colors.ornamentMuted} />
           <View style={styles.rowText}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>
               {row.label}
@@ -113,7 +112,7 @@ export default function RevealPayoffBeat({
           </View>
           <View style={styles.valueRow}>
             {row.tone !== 'neutral' ? (
-              <Ionicons
+              <GameSymbol
                 name={row.tone === 'up' ? 'trending-up' : 'trending-down'}
                 size={18}
                 color={toneColor(row.tone)}
@@ -180,6 +179,7 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.md,

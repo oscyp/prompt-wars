@@ -1,3 +1,4 @@
+import { bestValueProductId } from '@/utils/storePackages';
 import type {
   PurchasesOfferings,
   PurchasesPackage,
@@ -111,5 +112,28 @@ describe('offerPriceStrings', () => {
       currencyCode: '',
     });
     expect(offerPriceStrings(p).referencePriceString).toBeUndefined();
+  });
+});
+
+describe('bestValueProductId', () => {
+  const best = bestValueProductId;
+  const pack = (id: string, price: number, currency = 'PLN') => ({
+    product: { identifier: id, price, currencyCode: currency },
+  });
+  it('compares actual localized unit prices', () => {
+    expect(
+      best([
+        pack('credits_10', 5),
+        pack('credits_30', 30),
+        pack('credits_200', 40),
+      ]),
+    ).toBe('credits_200');
+  });
+  it('omits claims for mixed currencies, ties and a single pack', () => {
+    expect(
+      best([pack('credits_10', 5), pack('credits_30', 10, 'USD')]),
+    ).toBeNull();
+    expect(best([pack('credits_10', 5), pack('credits_30', 15)])).toBeNull();
+    expect(best([pack('credits_10', 5)])).toBeNull();
   });
 });

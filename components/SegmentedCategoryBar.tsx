@@ -1,15 +1,24 @@
+import { GamePanel, GameText, GameBevel } from '@/components/game';
+import { inkFor } from '@/utils/contrast';
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
+import { GameIcon, type GameIconName } from './game/icons/GameIcon';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { Spacing, Typography } from '@/constants/DesignTokens';
 import { hapticSelection } from '@/utils/haptics';
 
 export interface SegmentedCategoryItem {
   key: string;
   label: string;
-  icon?: React.ComponentProps<typeof Ionicons>['name'];
+  icon?: React.ComponentProps<typeof GameSymbol>['name'];
+  gameIcon?: GameIconName;
   /** Shows a small accent dot on the segment (e.g. unsaved/staged changes). */
   badge?: boolean;
 }
@@ -33,12 +42,16 @@ export default function SegmentedCategoryBar({
 }: SegmentedCategoryBarProps) {
   const colors = useThemedColors();
   const textStyle = useAccessibleTextStyle();
+  const { width, fontScale } = useWindowDimensions();
+  const largeText = width < 390 || fontScale > 1.15;
 
   return (
-    <View
+    <GamePanel
+      tone="ornate"
       accessibilityRole="tablist"
       style={[
         styles.bar,
+        largeText && styles.stackedBar,
         { backgroundColor: colors.card, borderColor: colors.border },
       ]}
     >
@@ -54,35 +67,49 @@ export default function SegmentedCategoryBar({
             accessibilityRole="tab"
             accessibilityLabel={item.label}
             accessibilityState={{ selected }}
-            style={[
-              styles.segment,
-              selected && { backgroundColor: colors.primary },
-            ]}
+            accessibilityHint={
+              item.badge ? 'Contains unsaved changes' : undefined
+            }
+            style={[styles.segment, largeText && styles.stackedSegment]}
           >
-            {item.icon ? (
-              <Ionicons
+            <GameBevel
+              color={selected ? colors.primary : 'transparent'}
+              fill={selected ? colors.primary : 'transparent'}
+              cut={6}
+            />
+            {item.gameIcon ? (
+              <GameIcon
+                name={item.gameIcon}
+                size={22}
+                color={selected ? inkFor(colors.primary) : colors.textSecondary}
+              />
+            ) : item.icon ? (
+              <GameSymbol
                 name={item.icon}
                 size={16}
-                color={selected ? '#FFFFFF' : colors.textSecondary}
+                color={selected ? inkFor(colors.primary) : colors.textSecondary}
                 style={styles.icon}
+                accessible={false}
               />
             ) : null}
-            <Text
-              numberOfLines={1}
+            <GameText
+              variant="label"
               style={[
                 styles.label,
                 textStyle,
-                { color: selected ? '#FFFFFF' : colors.text },
+                { color: selected ? inkFor(colors.primary) : colors.text },
               ]}
             >
               {item.label}
-            </Text>
+            </GameText>
             {item.badge ? (
               <View
                 style={[
                   styles.dot,
                   {
-                    backgroundColor: selected ? '#FFFFFF' : colors.primary,
+                    backgroundColor: selected
+                      ? inkFor(colors.primary)
+                      : colors.primary,
                   },
                 ]}
               />
@@ -90,34 +117,36 @@ export default function SegmentedCategoryBar({
           </TouchableOpacity>
         );
       })}
-    </View>
+    </GamePanel>
   );
 }
 
 const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
+    borderRadius: 0,
     padding: Spacing.xs,
     gap: Spacing.xs,
   },
+  stackedBar: { flexDirection: 'column', borderRadius: 0 },
+  stackedSegment: { flex: 0, minHeight: 48, borderRadius: 0 },
   segment: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    // Four equal-width segments each need the 44pt minimum in their own right;
+    // Each segment keeps a 48pt minimum target;
     // vertical padding alone left them at ~36pt.
-    minHeight: 44,
+    minHeight: 48,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.xs,
-    borderRadius: BorderRadius.full,
+    borderRadius: 0,
   },
   icon: {
     marginRight: Spacing.xs,
   },
   label: {
+    flexShrink: 1,
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },

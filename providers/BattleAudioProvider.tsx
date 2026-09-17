@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -87,16 +88,31 @@ function NativeBattleAudioProvider({
     AppState.currentState === 'active',
   );
   const activeThemeRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
+
+  // `useAudioPlayer` releases its native SharedObjects in passive-effect
+  // cleanup. Mark the controller inactive during layout cleanup so callbacks
+  // retained by child route effects cannot touch an already-released player
+  // while the battle layout is unmounting.
+  useLayoutEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      activeThemeRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
-    // Battle audio respects the hardware silent switch, ducks other playback,
-    // and never opts into background audio.
+    // iOS does not allow duckOthers while respecting the hardware silent
+    // switch. Keep battle audio silent-switch-aware and mix with other audio.
     void setAudioModeAsync({
       playsInSilentMode: false,
-      interruptionMode: 'duckOthers',
+      interruptionMode: 'mixWithOthers',
       allowsRecording: false,
       shouldPlayInBackground: false,
       shouldRouteThroughEarpiece: false,
+    }).catch((error) => {
+      console.warn('Unable to configure battle audio mode:', error);
     });
   }, [setAudioModeAsync]);
 
@@ -131,6 +147,7 @@ function NativeBattleAudioProvider({
 
   const stopMusic = useCallback(() => {
     activeThemeRef.current = null;
+    if (!mountedRef.current) return;
     setActiveTheme(null);
     music.pause();
   }, [music]);
@@ -144,14 +161,23 @@ function NativeBattleAudioProvider({
 
   const playSound = useCallback(
     (event: ArenaSoundEvent) => {
-      if (!preferences.soundEffects || !foreground) return;
+      if (!mountedRef.current || !preferences.soundEffects || !foreground)
+        return;
       const player = {
         matchFound,
         moveSelected,
         promptLocked,
         transition,
       }[event];
-      void player.seekTo(0).then(() => player.play());
+      void player
+        .seekTo(0)
+        .then(() => {
+          if (mountedRef.current) player.play();
+        })
+        .catch((error) => {
+          if (mountedRef.current)
+            console.warn('Unable to play battle sound:', error);
+        });
     },
     [
       foreground,

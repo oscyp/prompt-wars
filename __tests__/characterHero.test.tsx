@@ -1,3 +1,4 @@
+import { inkFor } from '@/utils/contrast';
 /**
  * The compact Stage row. Same controls as the expanded Stage at row scale, so
  * the same things are checked: portrait tap, dice, Draw copy, status line.
@@ -10,6 +11,13 @@ import CharacterHero, {
 } from '@/components/edit-character/CharacterHero';
 import { NO_COSMETICS } from '@/utils/cosmetics';
 import type { ButtonCopy } from '@/utils/editDialogCopy';
+
+const ReactNative =
+  jest.requireActual<typeof import('react-native')>('react-native');
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: 'Ionicons',
+  MaterialCommunityIcons: 'MaterialCommunityIcons',
+}));
 
 const RENDER: ButtonCopy = {
   label: 'Draw this look · 3 cr',
@@ -155,4 +163,22 @@ describe('CharacterHero', () => {
     );
     expect(getByText('Nyx')).toBeTruthy();
   });
+});
+
+test('compact paid label and caption can wrap and use ink matching their fill', () => {
+  const p = props({
+    renderButton: { ...RENDER, caption: 'Saves your changes first' },
+  });
+  const view = render(<CharacterHero {...p} />);
+  const background = ReactNative.StyleSheet.flatten(
+    view.getByLabelText(RENDER.accessibilityLabel).props.style,
+  ).backgroundColor;
+  for (const copy of [RENDER.label, 'Saves your changes first']) {
+    const text = view.getByText(copy);
+    expect(text.props.numberOfLines).toBeUndefined();
+    expect(ReactNative.StyleSheet.flatten(text.props.style).color).toBe(
+      inkFor(background),
+    );
+  }
+  expect(p.onRender).not.toHaveBeenCalled();
 });

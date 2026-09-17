@@ -1,7 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { GamePanel } from '@/components/game';
+import BrandMark from '@/components/game/BrandMark';
+import { GameHeader, GameButton, GameField } from '@/components/game';
+import { GameText } from '@/components/game';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -12,7 +15,7 @@ import {
   AccessibilityInfo,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { supabase } from '@/utils/supabase';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
@@ -161,15 +164,15 @@ export default function SignUpScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <BrandMark
+          size={260}
+          style={{ alignSelf: 'center', marginBottom: 24 }}
+        />
         {phase === 'confirm_email' ? (
           <View style={styles.form}>
-            <Text
-              accessibilityRole="header"
-              style={[styles.title, accessibleText, { color: colors.text }]}
-            >
-              Check your inbox
-            </Text>
-            <Text
+            <GameHeader title="Check your inbox" style={{ marginBottom: 16 }} />
+            <GameText
+              variant="body"
               accessibilityLiveRegion="polite"
               style={[
                 styles.body,
@@ -179,13 +182,13 @@ export default function SignUpScreen() {
             >
               We sent a confirmation link to {email.trim()}. Open it, then come
               back and sign in.
-            </Text>
+            </GameText>
             {formError ? (
               <View style={styles.banner}>
                 <InlineBanner tone="error" text={formError.message} />
               </View>
             ) : null}
-            <TouchableOpacity
+            <GameButton
               style={[
                 styles.button,
                 { backgroundColor: colors.primary },
@@ -196,35 +199,28 @@ export default function SignUpScreen() {
               accessibilityRole="button"
               accessibilityLabel="Back to sign in"
               accessibilityState={{ disabled: isBusy }}
-            >
-              <Text style={[styles.buttonText, accessibleText]}>
-                Back to sign in
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+              tone="primary"
+              label="Back to sign in"
+            />
+            <GameButton
               onPress={handleResend}
               disabled={isBusy}
               accessibilityRole="button"
               accessibilityLabel="Resend confirmation email"
               accessibilityState={{ disabled: isBusy, busy: busy === 'resend' }}
               style={styles.textButton}
-            >
-              <Text
-                style={[styles.link, accessibleText, { color: colors.link }]}
-              >
-                {busy === 'resend' ? 'Sending…' : 'Resend email'}
-              </Text>
-            </TouchableOpacity>
+              tone="secondary"
+              label={busy === 'resend' ? 'Sending…' : 'Resend email'}
+            />
           </View>
         ) : phase === 'existing_account' ? (
           <View style={styles.form}>
-            <Text
-              accessibilityRole="header"
-              style={[styles.title, accessibleText, { color: colors.text }]}
-            >
-              That email already has an account
-            </Text>
-            <Text
+            <GameHeader
+              title="That email already has an account"
+              style={{ marginBottom: 16 }}
+            />
+            <GameText
+              variant="body"
               accessibilityLiveRegion="polite"
               style={[
                 styles.body,
@@ -233,16 +229,16 @@ export default function SignUpScreen() {
               ]}
             >
               That email already has an account. Sign in instead.
-            </Text>
-            <TouchableOpacity
+            </GameText>
+            <GameButton
               style={[styles.button, { backgroundColor: colors.primary }]}
               onPress={goToSignIn}
               accessibilityRole="button"
               accessibilityLabel="Go to sign in"
-            >
-              <Text style={[styles.buttonText, accessibleText]}>Sign in</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+              tone="primary"
+              label="Sign in"
+            />
+            <GameButton
               onPress={() => {
                 setPhase('form');
                 setEmail('');
@@ -251,23 +247,15 @@ export default function SignUpScreen() {
               accessibilityRole="button"
               accessibilityLabel="Use a different email"
               style={styles.textButton}
-            >
-              <Text
-                style={[styles.link, accessibleText, { color: colors.link }]}
-              >
-                Use a different email
-              </Text>
-            </TouchableOpacity>
+              tone="secondary"
+              label="Use a different email"
+            />
           </View>
         ) : (
           <>
-            <Text
-              accessibilityRole="header"
-              style={[styles.title, accessibleText, { color: colors.text }]}
-            >
-              Join Prompt Wars
-            </Text>
-            <Text
+            <GameHeader title="Join Prompt Wars" style={{ marginBottom: 16 }} />
+            <GameText
+              variant="caption"
               style={[
                 styles.subtitle,
                 accessibleText,
@@ -275,10 +263,10 @@ export default function SignUpScreen() {
               ]}
             >
               Create your account
-            </Text>
+            </GameText>
 
-            <View style={styles.form}>
-              <TextInput
+            <GamePanel tone="ornate" style={styles.form}>
+              <GameField
                 style={[
                   inputStyle,
                   emailError ? { borderColor: colors.error } : null,
@@ -303,7 +291,8 @@ export default function SignUpScreen() {
               <FieldError text={emailError} />
 
               <View style={styles.passwordRow}>
-                <TextInput
+                <GameField
+                  containerStyle={{ flex: 1 }}
                   ref={passwordRef}
                   style={[
                     inputStyle,
@@ -340,7 +329,7 @@ export default function SignUpScreen() {
                   }
                   style={styles.reveal}
                 >
-                  <Ionicons
+                  <GameSymbol
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={22}
                     color={colors.textSecondary}
@@ -372,14 +361,15 @@ export default function SignUpScreen() {
                   ]}
                 >
                   {ageConfirmed ? (
-                    <Ionicons
+                    <GameSymbol
                       name="checkmark"
                       size={16}
-                      color={Ink.onAccentLight}
+                      color={colors.actionInk}
                     />
                   ) : null}
                 </View>
-                <Text
+                <GameText
+                  variant="body"
                   style={[
                     styles.ageText,
                     accessibleText,
@@ -387,11 +377,12 @@ export default function SignUpScreen() {
                   ]}
                 >
                   I confirm I am 18 years of age or older
-                </Text>
+                </GameText>
               </TouchableOpacity>
 
               {/* App Store 3.1.2: these must be functional links, not prose. */}
-              <Text
+              <GameText
+                variant="body"
                 style={[
                   styles.disclaimer,
                   accessibleText,
@@ -399,25 +390,27 @@ export default function SignUpScreen() {
                 ]}
               >
                 By signing up, you agree to our{' '}
-                <Text
+                <GameText
+                  variant="body"
                   style={[styles.disclaimerLink, { color: colors.link }]}
                   onPress={() => Linking.openURL(Links.termsAndConditions)}
                   accessibilityRole="link"
                   accessibilityLabel="Terms and conditions"
                 >
                   Terms &amp; Conditions
-                </Text>{' '}
+                </GameText>{' '}
                 and{' '}
-                <Text
+                <GameText
+                  variant="body"
                   style={[styles.disclaimerLink, { color: colors.link }]}
                   onPress={() => Linking.openURL(Links.privacyPolicy)}
                   accessibilityRole="link"
                   accessibilityLabel="Privacy policy"
                 >
                   Privacy Policy
-                </Text>
+                </GameText>
                 .
-              </Text>
+              </GameText>
 
               {formError ? (
                 <View style={styles.banner}>
@@ -425,7 +418,7 @@ export default function SignUpScreen() {
                 </View>
               ) : null}
 
-              <TouchableOpacity
+              <GameButton
                 style={[
                   styles.button,
                   { backgroundColor: colors.primary },
@@ -444,26 +437,20 @@ export default function SignUpScreen() {
                   disabled: !canSubmit,
                   busy: busy === 'signUp',
                 }}
-              >
-                <Text style={[styles.buttonText, accessibleText]}>
-                  {busy === 'signUp' ? 'Creating account…' : 'Sign up'}
-                </Text>
-              </TouchableOpacity>
+                tone="primary"
+                label={busy === 'signUp' ? 'Creating account…' : 'Sign up'}
+              />
 
-              <TouchableOpacity
+              <GameButton
                 onPress={goToSignIn}
                 disabled={isBusy}
                 accessibilityLabel="Already have an account? Sign in"
                 accessibilityRole="button"
                 style={styles.textButton}
-              >
-                <Text
-                  style={[styles.link, accessibleText, { color: colors.link }]}
-                >
-                  Already have an account? Sign in
-                </Text>
-              </TouchableOpacity>
-            </View>
+                tone="secondary"
+                label="Already have an account? Sign in"
+              />
+            </GamePanel>
           </>
         )}
       </ScrollView>
@@ -481,13 +468,14 @@ function FieldError({ text }: { text: string | null }) {
   }, [text]);
   if (!text) return null;
   return (
-    <Text
+    <GameText
+      variant="body"
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
       style={[styles.fieldError, accessibleText, { color: colors.error }]}
     >
       {text}
-    </Text>
+    </GameText>
   );
 }
 
@@ -522,12 +510,15 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    padding: Spacing.md,
   },
   input: {
     minHeight: Layout.buttonHeight,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: '#79633E',
     paddingHorizontal: Spacing.md,
     marginBottom: Spacing.sm,
     fontSize: Typography.sizes.base,

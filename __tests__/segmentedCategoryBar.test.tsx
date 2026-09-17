@@ -1,3 +1,5 @@
+import { contrastRatio } from '@/utils/contrast';
+import { GameBevel } from '@/components/game';
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import SegmentedCategoryBar, {
@@ -6,6 +8,13 @@ import SegmentedCategoryBar, {
 import { hapticSelection } from '@/utils/haptics';
 
 jest.mock('@/utils/haptics', () => ({ hapticSelection: jest.fn() }));
+
+const ReactNative =
+  jest.requireActual<typeof import('react-native')>('react-native');
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: 'Ionicons',
+  MaterialCommunityIcons: 'MaterialCommunityIcons',
+}));
 
 const items: SegmentedCategoryItem[] = [
   { key: 'identity', label: 'Identity' },
@@ -85,4 +94,31 @@ describe('SegmentedCategoryBar', () => {
     fireEvent.press(getByLabelText('Portrait'));
     expect(hapticSelection).toHaveBeenCalledTimes(1);
   });
+});
+
+test('large-text categories stack full labels and use readable selected ink', () => {
+  const dimensions = jest
+    .spyOn(ReactNative, 'useWindowDimensions')
+    .mockReturnValue({ width: 393, height: 852, scale: 3, fontScale: 3.1 });
+  const onChange = jest.fn();
+  const view = render(
+    <SegmentedCategoryBar items={items} value="identity" onChange={onChange} />,
+  );
+  const selected = view.getByLabelText('Identity');
+  const selectedStyle = ReactNative.StyleSheet.flatten(selected.props.style);
+  expect(selectedStyle.minHeight).toBeGreaterThanOrEqual(48);
+  expect(selectedStyle.flex).toBe(0);
+  for (const item of items)
+    expect(view.getByText(item.label).props.numberOfLines).toBeUndefined();
+  const fill = selected.findByType(GameBevel).props.fill;
+  const ink = ReactNative.StyleSheet.flatten(
+    view.getByText('Identity').props.style,
+  ).color;
+  expect(contrastRatio(ink, fill)).toBeGreaterThanOrEqual(4.5);
+  expect(view.getByLabelText('Traits').props.accessibilityHint).toBe(
+    'Contains unsaved changes',
+  );
+  fireEvent.press(view.getByLabelText('Portrait'));
+  expect(onChange).toHaveBeenCalledWith('portrait');
+  dimensions.mockRestore();
 });

@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, Image, Pressable, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameText as Text, GameBevel } from './game';
+import { View, Image, Pressable, StyleSheet } from 'react-native';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { Spacing, BorderRadius } from '@/constants/DesignTokens';
 import { BattleModeInfo } from '@/constants/BattleModes';
 import { hapticSelection } from '@/utils/haptics';
 
@@ -40,6 +41,7 @@ export default function ModeCard({ info, onPress, disabled }: ModeCardProps) {
       accessibilityLabel={`${info.title}. ${info.description}`}
       accessibilityState={{ disabled: isDisabled }}
     >
+      <GameBevel color={colors.ornament} insetColor={colors.ornamentMuted} />
       <Image
         source={info.art}
         style={[styles.art, { borderColor: info.accent }]}
@@ -48,15 +50,18 @@ export default function ModeCard({ info, onPress, disabled }: ModeCardProps) {
         importantForAccessibility="no"
       />
       <View style={styles.textBlock}>
-        <Text style={[styles.title, { color: colors.text }]}>{info.title}</Text>
-        <Text
-          style={[styles.description, { color: colors.textSecondary }]}
-          numberOfLines={2}
-        >
+        <Text variant="title" style={[styles.title, { color: colors.text }]}>
+          {info.title}
+        </Text>
+        <Text style={[styles.description, { color: colors.textSecondary }]}>
           {info.description}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+      <GameSymbol
+        name="chevron-forward"
+        size={20}
+        color={colors.textSecondary}
+      />
     </Pressable>
   );
 }
@@ -67,8 +72,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1.5,
+    borderRadius: 0,
+    borderWidth: 0,
     minHeight: 88,
   },
   art: {
@@ -81,11 +86,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.bold,
+    fontSize: 26,
+    lineHeight: 30,
     marginBottom: 2,
   },
   description: {
-    fontSize: Typography.sizes.sm,
+    fontSize: 16,
   },
 });

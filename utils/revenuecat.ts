@@ -52,7 +52,7 @@ export function isPlusActive(
 export const PRODUCT_IDS = {
   // Credit packs (consumable)
   CREDITS_10: 'credits_10', // Starter: $1.99
-  CREDITS_30: 'credits_30', // Standard: $4.99 (best value)
+  CREDITS_30: 'credits_30', // Standard: $4.99
   CREDITS_80: 'credits_80', // Big: $9.99
   CREDITS_200: 'credits_200', // Mega: $19.99
 
@@ -115,7 +115,6 @@ export const CREDIT_PACK_META: Record<
   [PRODUCT_IDS.CREDITS_30]: {
     title: 'Standard',
     order: 2,
-    badge: 'Best value',
   },
   [PRODUCT_IDS.CREDITS_80]: { title: 'Big', order: 3 },
   [PRODUCT_IDS.CREDITS_200]: { title: 'Mega', order: 4 },

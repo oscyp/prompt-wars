@@ -4,9 +4,14 @@ import CustomItemSheet, {
   type CustomItemSheetProps,
 } from '@/components/edit-character/CustomItemSheet';
 
+const ReactNative =
+  jest.requireActual<typeof import('react-native')>('react-native');
+afterEach(() => jest.restoreAllMocks());
+
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 jest.mock('@/utils/haptics', () => ({ hapticSelection: jest.fn() }));
 
 function renderSheet(over: Partial<CustomItemSheetProps> = {}) {
@@ -93,4 +98,32 @@ describe('CustomItemSheet', () => {
       expect.objectContaining({ itemClass: 'relic' }),
     );
   });
+});
+
+test('large text stacks price labels and amounts and keeps the commit action outside the scroll body', () => {
+  const dimensions = jest
+    .spyOn(ReactNative, 'useWindowDimensions')
+    .mockReturnValue({ width: 393, height: 852, scale: 3, fontScale: 3.1 });
+  const view = renderSheet();
+  for (const label of ['Price', 'Balance', 'After']) {
+    let row = view.getByText(label).parent;
+    while (
+      row &&
+      !ReactNative.StyleSheet.flatten(row.props.style)?.flexDirection
+    )
+      row = row.parent;
+    expect(ReactNative.StyleSheet.flatten(row!.props.style).flexDirection).toBe(
+      'column',
+    );
+  }
+  const scroll = view.UNSAFE_getByType(ReactNative.ScrollView);
+  expect(
+    scroll.findAllByProps({ accessibilityLabel: 'Create item for 3 credits' }),
+  ).toHaveLength(0);
+  expect(
+    view.getByLabelText('Create item for 3 credits').props.accessibilityState
+      .disabled,
+  ).toBe(true);
+  expect(view.props.onSubmit).not.toHaveBeenCalled();
+  dimensions.mockRestore();
 });

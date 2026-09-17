@@ -5,28 +5,12 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  Pressable,
-  Animated,
-  StyleSheet,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useThemedColors } from '@/hooks/useThemedColors';
-import { useReducedMotion } from '@/hooks/useReducedMotion';
-import {
-  Spacing,
-  Typography,
-  BorderRadius,
-  Motion,
-  Scrim,
-} from '@/constants/DesignTokens';
 import { BATTLE_MODES, BattleMode } from '@/constants/BattleModes';
+import BottomSheet from './sheets/BottomSheet';
 import ModeCard from './ModeCard';
+import { GameText } from './game';
 
 /**
  * Lets any screen inside the tab shell open the battle-mode sheet (the raised
@@ -46,6 +30,7 @@ export function useBattleSheet() {
 export interface BattleModeSheetProps {
   visible: boolean;
   onClose: () => void;
+  returnFocusRef?: React.RefObject<View | null>;
 }
 
 /**
@@ -56,32 +41,17 @@ export interface BattleModeSheetProps {
 export default function BattleModeSheet({
   visible,
   onClose,
+  returnFocusRef,
 }: BattleModeSheetProps) {
-  const colors = useThemedColors();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const reduceMotion = useReducedMotion();
-  const translateY = useRef(new Animated.Value(320)).current;
   const selectingRef = useRef(false);
   const [selecting, setSelecting] = useState(false);
-
   useEffect(() => {
     if (!visible) {
       selectingRef.current = false;
       setSelecting(false);
-      return;
     }
-    if (reduceMotion) {
-      translateY.setValue(0);
-      return;
-    }
-    translateY.setValue(320);
-    Animated.timing(translateY, {
-      toValue: 0,
-      duration: Motion.durations.base,
-      useNativeDriver: true,
-    }).start();
-  }, [visible, reduceMotion, translateY]);
+  }, [visible]);
 
   const selectMode = (mode: BattleMode) => {
     // A ref closes the same-frame gap before React applies disabled. This tap
@@ -94,133 +64,27 @@ export default function BattleModeSheet({
   };
 
   return (
-    <Modal
+    <BottomSheet
+      returnFocusRef={returnFocusRef}
       visible={visible}
-      transparent
-      animationType="none"
-      onRequestClose={onClose}
+      onClose={onClose}
+      title="Start a Battle"
+      subtitle="Choose your battle mode"
+      closeAccessibilityLabel="Close battle modes"
     >
-      {/* Tap-outside-to-dismiss for sighted users only. It is hidden from the
-          accessibility tree because a full-screen "Close" button that sits
-          behind the sheet is a trap for screen-reader focus order; the header
-          button below is the accessible way out. */}
-      <Pressable
-        style={styles.scrim}
-        onPress={onClose}
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-      />
-      <Animated.View
-        style={[
-          styles.sheet,
-          {
-            backgroundColor: colors.background,
-            borderColor: colors.border,
-            paddingBottom: insets.bottom + Spacing.lg,
-            transform: [{ translateY }],
-          },
-        ]}
-        accessibilityViewIsModal
-      >
-        <View style={[styles.grabber, { backgroundColor: colors.border }]} />
-        <View style={styles.header}>
-          <View style={styles.headerSpacer} />
-          <View style={styles.headerText}>
-            <Text
-              style={[styles.title, { color: colors.text }]}
-              accessibilityRole="header"
-            >
-              Start a Battle
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Choose your battle mode
-            </Text>
-          </View>
-          <Pressable
-            onPress={onClose}
-            style={({ pressed }) => [
-              styles.closeButton,
-              {
-                backgroundColor: pressed
-                  ? colors.backgroundTertiary
-                  : colors.card,
-                borderColor: colors.border,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <Ionicons name="close" size={22} color={colors.text} />
-          </Pressable>
-        </View>
-        <View style={styles.modes}>
-          {BATTLE_MODES.map((info) => (
-            <ModeCard
-              key={info.mode}
-              info={info}
-              onPress={selectMode}
-              disabled={selecting}
-            />
-          ))}
-        </View>
-      </Animated.View>
-    </Modal>
+      <View style={{ gap: 16 }}>
+        <GameText variant="caption" style={{ textAlign: 'center' }}>
+          Your words. Your fighter.
+        </GameText>
+        {BATTLE_MODES.map((info) => (
+          <ModeCard
+            key={info.mode}
+            info={info}
+            onPress={selectMode}
+            disabled={selecting}
+          />
+        ))}
+      </View>
+    </BottomSheet>
   );
 }
-
-const styles = StyleSheet.create({
-  scrim: {
-    flex: 1,
-    backgroundColor: Scrim.sheet,
-  },
-  sheet: {
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-  },
-  grabber: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: BorderRadius.full,
-    marginBottom: Spacing.md,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.md,
-  },
-  // Mirrors the close button's footprint so the title stays centred.
-  headerSpacer: {
-    width: 44,
-  },
-  headerText: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  closeButton: {
-    // 44pt: the design language's minimum target, met by the visible control
-    // itself rather than rescued by hitSlop.
-    width: 44,
-    height: 44,
-    borderRadius: BorderRadius.full,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.bold,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: Typography.sizes.sm,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  modes: {
-    gap: Spacing.md,
-  },
-});

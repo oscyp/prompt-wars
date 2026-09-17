@@ -7,19 +7,17 @@ import React, {
 } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  ImageBackground,
   Pressable,
   Alert,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { useTabClearance } from '@/hooks/useTabClearance';
@@ -27,14 +25,9 @@ import {
   Spacing,
   Typography,
   NumericFontVariant,
-  Elevation,
   BorderRadius,
-  Scrim,
-  Ink,
 } from '@/constants/DesignTokens';
-import { accentForTheme, posterForTheme } from '@/constants/ThemeArt';
 import { archetypeIllustrationUri } from '@/constants/ArchetypeAvatars';
-import { getDailyTheme } from '@/utils/battles';
 import {
   getActiveBattles,
   arenaBattlePriority,
@@ -68,7 +61,7 @@ import { resolveSignatureHex } from '@/utils/characters';
 import { getWalletBalance, type WalletBalance } from '@/utils/monetization';
 import { creditsNoun } from '@/utils/credits';
 import { inkFor } from '@/utils/contrast';
-import { hapticError, hapticSelection, hapticSuccess } from '@/utils/haptics';
+import { hapticError, hapticSuccess } from '@/utils/haptics';
 import {
   syncDailyMeta,
   claimQuest,
@@ -79,31 +72,24 @@ import {
   FirstTimeOffer,
 } from '@/utils/dailyMeta';
 import { useAuth } from '@/providers/AuthProvider';
-import { useRevenueCat } from '@/providers/RevenueCatProvider';
-import {
-  findPackageForProduct,
-  offerPriceStrings,
-} from '@/utils/storePackages';
+import HomeFirstTimeOffer from '@/components/HomeFirstTimeOffer';
 import {
   StreakMeter,
-  FirstTimeOfferModal,
   SectionCard,
   SubscriberBadge,
   CreditChip,
   InlineBanner,
-  PortraitPreview,
   Toast,
 } from '@/components';
-import { useBattleSheet } from '@/components/BattleModeSheet';
+import ArenaFighter from '@/components/game/ArenaFighter';
+import { GameAttentionStrip } from '@/components/game/GameAttentionStrip';
+import { GameText as Text } from '@/components/game';
+import BattleListPortrait from '@/components/BattleListPortrait';
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
 import QuestRow from '@/components/QuestRow';
-
-interface DailyThemeRow {
-  theme_text: string;
-}
 
 /** Which of the screen's independent reads a load should run. */
 interface LoadParts {
-  theme?: boolean;
   meta?: boolean;
   battles?: boolean;
   balance?: boolean;
@@ -112,7 +98,6 @@ interface LoadParts {
 }
 
 const ALL_PARTS: LoadParts = {
-  theme: true,
   meta: true,
   battles: true,
   balance: true,
@@ -128,12 +113,10 @@ const FOCUS_PARTS: LoadParts = {
 };
 /** What a quest claim can change. */
 const CLAIM_PARTS: LoadParts = { meta: true, balance: true };
-const THEME_PART: LoadParts = { theme: true };
 const BATTLES_PART: LoadParts = { battles: true };
 const STANDING_PART: LoadParts = { standing: true };
 
 interface SectionErrors {
-  theme: boolean;
   meta: boolean;
   battles: boolean;
   balance: boolean;
@@ -141,7 +124,6 @@ interface SectionErrors {
 }
 
 const NO_ERRORS: SectionErrors = {
-  theme: false,
   meta: false,
   battles: false,
   balance: false,
@@ -178,6 +160,8 @@ const ACTIVE_BATTLE_LIMIT = 10;
 const SKIPPED = Promise.resolve(undefined);
 
 export default function HomeScreen() {
+  const presentationActive = useBattlePresentationActive();
+  const offerReturnFocusRef = useRef<View>(null);
   const colors = useThemedColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -185,10 +169,7 @@ export default function HomeScreen() {
   const tabClearance = useTabClearance();
   const { user } = useAuth();
   const userId = user?.id;
-  const { offerings, purchasePackage } = useRevenueCat();
-  const battleSheet = useBattleSheet();
 
-  const [dailyTheme, setDailyTheme] = useState<DailyThemeRow | null>(null);
   const [meta, setMeta] = useState<DailyMetaState | null>(null);
   const [activeBattles, setActiveBattles] = useState<BattleListRow[]>([]);
   const [balance, setBalance] = useState<WalletBalance | null>(null);
@@ -199,6 +180,7 @@ export default function HomeScreen() {
   const [errors, setErrors] = useState<SectionErrors>(NO_ERRORS);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [fighterRefresh, setFighterRefresh] = useState(0);
   const [claimingQuestId, setClaimingQuestId] = useState<string | null>(null);
   const [ftuo, setFtuo] = useState<FirstTimeOffer | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -226,9 +208,8 @@ export default function HomeScreen() {
   const load = useCallback(
     async (parts: LoadParts) => {
       lastLoadRef.current = Date.now();
-      const [themeRes, metaRes, battlesRes, balanceRes, ftuoRes, standingRes] =
+      const [metaRes, battlesRes, balanceRes, ftuoRes, standingRes] =
         await Promise.allSettled([
-          parts.theme ? getDailyTheme() : SKIPPED,
           parts.meta ? syncDailyMeta() : SKIPPED,
           parts.battles ? getActiveBattles(ACTIVE_BATTLE_LIMIT) : SKIPPED,
           parts.balance ? getWalletBalance() : SKIPPED,
@@ -237,18 +218,6 @@ export default function HomeScreen() {
         ]);
 
       const next: Partial<SectionErrors> = {};
-
-      if (parts.theme) {
-        if (themeRes.status === 'fulfilled') {
-          setDailyTheme(
-            (themeRes.value as DailyThemeRow | null | undefined) ?? null,
-          );
-          next.theme = false;
-        } else {
-          console.error('Failed to load daily theme:', themeRes.reason);
-          next.theme = true;
-        }
-      }
 
       if (parts.meta) {
         // syncDailyMeta reports failure as null rather than throwing.
@@ -291,7 +260,7 @@ export default function HomeScreen() {
 
       if (parts.ftuo && ftuoRes.status === 'fulfilled') {
         const offer = ftuoRes.value as FirstTimeOffer | null | undefined;
-        setFtuo(offer && offer.eligible ? offer : null);
+        setFtuo(offer ?? null);
       }
 
       if (parts.standing && userId) {
@@ -327,13 +296,9 @@ export default function HomeScreen() {
   );
 
   const onRefresh = () => {
+    setFighterRefresh((value) => value + 1);
     setRefreshing(true);
     void load(ALL_PARTS);
-  };
-
-  const openBattleSheet = () => {
-    hapticSelection();
-    battleSheet.open();
   };
 
   const handleClaimQuest = async (quest: DailyQuest) => {
@@ -361,29 +326,6 @@ export default function HomeScreen() {
     await load(CLAIM_PARTS);
   };
 
-  // The store package behind the offer, when RevenueCat has it. It supplies
-  // the localized price the modal shows and is what the claim purchases.
-  const ftuoProductId = ftuo?.offer?.product_id;
-  const ftuoPackage = useMemo(
-    () => findPackageForProduct(offerings, ftuoProductId),
-    [offerings, ftuoProductId],
-  );
-  const ftuoPrices = useMemo(
-    () => offerPriceStrings(ftuoPackage),
-    [ftuoPackage],
-  );
-
-  const handleClaimFtuo = async (): Promise<boolean> => {
-    if (!ftuoProductId) return false;
-    if (!ftuoPackage) {
-      console.warn('FTUO package not found in offerings:', ftuoProductId);
-      return false;
-    }
-    const ok = await purchasePackage(ftuoPackage);
-    if (ok) await load(ALL_PARTS);
-    return ok;
-  };
-
   // Only drop the modal once the server agrees: clearing it locally first
   // brought the offer straight back on the next load when the call failed.
   const handleDismissFtuo = async () => {
@@ -399,7 +341,11 @@ export default function HomeScreen() {
   };
 
   const quests = meta?.quests ?? [];
-  const completedQuests = quests.filter((q) => q.completed).length;
+  const completedQuests = quests.filter(
+    (q) =>
+      q.completed ||
+      Boolean(q.quest && q.current_value >= q.quest.target_value),
+  ).length;
 
   const arenaBattles = useMemo(
     () => arenaBattlePriority(activeBattles, user?.id),
@@ -422,7 +368,6 @@ export default function HomeScreen() {
   );
 
   const primaryInk = inkFor(colors.primary);
-  const heroAccent = accentForTheme(dailyTheme?.theme_text);
 
   // "Your standing": rank or Unranked, rating or Unrated, and the season line.
   const standingRating = ratingView({
@@ -473,117 +418,32 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Header: screen identity + credits chip (always present; a failed
-            balance read shows as unavailable rather than as zero). */}
-        <View style={styles.headerRow}>
-          <Text
-            style={[styles.title, { color: colors.text }]}
-            accessibilityRole="header"
-          >
-            Arena
-          </Text>
-          <View style={styles.headerTrailing}>
-            {balance?.is_subscriber ? <SubscriberBadge /> : null}
-            <CreditChip
-              credits={balance?.credits_balance ?? 0}
-              unavailable={errors.balance && !balance}
-            />
-          </View>
-        </View>
-
-        {errors.theme ? (
-          <View style={styles.bannerWrap}>
-            <InlineBanner
-              tone="error"
-              text="Couldn’t load today’s theme."
-              actionLabel="Retry"
-              onAction={() => void load(THEME_PART)}
-            />
-          </View>
-        ) : null}
-
-        {urgentBattle && urgentCopy ? (
-          <Pressable
-            style={[
-              styles.urgentAction,
-              {
-                backgroundColor: colors.primary,
-                borderColor: colors.primary,
-              },
-              Elevation.md,
-            ]}
-            onPress={() => {
-              const route = battleRouteFor(urgentBattle, userId);
-              if (route) router.push(route);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={urgentCopy.accessibilityLabel}
-          >
-            <View style={styles.urgentCopy}>
-              <Text style={[styles.urgentEyebrow, { color: primaryInk }]}>
-                {urgentCopy.eyebrow}
-              </Text>
-              <Text style={[styles.urgentTitle, { color: primaryInk }]}>
-                {urgentCopy.title}
-              </Text>
-              <Text
-                style={[styles.urgentSubtitle, { color: primaryInk }]}
-                numberOfLines={1}
-              >
-                {urgentCopy.subtitle}
-              </Text>
-            </View>
-            <Ionicons
-              name="arrow-forward-circle"
-              size={32}
-              color={primaryInk}
-            />
-          </Pressable>
-        ) : null}
-
-        {/* Daily theme hero poster — the primary action when no turn is urgent. */}
-        <Pressable
-          style={[styles.heroWrap, Elevation.md]}
-          onPress={openBattleSheet}
-          accessibilityRole="button"
-          accessibilityLabel={
-            dailyTheme
-              ? `Today's theme: ${dailyTheme.theme_text}. Start a battle`
-              : 'Start a battle'
-          }
-        >
-          <ImageBackground
-            source={posterForTheme(dailyTheme?.theme_text)}
-            style={styles.hero}
-            imageStyle={styles.heroImage}
-            resizeMode="cover"
-          >
-            <View
-              style={[styles.heroAccent, { backgroundColor: heroAccent }]}
-            />
-            <View style={styles.heroScrim} />
-            <View style={styles.heroContent}>
-              <View
-                style={[styles.heroKeyline, { backgroundColor: heroAccent }]}
+        <ArenaFighter
+          account={userId}
+          refreshVersion={fighterRefresh}
+          mastheadTrailing={
+            <>
+              {balance?.is_subscriber ? <SubscriberBadge /> : null}
+              <CreditChip
+                focusRef={offerReturnFocusRef}
+                credits={balance?.credits_balance ?? 0}
+                unavailable={errors.balance && !balance}
               />
-              <Text style={styles.heroLabel}>TODAY&apos;S THEME</Text>
-              <Text style={styles.heroTheme} numberOfLines={2}>
-                {dailyTheme?.theme_text ?? 'Open Arena'}
-              </Text>
-              <View style={styles.heroCta}>
-                <MaterialCommunityIcons
-                  name="sword-cross"
-                  size={14}
-                  color={Ink.onAccentLight}
-                />
-                <Text style={styles.heroCtaText}>Battle now</Text>
-              </View>
-            </View>
-          </ImageBackground>
-        </Pressable>
+            </>
+          }
+          beforeHero={
+            urgentBattle && urgentCopy ? (
+              <GameAttentionStrip
+                {...urgentCopy}
+                onPress={() => {
+                  const route = battleRouteFor(urgentBattle, userId);
+                  if (route) router.push(route);
+                }}
+              />
+            ) : undefined
+          }
+        />
 
-        {/* The promoted urgent battle is intentionally omitted here. Empty
-            state needs no second Start button: the theme poster already is it. */}
         {errors.battles ? (
           <View style={styles.bannerWrap}>
             <InlineBanner
@@ -654,21 +514,29 @@ export default function HomeScreen() {
                   accessibilityLabel={label}
                   accessibilityState={{ disabled: !route }}
                 >
-                  <PortraitPreview
-                    uri={art}
-                    variant="circle"
+                  <BattleListPortrait
+                    accountId={userId}
+                    battleId={battle.id}
+                    side={
+                      battle.player_two_id === userId
+                        ? 'player_one'
+                        : 'player_two'
+                    }
+                    snapshot={battle.identity_snapshot}
+                    visible={presentationActive}
+                    fallbackUri={art}
                     size={40}
                     accentColor={ring}
-                    accessibilityLabel={`${name}'s archetype`}
+                    name={name}
                   />
                   <View style={styles.battleInfo}>
                     <Text
+                      variant="label"
                       style={[
                         styles.battleOpponent,
                         accessibleText,
                         { color: colors.text },
                       ]}
-                      numberOfLines={1}
                     >
                       vs {name}
                     </Text>
@@ -679,7 +547,6 @@ export default function HomeScreen() {
                           NumericFontVariant,
                           { color: colors.textSecondary },
                         ]}
-                        numberOfLines={1}
                       >
                         {roundProgressText(progress)}
                       </Text>
@@ -714,7 +581,6 @@ export default function HomeScreen() {
                             styles.battleTheme,
                             { color: colors.textTertiary },
                           ]}
-                          numberOfLines={1}
                         >
                           {' '}
                           · {battle.theme}
@@ -722,7 +588,7 @@ export default function HomeScreen() {
                       ) : null}
                     </View>
                   </View>
-                  <Ionicons
+                  <GameSymbol
                     name="chevron-forward"
                     size={16}
                     color={colors.textSecondary}
@@ -813,7 +679,7 @@ export default function HomeScreen() {
               title="Your standing"
               style={styles.standingCard}
               trailing={
-                <Ionicons
+                <GameSymbol
                   name="chevron-forward"
                   size={16}
                   color={colors.textSecondary}
@@ -877,13 +743,11 @@ export default function HomeScreen() {
           </Pressable>
         ) : null}
 
-        <FirstTimeOfferModal
-          visible={!!ftuo?.eligible}
-          offer={ftuo?.offer}
-          expiresAt={ftuo?.expires_at}
-          priceString={ftuoPrices.priceString}
-          referencePriceString={ftuoPrices.referencePriceString}
-          onClaim={handleClaimFtuo}
+        <HomeFirstTimeOffer
+          returnFocusRef={offerReturnFocusRef}
+          key={userId}
+          state={ftuo}
+          onSettled={() => load(ALL_PARTS)}
           onDismiss={handleDismissFtuo}
         />
       </ScrollView>
@@ -906,12 +770,15 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: Spacing.lg,
   },
   headerTrailing: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: Spacing.sm,
   },
@@ -949,67 +816,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.sm,
     marginTop: 2,
     opacity: 0.82,
-  },
-  heroWrap: {
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.md,
-  },
-  hero: {
-    aspectRatio: 16 / 9,
-    justifyContent: 'flex-end',
-    borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
-  },
-  heroImage: {
-    borderRadius: BorderRadius.lg,
-  },
-  heroAccent: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.3,
-  },
-  // Fixed-dark cinematic surface (design language §3): a flat near-black wash
-  // over artwork, deliberately not a themed colour.
-  heroScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(11, 11, 15, 0.35)',
-  },
-  heroContent: {
-    padding: Spacing.md,
-  },
-  heroKeyline: {
-    width: 28,
-    height: 3,
-    borderRadius: BorderRadius.full,
-    marginBottom: Spacing.sm,
-  },
-  heroLabel: {
-    color: Ink.onAccentLight,
-    opacity: 0.85,
-    fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.bold,
-    letterSpacing: 1,
-    marginBottom: Spacing.xs,
-  },
-  heroTheme: {
-    color: Ink.onAccentLight,
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.sm,
-  },
-  heroCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    alignSelf: 'flex-start',
-    backgroundColor: Scrim.pill,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
-  },
-  heroCtaText: {
-    color: Ink.onAccentLight,
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold,
   },
   lastItem: {
     borderBottomWidth: 0,

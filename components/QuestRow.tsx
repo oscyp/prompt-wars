@@ -1,12 +1,12 @@
-import React from 'react';
+import { GameText } from '@/components/game';
+
 import {
   ActivityIndicator,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -118,39 +118,43 @@ export default function QuestRow({
       >
         <View style={styles.textRow}>
           <View style={styles.text}>
-            <Text
+            <GameText
+              variant="title"
               style={[styles.title, accessibleText, { color: colors.text }]}
-              numberOfLines={2}
             >
               {title}
-            </Text>
+            </GameText>
             {description ? (
-              <Text
+              <GameText
+                variant="caption"
                 style={[
                   styles.description,
                   accessibleText,
                   { color: colors.textSecondary },
                 ]}
-                numberOfLines={2}
               >
                 {description}
-              </Text>
+              </GameText>
             ) : null}
           </View>
           {progress.completed ? (
             <View style={styles.statusRow}>
-              <Ionicons
+              <GameSymbol
                 name="checkmark-circle"
                 size={16}
                 color={colors.success}
               />
-              <Text style={[styles.status, { color: colors.success }]}>
+              <GameText
+                variant="body"
+                style={[styles.status, { color: colors.success }]}
+              >
                 Complete
-              </Text>
+              </GameText>
             </View>
           ) : !progress.claimable ? (
             <View style={styles.count}>
-              <Text
+              <GameText
+                variant="label"
                 style={[
                   styles.countText,
                   NumericFontVariant,
@@ -158,9 +162,10 @@ export default function QuestRow({
                 ]}
               >
                 {progress.value}/{progress.target}
-              </Text>
+              </GameText>
               {reward > 0 ? (
-                <Text
+                <GameText
+                  variant="body"
                   style={[
                     styles.reward,
                     NumericFontVariant,
@@ -168,7 +173,7 @@ export default function QuestRow({
                   ]}
                 >
                   +{creditsNoun(reward)}
-                </Text>
+                </GameText>
               ) : null}
             </View>
           ) : null}
@@ -201,7 +206,8 @@ export default function QuestRow({
           {claiming ? (
             <ActivityIndicator size="small" color={primaryInk} />
           ) : (
-            <Text
+            <GameText
+              variant="body"
               style={[
                 styles.claimText,
                 NumericFontVariant,
@@ -209,7 +215,7 @@ export default function QuestRow({
               ]}
             >
               Claim +{reward}
-            </Text>
+            </GameText>
           )}
         </TouchableOpacity>
       ) : null}
@@ -220,6 +226,7 @@ export default function QuestRow({
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: Spacing.md,
     paddingVertical: Spacing.sm,
@@ -230,11 +237,13 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
+    minWidth: 180,
     gap: Spacing.sm,
   },
   textRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: Spacing.sm,
   },
@@ -258,7 +267,7 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.semibold,
   },
   reward: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
   statusRow: {
@@ -281,7 +290,7 @@ const styles = StyleSheet.create({
   },
   claimButton: {
     // 44pt: the design language's minimum target, met by the visible control.
-    minHeight: 44,
+    minHeight: 48,
     minWidth: 96,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,

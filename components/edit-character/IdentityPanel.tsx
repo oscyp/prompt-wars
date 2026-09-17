@@ -1,5 +1,7 @@
-import React from 'react';
-import { View, Text, TextInput } from 'react-native';
+import { GameField } from '@/components/game';
+import { GameText } from '@/components/game';
+
+import { View, type LayoutChangeEvent } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { PALETTES, TRAIT_LABELS } from '@/constants/CharacterTraits';
@@ -45,6 +47,7 @@ export interface IdentityPanelProps {
    */
   unlockedColors?: ColorSwatchOption[];
   onStage: (key: DraftKey, value: string) => void;
+  onColorLayout?: (event: LayoutChangeEvent) => void;
 }
 
 /** The eight preset colours, shared by Signature colour and Outfit palette. */
@@ -74,6 +77,7 @@ export default function IdentityPanel({
   disabled = false,
   unlockedColors = [],
   onStage,
+  onColorLayout,
 }: IdentityPanelProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
@@ -85,7 +89,15 @@ export default function IdentityPanel({
     (staged.signatureColor as string) ?? character.signature_color;
 
   const colorOptions = withCustomOption(
-    PALETTE_SWATCHES,
+    [
+      ...PALETTE_SWATCHES,
+      ...unlockedColors.filter(
+        (c) =>
+          !PALETTE_SWATCHES.some(
+            (p) => p.hex.toLowerCase() === c.hex.toLowerCase(),
+          ),
+      ),
+    ],
     character.signature_color,
   );
 
@@ -95,6 +107,10 @@ export default function IdentityPanel({
   const archetypeLockLength = pricing.cooldownMs.archetype
     ? null
     : describeCooldownLength(pricing.prices.archetype?.cooldownSeconds ?? 0);
+
+  const blocked = (
+    key: 'rename' | 'archetype' | 'battle_cry' | 'signature_color',
+  ) => disabled || (pricing.cooldownMs[key] ?? 0) > 0;
 
   return (
     <View style={s.panel}>
@@ -106,9 +122,12 @@ export default function IdentityPanel({
         changed={changedKeys.has('name')}
         disabled={disabled}
       >
-        <TextInput
+        <GameField
           value={name}
-          onChangeText={(v) => onStage('name', v)}
+          disabled={blocked('rename')}
+          onChangeText={(v) => {
+            if (!blocked('rename')) onStage('name', v);
+          }}
           placeholder="Fighter name"
           placeholderTextColor={colors.textTertiary}
           maxLength={NAME_MAX}
@@ -118,14 +137,17 @@ export default function IdentityPanel({
           ]}
           accessibilityLabel="Fighter name"
         />
-        <Text style={[s.counter, { color: colors.textTertiary }]}>
+        <GameText
+          variant="caption"
+          style={[s.counter, { color: colors.textTertiary }]}
+        >
           {`${name.length}/${NAME_MAX}`}
-        </Text>
+        </GameText>
       </EditCardShell>
 
       <EditCardShell
         title="Archetype"
-        subtitle="Shapes how the judge weighs your moves, and your portrait."
+        subtitle="A free identity preset for your fighter and portrait. No scoring bonus."
         cost={pricing.prices.archetype?.credits ?? 0}
         cooldownMs={pricing.cooldownMs.archetype}
         changed={changedKeys.has('archetype')}
@@ -135,15 +157,18 @@ export default function IdentityPanel({
           label="Archetype"
           options={archetypeOptions()}
           value={archetype}
-          onChange={(v) => onStage('archetype', v)}
-          disabled={disabled}
+          onChange={(v) => {
+            if (!blocked('archetype')) onStage('archetype', v);
+          }}
+          disabled={blocked('archetype')}
         />
         {archetypeLockLength ? (
-          <Text
+          <GameText
+            variant="caption"
             style={[s.hint, accessibleText, { color: colors.textTertiary }]}
           >
             {`A change locks it for ${archetypeLockLength}.`}
-          </Text>
+          </GameText>
         ) : null}
       </EditCardShell>
 
@@ -155,9 +180,12 @@ export default function IdentityPanel({
         changed={changedKeys.has('battleCry')}
         disabled={disabled}
       >
-        <TextInput
+        <GameField
           value={battleCry}
-          onChangeText={(v) => onStage('battleCry', v)}
+          disabled={blocked('battle_cry')}
+          onChangeText={(v) => {
+            if (!blocked('battle_cry')) onStage('battleCry', v);
+          }}
           placeholder="Say something worth quoting"
           placeholderTextColor={colors.textTertiary}
           maxLength={BATTLE_CRY_MAX}
@@ -169,29 +197,37 @@ export default function IdentityPanel({
           ]}
           accessibilityLabel="Battle cry"
         />
-        <Text style={[s.counter, { color: colors.textTertiary }]}>
+        <GameText
+          variant="caption"
+          style={[s.counter, { color: colors.textTertiary }]}
+        >
           {`${battleCry.length}/${BATTLE_CRY_MAX}`}
-        </Text>
+        </GameText>
       </EditCardShell>
 
-      <EditCardShell
-        title="Signature colour"
-        // Not decoration: describeSignatureColor feeds the portrait prompt, so
-        // this tints the render as well as the UI. Players were choosing it as
-        // an accent and then wondering why their portrait changed.
-        subtitle="Tints your UI accents and your portrait."
-        cost={pricing.prices.signature_color?.credits ?? 0}
-        cooldownMs={pricing.cooldownMs.signature_color}
-        changed={changedKeys.has('signatureColor')}
-        disabled={disabled}
-      >
-        <ColorSwatchGrid
-          groupLabel="Signature colour"
-          options={colorOptions}
-          value={selectedValueForHex(colorOptions, colorHex)}
-          onChange={(v) => onStage('signatureColor', v)}
-        />
-      </EditCardShell>
+      <View onLayout={onColorLayout}>
+        <EditCardShell
+          title="Signature colour"
+          // Not decoration: describeSignatureColor feeds the portrait prompt, so
+          // this tints the render as well as the UI. Players were choosing it as
+          // an accent and then wondering why their portrait changed.
+          subtitle="Tints your UI accents and your portrait."
+          cost={pricing.prices.signature_color?.credits ?? 0}
+          cooldownMs={pricing.cooldownMs.signature_color}
+          changed={changedKeys.has('signatureColor')}
+          disabled={disabled}
+        >
+          <ColorSwatchGrid
+            groupLabel="Signature colour"
+            disabled={blocked('signature_color')}
+            options={colorOptions}
+            value={selectedValueForHex(colorOptions, colorHex)}
+            onChange={(v) => {
+              if (!blocked('signature_color')) onStage('signatureColor', v);
+            }}
+          />
+        </EditCardShell>
+      </View>
     </View>
   );
 }

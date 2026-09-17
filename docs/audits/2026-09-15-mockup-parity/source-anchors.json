@@ -1,0 +1,180 @@
+{
+  "components/game/FighterCard.tsx": {
+    "const size =": [
+      65
+    ],
+    "testID=\"fighter-hero-caption\"": [
+      119
+    ],
+    "<GamePanel tone=\"ornate\" style={styles.stats}>": [
+      181
+    ],
+    "minWidth:": [
+      193
+    ],
+    "stats: {": [
+      237
+    ]
+  },
+  "components/game/battle/BattleThemePlaque.tsx": {
+    "opacity: 0.82": [
+      33
+    ],
+    "variant={compact ? 'label' : 'title'}": [
+      45
+    ]
+  },
+  "components/game/battle/BattleMovePicker.tsx": {
+    "const horizontal": [
+      18
+    ],
+    "icon={MOVE_META[move].icon}": [
+      40
+    ],
+    "borderColor:": [
+      50
+    ]
+  },
+  "components/VersusStrip.tsx": {
+    "const inlinePortraits": [
+      71
+    ],
+    "const stacked": [
+      68
+    ],
+    "size={48}": [
+      217
+    ]
+  },
+  "app/(battle)/prompt-entry.tsx": {
+    "fontSize: 32": [
+      955
+    ],
+    "<VersusStrip": [
+      962
+    ],
+    "exactBattleDeadline(myDeadline)": [
+      993
+    ],
+    "<BattleThemePlaque": [
+      997
+    ],
+    "<SeriesScoreIndicator": [
+      1030
+    ],
+    "<BattleMovePicker": [
+      1128
+    ],
+    "<GameFooter": [
+      1659
+    ],
+    ": 'Lock In'": [
+      1748
+    ],
+    "label=\"Use confirmation instead\"": [
+      1767
+    ]
+  },
+  "app/(profile)/shop.tsx": {
+    "<GameHeader": [
+      212
+    ],
+    "Pure cosmetics.": [
+      217
+    ],
+    "Currently wearing": [
+      224
+    ],
+    "CATEGORIES.map": [
+      270
+    ],
+    "label=\"All\"": [
+      281
+    ],
+    "testID=\"shop-collection\"": [
+      295
+    ]
+  },
+  "components/shop/ShopItem.tsx": {
+    "<Text style={{ color: rarityColor }}": [
+      213
+    ],
+    "<Text variant=\"title\"": [
+      215
+    ],
+    "label=\"Preview\"": [
+      243
+    ]
+  },
+  "components/game/GameButton.tsx": {
+    "icon?:": [
+      19
+    ],
+    "<GameBevel": [
+      109
+    ],
+    "<Ionicons": [
+      126
+    ]
+  },
+  "components/game/GameNavRow.tsx": {
+    "icon:": [
+      19,
+      152
+    ],
+    "<Ionicons": [
+      92,
+      130
+    ]
+  },
+  "app/(tabs)/_layout.tsx": {
+    "const ArenaIcon": [
+      38
+    ],
+    "const BattlesIcon": [
+      39
+    ],
+    "const RankingsIcon": [
+      40
+    ]
+  },
+  "components/ArenaTabBar.tsx": {
+    "tabBarActiveTintColor": [
+      132
+    ],
+    "tabBarBadgeStyle": [
+      157
+    ],
+    "styles.battleCircle": [
+      221
+    ]
+  },
+  "components/CreditChip.tsx": {
+    "name=\"sparkles\"": [
+      63
+    ]
+  },
+  "components/game/GameHeader.tsx": {
+    "variant=\"display\"": [
+      31
+    ]
+  },
+  "app/(tabs)/home.tsx": {
+    "<BrandMark": [
+      425
+    ],
+    "styles.urgentAction": [
+      439
+    ]
+  },
+  "constants/ThemeArt.ts": {
+    "hashTheme(themeText)": [
+      108
+    ]
+  },
+  "constants/MoveTypes.ts": {
+    "attack: { icon:": [
+      14
+    ]
+  }
+}

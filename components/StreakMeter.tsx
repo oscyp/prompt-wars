@@ -1,6 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { GamePanel, GameText } from '@/components/game';
+
+import { View, StyleSheet } from 'react-native';
+import { GameIcon } from '@/components/game/icons/GameIcon';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -92,23 +94,28 @@ export default function StreakMeter(props: StreakMeterProps) {
   const dots = loginDots(loginStreak);
 
   return (
-    <View
+    <GamePanel
+      tone="ornate"
       style={[styles.card, { backgroundColor: colors.card }]}
       accessible
       accessibilityLabel={streakMeterLabel(props)}
     >
       <View style={styles.row}>
         <View style={styles.labelRow}>
-          <Ionicons name="flame" size={18} color={colors.warning} />
-          <Text style={[styles.label, accessibleText, { color: colors.text }]}>
+          <GameSymbol name="flame" size={18} color={colors.warning} />
+          <GameText
+            variant="label"
+            style={[styles.label, accessibleText, { color: colors.text }]}
+          >
             Daily Streak
-          </Text>
+          </GameText>
         </View>
-        <Text
+        <GameText
+          variant="label"
           style={[styles.value, NumericFontVariant, { color: colors.warning }]}
         >
           {days(loginStreak)}
-        </Text>
+        </GameText>
       </View>
 
       <View style={styles.dotsRow}>
@@ -131,48 +138,52 @@ export default function StreakMeter(props: StreakMeterProps) {
         })}
       </View>
 
-      <Text
+      <GameText
+        variant="caption"
         style={[styles.hint, accessibleText, { color: colors.textSecondary }]}
       >
         {loginHint(claimedToday)}
-      </Text>
+      </GameText>
 
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
       <View style={styles.row}>
         <View style={styles.labelRow}>
-          <MaterialCommunityIcons
-            name="sword-cross"
-            size={18}
-            color={colors.primary}
-          />
-          <Text style={[styles.label, accessibleText, { color: colors.text }]}>
+          <GameIcon name="battle" size={18} color={colors.primary} />
+          <GameText
+            variant="label"
+            style={[styles.label, accessibleText, { color: colors.text }]}
+          >
             Win Streak
-          </Text>
+          </GameText>
         </View>
-        <Text
+        <GameText
+          variant="label"
           style={[styles.value, NumericFontVariant, { color: colors.primary }]}
         >
           {winStreak}
-        </Text>
+        </GameText>
       </View>
-      <Text
+      <GameText
+        variant="caption"
         style={[styles.hint, accessibleText, { color: colors.textSecondary }]}
       >
         {winHint(winStreak, bestStreak)}
-      </Text>
-    </View>
+      </GameText>
+    </GamePanel>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
     padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.sm,
     marginBottom: Spacing.md,
   },
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
     justifyContent: 'space-between',
     alignItems: 'center',
   },
@@ -202,7 +213,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   hint: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     marginTop: Spacing.xs,
   },
   divider: {

@@ -1,10 +1,10 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
+import FighterCard from '@/components/game/FighterCard';
+
+import { GameButton, GameField } from '@/components/game';
+import { GameText } from '@/components/game';
+import { startTutorial } from '@/utils/tutorial';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -15,15 +15,14 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useNavigation, useRouter } from 'expo-router';
 import { usePreventRemove } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import {
   ARCHETYPES,
   ARCHETYPE_ART,
@@ -65,7 +64,6 @@ import {
   InlineBanner,
   ItemGrid,
   OptionGrid,
-  PortraitPreview,
   StatAllocator,
   type ColorSwatchOption,
   type ItemGridItem,
@@ -148,6 +146,7 @@ export default function CreateCharacterScreen() {
   const [confirmNotice, setConfirmNotice] = useState<ConfirmNotice | null>(
     null,
   );
+  const progressFocusRef = useRef<View>(null);
   const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
 
   const creationRef = useRef<CreationState>('idle');
@@ -396,7 +395,16 @@ export default function CreateCharacterScreen() {
       setCreationState('done');
       await clearDraft(userId);
       hapticSuccess();
-      router.replace('/(tabs)/home');
+      try {
+        const practiceId = await startTutorial();
+        router.replace(`/(battle)/prompt-entry?battleId=${practiceId}`);
+      } catch {
+        router.replace('/(tabs)/home');
+        Alert.alert(
+          'Your fighter is ready',
+          'Practice could not start yet. Replay practice guide from Profile to try again.',
+        );
+      }
     } catch (err) {
       console.error('Failed to create character:', err);
       hapticError();
@@ -456,7 +464,8 @@ export default function CreateCharacterScreen() {
           { paddingTop: insets.top + HEADER_BUTTON_SIZE + Spacing.sm },
         ]}
       >
-        <Text
+        <GameText
+          variant="body"
           style={[
             styles.progressText,
             accessibleText,
@@ -465,8 +474,10 @@ export default function CreateCharacterScreen() {
           ]}
         >
           {progressLabel(step)}
-        </Text>
+        </GameText>
         <View
+          ref={progressFocusRef}
+          accessible
           accessibilityRole="progressbar"
           accessibilityLabel="Character creation progress"
           accessibilityValue={{
@@ -553,7 +564,7 @@ export default function CreateCharacterScreen() {
           },
         ]}
       >
-        <TouchableOpacity
+        <GameButton
           onPress={goBack}
           disabled={step === STEP.name || busy}
           accessibilityLabel="Previous step"
@@ -565,19 +576,11 @@ export default function CreateCharacterScreen() {
             { borderColor: colors.border },
             (step === STEP.name || busy) && styles.btnDisabled,
           ]}
-        >
-          <Text
-            style={[
-              styles.secondaryBtnText,
-              accessibleText,
-              { color: colors.text },
-            ]}
-          >
-            Back
-          </Text>
-        </TouchableOpacity>
+          tone="secondary"
+          label="Back"
+        />
         {step < TOTAL_STEPS ? (
-          <TouchableOpacity
+          <GameButton
             onPress={goNext}
             disabled={!advance}
             accessibilityLabel="Next step"
@@ -590,11 +593,11 @@ export default function CreateCharacterScreen() {
               { backgroundColor: colors.primary },
               !advance && styles.btnDisabled,
             ]}
-          >
-            <Text style={[styles.primaryBtnText, accessibleText]}>Next</Text>
-          </TouchableOpacity>
+            tone="primary"
+            label="Next"
+          />
         ) : (
-          <TouchableOpacity
+          <GameButton
             onPress={handleConfirm}
             disabled={busy || !advance}
             accessibilityLabel="Enter the Arena"
@@ -610,20 +613,15 @@ export default function CreateCharacterScreen() {
               { backgroundColor: colors.primary },
               (busy || !advance) && styles.btnDisabled,
             ]}
-          >
-            {busy ? (
-              <ActivityIndicator color={Ink.onAccentLight} />
-            ) : (
-              <Text style={[styles.primaryBtnText, accessibleText]}>
-                Enter the Arena
-              </Text>
-            )}
-          </TouchableOpacity>
+            label="Enter the Arena"
+            busy={busy}
+          />
         )}
       </View>
 
       <ConfirmSheet
         visible={pendingLeave !== null}
+        returnFocusRef={progressFocusRef}
         title="Leave character creation?"
         subtitle="Your progress is saved on this device."
         confirmLabel="Leave"
@@ -652,13 +650,14 @@ function FieldError({ text }: { text: string | null }) {
   }, [text]);
   if (!text) return null;
   return (
-    <Text
+    <GameText
+      variant="body"
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
       style={[styles.errorText, accessibleText, { color: colors.error }]}
     >
       {text}
-    </Text>
+    </GameText>
   );
 }
 
@@ -667,18 +666,19 @@ function StepHeading({ title, sub }: { title: string; sub?: string }) {
   const accessibleText = useAccessibleTextStyle();
   return (
     <>
-      <Text
+      <GameDisplayTitle
         accessibilityRole="header"
-        style={[styles.h1, accessibleText, { color: colors.text }]}
+        style={[styles.h1, accessibleText]}
       >
         {title}
-      </Text>
+      </GameDisplayTitle>
       {sub ? (
-        <Text
+        <GameText
+          variant="caption"
           style={[styles.sub, accessibleText, { color: colors.textSecondary }]}
         >
           {sub}
-        </Text>
+        </GameText>
       ) : null}
     </>
   );
@@ -687,7 +687,8 @@ function StepHeading({ title, sub }: { title: string; sub?: string }) {
 function Counter({ value, max }: { value: number; max: number }) {
   const colors = useThemedColors();
   return (
-    <Text
+    <GameText
+      variant="caption"
       style={[
         styles.counter,
         NumericFontVariant,
@@ -696,7 +697,7 @@ function Counter({ value, max }: { value: number; max: number }) {
       accessibilityLabel={`${value} of ${max} characters`}
     >
       {value}/{max}
-    </Text>
+    </GameText>
   );
 }
 
@@ -723,7 +724,7 @@ function StepName({
         title="Name your fighter"
         sub={`Between ${MIN_NAME_LEN} and ${MAX_NAME_LEN} characters.`}
       />
-      <TextInput
+      <GameField
         style={[
           styles.input,
           accessibleText,
@@ -784,29 +785,15 @@ function StepArchetype({
           >
             <Image
               source={ARCHETYPE_ART[arch.id]}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
+              style={{ width: '100%', height: 160 }}
+              resizeMode="contain"
               accessibilityIgnoresInvertColors
-            />
-            {/* Scrim. The art is dark and left-weighted, but the text sits on
-                top of it, so it still needs a floor on contrast. Unselected
-                cards are pushed further back so the chosen one reads as
-                foreground. */}
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  backgroundColor: selected
-                    ? 'rgba(8,8,10,0.42)'
-                    : 'rgba(8,8,10,0.62)',
-                },
-              ]}
             />
             {selected ? (
               <View
                 style={[styles.selectedBadge, { backgroundColor: arch.color }]}
               >
-                <Ionicons
+                <GameSymbol
                   name="checkmark"
                   size={16}
                   color={Ink.onAccentLight}
@@ -821,28 +808,28 @@ function StepArchetype({
                     { backgroundColor: arch.color },
                   ]}
                 />
-                <Text
-                  style={[styles.archetypeName, { color: Ink.onAccentLight }]}
+                <GameText
+                  variant="fighter"
+                  style={[styles.archetypeName, { color: colors.text }]}
                 >
                   {arch.name}
-                </Text>
+                </GameText>
               </View>
-              <Text
+              <GameText
+                variant="body"
                 style={[
                   styles.archetypeDescription,
-                  { color: 'rgba(255,255,255,0.82)' },
+                  { color: colors.textSecondary },
                 ]}
               >
                 {arch.description}
-              </Text>
-              <Text
-                style={[
-                  styles.archetypeTrait,
-                  { color: 'rgba(255,255,255,0.62)' },
-                ]}
+              </GameText>
+              <GameText
+                variant="body"
+                style={[styles.archetypeTrait, { color: colors.textSecondary }]}
               >
                 Trait: {arch.trait}
-              </Text>
+              </GameText>
             </View>
           </TouchableOpacity>
         );
@@ -898,11 +885,12 @@ function StepPathChoice({
         selected={value === 'guided'}
         onPress={() => onChange('guided')}
       />
-      <Text
+      <GameText
+        variant="body"
         style={[styles.helper, accessibleText, { color: colors.textTertiary }]}
       >
         Next you’ll draw the portrait — it’s the last step.
-      </Text>
+      </GameText>
     </View>
   );
 }
@@ -939,20 +927,22 @@ function PathTile({
       ]}
     >
       <View style={styles.pathTitleRow}>
-        <Text
+        <GameText
+          variant="title"
           style={[styles.pathTitle, accessibleText, { color: colors.text }]}
         >
           {title}
-        </Text>
+        </GameText>
         {/* Slot always reserved so the title does not shift on selection. */}
-        <Ionicons
+        <GameSymbol
           name="checkmark-circle"
           size={22}
           color={colors.primary}
           style={{ opacity: selected ? 1 : 0 }}
         />
       </View>
-      <Text
+      <GameText
+        variant="body"
         style={[
           styles.pathBody,
           accessibleText,
@@ -960,7 +950,7 @@ function PathTile({
         ]}
       >
         {body}
-      </Text>
+      </GameText>
     </TouchableOpacity>
   );
 }
@@ -989,6 +979,7 @@ function StepPortrait({
   const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<PortraitErrorCopy | null>(null);
+  const startOverFocusRef = useRef<View>(null);
   const [startOverOpen, setStartOverOpen] = useState(false);
   // Server-owned: the client cannot be the authority on an allowance that
   // spends credits, so this only ever mirrors what the last portrait reported.
@@ -1170,23 +1161,28 @@ function StepPortrait({
         }
       />
 
-      <PortraitPreview
-        uri={portraitUri}
-        variant="fullBody"
-        size={200}
-        loading={generating}
-        accentColor={accent}
-        caption={caption}
-        accessibilityLabel={
-          draft.portrait ? 'Your fighter’s portrait' : 'Placeholder portrait'
-        }
+      <FighterCard
+        variant="hero"
+        name={draft.name}
+        archetype={draft.archetype}
+        renderUri={portraitUri}
+        signatureColor={accent}
+        stats={draft.stats}
       />
+      <GameText
+        variant="caption"
+        style={{ textAlign: 'center', color: colors.textSecondary }}
+        accessibilityLiveRegion="polite"
+      >
+        {caption}
+      </GameText>
 
       {/* Said before the first one is drawn, not after the last free one is
           spent: a player who discovers the allowance by hitting the end of it
           has already made a decision they were not told they were making. */}
       {!draft.portrait && freeLeft === null ? (
-        <Text
+        <GameText
+          variant="body"
           style={[
             styles.allowance,
             accessibleText,
@@ -1194,10 +1190,11 @@ function StepPortrait({
           ]}
         >
           {freePortraitsIntro(price)}
-        </Text>
+        </GameText>
       ) : null}
       {draft.portrait && freeLeft !== null && !generating ? (
-        <Text
+        <GameText
+          variant="body"
           style={[
             styles.allowance,
             accessibleText,
@@ -1205,7 +1202,7 @@ function StepPortrait({
           ]}
         >
           {freePortraitsLeft(freeLeft, price)}
-        </Text>
+        </GameText>
       ) : null}
 
       <View style={styles.section}>
@@ -1218,7 +1215,7 @@ function StepPortrait({
 
       {isPrompt ? (
         <View style={styles.promptSection}>
-          <TextInput
+          <GameField
             style={[
               styles.input,
               styles.multiline,
@@ -1262,7 +1259,8 @@ function StepPortrait({
             disabled={generating}
           />
           <View>
-            <Text
+            <GameText
+              variant="body"
               accessibilityRole="header"
               style={[
                 styles.fieldTitle,
@@ -1271,7 +1269,7 @@ function StepPortrait({
               ]}
             >
               Palette
-            </Text>
+            </GameText>
             <ColorSwatchGrid
               groupLabel="Palette"
               options={PALETTE_SWATCH_OPTIONS}
@@ -1311,7 +1309,7 @@ function StepPortrait({
 
       {canDraw || draft.portrait ? (
         <View style={styles.row}>
-          <TouchableOpacity
+          <GameButton
             onPress={draft.portrait ? regenerate : () => void run()}
             disabled={generating || !canDraw}
             accessibilityRole="button"
@@ -1333,11 +1331,9 @@ function StepPortrait({
               { backgroundColor: colors.primary },
               (generating || !canDraw) && styles.btnDisabled,
             ]}
-          >
-            <Text style={[styles.primaryBtnText, accessibleText]}>
-              {drawLabel}
-            </Text>
-          </TouchableOpacity>
+            tone="primary"
+            label={drawLabel}
+          />
         </View>
       ) : null}
 
@@ -1380,7 +1376,8 @@ function StepPortrait({
           />
         </View>
       ) : blocker && !generating ? (
-        <Text
+        <GameText
+          variant="body"
           style={[
             styles.helper,
             accessibleText,
@@ -1388,10 +1385,11 @@ function StepPortrait({
           ]}
         >
           {blocker.message}
-        </Text>
+        </GameText>
       ) : null}
 
-      <TouchableOpacity
+      <GameButton
+        ref={startOverFocusRef}
         onPress={() => {
           hapticSelection();
           setStartOverOpen(true);
@@ -1407,22 +1405,15 @@ function StepPortrait({
           { borderColor: colors.border },
           generating && styles.btnDisabled,
         ]}
-      >
-        <Text
-          style={[
-            styles.secondaryBtnText,
-            accessibleText,
-            { color: colors.text },
-          ]}
-        >
-          Start over
-        </Text>
-      </TouchableOpacity>
+        tone="secondary"
+        label="Start over"
+      />
 
       {/* The draft is untouched: every pick, and the portrait, is preselected
           on the way back through. */}
       <ConfirmSheet
         visible={startOverOpen}
+        returnFocusRef={startOverFocusRef}
         title="Start over?"
         subtitle="Your picks are kept — you’ll walk through them again and can change any of them."
         confirmLabel="Start over"
@@ -1439,7 +1430,6 @@ function StepPortrait({
 
 function StepSignatureItem({ draft, patch }: { draft: Draft; patch: Patch }) {
   const colors = useThemedColors();
-  const accessibleText = useAccessibleTextStyle();
   const [items, setItems] = useState<ItemGridItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -1501,7 +1491,7 @@ function StepSignatureItem({ draft, patch }: { draft: Draft; patch: Patch }) {
 
       {/* Never a dead end: the skip is available in every load state. The
           insert trigger gives a skipped draft a default catalogue item. */}
-      <TouchableOpacity
+      <GameButton
         onPress={skip}
         accessibilityRole="button"
         accessibilityLabel="Skip signature item"
@@ -1512,19 +1502,13 @@ function StepSignatureItem({ draft, patch }: { draft: Draft; patch: Patch }) {
           styles.skipBtn,
           { borderColor: draft.itemSkipped ? colors.primary : colors.border },
         ]}
-      >
-        <Text
-          style={[
-            styles.secondaryBtnText,
-            accessibleText,
-            { color: colors.text },
-          ]}
-        >
-          {draft.itemSkipped
+        tone="secondary"
+        label={
+          draft.itemSkipped
             ? 'Skipped — the arena assigns one'
-            : 'Skip — the arena assigns one'}
-        </Text>
-      </TouchableOpacity>
+            : 'Skip — the arena assigns one'
+        }
+      />
     </View>
   );
 }
@@ -1568,7 +1552,7 @@ function StepBattleCry({
         {suggestions.map((s) => {
           const selected = value === s;
           return (
-            <TouchableOpacity
+            <GameButton
               key={s}
               onPress={() => applySuggestion(s)}
               accessibilityRole="button"
@@ -1581,21 +1565,13 @@ function StepBattleCry({
                   backgroundColor: selected ? tint : colors.card,
                 },
               ]}
-            >
-              <Text
-                style={[
-                  styles.suggestionText,
-                  accessibleText,
-                  { color: selected ? Ink.onAccentLight : tint },
-                ]}
-              >
-                {s}
-              </Text>
-            </TouchableOpacity>
+              tone="secondary"
+              label={s}
+            />
           );
         })}
       </View>
-      <TextInput
+      <GameField
         style={[
           styles.input,
           accessibleText,
@@ -1661,7 +1637,7 @@ function StepSignatureColor({
  * to the step that set it. Rows the portrait step sets itself (art style,
  * look) have no link; their controls are just above.
  */
-function RecapCard({
+export function RecapCard({
   draft,
   onFix,
 }: {
@@ -1671,6 +1647,8 @@ function RecapCard({
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
   const accent = draftAccentHex(draft);
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = width < 390 || fontScale > 1.15;
   return (
     <View
       style={[
@@ -1678,39 +1656,47 @@ function RecapCard({
         { backgroundColor: colors.backgroundSecondary, borderColor: accent },
       ]}
     >
-      <Text
+      <GameText
+        variant="body"
         accessibilityRole="header"
         style={[styles.recapTitle, accessibleText, { color: colors.text }]}
       >
         Your fighter
-      </Text>
+      </GameText>
       {summaryRows(draft).map((row) => {
         const target = stepForSummaryLabel(row.label);
         const cells = (
           <>
-            <Text
+            <GameText
+              variant="label"
               style={[
                 styles.summaryLabel,
+                stacked && styles.stackedSummaryLabel,
                 accessibleText,
                 { color: colors.textSecondary },
               ]}
             >
               {row.label}
-            </Text>
-            <Text
+            </GameText>
+            <GameText
+              variant="body"
               style={[
                 styles.summaryValue,
+                stacked && styles.stackedSummaryValue,
                 accessibleText,
                 { color: colors.text },
               ]}
             >
               {row.value}
-            </Text>
+            </GameText>
           </>
         );
         if (target === null) {
           return (
-            <View key={row.label} style={styles.summaryRow}>
+            <View
+              key={row.label}
+              style={[styles.summaryRow, stacked && styles.stackedSummaryRow]}
+            >
               {cells}
             </View>
           );
@@ -1725,11 +1711,21 @@ function RecapCard({
             accessibilityRole="button"
             accessibilityLabel={`${row.label}: ${row.value}`}
             accessibilityHint={`Change ${row.label.toLowerCase()}`}
-            style={[styles.summaryRow, styles.summaryRowTappable]}
+            style={[
+              styles.summaryRow,
+              styles.summaryRowTappable,
+              stacked && styles.stackedSummaryRow,
+            ]}
           >
             {cells}
-            <View style={styles.summaryChange}>
-              <Text
+            <View
+              style={[
+                styles.summaryChange,
+                stacked && styles.stackedSummaryChange,
+              ]}
+            >
+              <GameText
+                variant="body"
                 style={[
                   styles.summaryChangeText,
                   accessibleText,
@@ -1737,8 +1733,8 @@ function RecapCard({
                 ]}
               >
                 Change
-              </Text>
-              <Ionicons
+              </GameText>
+              <GameSymbol
                 name="chevron-forward"
                 size={16}
                 color={colors.primary}
@@ -1767,7 +1763,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
   },
   progressText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     marginBottom: Spacing.xs,
   },
   progressTrack: {
@@ -1799,7 +1795,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   helper: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     marginTop: Spacing.md,
     textAlign: 'center',
   },
@@ -1816,7 +1812,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   counter: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     textAlign: 'right',
     marginBottom: Spacing.sm,
   },
@@ -1827,7 +1823,7 @@ const styles = StyleSheet.create({
   archetypeCard: {
     // Matches the 16:9 key art so the whole illustration is visible -- a fixed
     // pixel height would centre-crop and clip the figure's head.
-    aspectRatio: 16 / 9,
+    minHeight: 160,
     justifyContent: 'flex-end',
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
@@ -1848,7 +1844,7 @@ const styles = StyleSheet.create({
   archetypeTextBlock: {
     // The art puts the figure in the left third; the copy sits in the space
     // deliberately left open on the right.
-    marginLeft: '36%',
+
     padding: Spacing.md,
   },
   archetypeHeader: {
@@ -1871,7 +1867,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   archetypeTrait: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
   },
   pathTile: {
     padding: Spacing.lg,
@@ -1923,7 +1919,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
   },
   primaryBtnText: {
-    color: Ink.onAccentLight,
+    color: '#0B0B13',
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
   },
@@ -1945,7 +1941,7 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.5 },
   allowance: {
     marginTop: Spacing.sm,
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     textAlign: 'center',
   },
   bannerWrap: {
@@ -1978,7 +1974,7 @@ const styles = StyleSheet.create({
   },
   recap: {
     marginTop: Spacing.lg,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.sm,
     // Framed in the signature colour, like the fighter's card will be.
     borderWidth: 2,
     paddingHorizontal: Spacing.md,
@@ -1997,7 +1993,15 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     minHeight: 24,
   },
-  // Rows that lead somewhere are targets, so they get the 44pt floor.
+  stackedSummaryRow: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    paddingVertical: Spacing.sm,
+  },
+  stackedSummaryLabel: { width: '100%' },
+  stackedSummaryValue: { flex: 0, width: '100%', textAlign: 'left' },
+  stackedSummaryChange: { alignSelf: 'flex-start', minHeight: 48 },
+  // The full row remains the target, with Change visible below its value.
   summaryRowTappable: {
     minHeight: Layout.inputHeight,
   },

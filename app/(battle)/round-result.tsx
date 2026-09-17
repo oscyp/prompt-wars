@@ -1,3 +1,18 @@
+import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
+import { useBattleCharacters } from '@/hooks/useBattleCharacters';
+import {
+  GameText as Text,
+  GameFooter,
+  GameButton,
+  GameBevel,
+} from '@/components/game';
+import { inkFor } from '@/utils/contrast';
+import BattleOpponentSafety from '@/components/BattleOpponentSafety';
+import {
+  isUnratedExhibition,
+  EXHIBITION_EXPLANATION,
+} from '@/utils/battleExplanation';
+import { exactBattleDeadline } from '@/utils/battleCopy';
 import React, {
   useCallback,
   useEffect,
@@ -7,7 +22,6 @@ import React, {
 } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -16,14 +30,14 @@ import {
 } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import {
   Spacing,
   Typography,
-  BorderRadius,
   Motion,
   NumericFontVariant,
 } from '@/constants/DesignTokens';
@@ -59,14 +73,16 @@ import {
   RESULT_LOAD_TIMEOUT_MS,
   fighterNameFor,
   formatPct,
+  roundCombatSummary,
   judgeNotesUnavailable,
   moveMatchupLine,
 } from '@/utils/resultView';
 
-/** Header offset shared with move-select / prompt-entry under the transparent header. */
+/** Header offset shared with the writing workspace under the transparent header. */
 const HEADER_OFFSET = 44;
 
 export default function RoundResultScreen() {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const colors = useThemedColors();
   const reduceMotion = useReducedMotion();
   const insets = useSafeAreaInsets();
@@ -92,6 +108,10 @@ export default function RoundResultScreen() {
     refetch,
   } = useRealtimeBattle(battleId || null);
 
+  const { p1: fighterOne, p2: fighterTwo } = useBattleCharacters(
+    battleId || null,
+    battle,
+  );
   const roundNumber = round ? Number(round) : current_round;
   const roundData: BattleRound | null = useMemo(() => {
     return rounds.find((r) => r.round_number === roundNumber) ?? null;
@@ -256,6 +276,8 @@ export default function RoundResultScreen() {
     isBot: Boolean(battle?.is_player_two_bot),
     prompts,
     myProfileId: user?.id,
+    status: battle?.status,
+    hasOpponent: Boolean(battle?.player_two_id || battle?.is_player_two_bot),
     enabled: Boolean(battle),
   });
   const { exitTo } = leave;
@@ -268,9 +290,14 @@ export default function RoundResultScreen() {
     if (!battleId) return;
     const href = isSeriesComplete
       ? `/(battle)/result?battleId=${battleId}`
-      : `/(battle)/move-select?battleId=${battleId}&round=${(roundNumber ?? 1) + 1}`;
+      : `/(battle)/prompt-entry?battleId=${battleId}&round=${(roundNumber ?? 1) + 1}`;
     exitTo(() => router.replace(href as Parameters<typeof router.replace>[0]));
   }, [battleId, isSeriesComplete, roundNumber, router, exitTo]);
+
+  useEffect(() => {
+    if (isSeriesComplete && battleId)
+      exitTo(() => router.replace(`/(battle)/result?battleId=${battleId}`));
+  }, [isSeriesComplete, battleId, exitTo, router]);
 
   // The hook applies fetch results only `if (res.data)`, so a failed fetch
   // leaves the spinner up with nothing to say. After a while, say something.
@@ -297,9 +324,19 @@ export default function RoundResultScreen() {
 
   const headerOptions = {
     headerLeft: () => (
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Return to Arena"
+        onPress={leave.park}
+        style={{ minHeight: 48, justifyContent: 'center' }}
+      >
+        <Text style={{ color: colors.text }}>Arena</Text>
+      </TouchableOpacity>
+    ),
+    headerRight: () => (
       <HeaderLeaveButton
         onPress={() => leave.confirmLeave()}
-        disabled={leave.isLeaving}
+        disabled={leave.isLeaving || !leave.canForfeit}
       />
     ),
   };
@@ -323,19 +360,20 @@ export default function RoundResultScreen() {
         <Stack.Screen options={headerOptions} />
         {loadTimedOut ? (
           <View style={styles.errorState} accessibilityLiveRegion="polite">
-            <Ionicons
+            <GameSymbol
               name="alert-circle-outline"
               size={40}
               color={colors.error}
               accessibilityElementsHidden
               importantForAccessibility="no"
             />
-            <Text
-              style={[styles.errorTitle, { color: colors.text }]}
+            <GameDisplayTitle
+              uppercase={false}
+              style={[styles.errorTitle]}
               accessibilityRole="header"
             >
               Couldn’t load this round
-            </Text>
+            </GameDisplayTitle>
             <Text style={[styles.errorBody, { color: colors.textSecondary }]}>
               Check your connection and try again.
             </Text>
@@ -345,7 +383,11 @@ export default function RoundResultScreen() {
               accessibilityRole="button"
               accessibilityLabel="Retry"
             >
-              <Text style={styles.retryText}>Retry</Text>
+              <Text
+                style={[styles.retryText, { color: inkFor(colors.primary) }]}
+              >
+                Retry
+              </Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -368,18 +410,27 @@ export default function RoundResultScreen() {
           styles.content,
           {
             paddingTop: insets.top + HEADER_OFFSET,
-            paddingBottom: insets.bottom + Spacing.xxl,
+            paddingBottom: Spacing.xl,
           },
         ]}
       >
+        {isUnratedExhibition(battle.mode, roundData.judge_payload) ? (
+          <Text style={{ color: colors.warning, paddingVertical: 12 }}>
+            {EXHIBITION_EXPLANATION}
+          </Text>
+        ) : null}
         {/* Outcome banner: the verdict first, in words, colour and shape. */}
         <Animated.View
           style={[styles.banner, { backgroundColor: colors.card }]}
           entering={enteringAt(0)}
         >
+          <GameBevel
+            color={colors.ornament}
+            insetColor={colors.ornamentMuted}
+          />
           <View style={styles.bannerRow}>
             {outcome === 'won' ? (
-              <Ionicons
+              <GameSymbol
                 name="trophy"
                 size={32}
                 color={outcomeColor}
@@ -403,7 +454,7 @@ export default function RoundResultScreen() {
               <ActivityIndicator color={outcomeColor} />
             )}
             <View style={styles.bannerText}>
-              <Text
+              <GameDisplayTitle
                 accessibilityRole="header"
                 style={[
                   styles.heading,
@@ -412,7 +463,7 @@ export default function RoundResultScreen() {
                 ]}
               >
                 {outcomeCopy.title}
-              </Text>
+              </GameDisplayTitle>
               <Text
                 style={[
                   styles.subheading,
@@ -433,25 +484,28 @@ export default function RoundResultScreen() {
           />
         </Animated.View>
 
-        {/* The series reveal on the result screen takes over the cinematic
-            role once the series is decided; a second poster here would be
-            the same image twice in a row. */}
-        {!isSeriesComplete ? (
-          <Animated.View entering={enteringAt(60)}>
-            <RoundResultCinematic
-              tier0Payload={tier0}
-              videoJob={roundVideoJob}
-              isModerationApproved={roundVideoJob?.status === 'succeeded'}
-              context="round"
-            />
-          </Animated.View>
+        {roundData.player_one_score !== null &&
+        roundData.player_two_score !== null ? (
+          <Text style={{ color: colors.text, paddingVertical: 12 }}>
+            Final score · You{' '}
+            {(isPlayerOne
+              ? roundData.player_one_score
+              : roundData.player_two_score
+            ).toFixed(3)}{' '}
+            · {battle.is_player_two_bot ? 'AI opponent' : 'Opponent'}{' '}
+            {(isPlayerOne
+              ? roundData.player_two_score
+              : roundData.player_one_score
+            ).toFixed(3)}
+          </Text>
         ) : null}
-
         <Animated.View
           style={[styles.card, { backgroundColor: colors.card }]}
           entering={enteringAt(120)}
         >
+          <GameBevel color={colors.ornamentMuted} />
           <Text
+            variant="title"
             style={[styles.cardTitle, { color: colors.text }]}
             accessibilityRole="header"
           >
@@ -479,142 +533,198 @@ export default function RoundResultScreen() {
           </View>
         </Animated.View>
 
-        {myMove && oppMove ? (
-          <Animated.View
-            style={[styles.card, { backgroundColor: colors.card }]}
-            entering={enteringAt(180)}
-          >
-            <Text
-              style={[styles.cardTitle, { color: colors.text }]}
-              accessibilityRole="header"
-            >
-              Round modifiers
-            </Text>
-            {/* The opponent's move, in its own colour and glyph: the stripe used
-                to be coloured by which SEAT the viewer sat in, not by the move. */}
-            <View
-              style={styles.stripeRow}
-              accessible
-              accessibilityLabel={`They chose ${moveLabel(oppMove)}`}
-            >
-              <View
-                style={[styles.stripe, { backgroundColor: colors[oppMove] }]}
-              />
-              <Ionicons
-                name={MOVE_META[oppMove].icon}
-                size={18}
-                color={colors[oppMove]}
-              />
-              <Text
-                style={[styles.body, styles.stripeText, { color: colors.text }]}
-              >
-                They chose{' '}
-                <Text style={{ fontWeight: Typography.weights.bold }}>
-                  {moveLabel(oppMove)}
-                </Text>
-              </Text>
-            </View>
-            <Text
-              style={[styles.body, NumericFontVariant, { color: colors.text }]}
-            >
-              {moveMatchupLine(myMove, oppMove, myMoveMod)}
-            </Text>
-            <Text
-              style={[styles.body, NumericFontVariant, { color: colors.text }]}
-            >
-              Stat modifier · {formatPct(myStatMod)}
-            </Text>
-            {oppDamage > 0 ? (
-              <View style={styles.damageRow}>
-                <Text style={[styles.body, { color: colors.success }]}>
-                  Damage dealt:{' '}
-                </Text>
-                <AnimatedCounter
-                  value={oppDamage}
-                  style={[styles.body, { color: colors.success }]}
-                  accessibilityLabel={`Damage dealt: ${oppDamage}`}
-                />
-              </View>
-            ) : null}
-            {myDamage > 0 ? (
-              <View style={styles.damageRow}>
-                <Text style={[styles.body, { color: colors.error }]}>
-                  Damage taken:{' '}
-                </Text>
-                <AnimatedCounter
-                  value={myDamage}
-                  style={[styles.body, { color: colors.error }]}
-                  accessibilityLabel={`Damage taken: ${myDamage}`}
-                />
-              </View>
-            ) : null}
-          </Animated.View>
-        ) : null}
-
-        {Object.keys(myScores).length > 0 ? (
-          <Animated.View
-            style={[styles.card, { backgroundColor: colors.card }]}
-            entering={enteringAt(240)}
-          >
-            <Text
-              style={[styles.cardTitle, { color: colors.text }]}
-              accessibilityRole="header"
-            >
-              Scores
-            </Text>
-            <Text style={[styles.caption, { color: colors.textSecondary }]}>
-              Six things the judge scores, 0–10.
-            </Text>
-            <RubricBars scores={myScores} opponentScores={oppScores} />
-          </Animated.View>
-        ) : null}
-
-        <Animated.View
-          style={[styles.card, { backgroundColor: colors.card }]}
-          entering={enteringAt(300)}
-        >
-          <Text
-            style={[styles.cardTitle, { color: colors.text }]}
-            accessibilityRole="header"
-          >
-            Judge’s verdict
-          </Text>
-          <Text style={[styles.explanation, { color: colors.textSecondary }]}>
-            {explanation || judgeNotesUnavailable('round')}
-          </Text>
-        </Animated.View>
-
+        <Text style={{ color: colors.textSecondary }}>
+          {exactBattleDeadline(
+            rounds.find((r) => r.round_number === (roundNumber ?? 1) + 1)
+              ?.lock_in_deadline,
+          )}
+        </Text>
+        <Text style={{ color: colors.text, marginVertical: 12 }}>
+          {roundCombatSummary(oppDamage, myDamage, myMoveMod, myStatMod)}
+        </Text>
         <TouchableOpacity
-          style={[
-            styles.cta,
-            {
-              backgroundColor: isResultReady
-                ? colors.primary
-                : colors.backgroundTertiary,
-            },
-          ]}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: detailsOpen }}
+          onPress={() => setDetailsOpen((v) => !v)}
+          style={{ minHeight: 48, justifyContent: 'center' }}
+        >
+          <Text style={{ color: colors.primary }}>
+            {detailsOpen ? 'Hide' : 'Show'} round details and replay
+          </Text>
+        </TouchableOpacity>
+        {detailsOpen && (
+          <>
+            {/* The series reveal on the result screen takes over the cinematic
+            role once the series is decided; a second poster here would be
+            the same image twice in a row. */}
+            {!isSeriesComplete ? (
+              <Animated.View entering={enteringAt(60)}>
+                <RoundResultCinematic
+                  tier0Payload={tier0}
+                  portraitUrl={
+                    (roundData?.round_winner_id === battle?.player_two_id
+                      ? fighterTwo
+                      : fighterOne
+                    )?.fighterUrl
+                  }
+                  archetype={
+                    (roundData?.round_winner_id === battle?.player_two_id
+                      ? fighterTwo
+                      : fighterOne
+                    )?.archetype
+                  }
+                  cosmetics={
+                    (roundData?.round_winner_id === battle?.player_two_id
+                      ? fighterTwo
+                      : fighterOne
+                    )?.cosmetics
+                  }
+                  videoJob={roundVideoJob}
+                  isModerationApproved={roundVideoJob?.status === 'succeeded'}
+                  context="round"
+                />
+              </Animated.View>
+            ) : null}
+
+            {myMove && oppMove ? (
+              <Animated.View
+                style={[styles.card, { backgroundColor: colors.card }]}
+                entering={enteringAt(180)}
+              >
+                <Text
+                  variant="title"
+                  style={[styles.cardTitle, { color: colors.text }]}
+                  accessibilityRole="header"
+                >
+                  Round modifiers
+                </Text>
+                {/* The opponent's move, in its own colour and glyph: the stripe used
+                to be coloured by which SEAT the viewer sat in, not by the move. */}
+                <View
+                  style={styles.stripeRow}
+                  accessible
+                  accessibilityLabel={`They chose ${moveLabel(oppMove)}`}
+                >
+                  <View
+                    style={[
+                      styles.stripe,
+                      { backgroundColor: colors[oppMove] },
+                    ]}
+                  />
+                  <GameSymbol
+                    name={MOVE_META[oppMove].icon}
+                    size={18}
+                    color={colors[oppMove]}
+                  />
+                  <Text
+                    style={[
+                      styles.body,
+                      styles.stripeText,
+                      { color: colors.text },
+                    ]}
+                  >
+                    They chose{' '}
+                    <Text style={{ fontWeight: Typography.weights.bold }}>
+                      {moveLabel(oppMove)}
+                    </Text>
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.body,
+                    NumericFontVariant,
+                    { color: colors.text },
+                  ]}
+                >
+                  {moveMatchupLine(myMove, oppMove, myMoveMod)}
+                </Text>
+                <Text
+                  style={[
+                    styles.body,
+                    NumericFontVariant,
+                    { color: colors.text },
+                  ]}
+                >
+                  Stat modifier · {formatPct(myStatMod)}
+                </Text>
+                {oppDamage > 0 ? (
+                  <View style={styles.damageRow}>
+                    <Text style={[styles.body, { color: colors.success }]}>
+                      Damage dealt:{' '}
+                    </Text>
+                    <AnimatedCounter
+                      value={oppDamage}
+                      style={[styles.body, { color: colors.success }]}
+                      accessibilityLabel={`Damage dealt: ${oppDamage}`}
+                    />
+                  </View>
+                ) : null}
+                {myDamage > 0 ? (
+                  <View style={styles.damageRow}>
+                    <Text style={[styles.body, { color: colors.error }]}>
+                      Damage taken:{' '}
+                    </Text>
+                    <AnimatedCounter
+                      value={myDamage}
+                      style={[styles.body, { color: colors.error }]}
+                      accessibilityLabel={`Damage taken: ${myDamage}`}
+                    />
+                  </View>
+                ) : null}
+              </Animated.View>
+            ) : null}
+
+            {Object.keys(myScores).length > 0 ? (
+              <Animated.View
+                style={[styles.card, { backgroundColor: colors.card }]}
+                entering={enteringAt(240)}
+              >
+                <Text
+                  variant="title"
+                  style={[styles.cardTitle, { color: colors.text }]}
+                  accessibilityRole="header"
+                >
+                  Scores
+                </Text>
+                <Text style={[styles.caption, { color: colors.textSecondary }]}>
+                  Six things the judge scores, 0–10.
+                </Text>
+                <RubricBars scores={myScores} opponentScores={oppScores} />
+              </Animated.View>
+            ) : null}
+
+            <Animated.View
+              style={[styles.card, { backgroundColor: colors.card }]}
+              entering={enteringAt(300)}
+            >
+              <Text
+                variant="title"
+                style={[styles.cardTitle, { color: colors.text }]}
+                accessibilityRole="header"
+              >
+                Judge’s verdict
+              </Text>
+              <Text
+                style={[styles.explanation, { color: colors.textSecondary }]}
+              >
+                {explanation || judgeNotesUnavailable('round')}
+              </Text>
+            </Animated.View>
+          </>
+        )}
+        <BattleOpponentSafety battle={battle} myId={myId} />
+      </ScrollView>
+      <GameFooter style={{ paddingBottom: insets.bottom + Spacing.sm }}>
+        <GameButton
           onPress={handleContinue}
           disabled={!isResultReady}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !isResultReady }}
-          accessibilityLabel={
+          label={
             isSeriesComplete
               ? 'See the series reveal'
               : `Continue to round ${(roundNumber ?? 1) + 1}`
           }
-        >
-          <Text
-            style={[
-              styles.ctaText,
-              { color: isResultReady ? '#FFFFFF' : colors.textSecondary },
-            ]}
-          >
-            {isSeriesComplete
-              ? 'See the series reveal'
-              : `Continue to round ${(roundNumber ?? 1) + 1}`}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+        />
+      </GameFooter>
     </View>
   );
 }
@@ -638,7 +748,6 @@ const styles = StyleSheet.create({
   },
   errorTitle: {
     fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.bold,
     textAlign: 'center',
   },
   errorBody: {
@@ -648,13 +757,12 @@ const styles = StyleSheet.create({
   retryButton: {
     minHeight: 48,
     paddingHorizontal: Spacing.xl,
-    borderRadius: BorderRadius.lg,
+    borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'stretch',
   },
   retryText: {
-    color: '#FFFFFF',
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
   },
@@ -663,7 +771,7 @@ const styles = StyleSheet.create({
   },
   banner: {
     padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    borderRadius: 0,
     marginBottom: Spacing.md,
   },
   bannerRow: {
@@ -685,12 +793,11 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    borderRadius: 0,
     marginBottom: Spacing.md,
   },
   cardTitle: {
     fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.semibold,
     marginBottom: Spacing.sm,
   },
   caption: {
@@ -732,8 +839,9 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   cta: {
-    height: 56,
-    borderRadius: BorderRadius.lg,
+    minHeight: 56,
+    paddingVertical: Spacing.sm,
+    borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: Spacing.md,

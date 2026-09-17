@@ -68,17 +68,23 @@ describe('traitOptions', () => {
 });
 
 describe('archetypeOptions', () => {
-  it('maps each archetype to a swatch and a "Rewards …" description', () => {
+  it('maps each archetype to its neutral identity description and swatch', () => {
     const options = archetypeOptions();
     expect(options).toHaveLength(ARCHETYPE_LIST.length);
     ARCHETYPE_LIST.forEach((a, i) => {
       expect(options[i]).toEqual({
         value: a.id,
         label: a.name,
-        description: `Rewards ${a.rewards}`,
+        description: a.description,
         swatch: a.color,
       });
     });
+  });
+
+  it('does not promise scoring rewards or bonuses', () => {
+    for (const option of archetypeOptions()) {
+      expect(option.description).not.toMatch(/rewards|bonus|boost/i);
+    }
   });
 
   it('is a stable reference', () => {

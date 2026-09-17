@@ -1,14 +1,17 @@
+import { GameText as Text } from '@/components/game';
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
   Easing,
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import {
   BorderRadius,
@@ -47,22 +50,29 @@ export default function MoveSting({
   onLanded,
   delayMs = 0,
 }: MoveStingProps) {
-  const reduceMotion = useReducedMotion();
+  const active = useBattlePresentationActive();
+  const reduceMotion = useReducedMotion() || !active;
+  const landed = useRef(false);
+  useEffect(() => {
+    landed.current = false;
+  }, [preset]);
   const onLandedRef = useRef(onLanded);
   onLandedRef.current = onLanded;
 
   useEffect(() => {
-    if (!preset) return;
-    if (reduceMotion) {
+    if (!preset || !active || landed.current) return;
+    const land = () => {
+      if (landed.current) return;
+      landed.current = true;
       onLandedRef.current?.();
+    };
+    if (reduceMotion) {
+      land();
       return;
     }
-    const timer = setTimeout(
-      () => onLandedRef.current?.(),
-      delayMs + STING_LANDING_MS[preset],
-    );
+    const timer = setTimeout(land, delayMs + STING_LANDING_MS[preset]);
     return () => clearTimeout(timer);
-  }, [preset, reduceMotion, delayMs]);
+  }, [preset, reduceMotion, delayMs, active]);
 
   if (!preset) return null;
 
@@ -76,7 +86,7 @@ export default function MoveSting({
           accessibilityLabel={`${label} move`}
           testID="move-sting-badge"
         >
-          <Ionicons
+          <GameSymbol
             name={MOVE_META[preset].icon}
             size={16}
             color={Ink.onAccentLight}
@@ -137,6 +147,10 @@ function AttackStreak({ color, delayMs }: VariantProps) {
         withTiming(0, { duration: 120 }),
       ),
     );
+    return () => {
+      cancelAnimation(x);
+      cancelAnimation(opacity);
+    };
   }, [delayMs, travel, x, opacity]);
 
   const style = useAnimatedStyle(() => ({
@@ -183,6 +197,10 @@ function Ring({ color, delayMs, toScale }: VariantProps & { toScale: number }) {
         withTiming(0, { duration: STING_DURATION_MS - 100 }),
       ),
     );
+    return () => {
+      cancelAnimation(scale);
+      cancelAnimation(opacity);
+    };
   }, [delayMs, toScale, scale, opacity]);
 
   const style = useAnimatedStyle(() => ({
@@ -221,6 +239,10 @@ function FinisherFlash({ color, delayMs }: VariantProps) {
         withTiming(0, { duration: 60 }),
       ),
     );
+    return () => {
+      cancelAnimation(flash);
+      cancelAnimation(shake);
+    };
   }, [delayMs, flash, shake]);
 
   const shakeStyle = useAnimatedStyle(() => ({

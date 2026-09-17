@@ -1,3 +1,15 @@
+import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { BattleThemePlaque } from '@/components/game/battle/BattleThemePlaque';
+import {
+  GameText as Text,
+  GameFooter,
+  GameButton,
+  GamePanel,
+} from '@/components/game';
+import BattleOpponentSafety from '@/components/BattleOpponentSafety';
+import { requestFirstAsyncWaitNotifications } from '@/utils/asyncWaitNotifications';
+import { exactBattleDeadline } from '@/utils/battleCopy';
 import React, {
   useCallback,
   useEffect,
@@ -7,7 +19,6 @@ import React, {
 } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
@@ -18,7 +29,7 @@ import {
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useBattleCharacters } from '@/hooks/useBattleCharacters';
@@ -95,7 +106,7 @@ export default function WaitingScreen() {
   const isPlayerOne =
     Boolean(battle) && Boolean(user) && battle!.player_one_id === user!.id;
 
-  // Both fighters, wired exactly as move-select does it: identity under RLS,
+  // Both fighters use identity under RLS,
   // portraits from sign-battle-portraits, tap to enlarge. The room used to
   // show neither fighter, so a player could not tell whose lock they waited on.
   const {
@@ -110,17 +121,15 @@ export default function WaitingScreen() {
   // One offset per visit so the tips do not always open on the same line.
   const tipSeed = useRef(Math.floor(Math.random() * ARENA_TIPS.length)).current;
 
-  // This is the highest-value paid exit -- locked in, waiting, want out -- and
-  // also the easiest to get wrong. "Return to Home" below is the SANCTIONED
-  // park: the battle keeps running and the player comes back to it, which is
-  // the whole point of an async arena. It stays free, stays unguarded, and
-  // never grows a price. Leaving is a separate, visually quieter action.
+  // Returning to Arena parks this live battle. Forfeit is a separate action.
   const leave = useLeaveBattle(battleId || null, {
     format,
     mode: (battle?.mode ?? 'ranked') as BattleMode,
     isBot,
     prompts,
     myProfileId: user?.id,
+    status: battle?.status,
+    hasOpponent: Boolean(battle?.player_two_id || battle?.is_player_two_bot),
   });
 
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -194,6 +203,19 @@ export default function WaitingScreen() {
     isBot || Boolean(opponentPrompt?.is_locked) || Boolean(opponentLockedAt);
 
   const opponentReady = battle ? hasOpponent(battle) : false;
+  useEffect(() => {
+    if (
+      user &&
+      battle &&
+      !isBot &&
+      myPromptLocked &&
+      !opponentPromptLocked &&
+      battle.player_two_id
+    ) {
+      void requestFirstAsyncWaitNotifications(user.id);
+    }
+  }, [user, battle, isBot, myPromptLocked, opponentPromptLocked]);
+
   const isResolving =
     battle?.status === 'resolving' || roundData?.status === 'resolving';
 
@@ -325,7 +347,7 @@ export default function WaitingScreen() {
     if (battle.status === 'canceled' || battle.status === 'expired') {
       handledTerminalRef.current = true;
       Alert.alert('Battle ended', 'This battle is no longer available.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/home') },
+        { text: 'OK', onPress: () => router.dismissTo('/(tabs)/home') },
       ]);
     }
   }, [battle, router]);
@@ -363,13 +385,11 @@ export default function WaitingScreen() {
         );
         return;
       }
-      // If a new round has been opened and we haven't submitted yet, push
-      // back to move-select for that new round -- the move is chosen fresh
-      // each round, so re-entry starts at the choice, not at the writing.
+      // Resume the writing workspace with a fresh move for the new round.
       const battleRound = battle.current_round ?? 1;
       if (battleRound !== roundNumber && !myPromptLocked) {
         router.replace(
-          `/(battle)/move-select?battleId=${battleId}&round=${battleRound}`,
+          `/(battle)/prompt-entry?battleId=${battleId}&round=${battleRound}`,
         );
       }
       return;
@@ -505,209 +525,222 @@ export default function WaitingScreen() {
     >
       {/* Scrim keeps overlay text AA on top of the arena illustration. */}
       <View style={styles.scrim} />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        {isBo3 ? (
-          <View style={styles.seriesBlock}>
-            <SeriesScoreIndicator
-              score={series_score}
-              currentRound={roundNumber}
-              format={format}
-              bestOf={battle?.best_of ?? 3}
-              viewer={isPlayerOne ? 'p1' : 'p2'}
+      <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+        >
+          {isBo3 ? (
+            <View style={styles.seriesBlock}>
+              <SeriesScoreIndicator
+                score={series_score}
+                currentRound={roundNumber}
+                format={format}
+                bestOf={battle?.best_of ?? 3}
+                viewer={isPlayerOne ? 'p1' : 'p2'}
+              />
+              <Text style={styles.seriesCaption}>
+                Round {roundNumber} of {battle?.best_of ?? 3} — Locking in
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={styles.versus}>
+            <VersusStrip
+              left={{
+                name: myChar?.name ?? 'You',
+                archetype: myChar?.archetype ?? '',
+                signatureColor: myChar?.signatureColor ?? colors.primary,
+                portraitUrl: myChar?.portraitUrl,
+                cosmetics: myChar?.cosmetics,
+                label: 'YOU',
+                onAvatarPress: portraitViewer.canOpen(myChar)
+                  ? (opener) => portraitViewer.open(myChar, opener)
+                  : undefined,
+              }}
+              right={{
+                name: oppChar?.name ?? 'Opponent',
+                archetype: oppChar?.archetype ?? '',
+                signatureColor: oppChar?.signatureColor ?? colors.textSecondary,
+                portraitUrl: oppChar?.portraitUrl,
+                cosmetics: oppChar?.cosmetics,
+                label: battle?.is_player_two_bot
+                  ? 'AI OPPONENT · PRACTICE'
+                  : 'OPPONENT',
+                onAvatarPress: portraitViewer.canOpen(oppChar)
+                  ? (opener) => portraitViewer.open(oppChar, opener)
+                  : undefined,
+              }}
+              subtitle={isBo3 ? `Round ${roundNumber}` : null}
             />
-            <Text style={styles.seriesCaption}>
-              Round {roundNumber} of {battle?.best_of ?? 3} — Locking in
-            </Text>
           </View>
-        ) : null}
 
-        <View style={styles.versus}>
-          <VersusStrip
-            left={{
-              name: myChar?.name ?? 'You',
-              archetype: myChar?.archetype ?? '',
-              signatureColor: myChar?.signatureColor ?? colors.primary,
-              portraitUrl: myChar?.portraitUrl,
-              cosmetics: myChar?.cosmetics,
-              label: 'YOU',
-              onAvatarPress: portraitViewer.canOpen(myChar)
-                ? () => portraitViewer.open(myChar)
-                : undefined,
-            }}
-            right={{
-              name: oppChar?.name ?? 'Opponent',
-              archetype: oppChar?.archetype ?? '',
-              signatureColor: oppChar?.signatureColor ?? colors.textSecondary,
-              portraitUrl: oppChar?.portraitUrl,
-              cosmetics: oppChar?.cosmetics,
-              label: 'OPPONENT',
-              onAvatarPress: portraitViewer.canOpen(oppChar)
-                ? () => portraitViewer.open(oppChar)
-                : undefined,
-            }}
-            subtitle={isBo3 ? `Round ${roundNumber}` : null}
+          {/* Hero anticipation block — fixed light text sits on the scrim. */}
+          <ActivityIndicator
+            size="large"
+            color="#FFFFFF"
+            style={styles.spinner}
+            accessibilityLabel={hero.title}
           />
-        </View>
+          <GameDisplayTitle style={styles.heroTitle} accessibilityRole="header">
+            {hero.title}
+          </GameDisplayTitle>
+          <Text style={styles.heroSubtitle}>{hero.subtitle}</Text>
 
-        {/* Hero anticipation block — fixed light text sits on the scrim. */}
-        <ActivityIndicator
-          size="large"
-          color="#FFFFFF"
-          style={styles.spinner}
-          accessibilityLabel={hero.title}
-        />
-        <Text style={styles.heroTitle} accessibilityRole="header">
-          {hero.title}
-        </Text>
-        <Text style={styles.heroSubtitle}>{hero.subtitle}</Text>
+          {showCountdown ? (
+            <Text
+              style={[styles.countdown, NumericFontVariant]}
+              accessibilityLiveRegion="polite"
+            >
+              {opponentDeadlineLine(deadlineMs - now)}
+              {'\n'}
+              {exactBattleDeadline(opponentDeadline)}
+            </Text>
+          ) : null}
 
-        {showCountdown ? (
-          <Text
-            style={[styles.countdown, NumericFontVariant]}
-            accessibilityLiveRegion="polite"
-          >
-            {opponentDeadlineLine(deadlineMs - now)}
-          </Text>
-        ) : null}
+          {battle?.theme ? (
+            <View style={{ width: '100%', marginBottom: 16 }}>
+              <BattleThemePlaque theme={battle.theme} />
+            </View>
+          ) : null}
 
-        {battle?.theme ? (
-          <View
+          {/* Status checklist on a solid surface (AA in both themes). */}
+          <GamePanel
+            tone="ornate"
             style={[
               styles.card,
               { backgroundColor: colors.card },
               Elevation.md,
             ]}
           >
-            <Text style={[styles.themeLabel, { color: colors.textSecondary }]}>
-              THEME
-            </Text>
-            <Text style={[styles.themeText, { color: colors.primary }]}>
-              {battle.theme}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* Status checklist on a solid surface (AA in both themes). */}
-        <View
-          style={[styles.card, { backgroundColor: colors.card }, Elevation.md]}
-        >
-          <View
-            style={styles.statusRow}
-            accessible
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: myPromptLocked }}
-            accessibilityLabel="Your prompt submitted"
-          >
-            <Ionicons
-              name={myPromptLocked ? 'checkmark-circle' : 'ellipse-outline'}
-              size={20}
-              color={myPromptLocked ? colors.success : colors.textSecondary}
-              style={styles.statusIcon}
-            />
-            <Text style={[styles.statusText, { color: colors.text }]}>
-              Your prompt submitted
-            </Text>
-          </View>
-
-          <View
-            style={styles.statusRow}
-            accessible
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: opponentPromptLocked }}
-            accessibilityLabel={opponentRowLabel}
-          >
-            <Ionicons
-              name={
-                opponentPromptLocked ? 'checkmark-circle' : 'ellipse-outline'
-              }
-              size={20}
-              color={
-                opponentPromptLocked ? colors.success : colors.textSecondary
-              }
-              style={styles.statusIcon}
-            />
-            <Text style={[styles.statusText, { color: colors.text }]}>
-              {opponentRowLabel}
-            </Text>
-          </View>
-
-          {isResolving && (
             <View
               style={styles.statusRow}
               accessible
               accessibilityRole="checkbox"
-              accessibilityState={{ checked: false }}
-              accessibilityLabel="Judge is scoring"
+              accessibilityState={{ checked: myPromptLocked }}
+              accessibilityLabel="Your prompt submitted"
             >
-              <Ionicons
-                name="flash"
+              <GameSymbol
+                name={myPromptLocked ? 'checkmark-circle' : 'ellipse-outline'}
                 size={20}
-                color={colors.warning}
+                color={myPromptLocked ? colors.success : colors.textSecondary}
                 style={styles.statusIcon}
               />
               <Text style={[styles.statusText, { color: colors.text }]}>
-                Judge is scoring…
+                Your prompt submitted
               </Text>
             </View>
+
+            <View
+              style={styles.statusRow}
+              accessible
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: opponentPromptLocked }}
+              accessibilityLabel={opponentRowLabel}
+            >
+              <GameSymbol
+                name={
+                  opponentPromptLocked ? 'checkmark-circle' : 'ellipse-outline'
+                }
+                size={20}
+                color={
+                  opponentPromptLocked ? colors.success : colors.textSecondary
+                }
+                style={styles.statusIcon}
+              />
+              <Text style={[styles.statusText, { color: colors.text }]}>
+                {opponentRowLabel}
+              </Text>
+            </View>
+
+            {isResolving && (
+              <View
+                style={styles.statusRow}
+                accessible
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: false }}
+                accessibilityLabel="Judge is scoring"
+              >
+                <GameSymbol
+                  name="flash"
+                  size={20}
+                  color={colors.warning}
+                  style={styles.statusIcon}
+                />
+                <Text style={[styles.statusText, { color: colors.text }]}>
+                  Judge is scoring…
+                </Text>
+              </View>
+            )}
+          </GamePanel>
+
+          {isJudging ? (
+            <View style={styles.tips}>
+              <ArenaTips seed={tipSeed} reduceMotion={reduceMotion} />
+            </View>
+          ) : null}
+
+          {!isSubscribed && (
+            <Text style={styles.onScrimNote}>{RECONNECTING}</Text>
           )}
-        </View>
 
-        {isJudging ? (
-          <View style={styles.tips}>
-            <ArenaTips seed={tipSeed} reduceMotion={reduceMotion} />
-          </View>
-        ) : null}
+          {isResolving && slowScoring ? (
+            <Text style={styles.onScrimNote}>{STILL_SCORING}</Text>
+          ) : null}
 
-        {!isSubscribed && (
-          <Text style={styles.onScrimNote}>{RECONNECTING}</Text>
-        )}
-
-        {isResolving && slowScoring ? (
-          <Text style={styles.onScrimNote}>{STILL_SCORING}</Text>
-        ) : null}
-
-        {!opponentReady && queueNote ? (
-          <Text style={[styles.onScrimNote, styles.queueNote]}>
-            {queueNote}
-          </Text>
-        ) : null}
-
-        <TouchableOpacity
-          style={styles.homeButton}
-          onPress={() => router.replace('/(tabs)/home')}
-          accessibilityLabel="Return to Arena"
-          accessibilityRole="button"
-        >
-          <Text style={styles.homeButtonText}>Return to Arena</Text>
-        </TouchableOpacity>
-
-        {notifGranted === null ? null : (
-          <Text style={styles.hint}>
-            {notifGranted ? NOTIFY_ON : NOTIFY_OFF}
-          </Text>
-        )}
-
-        {canLeave ? (
-          <TouchableOpacity
-            style={styles.leaveLink}
-            onPress={() => leave.confirmLeave()}
-            disabled={leave.isLeaving}
-            accessibilityLabel={leaveLabel}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: leave.isLeaving }}
-          >
-            <Text style={styles.leaveLinkText}>
-              {leave.isLeaving ? 'Leaving…' : leaveLabel}
+          {!opponentReady && queueNote ? (
+            <Text style={[styles.onScrimNote, styles.queueNote]}>
+              {queueNote}
             </Text>
-          </TouchableOpacity>
-        ) : isFinishing ? (
-          <Text style={styles.hint}>
-            This battle is finishing now, so it can no longer be left.
-          </Text>
-        ) : null}
-      </ScrollView>
+          ) : null}
 
+          {notifGranted === null ? null : (
+            <Text style={styles.hint}>
+              {notifGranted ? NOTIFY_ON : NOTIFY_OFF}
+            </Text>
+          )}
+
+          {canLeave ? (
+            <TouchableOpacity
+              style={styles.leaveLink}
+              onPress={() => leave.confirmLeave()}
+              disabled={leave.isLeaving || !leave.canForfeit}
+              accessibilityLabel={leaveLabel}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: leave.isLeaving }}
+            >
+              <Text style={styles.leaveLinkText}>
+                {leave.isLeaving ? 'Leaving…' : leaveLabel}
+              </Text>
+            </TouchableOpacity>
+          ) : isFinishing ? (
+            <Text style={styles.hint}>
+              This battle is finishing now, so it can no longer be left.
+            </Text>
+          ) : null}
+          <BattleOpponentSafety
+            battle={battle}
+            myId={user?.id}
+            name={oppChar?.name}
+          />
+        </ScrollView>
+      </SafeAreaView>
+
+      <SafeAreaView
+        edges={['bottom']}
+        style={{ backgroundColor: colors.background }}
+      >
+        <GameFooter>
+          <GameButton
+            label="Return to Arena"
+            tone="secondary"
+            icon="chevron-back"
+            onPress={() => router.dismissTo('/(tabs)/home')}
+          />
+        </GameFooter>
+      </SafeAreaView>
       <PortraitViewer
+        returnFocusRef={portraitViewer.returnFocusRef}
         visible={portraitViewer.visible}
         uri={portraitViewer.viewer?.uri ?? null}
         caption={portraitViewer.viewer?.caption}
@@ -736,6 +769,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.lg,
+    paddingTop: Spacing.lg + 44,
   },
   seriesBlock: {
     width: '100%',
@@ -760,7 +794,6 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontSize: Typography.sizes.xxxl,
-    fontWeight: Typography.weights.bold,
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: Spacing.sm,
@@ -782,11 +815,11 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
+    borderRadius: 0,
     marginBottom: Spacing.lg,
   },
   themeLabel: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 14,
     fontWeight: Typography.weights.bold,
     letterSpacing: 1,
     marginBottom: Spacing.xs,
@@ -806,6 +839,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   statusText: {
+    flex: 1,
     fontSize: Typography.sizes.base,
   },
   onScrimNote: {
@@ -831,26 +865,23 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.semibold,
     color: '#FFFFFF',
   },
-  // Deliberately quieter than the home button: leaving costs money and ends
-  // the battle, so it must be findable without competing with the free action
-  // that is right for almost everyone here. Quiet is not small, though: the
-  // target is the 44pt minimum, met by the control itself rather than hitSlop.
+  // Forfeit stays separate from parking, with its own accessible target.
   leaveLink: {
     marginTop: Spacing.lg,
     alignSelf: 'center',
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: Spacing.md,
     justifyContent: 'center',
   },
   leaveLinkText: {
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
-    color: 'rgba(255,255,255,0.55)',
+    color: 'rgba(255,255,255,0.85)',
     textDecorationLine: 'underline',
   },
   hint: {
     fontSize: Typography.sizes.sm,
     textAlign: 'center',
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.85)',
   },
 });

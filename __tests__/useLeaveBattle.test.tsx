@@ -15,7 +15,7 @@ const mockReplace = jest.fn();
 const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace, push: mockPush }),
+  useRouter: () => ({ dismissTo: mockReplace, push: mockPush }),
 }));
 
 jest.mock('@/utils/battles', () => ({
@@ -107,9 +107,9 @@ describe('useLeaveBattle', () => {
   });
 
   describe('price', () => {
-    it('reads the live price from the table', async () => {
+    it('forfeits are always free', async () => {
       const { result } = setup();
-      await waitFor(() => expect(result.current.price).toBe(2));
+      await waitFor(() => expect(result.current.price).toBe(0));
     });
   });
 
@@ -159,7 +159,7 @@ describe('useLeaveBattle', () => {
   });
 
   describe('insufficient credits', () => {
-    it('offers the shop and does NOT navigate away', async () => {
+    it('server rejection keeps the battle open and never offers paid exit', async () => {
       mockedLeave.mockResolvedValue({
         success: false,
         code: 'insufficient_credits',
@@ -179,19 +179,9 @@ describe('useLeaveBattle', () => {
       expect(mockReplace).not.toHaveBeenCalled();
 
       const spy = Alert.alert as unknown as jest.Mock;
-      const [title, message, buttons] =
-        spy.mock.calls[spy.mock.calls.length - 1];
-      expect(title).toBe('Not enough credits');
-      expect(message).toBe(
-        'You need 1 more credit for this. Top up in the shop.',
-      );
-
-      // Telling a player to top up from a screen with no route to the wallet
-      // is the exact failure this button exists to prevent.
-      const topUp = buttons.find((b: { text: string }) => b.text === 'Top up');
-      expect(topUp).toBeDefined();
-      topUp.onPress();
-      expect(mockPush).toHaveBeenCalledWith('/(profile)/wallet');
+      const [title] = spy.mock.calls[spy.mock.calls.length - 1];
+      expect(title).toBe('Could not leave');
+      expect(mockPush).not.toHaveBeenCalled();
     });
 
     it('allows a retry after the failure', async () => {

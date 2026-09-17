@@ -8,7 +8,7 @@ export type ColorStyle = 'light' | 'dark';
 export const Colors = {
   light: {
     // Primary brand colors
-    primary: '#8B5CF6', // Purple
+    primary: '#6940B3', // Readable lavender-family ink on light surfaces
     primaryDark: '#7C3AED',
     primaryLight: '#A78BFA',
 
@@ -19,8 +19,8 @@ export const Colors = {
 
     // Text
     text: '#111827',
-    textSecondary: '#6B7280',
-    textTertiary: '#9CA3AF',
+    textSecondary: '#575365',
+    textTertiary: '#696374',
 
     // UI elements
     border: '#E5E7EB',
@@ -29,10 +29,10 @@ export const Colors = {
     shadow: 'rgba(0, 0, 0, 0.1)',
 
     // Semantic colors
-    success: '#10B981',
-    warning: '#F59E0B',
-    error: '#EF4444',
-    info: '#3B82F6',
+    success: '#066B4B',
+    warning: '#805300',
+    error: '#B42336',
+    info: '#2457CA',
 
     // Battle-specific. Finisher is deliberately NOT the brand purple: a selected
     // finisher button used to be indistinguishable from any primary CTA.
@@ -41,9 +41,22 @@ export const Colors = {
     finisher: '#DB2777',
 
     // Interactive
-    link: '#3B82F6',
+    link: '#2457CA',
     tabIconDefault: '#9CA3AF',
-    tabIconSelected: '#8B5CF6',
+    tabIconSelected: '#6940B3',
+
+    // Collectible chrome. Action ink is explicit: lavender fills use dark text.
+    actionFill: '#C4AFFE',
+    actionInk: '#0B0B13',
+    dangerInk: '#FFFFFF',
+    ornament: '#8A6426',
+    ornamentMuted: '#C8B99E',
+    selectedSurface: '#EDE5FE',
+    fieldSurface: '#FFFFFF',
+    fieldBorder: '#80748F',
+    disabledSurface: '#E9E6EE',
+    disabledInk: '#696374',
+    focusRing: '#6940B3',
 
     // Leaderboard medals (top-3 podium)
     medalGold: '#D4A017',
@@ -52,14 +65,14 @@ export const Colors = {
   },
   dark: {
     // Primary brand colors
-    primary: '#A78BFA', // Lighter purple for dark mode
+    primary: '#C4AFFE', // Lavender action and display accent
     primaryDark: '#8B5CF6',
     primaryLight: '#C4B5FD',
 
     // Backgrounds
-    background: '#0F0F0F',
-    backgroundSecondary: '#1A1A1A',
-    backgroundTertiary: '#262626',
+    background: '#0B0B13',
+    backgroundSecondary: '#171721',
+    backgroundTertiary: '#232330',
 
     // Text
     text: '#F9FAFB',
@@ -69,7 +82,7 @@ export const Colors = {
     // UI elements
     border: '#374151',
     borderLight: '#262626',
-    card: '#1A1A1A',
+    card: '#171721',
     shadow: 'rgba(0, 0, 0, 0.3)',
 
     // Semantic colors
@@ -86,7 +99,20 @@ export const Colors = {
     // Interactive
     link: '#60A5FA',
     tabIconDefault: '#6B7280',
-    tabIconSelected: '#A78BFA',
+    tabIconSelected: '#C4AFFE',
+
+    // Gold is ornamental; semantic success/warning/error and move inks stay distinct.
+    actionFill: '#C4AFFE',
+    actionInk: '#0B0B13',
+    dangerInk: '#0B0B13',
+    ornament: '#D5AD63',
+    ornamentMuted: '#756244',
+    selectedSurface: '#302443',
+    fieldSurface: '#11111C',
+    fieldBorder: '#81748F',
+    disabledSurface: '#292733',
+    disabledInk: '#B4ADBF',
+    focusRing: '#E4D8FF',
 
     // Leaderboard medals (top-3 podium)
     medalGold: '#FFD700',

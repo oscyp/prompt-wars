@@ -1,6 +1,8 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { inkFor } from '@/utils/contrast';
+import { GameText } from '@/components/game';
+
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
@@ -77,14 +79,19 @@ export default function ColorSwatchGrid({
                 ]}
               >
                 {isSelected ? (
-                  <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                  <GameSymbol
+                    name="checkmark"
+                    size={18}
+                    color={inkFor(option.hex)}
+                  />
                 ) : null}
               </View>
             </TouchableOpacity>
           );
         })}
       </View>
-      <Text
+      <GameText
+        variant="caption"
         style={[
           styles.caption,
           accessibleText,
@@ -94,7 +101,7 @@ export default function ColorSwatchGrid({
         {disabled && disabledReason
           ? disabledReason
           : (selected?.label ?? 'None selected')}
-      </Text>
+      </GameText>
     </View>
   );
 }
@@ -124,7 +131,7 @@ export function selectedValueForHex(
   return options.find((o) => o.hex.toLowerCase() === normalized)?.value ?? null;
 }
 
-const SWATCH = 44;
+const SWATCH = 48;
 
 const styles = StyleSheet.create({
   row: {
@@ -151,6 +158,6 @@ const styles = StyleSheet.create({
   },
   caption: {
     marginTop: Spacing.sm,
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
   },
 });

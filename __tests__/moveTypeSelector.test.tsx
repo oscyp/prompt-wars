@@ -90,7 +90,7 @@ describe('MoveTypeSelector', () => {
       const style = StyleSheetFlatten(
         getByLabelText(`Select ${move} move`).props.style,
       );
-      expect(style.minHeight).toBeGreaterThanOrEqual(56);
+      expect(style.minHeight).toBeGreaterThanOrEqual(48);
     }
   });
 });

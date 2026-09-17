@@ -1,0 +1,66 @@
+[
+  {
+    "file": "astral-codex.png",
+    "size": [
+      1024,
+      1536
+    ],
+    "mode": "RGBA",
+    "center_alpha": 0,
+    "corner_alpha": 0,
+    "alpha_range": [
+      0,
+      254
+    ],
+    "transparent_fraction": 0.7043,
+    "bytes": 1929149
+  },
+  {
+    "file": "emberforge.png",
+    "size": [
+      1024,
+      1536
+    ],
+    "mode": "RGBA",
+    "center_alpha": 0,
+    "corner_alpha": 0,
+    "alpha_range": [
+      0,
+      254
+    ],
+    "transparent_fraction": 0.7382,
+    "bytes": 1767927
+  },
+  {
+    "file": "laureate.png",
+    "size": [
+      1024,
+      1536
+    ],
+    "mode": "RGBA",
+    "center_alpha": 0,
+    "corner_alpha": 0,
+    "alpha_range": [
+      0,
+      254
+    ],
+    "transparent_fraction": 0.7622,
+    "bytes": 1731558
+  },
+  {
+    "file": "neon-circuit.png",
+    "size": [
+      1024,
+      1536
+    ],
+    "mode": "RGBA",
+    "center_alpha": 0,
+    "corner_alpha": 0,
+    "alpha_range": [
+      0,
+      254
+    ],
+    "transparent_fraction": 0.7142,
+    "bytes": 1641061
+  }
+]

@@ -1,12 +1,13 @@
+import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
+import { GameText as Text } from '@/components/game';
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, StyleSheet, Animated } from 'react-native';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import {
   Spacing,
   Typography,
-  BorderRadius,
   Motion,
   NumericFontVariant,
 } from '@/constants/DesignTokens';
@@ -41,6 +42,7 @@ export default function HPBar({
   // The shared hook, not AccessibilityInfo directly: it ORs in the in-app
   // Reduce Motion toggle, which this bar used to ignore.
   const reduceMotion = useReducedMotion();
+  const presentationActive = useBattlePresentationActive();
   const safeMax = Math.max(1, max);
   const clampedCurrent = Math.max(0, Math.min(current, safeMax));
   const startPct =
@@ -55,7 +57,7 @@ export default function HPBar({
     animateFrom != null ? Math.max(0, animateFrom - clampedCurrent) : 0;
 
   useEffect(() => {
-    if (reduceMotion) {
+    if (reduceMotion || !presentationActive) {
       widthAnim.setValue(endPct);
       // The damage number still shows; it just does not fade.
       lostAnim.setValue(lost > 0 ? 1 : 0);
@@ -83,11 +85,17 @@ export default function HPBar({
       spring.stop();
       fade?.stop();
     };
-  }, [endPct, lost, widthAnim, lostAnim, reduceMotion]);
+  }, [endPct, lost, widthAnim, lostAnim, reduceMotion, presentationActive]);
 
   const ratio = endPct;
   const fillColor =
-    ratio > 0.5 ? colors.success : ratio > 0.25 ? colors.warning : colors.error;
+    ratio > 0.5
+      ? side === 'left'
+        ? colors.primary
+        : colors.attack
+      : ratio > 0.25
+        ? colors.warning
+        : colors.error;
 
   const widthInterpolation = widthAnim.interpolate({
     inputRange: [0, 1],
@@ -117,18 +125,20 @@ export default function HPBar({
           compact && styles.rowCompact,
         ]}
       >
-        <Ionicons
-          name="heart"
-          size={compact ? 16 : 20}
-          color={fillColor}
-          accessibilityElementsHidden
-          importantForAccessibility="no"
-        />
+        {!compact && (
+          <GameSymbol
+            name="heart"
+            size={compact ? 16 : 20}
+            color={fillColor}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+          />
+        )}
         <View style={styles.labels}>
           {playerName && showName ? (
             <Text
+              variant="fighter"
               style={[styles.name, { color: colors.text }]}
-              numberOfLines={1}
             >
               {playerName}
             </Text>
@@ -139,8 +149,8 @@ export default function HPBar({
               compact && styles.valueCompact,
               NumericFontVariant,
               { color: colors.text },
+              side === 'right' && { textAlign: 'right' },
             ]}
-            numberOfLines={1}
           >
             {clampedCurrent}
             <Text style={{ color: colors.textSecondary }}>/{safeMax} HP</Text>
@@ -203,7 +213,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   name: {
-    fontSize: Typography.sizes.sm,
+    fontSize: 16,
     fontWeight: Typography.weights.semibold,
   },
   value: {
@@ -211,7 +221,7 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
   },
   valueCompact: {
-    fontSize: Typography.sizes.sm,
+    fontSize: 12,
   },
   lost: {
     fontSize: Typography.sizes.lg,
@@ -222,12 +232,12 @@ const styles = StyleSheet.create({
     // column's alignItems to flex-end (which otherwise collapses it to 0).
     alignSelf: 'stretch',
     height: 10,
-    borderRadius: BorderRadius.full,
+    borderRadius: 2,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
   },
   fill: {
     height: '100%',
-    borderRadius: BorderRadius.full,
+    borderRadius: 2,
   },
 });

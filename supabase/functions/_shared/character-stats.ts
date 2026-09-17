@@ -26,7 +26,10 @@ export type StatValidation =
  * missing keys are an error (a partial block cannot be "the rest at default"
  * without changing the pool).
  */
-export function validateStatAllocation(input: unknown): StatValidation {
+export function validateStatAllocation(
+  input: unknown,
+  pointTotal = STAT_POINT_TOTAL,
+): StatValidation {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     return { ok: false, message: 'stats must be an object' };
   }
@@ -48,10 +51,10 @@ export function validateStatAllocation(input: unknown): StatValidation {
     stats[key] = value;
   }
   const total = STAT_KEYS.reduce((sum, key) => sum + (stats[key] ?? 0), 0);
-  if (total !== STAT_POINT_TOTAL) {
+  if (total !== pointTotal) {
     return {
       ok: false,
-      message: `stats must total ${STAT_POINT_TOTAL} points (got ${total})`,
+      message: `stats must total ${pointTotal} points (got ${total})`,
     };
   }
   return { ok: true, stats: stats as StatAllocation };

@@ -1,6 +1,14 @@
 // Client-side cosmetics shop API helpers.
 // Cosmetics are strictly cosmetic; all ownership/purchase/equip is server-owned.
 
+import {
+  presentationFor,
+  type CosmeticPresentation,
+  type FramePresentation,
+  type TitlePresentation,
+  type BadgePresentation,
+  type AvatarEffectPresentation,
+} from '@/constants/Cosmetics';
 import { invokeFunctionResult } from './supabase';
 
 export type CosmeticType =
@@ -32,6 +40,7 @@ export interface CosmeticItem {
   value: string | null;
   preview_asset_path: string | null;
   sort_order: number;
+  min_client_contract_version?: number;
   owned: boolean;
 }
 
@@ -39,6 +48,10 @@ export interface CosmeticsCatalog {
   success: boolean;
   items: CosmeticItem[];
   owned_count: number;
+  error?: string;
+  cosmetic_slug?: string;
+  catalog_refresh_required?: boolean;
+  already_owned?: boolean;
 }
 
 /**
@@ -47,6 +60,7 @@ export interface CosmeticsCatalog {
 export async function listCosmetics(): Promise<CosmeticsCatalog | null> {
   const { data, error } = await invokeFunctionResult('cosmetics', {
     action: 'list',
+    client_contract_version: 2,
   });
   if (error) {
     console.error('listCosmetics error:', error);
@@ -64,13 +78,18 @@ export async function purchaseCosmetic(
 ): Promise<CosmeticsCatalog & { success: boolean; error?: string }> {
   const { data, error } = await invokeFunctionResult<
     CosmeticsCatalog & { success: boolean; error?: string }
-  >('cosmetics', { action: 'purchase', cosmetic_slug: slug });
+  >('cosmetics', {
+    action: 'purchase',
+    cosmetic_slug: slug,
+    client_contract_version: 2,
+  });
   if (error) {
     return {
       success: false,
       error: error.message,
       items: [],
       owned_count: 0,
+      catalog_refresh_required: true,
     };
   }
   // `data` is nullable now that the call goes through the typed wrapper. It was
@@ -82,6 +101,7 @@ export async function purchaseCosmetic(
       error: 'Empty response',
       items: [],
       owned_count: 0,
+      catalog_refresh_required: true,
     }
   );
 }
@@ -93,13 +113,22 @@ export async function equipCosmetic(
   characterId: string,
   cosmeticType: CosmeticType,
   slug: string | null,
-): Promise<{ success: boolean; error?: string; equipped?: string | null }> {
+): Promise<{
+  success: boolean;
+  error?: string;
+  equipped?: string | null;
+  type?: CosmeticType;
+  cosmetic_config?: CosmeticConfig;
+}> {
   const { data, error } = await invokeFunctionResult<{
     success: boolean;
     error?: string;
     equipped?: string | null;
+    type?: CosmeticType;
+    cosmetic_config?: CosmeticConfig;
   }>('cosmetics', {
     action: 'equip',
+    client_contract_version: 2,
     character_id: characterId,
     cosmetic_type: cosmeticType,
     cosmetic_slug: slug,
@@ -116,6 +145,7 @@ export async function equipCosmetic(
 export async function syncCosmetics(): Promise<CosmeticsCatalog | null> {
   const { data, error } = await invokeFunctionResult('cosmetics', {
     action: 'sync',
+    client_contract_version: 2,
   });
   if (error) {
     console.error('syncCosmetics error:', error);
@@ -127,15 +157,6 @@ export async function syncCosmetics(): Promise<CosmeticsCatalog | null> {
 // ---------------------------------------------------------------------------
 // Equipped cosmetics
 // ---------------------------------------------------------------------------
-
-import {
-  presentationFor,
-  type CosmeticPresentation,
-  type FramePresentation,
-  type TitlePresentation,
-  type BadgePresentation,
-  type AvatarEffectPresentation,
-} from '@/constants/Cosmetics';
 
 /**
  * `characters.cosmetic_config` as stored: cosmetic_type -> slug.

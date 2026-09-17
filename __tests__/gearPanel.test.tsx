@@ -53,7 +53,7 @@ describe('GearPanel', () => {
     const { getByLabelText, getByTestId, queryByTestId } = renderPanel();
     expect(queryByTestId(SHEET)).toBeNull();
 
-    const tile = getByLabelText('Signature item: Wrench, Tool');
+    const tile = getByLabelText('Preview Wrench');
     fireEvent.press(tile);
 
     const sheet = within(getByTestId(SHEET));
@@ -61,54 +61,45 @@ describe('GearPanel', () => {
     expect(
       sheet.getByText('Loosens anything, including arguments.'),
     ).toBeTruthy();
-    expect(
-      getByLabelText('Signature item: Wrench, Tool').props.accessibilityState
-        .expanded,
-    ).toBe(true);
+    expect(getByLabelText('Use Wrench · Free')).toBeTruthy();
   });
 
   it('stages the chosen item and closes the sheet', () => {
     const { getByLabelText, queryByTestId, props } = renderPanel();
-    fireEvent.press(getByLabelText('Signature item: Wrench, Tool'));
-    fireEvent.press(getByLabelText('Choose Wrench'));
+    fireEvent.press(getByLabelText('Preview Wrench'));
+    fireEvent.press(getByLabelText('Use Wrench · Free'));
 
     expect(props.onEquip).toHaveBeenCalledWith('wrench');
     expect(queryByTestId(SHEET)).toBeNull();
-    expect(
-      getByLabelText('Signature item: Wrench, Tool').props.accessibilityState
-        .expanded,
-    ).toBeUndefined();
   });
 
   it('opens the equipped tile in the Equipped state', () => {
     const { getByLabelText, getByTestId, queryByLabelText } = renderPanel();
-    fireEvent.press(getByLabelText('Signature item: Lucky Coin, Relic'));
+    fireEvent.press(getByLabelText('Preview Lucky Coin'));
 
     const sheet = within(getByTestId(SHEET));
-    expect(sheet.getByText('Equipped')).toBeTruthy();
-    expect(queryByLabelText('Choose Lucky Coin')).toBeNull();
+    expect(sheet.getByText('Selected')).toBeTruthy();
+    expect(queryByLabelText('Use Lucky Coin · Free')).toBeNull();
   });
 
   it('shows only predefined catalogue items', () => {
     const { queryByLabelText, queryByText } = renderPanel();
-    expect(
-      queryByLabelText('Signature item: Rubber Duck, Weaponized Mundane'),
-    ).toBeNull();
+    expect(queryByLabelText('Preview Rubber Duck')).toBeNull();
     expect(queryByText('Your items')).toBeNull();
     expect(queryByLabelText('Create your own signature item')).toBeNull();
   });
 
   it('closes without staging when dismissed', () => {
     const { getByLabelText, queryByTestId, props } = renderPanel();
-    fireEvent.press(getByLabelText('Signature item: Wrench, Tool'));
-    fireEvent.press(getByLabelText('Close'));
+    fireEvent.press(getByLabelText('Preview Wrench'));
+    fireEvent.press(getByLabelText('Close item details'));
     expect(props.onEquip).not.toHaveBeenCalled();
     expect(queryByTestId(SHEET)).toBeNull();
   });
 
   it('ignores tile taps while a save is in flight', () => {
     const { getByLabelText, queryByTestId } = renderPanel({ busy: true });
-    fireEvent.press(getByLabelText('Signature item: Wrench, Tool'));
+    fireEvent.press(getByLabelText('Preview Wrench'));
     expect(queryByTestId(SHEET)).toBeNull();
   });
 
@@ -141,11 +132,11 @@ describe('GearPanel', () => {
       queryByPlaceholderText,
     } = renderPanel({ items, equippedId: 'item-0' });
 
-    expect(getByLabelText('Signature item: Item 5, Tool')).toBeTruthy();
-    expect(queryByLabelText('Signature item: Item 6, Tool')).toBeNull();
+    expect(getByLabelText('Preview Item 5')).toBeTruthy();
+    expect(queryByLabelText('Preview Item 6')).toBeNull();
     expect(queryByPlaceholderText('Search the catalogue')).toBeNull();
 
     fireEvent.press(getByText('Browse all 8 items'));
-    expect(getByLabelText('Signature item: Item 7, Tool')).toBeTruthy();
+    expect(getByLabelText('Preview Item 7')).toBeTruthy();
   });
 });

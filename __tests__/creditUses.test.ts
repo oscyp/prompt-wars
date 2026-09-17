@@ -45,12 +45,22 @@ describe('creditUses', () => {
       'New move suggestions · 1',
       'Redraw the avatar · 1',
       'Redraw the portrait · 1',
-      'Leave a battle after locking in · 2',
       'Custom item with icon · 3',
       'Draw a new look · 3',
       'Random character · 5',
     ]);
   });
+
+  it.each([0, 2, 50])(
+    'omits retired leave pricing even when the backend reports %s credits',
+    (credits) => {
+      const currentPrices = { ...LIVE_PRICES.prices, leave_battle: undefined };
+      expect(
+        creditUses({ prices: { ...currentPrices, leave_battle: { credits } } }),
+      ).toEqual(creditUses({ prices: currentPrices }));
+      expect(creditUses({ prices: { leave_battle: { credits } } })).toEqual([]);
+    },
+  );
 
   it('skips free, unknown and malformed prices', () => {
     const keys = creditUses(LIVE_PRICES).map((u) => u.key);
@@ -80,7 +90,6 @@ describe('creditUses', () => {
       custom_item_image: 'Custom item with icon',
       custom_item_text: 'Custom item',
       prompt_suggestions_reroll: 'New move suggestions',
-      leave_battle: 'Leave a battle after locking in',
       regenerate_avatar: 'Redraw the avatar',
       regenerate_portrait: 'Redraw the portrait',
     });
@@ -123,13 +132,17 @@ describe('fetchCreditPrices', () => {
       error: null,
     });
     mockedFrom.mockReturnValue(q);
-    await expect(fetchCreditPrices()).resolves.toEqual({
+    const pricing = await fetchCreditPrices();
+    expect(pricing).toEqual({
       prices: {
         render_look: { credits: 3 },
         leave_battle: { credits: 2 },
         rename: { credits: 0 },
       },
     });
+    expect(creditUses(pricing)).toEqual([
+      { key: 'render_look', label: 'Draw a new look', credits: 3 },
+    ]);
     expect(mockedFrom).toHaveBeenCalledWith('character_edit_prices');
     expect(q.calls).toEqual([['select', [CREDIT_PRICE_COLUMNS]]]);
   });

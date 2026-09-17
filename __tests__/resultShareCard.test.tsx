@@ -23,6 +23,27 @@ const props: ResultShareCardProps = {
 };
 
 describe('ResultShareCard', () => {
+  it('updates the exported verdict and revision after review without retaining the old winner', () => {
+    const view = render(<ResultShareCard {...props} />);
+    view.rerender(
+      <ResultShareCard
+        {...props}
+        outcome="lost"
+        headline="Series result overturned"
+        winnerSide="them"
+        scoreLine="0–2"
+        isKo={false}
+        ratingLine="Original rating contribution reversed"
+        adjudicationRevision={1}
+      />,
+    );
+    expect(view.queryByText(props.headline)).toBeNull();
+    expect(view.getByText('Reviewed result · revision 1')).toBeTruthy();
+    expect(view.getByText('0–2')).toBeTruthy();
+    expect(
+      view.getByText('Original rating contribution reversed'),
+    ).toBeTruthy();
+  });
   it('shows the headline, both names, the score, the theme and the rating', () => {
     const { getByText } = render(<ResultShareCard {...props} />);
     getByText('You won the series 2–1');

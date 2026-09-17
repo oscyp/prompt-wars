@@ -1,0 +1,318 @@
+[
+  {
+    "case": "stats-390",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "contentWidth": 350,
+    "fontScale": 1,
+    "source": "AXe native accessibility frames on existing Debug binary; isolated fixture",
+    "elements": [
+      {
+        "id": "fighter-stat-tray",
+        "label": null,
+        "frame": {
+          "height": 77,
+          "width": 350,
+          "x": 26,
+          "y": 271
+        }
+      },
+      {
+        "id": "stat-tray-row-0",
+        "label": null,
+        "frame": {
+          "height": 67,
+          "width": 332,
+          "x": 35,
+          "y": 276
+        }
+      },
+      {
+        "id": "stat-tray-cell-strength",
+        "label": "Strength 10 of 10",
+        "frame": {
+          "height": 57,
+          "width": 82.33333587646484,
+          "x": 35,
+          "y": 281
+        }
+      },
+      {
+        "id": "stat-tray-cell-stamina",
+        "label": "Stamina 10 of 10",
+        "frame": {
+          "height": 57,
+          "x": 118.33333587646484,
+          "width": 82.33333587646484,
+          "y": 281
+        }
+      },
+      {
+        "id": "stat-tray-cell-agility",
+        "label": "Agility 10 of 10",
+        "frame": {
+          "height": 57,
+          "x": 201.6666717529297,
+          "width": 81.99998474121094,
+          "y": 281
+        }
+      },
+      {
+        "id": "stat-tray-cell-focus",
+        "label": "Focus 10 of 10",
+        "frame": {
+          "height": 57,
+          "width": 82.33334350585938,
+          "x": 284.6666717529297,
+          "y": 281
+        }
+      }
+    ]
+  },
+  {
+    "case": "long-matchup-375",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "contentWidth": 335,
+    "fontScale": 1,
+    "source": "AXe native accessibility frames on existing Debug binary; isolated fixture",
+    "elements": [
+      {
+        "id": "battle-matchup",
+        "label": null,
+        "frame": {
+          "x": 33.66666793823242,
+          "height": 265,
+          "y": 242,
+          "width": 335
+        }
+      },
+      {
+        "id": "battle-matchup-left",
+        "label": null,
+        "frame": {
+          "x": 33.66666793823242,
+          "height": 245,
+          "y": 252,
+          "width": 142.3333282470703
+        }
+      },
+      {
+        "id": "battle-matchup-right",
+        "label": null,
+        "frame": {
+          "x": 226.3333396911621,
+          "height": 245,
+          "y": 252,
+          "width": 142.66665649414062
+        }
+      },
+      {
+        "id": "battle-chamfered-portrait",
+        "label": null,
+        "frame": {
+          "x": 37.66666793823242,
+          "height": 72,
+          "y": 279,
+          "width": 72
+        }
+      },
+      {
+        "id": "battle-matchup-body-left",
+        "label": null,
+        "frame": {
+          "x": 37.66666793823242,
+          "height": 175,
+          "y": 279,
+          "width": 134.3333282470703
+        }
+      },
+      {
+        "id": "battle-matchup-body-right",
+        "label": null,
+        "frame": {
+          "y": 279,
+          "width": 134.66665649414062,
+          "height": 175,
+          "x": 230.3333396911621
+        }
+      },
+      {
+        "id": "battle-chamfered-portrait",
+        "label": null,
+        "frame": {
+          "y": 279,
+          "width": 72,
+          "height": 72,
+          "x": 293.00000762939453
+        }
+      },
+      {
+        "id": "battle-versus-diamond",
+        "label": null,
+        "frame": {
+          "y": 330.96817931370015,
+          "width": 59.39696961966999,
+          "height": 59.39696961966996,
+          "x": 171.6348548813271
+        }
+      },
+      {
+        "id": "battle-integrated-score",
+        "label": "Series: you 0, opponent 1.",
+        "frame": {
+          "y": 387.66666412353516,
+          "width": 30.666656494140625,
+          "height": 21.66668701171875,
+          "x": 186.00000619888306
+        }
+      },
+      {
+        "id": "battle-move-options",
+        "label": null,
+        "frame": {
+          "height": 98,
+          "y": 964.3333129882812,
+          "x": 33.66666793823242,
+          "width": 335
+        }
+      },
+      {
+        "id": "battle-lock-in",
+        "label": "Lock in prompt",
+        "frame": {
+          "x": 33.66666793823242,
+          "y": 1467.3333740234375,
+          "height": 64,
+          "width": 335
+        }
+      }
+    ]
+  },
+  {
+    "case": "shop-390",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "contentWidth": 350,
+    "fontScale": 1,
+    "source": "AXe native accessibility frames on existing Debug binary; isolated fixture",
+    "elements": [
+      {
+        "id": "shop-category-scroll",
+        "label": null,
+        "frame": {
+          "width": 350,
+          "y": 18.333333333333314,
+          "x": 26,
+          "height": 49
+        }
+      },
+      {
+        "id": null,
+        "label": "Frames",
+        "frame": {
+          "width": 73.66666412353516,
+          "y": 18.333333333333314,
+          "x": 26,
+          "height": 48
+        }
+      },
+      {
+        "id": null,
+        "label": "Titles",
+        "frame": {
+          "width": 63.666664123535156,
+          "y": 18.333333333333314,
+          "x": 99.66666412353516,
+          "height": 48
+        }
+      },
+      {
+        "id": null,
+        "label": "Auras",
+        "frame": {
+          "width": 63.66667175292969,
+          "y": 18.333333333333314,
+          "x": 163.3333282470703,
+          "height": 48
+        }
+      },
+      {
+        "id": null,
+        "label": "Badges",
+        "frame": {
+          "width": 73.33334350585938,
+          "y": 18.333333333333314,
+          "x": 227,
+          "height": 48
+        }
+      },
+      {
+        "id": null,
+        "label": "Colours",
+        "frame": {
+          "width": 75.66665649414062,
+          "y": 18.333333333333314,
+          "x": 300.3333435058594,
+          "height": 48
+        }
+      },
+      {
+        "id": null,
+        "label": "Preview Astral Codex",
+        "frame": {
+          "width": 145,
+          "x": 38,
+          "height": 47.99999999999994,
+          "y": 489.3333333333333
+        }
+      },
+      {
+        "id": null,
+        "label": "Preview Emberforge",
+        "frame": {
+          "width": 145,
+          "x": 219,
+          "height": 47.99999999999994,
+          "y": 489.3333333333333
+        }
+      },
+      {
+        "id": null,
+        "label": "Preview Neon Circuit",
+        "frame": {
+          "y": 901.3333333333333,
+          "height": 48,
+          "x": 38,
+          "width": 145
+        }
+      },
+      {
+        "id": null,
+        "label": "Preview Laureate",
+        "frame": {
+          "y": 901.3333333333333,
+          "height": 48,
+          "x": 219,
+          "width": 145
+        }
+      },
+      {
+        "id": "shop-trust-footer",
+        "label": null,
+        "frame": {
+          "y": 977.3333333333333,
+          "height": 66,
+          "x": 26,
+          "width": 350
+        }
+      }
+    ]
+  }
+]

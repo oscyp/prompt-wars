@@ -1,20 +1,21 @@
+import { GameText as Text, GameBevel } from '@/components/game';
 import React, { useEffect } from 'react';
 import {
   ScrollView,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
 } from 'react-native';
 import Animated, {
   Easing,
+  cancelAnimation,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import {
   BorderRadius,
@@ -77,6 +78,7 @@ export default function RevealJudgeBeat({
       showsVerticalScrollIndicator={false}
     >
       <Text
+        variant="display"
         style={[styles.title, { color: colors.text }]}
         accessibilityRole="header"
       >
@@ -148,15 +150,16 @@ function PromptCard({
           : FadeInDown.duration(Motion.durations.base).delay(delay)
       }
     >
+      <GameBevel color={colors.ornamentMuted} />
       <View style={styles.cardHead}>
         <Text
           style={[styles.cardName, { color: colors.text }]}
-          numberOfLines={2}
+          variant="fighter"
         >
           {side.name}
         </Text>
         {isWinner ? (
-          <Ionicons
+          <GameSymbol
             name="trophy"
             size={14}
             color={winnerColor}
@@ -166,7 +169,7 @@ function PromptCard({
       </View>
       {move ? (
         <View style={styles.moveRow}>
-          <Ionicons
+          <GameSymbol
             name={MOVE_META[move].icon}
             size={14}
             color={colors[move]}
@@ -330,6 +333,7 @@ function RacingFill({
         easing: Easing.out(Easing.cubic),
       }),
     );
+    return () => cancelAnimation(width);
   }, [pct, delay, reduceMotion, width]);
 
   const style = useAnimatedStyle(() => ({
@@ -399,6 +403,7 @@ const styles = StyleSheet.create({
   },
   legend: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: Spacing.xs,
     marginBottom: Spacing.sm,

@@ -1,99 +1,60 @@
-# Prompt Wars — Design Language: "Cinematic Arena"
+# Prompt Wars — Collectible Arena design language
 
-_The visual standard for the mobile app. Decided in `UX_DESIGN_REVIEW.md` (2026-07);
-derived from the strongest existing surfaces — the Tier 0 reveal poster and the
-generated archetype illustrations. The concept doc (`docs/prompt-wars-implementation-concept.md`)
-stays the source of truth for scope; this doc governs how things look and move._
+The approved reference is `output/mockups/2026-09-14-collectible-direction/index.html`. This client presentation migration keeps the cinematic arena identity, gameplay, pricing, server outcomes and recovery contracts. Product scope stays in `prompt-wars-implementation-concept.md`; the mockups do not remove omitted controls.
 
-## Principles
+## Visual foundation
 
-1. **Dark-first.** The default theme is dark (`utils/themeSettings.ts`,
-   `DEFAULT_THEME_PREFERENCE = 'dark'`). The game's identity — archetype art, reveal
-   posters, signature-color glows — is designed on near-black. Light theme remains fully
-   supported via Settings → Appearance (Dark / Light / System); never hardcode one
-   scheme outside designated cinematic surfaces.
-2. **Hero zones vs. content zones.** Illustration belongs in _hero zones_: Welcome,
-   the Home daily-theme poster, matchmaking/waiting backdrops, battle-mode cards, the
-   reveal poster, shop/FTUO cards, empty states. _Content zones_ — lists, forms,
-   settings — stay calm: solid token surfaces, no imagery behind text. Never place a
-   full-screen illustration behind scrollable list/form content.
-3. **AA on imagery, always.** Any text over an illustration sits on a scrim:
-   `Gradients.poster(base)` for vertical posters, or a flat `rgba(11,11,15,0.3–0.55)`
-   overlay / dark pill for labels. If you can't guarantee contrast, add the pill.
-4. **Signature color is the player's, brand gradient is the game's.** Player identity
-   moments use the character's signature color (borders, HP bars, poster base). The
-   brand gradient (`Gradients.brand`, `#7C3AED → #EC4899`) is reserved for game-level
-   identity: the raised Battle button, brand marks, FTUO. Don't spend it on ordinary
-   chrome.
-5. **No emoji in UI chrome.** Utility marks are Ionicons/MaterialCommunityIcons;
-   identity moments get bundled generated illustrations. Emoji remain fine inside
-   user-generated content (prompts, battle cries). `ART_STYLE_GLYPHS` exists only as a
-   code-level fallback and must never be the shipped visual.
-6. **Generated art is bundled, never runtime.** UI illustrations are produced once by
-   `node scripts/generate-assets.mjs --only ui` (Gemini image API, brand-palette prompt
-   template in the script), post-processed with sharp, committed under
-   `assets/images/ui/`, and registered in `constants/UiArt.ts`. The app must never
-   depend on an image-generation call at runtime (provider failures never block).
-7. **Tokens only.** Spacing, type, radius, elevation, motion come from
-   `constants/DesignTokens.ts`; colors (including `medalGold/Silver/Bronze`) from
-   `constants/Colors.ts` via `useThemedColors`. No hardcoded hex in screens except the
-   fixed-dark cinematic surfaces (`#0B0B0F` scrims, white-on-scrim text).
-8. **A character is never an initial.** Any player representation uses a portrait or a
-   bundled archetype illustration (`getArchetypeAvatar`); other players' characters are
-   RLS-protected, so lists use the neutral default illustration.
+- Obsidian canvas, quiet raised neutral surfaces, restrained gold ornament, lavender primary actions and distinct Attack/Defense/Finisher colors and icons. Semantic pairs live in `Colors.ts` and `DesignTokens.ts` and are accessed through `useThemedColors`.
+- Bundled **Barlow Condensed Bold** for fighter names and compact headings; **Barlow Condensed ExtraBold Italic** for major headings and outcomes. `GameText` keeps prompts, forms and detailed copy in system text, with a 16-point body/input default. Preserve player casing. Unsupported scripts or unavailable fonts use system fonts; font error or timeout cannot hold startup indefinitely. Include the SIL Open Font License in `assets/fonts/OFL.txt`.
+- `GameText`, `GameButton`, `GameField`, `GamePanel`, `GameHeader`, `GameFooter` and `GameScreen` provide native scalable controls. Borders and bevels are native views/SVG, never rasterized dynamic labels or complete screen images.
+- The transparent bundled wordmark and crossed-quill emblem live in `assets/branding/`; provenance is recorded there. Splash and newly exported share cards use them. The app icon and generated-video branding remain unchanged.
+- `GameIcon` supplies original cut-vector gateway, blades, ranking bars, profile, hanger, mask, crystal, quill, bolt, shield and skull marks. Profile/editor/utility destinations reuse the family. `GameSymbol` preserves older icon-wire names and explicitly labeled accessibility cues; native system symbols and common utility fallback remain supported. Decorative paths never add focus targets.
+- `GameDisplayTitle` keeps native measured, wrapping text below optional silver/gold paint. UI headings can be uppercase; fighter names retain their actual casing. Non-Latin text and unavailable fonts remain visible with system fallback. `GameMasthead` uses balanced slots and a separate brand row when text/width needs it.
+- `GameButton` distinguishes lavender action bevels, quiet collection Preview edges, restrained utility controls and underlined text actions. Text actions use light ink on dark surfaces, while filled primary controls use dark ink. Busy and selected marks stay independent of leading icons.
+- Ornament is strongest around fighter cards and reveal moments. Forms, settings, pricing disclosures and writing use solid backgrounds. No continuous animated backgrounds or list-wide glows.
 
-## Navigation
+## Fighter identity and equipment
 
-- **4 tabs + the verb.** Arena (home) · Battles · **[raised Battle button]** ·
-  Rankings · Profile. The raised center button is the game's verb: it opens the
-  battle-mode bottom sheet (`components/BattleModeSheet.tsx`), it never navigates.
-- The `(tabs)/create` route stays as the deep-link/notification fallback and renders
-  the same `ModeCard`s full-screen. Keep the sheet and the screen in sync through
-  `constants/BattleModes.ts` — one source of truth.
-- Screens inside the shell open the sheet via `useBattleSheet()`.
+- `FighterCard` has hero, compact and collection presentations. Arena and Profile share the hero and stat tray. Scale the art to the available width/height; allow content to scroll instead of compressing names and controls.
+- The hero artwork, caption and `FighterStatTray` form one assembly. Four equal columns have three gold vertical rules at ordinary text size. At text scale above 1.15 or insufficient measured label width, use balanced Strength/Stamina and Agility/Focus rows. Never allow accidental 3+1 wrapping. Measured transparent lower-frame padding may attach the caption without changing the artwork aperture.
+- Small circles use square avatar assets; full presentations contain full fighter art, keeping faces and signature items visible. Existing frame artwork owns its measured aperture through `CosmeticFrame`; equipped frames replace the default treatment without an extra ornate border.
+- New battles use server identity/art snapshots and the existing authenticated signing/cache helpers. Keep known same-fighter art through refresh failures. Expiring art can retry without generation or purchase. Fallbacks use that fighter's archetype.
+- Astral Codex, Emberforge, Neon Circuit and Laureate retain their existing portrait/avatar artwork, prices and earned alternatives. All equipment slots and filters remain. Preview every frame on the current fighter.
+- Shop begins with a compact illustrated wearing summary that expands to all equipment slots. Frames, Titles, Auras, Badges and Colours form an underlined tab rail; selected tabs reveal on size/selection changes. All/Owned is a joined control. Colours retain the character-edit destination. The centered ruled shield-check statement “Cosmetics never affect battle stats.” follows collection/empty content.
+- Shop uses two columns only at viewport width >=390 points and fontScale <=1.15. Otherwise use one column. Tiles are non-actionable containers with explicit Preview. Buy/Equip/Remove belong in the preview's persistent footer; purchases retain confirmation and recovery. Names, rarity, owned/equipped state, prices and earned paths stay readable below artwork.
 
-## Motion & accessibility
+## Navigation and layout
 
-- Every animation respects Reduce Motion (`useReducedMotion()` — OS setting OR-ed with
-  the in-app toggle). Durations/easings come from `Motion` tokens.
-- Interactive targets ≥ 44pt; every actionable element has `accessibilityRole` and a
-  meaningful `accessibilityLabel`; numeric counters use `NumericFontVariant`.
-- Move-type indicators encode shape + color, never color alone (§22a).
+- Four destinations surround the raised middle **Battle** action: Arena, Battles, Battle, Rankings, Profile. Battle opens the existing mode picker and keeps the selected tab. Persistent root navigation, scroll state, deep-link fallbacks and legacy redirects stay intact.
+- Tab destinations use scalable Barlow labels, readable inactive icons, gold selected icons/labels and a short underline, a focus-only bevel and red attention badges. Measure wrapped label height to grow the bar; keep a fixed central Battle slot so narrow phones retain four usable tab targets. React Navigation continues to own tab presses, long presses, links and selection. Screen readers receive explicit destination names.
+- Profile and Settings destinations share `GameNavRow`: a quiet gold icon tile, complete wrapping label, optional description and chevron (external-link mark for legal/support links). Each row is at least 64 points and announces one action with disabled/busy semantics. Native switches and destructive confirmations keep their existing behavior. Editor categories use the same angular selection language and retain full labels and unsaved-change hints.
+- Arena leads with actionable rounds, then the player's fighter and four stats with Customize/Cosmetics. Keep quests, streaks, standings, rivals and eligible offers below. Theme is revealed after matching. Avoid a second competing primary Battle button.
+- Screens own safe-area insets once. Footers hold essential actions outside optional content. `BottomSheet` owns bounded height, scrolling content, pinned footer, dismissal locking and accessibility focus restoration. App-owned reports, offers, purchase confirmations, gear and render previews use it; system sign-in/payment/permission dialogs remain native.
+- The battle workspace uses actual round/mode text, mirrored fighter/HP plates, one diamond-VS series score, illustrated theme and exact deadline. Keep the artwork focal region visible beside a localized dark title scrim; theme text remains authoritative and may wrap. Move tiles reuse the bolt/shield/skull family and independent selection check. Lock-in uses a quill, lavender face and edge/ring progress with distinct unavailable, holding, submitting, failed and submitted states.
+- The battle workspace keeps move selection, authoring modes and the controlled editor together. Expanded matchup/theme/deadline context scrolls; one keyboard inset owner keeps editor/caret/submission reachable. Changing a move never remounts the editor. Preserve scoped drafts, failed-submit text, paid suggestion disclosures, free allowance, moderation and safety controls.
+- Return to Arena parks for free; forfeit is separate and free with existing mode consequences. Waiting/results show exact localized deadlines where relevant.
+- Results lead with outcome, score/HP changes and authoritative concise explanation. Continue/Battle Again/Arena remain reachable while optional prompts, rubric, appeals and videos scroll. Current shared verdict cards include adjudication revision; historical generated cinematics are not current revised verdicts.
 
-## AI-content disclosure (concept §22)
+## Edit Look workspace
 
-- **Decision (commit 042c59a):** the in-app `AI-GENERATED` pill, the result-card
-  disclosure footer and the AI-tagged share filename were removed as a product
-  decision, and the published copy was corrected to match. Do not reintroduce a
-  disclosure badge on any surface (reveal poster, portrait frames, render reveal)
-  without reopening that decision.
-- If App Store review pushes back, these badges are the first thing to restore:
-  the reveal poster pill in `RoundResultCinematic`, the share-capture footer in
-  `(battle)/result.tsx`, and the frame badge in `PortraitPreview`.
-- `videos.is_ai_generated` stays a truthful internal record for moderation triage.
+The 16 September reference is `output/mockups/2026-09-16-edit-look/concept-board.png`. The editor opens with a metallic title, compact current-artwork identity, visible **Look / Fighter / Gear** rail, one form scroll and a measured persistent footer. There is no expanding drawer or scroll-driven artwork stage. Ordinary entry starts on Look while keeping the saved draft and per-category scroll positions. Explicit `section=look|fighter|gear` and `focus=signature-color` entries override that position without removing staged edits. Shop colour actions target Fighter / Signature color.
 
-## Asset recipe (for future batches)
+- The preview uses the equipped frame's measured avatar aperture. View card contains the fighter artwork inside the full frame. Staged identity/accent text updates immediately, but trait changes never pretend the existing artwork regenerated. Label it **Current artwork**.
+- Look starts with Choose traits / Write my own, three featured art styles with View all styles, and outfit palette. Vibe, Silhouette, Era and Expression are disclosure rows showing current values. The written mode keeps its 200-character counter and explains that guided choices are retained but inactive.
+- Fighter retains identity, owned signature colours, cooldown explanations and separate stat respec. Gear retains current custom/legacy equipment independently from the selectable catalogue; item cards have explicit Preview actions and **Use this item · Free** in details. Use two columns only at width >=390 and font scale <=1.15.
+- Back flushes the account/fighter local draft. **Save changes · Free** is the explicit server update; **Review & draw** has an independent confirmation with live price, allowance and balance. Saved choices newer than the art show **Draw updated look**; otherwise use **Draw another version**. A pending operation shows **Check status**, which never initiates drawing.
+- The root keyboard avoider owns iOS insets; Android uses native resizing. Preview compacts while typing; the form and caret remain scrollable above the footer. Tabs scroll horizontally when needed and footer actions stack at larger text sizes. Read-only battle locks preserve legibility and expose Manage battles.
+- Secondary sheets retain bounded scrolling, pinned actions, Close and return focus. History distinguishes failure from empty and restores paired artwork for free while retaining the editing draft. Failed image loading retries the same result references independently of generation.
 
-- Prompt template: `BRAND` constant in `scripts/generate-assets.mjs` (near-black bg,
-  electric purple `#8B5CF6`, magenta `#D946EF`, cyan `#22D3EE`, esports-cinematic,
-  `NO_TEXT` guard). Explicitly demand "background fills the entire canvas edge-to-edge,
-  no border/frame" for emblem tiles — the model likes to invent white mats.
-- Tiles 512×512 JPEG q85; full-bleed backdrops 1080-wide JPEG. JPEG, not WebP (iOS
-  core `<Image>` can't decode WebP).
-- After generating: eyeball every asset (framing, palette drift), then register it in
-  `constants/UiArt.ts` and note its zone here.
-- **Per-theme poster variety.** Daily themes are free-text (one `daily_themes` row per
-  date), so there is no 1:1 theme→art mapping. `node scripts/generate-assets.mjs --only ui`
-  also emits mood variants `theme-poster-01…06.jpg` (16:9); after eyeballing them, register
-  their `require`s in `constants/ThemeArt.ts` → `THEME_POSTERS` and `posterForTheme()` fans
-  them out deterministically by theme-text hash. `accentForTheme()` already gives an
-  on-brand accent per theme with no art at all (the accent wash + keyline on the Home hero
-  ship today; art variety turns on when the variants land — no caller changes).
-- **Per-character "hero still" (future, concept §8.1 Phase 2+).** A cached, per-character
-  reveal still. This is NOT a bundled asset and does NOT belong in this script — it is user
-  content, generated server-side (Nano Banana, using the character's locked portrait as the
-  reference image for consistency), stored per-character in Supabase Storage, and swapped
-  into the Tier 0 payload's `portraitUrl` asynchronously. It must stay non-blocking:
-  `RoundResultCinematic` already falls back to the bundled archetype illustration, so the
-  reveal never waits on it. Requires the provider key + an Edge Function/job; never
-  inline-generate at runtime on the client.
+## Accessibility and interaction
+
+- Shared touch targets are at least **48 points**. Provide visible labels, role, selected/disabled/busy semantics and logical focus order. Decorative art/borders do not take touches or accessibility focus.
+- Text contrast: 4.5:1 normal, 3:1 large. Lavender and other light primary fills use dark ink. Place any text over artwork on a sufficient solid scrim. Essential names, prices, HP, deadlines and actions wrap; preserve OS scaling without shrinking text to hide overflow.
+- Brief feedback is reserved for presses, entrance, move selection, lock-in and authoritative reveals. Writing and lists stay steady. Pause effects on blur/background and cancel animation timers; Reduced Motion shows the same information without spatial effects. Keep skip/replay/captions and deliberate reading, including screen-reader confirmation instead of a required hold gesture.
+- Bot opponents retain explicit AI opponent / Practice labels. Reporting and blocking remain independent choices.
+
+## Assets and release
+
+Reuse existing fighter/arena/cosmetic artwork. New branding and one display font family do not authorize bulk asset regeneration, new generated-video branding or backend changes. Legacy AI-content badge decisions remain unchanged; internal generation/moderation records remain truthful.
+
+Version 1.3.0 must pass the complete screen/state matrix in `VISUAL_MIGRATION_ACCEPTANCE.md` before public distribution. TestFlight and Android internal delivery follow native acceptance. Rollback uses the prior stable client; no data rollback or server rollout flag changes.

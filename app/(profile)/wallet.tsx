@@ -1,7 +1,8 @@
+import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
+import { GameText as Text, GamePanel, GameBevel } from '@/components/game';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -9,10 +10,11 @@ import {
   Linking,
   Alert,
   Platform,
+  AppState,
 } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter, useFocusEffect, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -28,9 +30,10 @@ import Toast from '@/components/Toast';
 import { HEADER_BUTTON_SIZE } from '@/components/HeaderBackButton';
 import {
   getWalletBalanceResult,
-  getWalletTransactions,
   type WalletBalance,
 } from '@/utils/monetization';
+import { readWalletLedger } from '@/utils/walletRecovery';
+import { bestValueProductId } from '@/utils/storePackages';
 import { useRevenueCat } from '@/providers/RevenueCatProvider';
 import {
   CREDIT_PACK_CREDITS,
@@ -77,6 +80,8 @@ export default function WalletScreen() {
   const accessibleText = useAccessibleTextStyle();
   const {
     offerings,
+    pendingPurchase,
+    checkPendingPurchase,
     customerInfo,
     purchase,
     restorePurchases,
@@ -90,6 +95,9 @@ export default function WalletScreen() {
     (pkg) => pkg.product.identifier === PRODUCT_IDS.PLUS_MONTHLY,
   );
 
+  const bestValue = bestValueProductId(
+    offerings?.current?.availablePackages ?? [],
+  );
   const creditPackages = (offerings?.current?.availablePackages ?? [])
     .map((pkg) => {
       const productId = pkg.product.identifier;
@@ -100,7 +108,7 @@ export default function WalletScreen() {
         productId,
         credits,
         title: meta.title,
-        badge: meta.badge,
+        badge: productId === bestValue ? 'Best value' : undefined,
         price: pkg.product.priceString,
         order: meta.order,
       };
@@ -112,6 +120,7 @@ export default function WalletScreen() {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   // `null` when the price table could not be read: the card says so rather
   // than listing nothing, and never invents a number.
+  const [ledgerError, setLedgerError] = useState(false);
   const [uses, setUses] = useState<CreditUse[] | null>(null);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [isPurchasing, setIsPurchasing] = useState(false);
@@ -152,7 +161,9 @@ export default function WalletScreen() {
     useCallback(async (): Promise<WalletBalance | null> => {
       const [balanceResult, transactionsData, prices] = await Promise.all([
         getWalletBalanceResult(),
-        getWalletTransactions(20),
+        readWalletLedger(20)
+          .then((data) => ({ data, error: false }))
+          .catch(() => ({ data: [], error: true })),
         fetchCreditPrices(),
       ]);
       if (!mounted.current) return null;
@@ -164,13 +175,24 @@ export default function WalletScreen() {
         return null;
       }
       setBalance(balanceResult.balance);
-      setTransactions(transactionsData as WalletTransaction[]);
+      setLedgerError(transactionsData.error);
+      if (!transactionsData.error)
+        setTransactions(transactionsData.data as WalletTransaction[]);
       setLoadState('ready');
       return balanceResult.balance;
     }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      void loadWalletData();
+      void checkPendingPurchase().catch(() => {});
+    }, [loadWalletData, checkPendingPurchase]),
+  );
   useEffect(() => {
-    loadWalletData();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void loadWalletData();
+    });
+    return () => subscription.remove();
   }, [loadWalletData]);
 
   const retry = () => {
@@ -183,26 +205,24 @@ export default function WalletScreen() {
    * intervals and stop as soon as the balance moves; say so on screen while
    * waiting so the unchanged number does not read as a failed purchase.
    */
-  const pollBalanceAfterPurchase = useCallback(
-    (before: number | null) => {
-      setAwaitingBalance(true);
-      let settled = false;
-      BALANCE_POLL_DELAYS_MS.forEach((delay, index) => {
-        schedule(async () => {
-          if (settled) return;
-          const next = await loadWalletData();
-          if (!mounted.current) return;
-          const changed = next !== null && next.credits_balance !== before;
-          const last = index === BALANCE_POLL_DELAYS_MS.length - 1;
-          if (changed || last) {
-            settled = true;
-            setAwaitingBalance(false);
-          }
-        }, delay);
-      });
-    },
-    [loadWalletData, schedule],
-  );
+  const pollBalanceAfterPurchase = useCallback(() => {
+    setAwaitingBalance(true);
+    let settled = false;
+    BALANCE_POLL_DELAYS_MS.forEach((delay, index) => {
+      schedule(async () => {
+        if (settled) return;
+        await loadWalletData();
+        const fulfilled = await checkPendingPurchase().catch(() => false);
+        if (!mounted.current) return;
+        const changed = fulfilled;
+        const last = index === BALANCE_POLL_DELAYS_MS.length - 1;
+        if (changed || last) {
+          settled = true;
+          setAwaitingBalance(false);
+        }
+      }, delay);
+    });
+  }, [loadWalletData, schedule, checkPendingPurchase]);
 
   async function handlePurchase(productId: string) {
     // Both failure paths used to `console.warn` and return, so tapping a
@@ -236,7 +256,6 @@ export default function WalletScreen() {
     }
 
     setIsPurchasing(true);
-    const before = balance?.credits_balance ?? null;
     const outcome = await purchase(pkg);
     if (!mounted.current) return;
     setIsPurchasing(false);
@@ -244,12 +263,16 @@ export default function WalletScreen() {
     switch (outcome) {
       case 'purchased':
         showToast('Purchase complete — credits arrive in a moment');
-        pollBalanceAfterPurchase(before);
+        pollBalanceAfterPurchase();
+        break;
+      case 'pending':
+        showToast('Still processing. Check again before buying anything else.');
+        pollBalanceAfterPurchase();
         break;
       case 'failed':
         Alert.alert(
           'Couldn’t complete the purchase',
-          'You haven’t been charged. Check your connection and try again.',
+          'Could not open the store. Check your connection and try again.',
         );
         break;
       case 'cancelled':
@@ -308,8 +331,13 @@ export default function WalletScreen() {
           { backgroundColor: colors.background, paddingTop: topInset },
         ]}
       >
-        <Ionicons name="wallet-outline" size={32} color={colors.textTertiary} />
+        <GameSymbol
+          name="wallet-outline"
+          size={32}
+          color={colors.textTertiary}
+        />
         <Text
+          variant="title"
           accessibilityRole="header"
           style={[styles.errorTitle, accessibleText, { color: colors.text }]}
         >
@@ -347,16 +375,17 @@ export default function WalletScreen() {
         style={styles.container}
         contentContainerStyle={[styles.content, { paddingTop: topInset }]}
       >
-        <Text
+        <GameDisplayTitle
           accessibilityRole="header"
-          style={[styles.title, accessibleText, { color: colors.text }]}
+          style={[styles.title, accessibleText]}
         >
           Wallet & Subscription
-        </Text>
+        </GameDisplayTitle>
 
         {/* Balance Card */}
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <GamePanel style={[styles.card, { backgroundColor: colors.card }]}>
           <Text
+            variant="title"
             style={[styles.cardTitle, accessibleText, { color: colors.text }]}
           >
             Current Balance
@@ -419,7 +448,7 @@ export default function WalletScreen() {
                 >
                   Manage subscription
                 </Text>
-                <Ionicons
+                <GameSymbol
                   name="open-outline"
                   size={14}
                   color={colors.primary}
@@ -427,13 +456,14 @@ export default function WalletScreen() {
               </TouchableOpacity>
             </View>
           ) : null}
-        </View>
+        </GamePanel>
 
         {/* What credits buy: the live price of each paid action, so the packs
             below are priced against something. Videos are priced per battle
             at the moment of purchase, so they are named, not numbered. */}
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <GamePanel style={[styles.card, { backgroundColor: colors.card }]}>
           <Text
+            variant="title"
             accessibilityRole="header"
             style={[styles.cardTitle, accessibleText, { color: colors.text }]}
           >
@@ -500,7 +530,7 @@ export default function WalletScreen() {
               {PRICES_UNAVAILABLE}
             </Text>
           )}
-        </View>
+        </GamePanel>
 
         {/* Cosmetic shop entry */}
         <TouchableOpacity
@@ -513,7 +543,7 @@ export default function WalletScreen() {
           accessibilityLabel="Open cosmetic shop"
         >
           <View style={styles.shopLinkLabel}>
-            <Ionicons
+            <GameSymbol
               name="color-palette-outline"
               size={18}
               color={colors.primary}
@@ -528,17 +558,48 @@ export default function WalletScreen() {
               Cosmetic Shop
             </Text>
           </View>
-          <Ionicons
+          <GameSymbol
             name="chevron-forward"
             size={18}
             color={colors.textSecondary}
           />
         </TouchableOpacity>
 
+        {pendingPurchase ? (
+          <GamePanel
+            style={[styles.card, { backgroundColor: colors.card }]}
+            accessibilityLiveRegion="polite"
+          >
+            <Text
+              variant="title"
+              style={[styles.cardTitle, { color: colors.text }]}
+            >
+              Still processing
+            </Text>
+            <Text style={{ color: colors.textSecondary }}>
+              Your purchase is waiting for confirmation. You do not need to
+              purchase again.
+            </Text>
+            <TouchableOpacity
+              style={styles.restoreButton}
+              accessibilityRole="button"
+              onPress={() => {
+                void checkPendingPurchase()
+                  .then(() => loadWalletData())
+                  .catch(() =>
+                    showToast('Could not check purchase. Try again.'),
+                  );
+              }}
+            >
+              <Text style={{ color: colors.primary }}>Check again</Text>
+            </TouchableOpacity>
+          </GamePanel>
+        ) : null}
         {/* Credit Packs — rendered from the live RevenueCat offering.
             Credits come from CREDIT_PACK_CREDITS (which mirrors the server's
             authoritative map) and price from the store product itself. */}
         <Text
+          variant="title"
           accessibilityRole="header"
           style={[styles.sectionTitle, accessibleText, { color: colors.text }]}
         >
@@ -565,7 +626,7 @@ export default function WalletScreen() {
                 badge={pack.badge}
                 productId={pack.productId}
                 onPress={handlePurchase}
-                disabled={busy}
+                disabled={busy || Boolean(pendingPurchase)}
                 colors={colors}
               />
             ))}
@@ -576,6 +637,7 @@ export default function WalletScreen() {
         {!isSubscriber ? (
           <>
             <Text
+              variant="title"
               accessibilityRole="header"
               style={[
                 styles.sectionTitle,
@@ -585,8 +647,9 @@ export default function WalletScreen() {
             >
               Prompt Wars+
             </Text>
-            <View style={[styles.card, { backgroundColor: colors.card }]}>
+            <GamePanel style={[styles.card, { backgroundColor: colors.card }]}>
               <Text
+                variant="title"
                 style={[
                   styles.cardTitle,
                   NumericFontVariant,
@@ -606,18 +669,21 @@ export default function WalletScreen() {
                 ]}
               >
                 • 30 video reveals per month{'\n'}• Exclusive badge{'\n'}•
-                Priority queue{'\n'}• Cosmetic unlocks{'\n'}• Full video history
+                Cosmetic unlocks
               </Text>
               <TouchableOpacity
                 style={[
                   styles.subscribeButton,
                   {
                     backgroundColor: colors.primary,
-                    opacity: busy || !plusPackage ? 0.5 : 1,
+                    opacity:
+                      busy || Boolean(pendingPurchase) || !plusPackage
+                        ? 0.5
+                        : 1,
                   },
                 ]}
                 onPress={() => handlePurchase(PRODUCT_IDS.PLUS_MONTHLY)}
-                disabled={busy || !plusPackage}
+                disabled={busy || Boolean(pendingPurchase) || !plusPackage}
                 accessibilityRole="button"
                 accessibilityLabel={
                   plusPackage
@@ -625,7 +691,7 @@ export default function WalletScreen() {
                     : 'Subscribe to Prompt Wars+, unavailable right now'
                 }
                 accessibilityState={{
-                  disabled: busy || !plusPackage,
+                  disabled: busy || Boolean(pendingPurchase) || !plusPackage,
                   busy: isPurchasing,
                 }}
               >
@@ -646,18 +712,33 @@ export default function WalletScreen() {
               >
                 {autoRenewDisclosure(plusPackage?.product.priceString)}
               </Text>
-            </View>
+            </GamePanel>
           </>
         ) : null}
 
         {/* Transaction History */}
         <Text
+          variant="title"
           accessibilityRole="header"
           style={[styles.sectionTitle, accessibleText, { color: colors.text }]}
         >
           Recent Transactions
         </Text>
-        {transactions.length === 0 ? (
+        {ledgerError ? (
+          <View>
+            <Text accessibilityRole="alert" style={{ color: colors.error }}>
+              Couldn’t load transactions.
+            </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Retry transactions"
+              style={styles.restoreButton}
+              onPress={() => void loadWalletData()}
+            >
+              <Text style={{ color: colors.primary }}>Retry transactions</Text>
+            </TouchableOpacity>
+          </View>
+        ) : transactions.length === 0 ? (
           <Text
             style={[
               styles.packsEmpty,
@@ -682,7 +763,7 @@ export default function WalletScreen() {
         <TouchableOpacity
           style={styles.restoreButton}
           onPress={handleRestore}
-          disabled={busy}
+          disabled={busy || Boolean(pendingPurchase)}
           accessibilityRole="button"
           accessibilityLabel="Restore purchases"
           accessibilityState={{ disabled: busy, busy: isRestoring }}
@@ -788,7 +869,7 @@ function TransactionRow({
         style={[styles.transactionRow, { borderBottomColor: colors.border }]}
       >
         {body}
-        <Ionicons
+        <GameSymbol
           name="chevron-forward"
           size={16}
           color={colors.textTertiary}
@@ -845,12 +926,15 @@ function CreditPackButton({
       }`}
       accessibilityState={{ disabled }}
     >
+      <GameBevel color={colors.ornamentMuted} fill={colors.card} />
       {badge && (
         <View style={[styles.badge, { backgroundColor: colors.primary }]}>
           <Text style={styles.badgeText}>{badge}</Text>
         </View>
       )}
-      <Text style={[styles.packTitle, { color: colors.text }]}>{title}</Text>
+      <Text variant="title" style={[styles.packTitle, { color: colors.text }]}>
+        {title}
+      </Text>
       <Text
         style={[
           styles.packCredits,
@@ -907,7 +991,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   retryText: {
-    color: '#FFFFFF',
+    color: '#171225',
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
   },
@@ -1014,8 +1098,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   packsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: Spacing.md,
     marginBottom: Spacing.md,
   },
   packsEmpty: {
@@ -1023,7 +1106,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   packCard: {
-    flex: 1,
+    width: '100%',
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
@@ -1042,7 +1125,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
-    color: '#fff',
+    color: '#171225',
   },
   packTitle: {
     fontSize: Typography.sizes.base,
@@ -1071,7 +1154,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   subscribeButtonText: {
-    color: '#fff',
+    color: '#171225',
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.bold,
   },

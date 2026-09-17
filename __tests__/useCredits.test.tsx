@@ -1,3 +1,4 @@
+import { AppState, type AppStateStatus } from 'react-native';
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { useCredits } from '@/hooks/useCredits';
 import { getWalletBalance } from '@/utils/monetization';
@@ -94,4 +95,24 @@ describe('useCredits', () => {
     expect(result.current.credits).toBe(0);
     expect(result.current.loading).toBe(true);
   });
+});
+
+it('refreshes after foregrounding and preserves known balance on failure', async () => {
+  let foreground: (state: AppStateStatus) => void = () => {};
+  const listener = jest
+    .spyOn(AppState, 'addEventListener')
+    .mockImplementation((_, callback) => {
+      foreground = callback;
+      return { remove: jest.fn() };
+    });
+  mockedGetWalletBalance.mockResolvedValue(balance(9));
+  const { result } = renderHook(() => useCredits());
+  await waitFor(() => expect(result.current.credits).toBe(9));
+  mockedGetWalletBalance.mockResolvedValue(null);
+  await act(async () => {
+    foreground('active');
+  });
+  expect(result.current.error).toBe(true);
+  expect(result.current.credits).toBe(9);
+  listener.mockRestore();
 });

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View } from 'react-native';
 import { useFonts } from 'expo-font';
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -13,12 +14,15 @@ import {
 } from '@/providers/AuthProvider';
 import { RevenueCatProvider } from '@/providers/RevenueCatProvider';
 import { supabase } from '@/utils/supabase';
-import { useEffectiveColorScheme } from '@/hooks/useThemedColors';
+import {
+  useEffectiveColorScheme,
+  useThemedColors,
+} from '@/hooks/useThemedColors';
+import { GameButton, GamePanel, GameText } from '@/components/game';
 import { loadAudioPreferences } from '@/utils/audioSettings';
 import {
   addNotificationResponseListener,
   handleInitialNotification,
-  registerForPushNotifications,
 } from '@/utils/notifications';
 
 try {
@@ -43,6 +47,7 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
   const colorScheme = useEffectiveColorScheme();
+  const colors = useThemedColors();
 
   // Keyed on the id, not the session object: every token refresh mints a new
   // Session, and effects keyed on it re-ran the character query and re-fired
@@ -52,17 +57,37 @@ function RootLayoutNav() {
   const inOnboardingGroup = segments[0] === '(onboarding)';
   const onResetScreen = inAuthGroup && segments[1] === 'reset-password';
 
-  const [checking, setChecking] = useState(true);
-  const [hasCharacter, setHasCharacter] = useState<boolean | null>(null);
-  const lastKnown = useRef<boolean | null>(null);
+  const [characterCheck, setCharacterCheck] = useState<{
+    accountId: string | null;
+    checking: boolean;
+    hasCharacter: boolean | null;
+    error: boolean;
+  }>({ accountId: null, checking: true, hasCharacter: null, error: false });
+  const [retryCheck, setRetryCheck] = useState(0);
+  const lastKnown = useRef<{ accountId: string; hasCharacter: boolean } | null>(
+    null,
+  );
+  // Derive the visible gate from the account in this render. Waiting for an
+  // effect to clear old state would let notification routing see A's fighter
+  // together with B's user id during a direct account switch.
+  const canCheckCharacter = !loading && !!userId && !recoveryPending;
+  const ownsCheck = characterCheck.accountId === userId;
+  const hasCharacter =
+    canCheckCharacter && ownsCheck ? characterCheck.hasCharacter : null;
+  const checking = canCheckCharacter && (!ownsCheck || characterCheck.checking);
+  const characterError = canCheckCharacter && ownsCheck && characterCheck.error;
 
   useEffect(() => {
     if (loading) return;
 
     if (!userId) {
       lastKnown.current = null;
-      setHasCharacter(null);
-      setChecking(false);
+      setCharacterCheck({
+        accountId: null,
+        hasCharacter: null,
+        checking: false,
+        error: false,
+      });
       if (!inAuthGroup) router.replace('/(auth)/sign-in');
       return;
     }
@@ -70,42 +95,81 @@ function RootLayoutNav() {
     if (recoveryPending) {
       // A recovery session may only set a password. Nothing else is reachable
       // until the reset screen ends it.
-      setChecking(false);
+      lastKnown.current = null;
+      setCharacterCheck({
+        accountId: userId,
+        hasCharacter: null,
+        checking: false,
+        error: false,
+      });
       if (!onResetScreen) router.replace('/(auth)/reset-password');
       return;
     }
 
     let cancelled = false;
-    setChecking(true);
+    if (lastKnown.current?.accountId !== userId) lastKnown.current = null;
+    setCharacterCheck((previous) => ({
+      accountId: userId,
+      hasCharacter:
+        previous.accountId === userId ? previous.hasCharacter : null,
+      checking: true,
+      error: false,
+    }));
 
     (async () => {
       // A row that exists but was never finalized is an abandoned creation
       // draft, not a fighter. finalized_at is server-owned (the guard trigger
       // refuses to clear it), so it is the one marker a client cannot forge.
-      const { data, error } = await supabase
-        .from('characters')
-        .select('id')
-        .eq('profile_id', userId)
-        .eq('is_active', true)
-        .not('finalized_at', 'is', null)
-        .limit(1)
-        .maybeSingle();
+      const { data, error } = await (async () => {
+        try {
+          return await supabase
+            .from('characters')
+            .select('id')
+            .eq('profile_id', userId)
+            .eq('is_active', true)
+            .not('finalized_at', 'is', null)
+            .limit(1)
+            .maybeSingle();
+        } catch (error) {
+          return {
+            data: null,
+            error: {
+              message:
+                error instanceof Error
+                  ? error.message
+                  : 'Character request failed',
+            },
+          };
+        }
+      })();
 
       if (cancelled) return;
 
       let has: boolean;
       if (error) {
-        // Keep the last answer rather than demoting a known fighter to
-        // onboarding on a flaky read. First-load failures fall back to
-        // onboarding, where a real character surfaces as a create conflict.
+        // A flaky read may retain only this account's last confirmed answer.
+        // Without one, keep routing unresolved and expose Retry.
         console.warn('Character check failed:', error.message);
-        has = lastKnown.current ?? false;
+        if (lastKnown.current?.accountId !== userId) {
+          setCharacterCheck({
+            accountId: userId,
+            hasCharacter: null,
+            checking: false,
+            error: true,
+          });
+          return;
+        }
+        has = lastKnown.current.hasCharacter;
       } else {
         has = Boolean(data);
       }
-      lastKnown.current = has;
-      setHasCharacter(has);
-      setChecking(false);
+      lastKnown.current = { accountId: userId, hasCharacter: has };
+      setCharacterCheck({
+        accountId: userId,
+        hasCharacter: has,
+        checking: false,
+        error: false,
+      });
 
       if (inAuthGroup) {
         router.replace(has ? '/(tabs)/home' : '/(onboarding)/welcome');
@@ -119,6 +183,7 @@ function RootLayoutNav() {
     };
   }, [
     userId,
+    retryCheck,
     loading,
     inAuthGroup,
     inOnboardingGroup,
@@ -127,11 +192,11 @@ function RootLayoutNav() {
     router,
   ]);
 
-  const resolved = !loading && !checking;
+  const resolved = !loading && !checking && !characterError;
 
   useEffect(() => {
-    if (resolved) SplashScreen.hideAsync().catch(() => {});
-  }, [resolved]);
+    if (resolved || characterError) SplashScreen.hideAsync().catch(() => {});
+  }, [resolved, characterError]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -145,7 +210,7 @@ function RootLayoutNav() {
   // to be notified about, was the single biggest cause of denied prompts.
   useEffect(() => {
     if (!userId || hasCharacter !== true) return;
-    registerForPushNotifications(userId);
+
     handleInitialNotification();
     const subscription = addNotificationResponseListener();
     return () => subscription.remove();
@@ -159,22 +224,58 @@ function RootLayoutNav() {
   return (
     <RouteGateContext.Provider value={gate}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <Slot />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(battle)" />
+        <Stack.Screen name="(profile)" />
+      </Stack>
+      {characterError && (
+        <View
+          accessibilityViewIsModal
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: colors.background,
+            justifyContent: 'center',
+            padding: 24,
+            gap: 16,
+          }}
+        >
+          <GamePanel style={{ gap: 16 }}>
+            <GameText variant="title" accessibilityRole="header">
+              Couldn’t check your fighter
+            </GameText>
+            <GameText>Check your connection and retry to continue.</GameText>
+            <GameButton
+              label="Retry"
+              onPress={() => setRetryCheck((value) => value + 1)}
+            />
+          </GamePanel>
+        </View>
+      )}
     </RouteGateContext.Provider>
   );
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    // Add custom fonts here if needed
+  const [fontsLoaded, fontError] = useFonts({
+    'BarlowCondensed-Bold': require('../assets/fonts/BarlowCondensed-Bold.ttf'),
+    'BarlowCondensed-ExtraBoldItalic': require('../assets/fonts/BarlowCondensed-ExtraBoldItalic.ttf'),
   });
+  const [fontWaitExpired, setFontWaitExpired] = useState(false);
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) return;
+    const timer = setTimeout(() => setFontWaitExpired(true), 3000);
+    return () => clearTimeout(timer);
+  }, [fontsLoaded, fontError]);
 
   // Hydrate battle-audio preferences before the first reveal.
   useEffect(() => {
     void loadAudioPreferences();
   }, []);
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded && !fontError && !fontWaitExpired) {
     return null;
   }
 

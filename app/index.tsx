@@ -3,6 +3,8 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useAuth, useRouteGate } from '@/providers/AuthProvider';
 import { useThemedColors } from '@/hooks/useThemedColors';
+import BrandMark from '@/components/game/BrandMark';
+import { GameText } from '@/components/game';
 
 /**
  * Root index: waits for the auth/character gate, then redirects once.
@@ -19,11 +21,16 @@ export default function Index() {
   if (loading || !gate.resolved) {
     return (
       <View style={[styles.holding, { backgroundColor: colors.background }]}>
+        <BrandMark kind="emblem" size={104} />
+        <BrandMark size={240} />
         <ActivityIndicator
           color={colors.primary}
           size="large"
           accessibilityLabel="Loading"
         />
+        <GameText variant="caption" style={{ color: colors.textSecondary }}>
+          Opening your Arena…
+        </GameText>
       </View>
     );
   }
@@ -42,5 +49,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 24,
+    padding: 24,
   },
 });

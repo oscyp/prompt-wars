@@ -1,19 +1,4 @@
-// Leave Battle Edge Function
-//
-// A player may leave a battle at any point. Before they have locked a prompt it
-// is free; afterwards it costs credits — they are walking out on a commitment
-// the opponent is already waiting on, and the credits are the toll for ending
-// it now rather than making everyone sit out the deadline.
-//
-// The credits buy TIME, never OUTCOME. A ranked leave is a full loss: the win
-// goes to the opponent, Glicko moves, the streak breaks. Paying more would not
-// change that, and nothing about the payment reaches the judge or the reveal —
-// the only record of it is one wallet_transactions row.
-//
-// Unranked, bot, and never-matched battles have no opponent whose record is
-// worth adjusting, so they cancel rather than forfeit. They still cost credits
-// once a prompt is locked: the player used the arena either way.
-
+// Free permitted forfeits; ranked human exits count as a loss.
 import {
   corsHeaders,
   createServiceClient,
@@ -21,7 +6,6 @@ import {
   getAuthUserId,
   successResponse,
 } from '../_shared/utils.ts';
-import { getEditPrice } from '../_shared/character-creation.ts';
 import {
   buildLeaveScorePayload,
   leaveIdempotencyKey,
@@ -60,8 +44,6 @@ interface LeaveClaim {
   loser_rating_volatility?: number;
 }
 
-const PRICE_KIND = 'leave_battle';
-
 function logLeave(
   event: string,
   fields: Record<string, string | number | boolean | null | undefined>,
@@ -86,24 +68,13 @@ Deno.serve(async (req) => {
 
     const supabase = createServiceClient();
 
-    // Priced from the table, not a constant, so the toll can be retuned without
-    // a deploy. A missing row means free rather than a hard failure: an absent
-    // price should never trap a player inside a battle.
-    const price = await getEditPrice(supabase, PRICE_KIND);
-    const credits = price?.credits ?? 0;
-
-    // One call does the status claim, the lock check and the charge in a single
-    // transaction. Splitting them would leave a window where a concurrent
-    // submit-prompt flips the battle to 'resolving' between the charge and the
-    // claim, and the player has paid for an exit that can no longer happen.
     const { data: claimRaw, error: claimErr } = await supabase.rpc(
       'claim_leave_battle',
       {
         p_battle_id: battle_id,
         p_profile_id: userId,
-        p_credits: credits,
-        // Server-generated. A client-supplied key would let a caller replay
-        // somebody else's charge or dodge their own.
+        p_credits: 0,
+        // Retain the server-generated compatibility key.
         p_idempotency_key: leaveIdempotencyKey(battle_id, userId),
       },
     );
@@ -133,16 +104,6 @@ Deno.serve(async (req) => {
           return errorResponse('Battle participant required', 403);
         case 'battle_in_progress':
           return errorResponse('Battle has already started', 409);
-        case 'insufficient_credits': {
-          const bal = claim.balance ?? 0;
-          const want = claim.price ?? credits;
-          return errorResponse('Not enough credits to leave this battle', 402, {
-            code: 'insufficient_credits',
-            price: want,
-            balance: bal,
-            shortfall: Math.max(0, want - bal),
-          });
-        }
         default:
           logLeave('claim_rejected_unknown', {
             battle_id,
@@ -153,7 +114,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const charged = claim.charged ?? 0;
+    const charged = 0;
 
     if (claim.action === 'already_terminal' || claim.action === 'canceled') {
       logLeave('completed', {
@@ -224,9 +185,7 @@ Deno.serve(async (req) => {
         isBot: claim.is_bot,
         ratingGated,
         scorePayload,
-        // Unlike the timeout path, promote straight to 'completed'. Getting
-        // the character unlocked for editing immediately is a large part of
-        // what the player just paid for.
+        // Unlock the character as soon as the free forfeit completes.
         promoteToCompleted: true,
         winnerRating: Number(claim.winner_rating),
         winnerRatingDeviation: Number(claim.winner_rating_deviation),
@@ -238,15 +197,7 @@ Deno.serve(async (req) => {
 
       if (!resolved) {
         // Something else resolved the battle between the claim and here. The
-        // player still got what they asked for, but they should not pay for an
-        // exit somebody else performed.
-        await refundLeave(
-          supabase,
-          userId,
-          charged,
-          claim.transaction_id,
-          battle_id,
-        );
+        // player still got the requested terminal state.
         logLeave('already_terminal', {
           battle_id,
           profile_id: userId,
@@ -264,17 +215,7 @@ Deno.serve(async (req) => {
         profile_id: userId,
         error_type: resolveErr instanceof Error ? resolveErr.name : 'unknown',
       });
-      // Give the money back AND put the battle back, in that order: the battle
-      // is the thing the player would notice losing, and restoring it cannot
-      // fail for lack of credits. Left in 'resolving' it would be unplayable
-      // and unleavable.
-      await refundLeave(
-        supabase,
-        userId,
-        charged,
-        claim.transaction_id,
-        battle_id,
-      );
+      // Restore the claim so a failed finalization can be retried.
       await restoreBattle(supabase, battle_id, claim);
       return errorResponse('Could not leave the battle', 500);
     }
@@ -299,42 +240,6 @@ Deno.serve(async (req) => {
     return errorResponse('Could not leave the battle', 500);
   }
 });
-
-/**
- * Returns the toll when the exit did not happen.
- *
- * Keyed on the wallet transaction id so a retried failure cannot refund twice.
- * A failure here is logged loudly because nothing else will say so — the player
- * is simply short a credit.
- */
-async function refundLeave(
-  // deno-lint-ignore no-explicit-any
-  supabase: any,
-  userId: string,
-  credits: number,
-  walletTxId: string | null | undefined,
-  battleId: string,
-): Promise<void> {
-  if (credits <= 0 || !walletTxId) return;
-  const { error } = await supabase.rpc('grant_credits', {
-    p_profile_id: userId,
-    p_amount: credits,
-    p_reason: 'leave_battle_refund:resolve_failed',
-    p_idempotency_key: `refund_${walletTxId}`,
-    p_battle_id: battleId,
-    p_purchase_id: null,
-    p_metadata: { feature: 'leave_battle' },
-  });
-  if (error) {
-    logLeave('refund_failed', {
-      battle_id: battleId,
-      profile_id: userId,
-      transaction_id: walletTxId,
-      credits,
-      error_code: error.code,
-    });
-  }
-}
 
 /**
  * Puts a battle back the way the claim found it after a failed resolve.

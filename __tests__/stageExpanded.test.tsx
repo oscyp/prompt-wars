@@ -1,3 +1,6 @@
+import RenderRevealSheet from '@/components/RenderRevealSheet';
+import { useSheetReturnFocus } from '@/hooks/useSheetReturnFocus';
+import { inkFor } from '@/utils/contrast';
 /**
  * The expanded Stage. Everything the player can tap is checked by its
  * accessibility label, and the paid button reads exactly what `renderButtonCopy`
@@ -12,6 +15,13 @@ import StageExpanded, {
 import { NO_COSMETICS } from '@/utils/cosmetics';
 import type { ButtonCopy } from '@/utils/editDialogCopy';
 import type { PortraitHistoryEntry } from '@/utils/characters';
+
+const ReactNative =
+  jest.requireActual<typeof import('react-native')>('react-native');
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: 'Ionicons',
+  MaterialCommunityIcons: 'MaterialCommunityIcons',
+}));
 
 const RENDER: ButtonCopy = {
   label: 'Draw this look · 3 cr',
@@ -69,6 +79,9 @@ const VIEWER_LABEL = "View Nyx's portrait full screen";
 
 describe('StageExpanded', () => {
   beforeEach(() => {
+    jest
+      .spyOn(ReactNative, 'useWindowDimensions')
+      .mockReturnValue({ width: 393, height: 852, scale: 3, fontScale: 1 });
     jest
       .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
       .mockResolvedValue(false);
@@ -222,7 +235,10 @@ describe('StageExpanded', () => {
     const p = props({ history: history(2) });
     const { getAllByLabelText, rerender } = render(<StageExpanded {...p} />);
     fireEvent.press(getAllByLabelText('Preview this earlier render')[1]);
-    expect(p.onSelectHistory).toHaveBeenCalledWith('p-1');
+    expect(p.onSelectHistory).toHaveBeenCalledWith(
+      'p-1',
+      expect.objectContaining({ current: expect.anything() }),
+    );
 
     rerender(<StageExpanded {...p} restoringId="p-0" />);
     const rows = getAllByLabelText('Preview this earlier render');
@@ -302,4 +318,95 @@ describe('StageExpanded', () => {
     expect(getByLabelText('Title: Champion')).toBeTruthy();
     expect(getByLabelText('Badge: Season one')).toBeTruthy();
   });
+});
+
+test('large-text stage stacks avatar/history and fully discloses the paid action', () => {
+  const dimensions = jest
+    .spyOn(ReactNative, 'useWindowDimensions')
+    .mockReturnValue({ width: 393, height: 852, scale: 3, fontScale: 3.1 });
+  const p = props({ fighterHeight: 160, history: history(3) });
+  const view = render(<StageExpanded {...p} />);
+  expect(view.getAllByLabelText('Preview this earlier render')).toHaveLength(3);
+  const caption = view.getByText('In battle');
+  expect(ReactNative.StyleSheet.flatten(caption.props.style).width).toBe(
+    '100%',
+  );
+  expect(
+    view.getByText('Previous renders · free to restore').props.numberOfLines,
+  ).toBeUndefined();
+  const label = view.getByText(RENDER.label);
+  expect(label.props.numberOfLines).toBeUndefined();
+  const background = ReactNative.StyleSheet.flatten(
+    view.getByLabelText(RENDER.accessibilityLabel).props.style,
+  ).backgroundColor;
+  expect(ReactNative.StyleSheet.flatten(label.props.style).color).toBe(
+    inkFor(background),
+  );
+  expect(p.onRender).not.toHaveBeenCalled();
+  dimensions.mockRestore();
+});
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
+test('a completed async render returns to the recreated Draw control', () => {
+  const focus = jest
+    .spyOn(AccessibilityInfo, 'setAccessibilityFocus')
+    .mockImplementation(() => {});
+  let drawOpener:
+    | React.RefObject<import('react-native').View | null>
+    | undefined;
+  const findNode = jest
+    .spyOn(ReactNative, 'findNodeHandle')
+    .mockImplementation((target) =>
+      target === drawOpener?.current ? 62 : null,
+    );
+  function Flow({ rendering = false, reveal = false }) {
+    const { remember, returnFocusRef } = useSheetReturnFocus();
+    return (
+      <>
+        <StageExpanded
+          {...props({
+            rendering,
+            onRender: (opener) => {
+              drawOpener = opener;
+              remember(opener);
+            },
+          })}
+        />
+        <RenderRevealSheet
+          visible={reveal}
+          returnFocusRef={returnFocusRef}
+          characterName="Nyx"
+          accentColor="#ffffff"
+          fighterUri="https://example.test/fighter.png"
+          avatar={{ status: 'pending' }}
+          mode="render"
+          creditsSpent={3}
+          canRetryAvatar={false}
+          canRestorePrevious={false}
+          onKeep={() => {}}
+          onRestorePrevious={() => {}}
+          onRetryAvatar={() => {}}
+        />
+      </>
+    );
+  }
+  const view = render(<Flow />);
+  fireEvent.press(view.getByLabelText(RENDER.accessibilityLabel));
+  const initialOpener = drawOpener?.current;
+  expect(initialOpener).toBeTruthy();
+  view.rerender(<Flow rendering />);
+  view.rerender(<Flow reveal />);
+  expect(drawOpener?.current).toBeTruthy();
+  expect(drawOpener?.current).not.toBe(initialOpener);
+  const modal = view.UNSAFE_getByType(ReactNative.Modal);
+  act(() => modal.props.onShow());
+  focus.mockClear();
+  view.rerender(<Flow />);
+  act(() => modal.props.onDismiss());
+  expect(focus).toHaveBeenLastCalledWith(62);
+  focus.mockRestore();
+  findNode.mockRestore();
 });

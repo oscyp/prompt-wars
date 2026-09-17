@@ -1,6 +1,14 @@
+import { GameText } from '@/components/game';
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  useWindowDimensions,
+} from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { ItemClass, TRAIT_LABELS } from '@/constants/CharacterTraits';
@@ -43,6 +51,8 @@ export default function ItemGrid({
   previewId = null,
 }: ItemGridProps) {
   const colors = useThemedColors();
+  const { width, fontScale } = useWindowDimensions();
+  const singleColumn = width < 390 || fontScale > 1.15;
   return (
     <View style={styles.grid}>
       {items.map((item) => {
@@ -68,6 +78,7 @@ export default function ItemGrid({
             }
             style={[
               styles.tile,
+              { width: singleColumn ? '100%' : '48%' },
               {
                 backgroundColor: previewing
                   ? colors.backgroundTertiary
@@ -78,7 +89,7 @@ export default function ItemGrid({
             ]}
           >
             {equipped ? (
-              <Ionicons
+              <GameSymbol
                 name="checkmark-circle"
                 size={18}
                 color={colors.primary}
@@ -99,18 +110,18 @@ export default function ItemGrid({
                 style={styles.glyph}
               />
             )}
-            <Text
-              numberOfLines={1}
+            <GameText
+              variant="fighter"
               style={[styles.name, { color: colors.text }]}
             >
               {item.name}
-            </Text>
-            <Text
-              numberOfLines={1}
+            </GameText>
+            <GameText
+              variant="caption"
               style={[styles.caption, { color: colors.textTertiary }]}
             >
               {classLabel}
-            </Text>
+            </GameText>
           </TouchableOpacity>
         );
       })}
@@ -118,7 +129,7 @@ export default function ItemGrid({
   );
 }
 
-const TILE_SIZE = '31%';
+const TILE_SIZE = '48%';
 
 const styles = StyleSheet.create({
   grid: {
@@ -129,7 +140,7 @@ const styles = StyleSheet.create({
   },
   tile: {
     width: TILE_SIZE,
-    aspectRatio: 1,
+    minHeight: 128,
     borderRadius: BorderRadius.md,
     borderWidth: 2,
     alignItems: 'center',
@@ -153,12 +164,12 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   name: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.medium,
     textAlign: 'center',
   },
   caption: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     textAlign: 'center',
     marginTop: 1,
   },

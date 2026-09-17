@@ -9,6 +9,10 @@ import {
   getAuthUserId,
 } from '../_shared/utils.ts';
 import { BattleMode } from '../_shared/types.ts';
+import {
+  matchmakingRulesVersion,
+  requiresCombatClientUpdate,
+} from '../_shared/combat-rollout.ts';
 import { startFaceOff } from '../_shared/start-face-off.ts';
 
 const THEMES = [
@@ -153,6 +157,7 @@ async function convertToBotBattle(
 
 interface MatchmakingRequest {
   character_id: string;
+  client_contract_version?: number;
   mode?: BattleMode;
   /** Client generated. Optional only while the previous app version ages out. */
   request_id?: string;
@@ -171,6 +176,7 @@ interface ReplayBattle {
   player_two_character_id: string | null;
   is_player_two_bot: boolean;
   created_at?: string;
+  rules_version?: number;
 }
 
 const UUID_RE =
@@ -212,6 +218,7 @@ Deno.serve(async (req) => {
       mode = 'ranked',
       request_id,
       resume_battle_id,
+      client_contract_version,
     }: MatchmakingRequest = await req.json();
 
     if (!character_id) {
@@ -248,7 +255,7 @@ Deno.serve(async (req) => {
       const { data } = await supabase
         .from('battles')
         .select(
-          'id, status, mode, theme, player_one_id, player_two_id, player_one_character_id, player_two_character_id, is_player_two_bot, created_at',
+          'id, status, mode, theme, player_one_id, player_two_id, player_one_character_id, player_two_character_id, is_player_two_bot, created_at, rules_version',
         )
         .eq('id', resume_battle_id)
         .maybeSingle();
@@ -304,6 +311,34 @@ Deno.serve(async (req) => {
           return successResponse(replayPayload(data as ReplayBattle));
         }
       }
+    }
+
+    // The queue uniqueness key is player/mode/character, independent of rollout.
+    // Reuse its frozen rules even when this request omitted resume_battle_id.
+    if (!resumedBattle && mode !== 'bot') {
+      const { data: queued, error: queueError } = await supabase
+        .from('battles')
+        .select(
+          'id,status,mode,theme,player_one_id,player_two_id,player_one_character_id,player_two_character_id,is_player_two_bot,created_at,rules_version',
+        )
+        .eq('player_one_id', userId)
+        .eq('player_one_character_id', character_id)
+        .eq('mode', mode)
+        .eq('status', 'created')
+        .maybeSingle();
+      if (queueError) return errorResponse('Failed to resume battle', 503);
+      resumedBattle = queued as ReplayBattle | null;
+    }
+    const v2Enabled = Deno.env.get('COMBAT_V2_ENABLED') === 'true';
+    const rulesVersion = matchmakingRulesVersion(
+      v2Enabled,
+      resumedBattle?.rules_version,
+    );
+    if (requiresCombatClientUpdate(rulesVersion, client_contract_version)) {
+      return errorResponse('Update Prompt Wars to start a new battle.', 426, {
+        code: 'client_update_required',
+        minimum_client_contract_version: 2,
+      });
     }
 
     // Get user profile for matchmaking
@@ -366,9 +401,10 @@ Deno.serve(async (req) => {
       const randomBot =
         botPersonas[Math.floor(Math.random() * botPersonas.length)];
       const { data: createdRows, error: createError } = await supabase.rpc(
-        'create_matchmaking_battle',
+        'create_matchmaking_battle_versioned',
         {
           p_player_one_id: userId,
+          p_rules_version: rulesVersion,
           p_character_id: character_id,
           p_mode: mode,
           p_request_id: requestId,
@@ -418,6 +454,7 @@ Deno.serve(async (req) => {
           .eq('player_one_id', userId)
           .eq('status', 'created')
           .eq('mode', mode)
+          .eq('rules_version', rulesVersion)
           .eq('player_one_character_id', character_id)
           .gte('created_at', queueCutoffIso)
           .maybeSingle();
@@ -459,6 +496,7 @@ Deno.serve(async (req) => {
           )
           .eq('status', 'created')
           .eq('mode', 'ranked')
+          .eq('rules_version', rulesVersion)
           .neq('player_one_id', userId) // Don't match with self
           .gte('created_at', queueCutoffIso)
           .gte('profiles.rating', minRating)
@@ -532,6 +570,7 @@ Deno.serve(async (req) => {
           )
           .eq('status', 'created')
           .eq('mode', 'unranked')
+          .eq('rules_version', rulesVersion)
           .neq('player_one_id', userId)
           .gte('created_at', queueCutoffIso);
 
@@ -624,9 +663,10 @@ Deno.serve(async (req) => {
       // Attach this request to the existing row before any fallback work. The
       // atomic creator reuses the natural queue key and records the replay map.
       const { error: mapError } = await supabase.rpc(
-        'create_matchmaking_battle',
+        'create_matchmaking_battle_versioned',
         {
           p_player_one_id: userId,
+          p_rules_version: rulesVersion,
           p_character_id: character_id,
           p_mode: mode,
           p_request_id: requestId,
@@ -689,9 +729,10 @@ Deno.serve(async (req) => {
 
     // Create or resume the one open queue row atomically.
     const { data: createdRows, error: createError } = await supabase.rpc(
-      'create_matchmaking_battle',
+      'create_matchmaking_battle_versioned',
       {
         p_player_one_id: userId,
+        p_rules_version: rulesVersion,
         p_character_id: character_id,
         p_mode: mode,
         p_request_id: requestId,

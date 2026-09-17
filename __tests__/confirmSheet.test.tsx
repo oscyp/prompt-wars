@@ -59,8 +59,8 @@ describe('ConfirmSheet', () => {
     expect(
       getByLabelText('Draw this look').props.accessibilityState.disabled,
     ).toBe(true);
-    // The label gives way to a spinner.
-    expect(queryByText('Draw this look')).toBeNull();
+    // The busy control keeps its purpose visible beside the spinner.
+    expect(queryByText('Draw this look')).toBeTruthy();
   });
 
   it('renders nothing when hidden', () => {
@@ -69,4 +69,23 @@ describe('ConfirmSheet', () => {
     );
     expect(queryByText('Draw this look?')).toBeNull();
   });
+});
+
+test('an unavailable confirmation stays cancelable without committing', () => {
+  const confirm = jest.fn();
+  const cancel = jest.fn();
+  const view = render(
+    <ConfirmSheet
+      {...baseProps}
+      confirmDisabled
+      onConfirm={confirm}
+      onCancel={cancel}
+    />,
+  );
+  const button = view.getByLabelText('Draw this look');
+  expect(button.props.accessibilityState.disabled).toBe(true);
+  fireEvent.press(button);
+  fireEvent.press(view.getByLabelText('Cancel'));
+  expect(confirm).not.toHaveBeenCalled();
+  expect(cancel).toHaveBeenCalledTimes(1);
 });

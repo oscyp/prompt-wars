@@ -1,3 +1,4 @@
+import type { BattleIntegrityFields } from '@/types/battle';
 /**
  * Realtime Battle Hook
  * Subscribe to battle, prompt, round, and video job updates via Supabase Realtime.
@@ -17,7 +18,7 @@ import {
   RewardPayload,
 } from '@/types/battle';
 
-export interface BattleUpdate {
+export interface BattleUpdate extends BattleIntegrityFields {
   id: string;
   status: string;
   mode: string;

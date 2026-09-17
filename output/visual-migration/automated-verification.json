@@ -1,0 +1,20 @@
+{
+  "numTotalTestSuites": 148,
+  "numPassedTestSuites": 148,
+  "numFailedTestSuites": 0,
+  "numTotalTests": 1193,
+  "numPassedTests": 1193,
+  "numFailedTests": 0,
+  "success": true,
+  "startTime": 1789467560913,
+  "typescript": "passed",
+  "eslint": "passed: 0 errors, 1 pre-existing root require-import warning",
+  "nativeAndroid": "blocked by unavailable SDK/emulator; user accepted recording block",
+  "expoExport": {
+    "ios": "passed: Hermes bundle, 2081 modules",
+    "android": "passed: Hermes bundle, 2096 modules",
+    "mode": "local offline export, not a native build",
+    "output": "/tmp/prompt-wars-visual-export",
+    "assets": "Both Barlow fonts, wordmark and crossed-quill emblem included"
+  }
+}

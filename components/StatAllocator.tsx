@@ -1,6 +1,8 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { GameButton } from '@/components/game';
+import { GameText, GamePanel } from '@/components/game';
+
+import { View, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -34,9 +36,10 @@ export interface StatAllocatorProps {
   archetype?: ArchetypeId | null;
   accentColor: string;
   disabled?: boolean;
+  pointTotal?: number;
 }
 
-const BUTTON_SIZE = 44;
+const BUTTON_SIZE = 48;
 
 /**
  * Four stat rows with a shared points pool.
@@ -51,6 +54,7 @@ export default function StatAllocator({
   archetype,
   accentColor,
   disabled = false,
+  pointTotal = 20,
 }: StatAllocatorProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
@@ -66,7 +70,8 @@ export default function StatAllocator({
 
   return (
     <View>
-      <Text
+      <GameText
+        variant="body"
         style={[
           styles.remaining,
           accessibleText,
@@ -75,36 +80,38 @@ export default function StatAllocator({
         ]}
         accessibilityLiveRegion="polite"
       >
-        {remainingLabel(value)}
-      </Text>
+        {remainingLabel(value, pointTotal)}
+      </GameText>
 
-      <View style={styles.presets}>
-        <PresetButton
-          label="Balanced"
-          selected={sameAllocation(value, BALANCED_STATS)}
-          disabled={disabled}
-          onPress={() => change({ ...BALANCED_STATS })}
-        />
-        {preset && presetName ? (
+      {pointTotal === 20 && (
+        <View style={styles.presets}>
           <PresetButton
-            label={presetName}
-            selected={sameAllocation(value, preset)}
+            label="Balanced"
+            selected={sameAllocation(value, BALANCED_STATS)}
             disabled={disabled}
-            onPress={() => change(preset)}
+            onPress={() => change({ ...BALANCED_STATS })}
           />
-        ) : null}
-      </View>
+          {preset && presetName ? (
+            <PresetButton
+              label={presetName}
+              selected={sameAllocation(value, preset)}
+              disabled={disabled}
+              onPress={() => change(preset)}
+            />
+          ) : null}
+        </View>
+      )}
 
       {STAT_KEYS.map((key) => (
         <StatRow
           key={key}
           statKey={key}
           value={value[key]}
-          canUp={!disabled && canIncrement(value, key)}
+          canUp={!disabled && canIncrement(value, key, pointTotal)}
           canDown={!disabled && canDecrement(value, key)}
           accentColor={accentColor}
-          onUp={() => change(adjustStat(value, key, 1))}
-          onDown={() => change(adjustStat(value, key, -1))}
+          onUp={() => change(adjustStat(value, key, 1, pointTotal))}
+          onDown={() => change(adjustStat(value, key, -1, pointTotal))}
         />
       ))}
     </View>
@@ -123,9 +130,8 @@ function PresetButton({
   onPress: () => void;
 }) {
   const colors = useThemedColors();
-  const accessibleText = useAccessibleTextStyle();
   return (
-    <Pressable
+    <GameButton
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
@@ -138,11 +144,9 @@ function PresetButton({
           backgroundColor: selected ? colors.backgroundTertiary : colors.card,
         },
       ]}
-    >
-      <Text style={[styles.presetText, accessibleText, { color: colors.text }]}>
-        {label}
-      </Text>
-    </Pressable>
+      tone="secondary"
+      label={label}
+    />
   );
 }
 
@@ -166,10 +170,17 @@ function StatRow({
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
   const meta = STAT_META[statKey];
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = width < 390 || fontScale > 1.15;
 
   return (
-    <View
-      style={[styles.row, { backgroundColor: colors.card }]}
+    <GamePanel
+      tone="ornate"
+      style={[
+        styles.row,
+        { backgroundColor: colors.card },
+        stacked && { flexDirection: 'column', alignItems: 'stretch' },
+      ]}
       accessible
       accessibilityRole="adjustable"
       accessibilityLabel={`${meta.label}, ${value} out of ${STAT_MAX}`}
@@ -183,7 +194,8 @@ function StatRow({
     >
       <View style={styles.rowText}>
         <StatBar label={meta.label} value={value} color={accentColor} />
-        <Text
+        <GameText
+          variant="body"
           style={[
             styles.effect,
             accessibleText,
@@ -191,7 +203,7 @@ function StatRow({
           ]}
         >
           {meta.effect}
-        </Text>
+        </GameText>
       </View>
       <View style={styles.controls}>
         <StepButton
@@ -207,7 +219,7 @@ function StatRow({
           onPress={onUp}
         />
       </View>
-    </View>
+    </GamePanel>
   );
 }
 
@@ -244,7 +256,7 @@ function StepButton({
         },
       ]}
     >
-      <Ionicons
+      <GameSymbol
         name={icon}
         size={20}
         color={enabled ? colors.primary : colors.textTertiary}
@@ -282,15 +294,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.sm,
     marginBottom: Spacing.sm,
   },
-  rowText: { flex: 1, gap: Spacing.xs },
+  rowText: { flex: 1, gap: Spacing.xs, minWidth: 0 },
   effect: {
-    fontSize: Typography.sizes.xs,
-    lineHeight: 16,
+    fontSize: Typography.sizes.sm,
+    lineHeight: 21,
   },
-  controls: { flexDirection: 'row', gap: Spacing.sm },
+  controls: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    justifyContent: 'flex-end',
+  },
   stepButton: {
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,

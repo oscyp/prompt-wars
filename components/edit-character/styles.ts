@@ -16,12 +16,13 @@ export const editStyles = StyleSheet.create({
     gap: Spacing.md,
   },
   card: {
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.sm,
     padding: Spacing.lg,
     gap: Spacing.md,
   },
   cardHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'flex-start',
     gap: Spacing.md,
   },
@@ -33,7 +34,7 @@ export const editStyles = StyleSheet.create({
   cardSub: {
     marginTop: 2,
     fontSize: Typography.sizes.sm,
-    lineHeight: 19,
+    lineHeight: 21,
   },
   badge: {
     paddingHorizontal: Spacing.sm,
@@ -41,19 +42,19 @@ export const editStyles = StyleSheet.create({
     borderRadius: BorderRadius.full,
   },
   badgeText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
   cooledDown: { opacity: 0.45 },
   sectionLabel: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginTop: Spacing.sm,
   },
   input: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
@@ -70,23 +71,25 @@ export const editStyles = StyleSheet.create({
     gap: Spacing.sm,
   },
   counter: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     fontVariant: ['tabular-nums'],
   },
   primaryBtn: {
-    height: 48,
+    minHeight: 48,
+    paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.lg,
   },
   primaryBtnText: {
-    color: '#FFFFFF',
+    textAlign: 'center',
+    flexShrink: 1,
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
   },
   secondaryBtn: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     alignItems: 'center',
@@ -100,8 +103,8 @@ export const editStyles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.45 },
   hint: {
-    fontSize: Typography.sizes.xs,
-    lineHeight: 17,
+    fontSize: Typography.sizes.sm,
+    lineHeight: 21,
   },
   changedDot: {
     width: 7,
