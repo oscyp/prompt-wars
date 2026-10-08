@@ -77,3 +77,6 @@ ios/.xcode.env.local
 /test-support/
 /scripts/visual-fixtures.sh
 /scripts/visual-fixtures-check.cjs
+
+# Exclude a workspace dependency symlink as well as a directory.
+/node_modules

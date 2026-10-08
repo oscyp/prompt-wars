@@ -131,7 +131,8 @@ function RootLayoutNav() {
       });
       if (!inAuthGroup)
         router.replace(
-          process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED === '1'
+          process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED === '1' ||
+            process.env.EXPO_PUBLIC_ADULT_GUEST_ENABLED === '1'
             ? '/(auth)/entry'
             : '/(auth)/sign-in',
         );

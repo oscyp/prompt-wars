@@ -148,7 +148,7 @@ export function SignInMethods({
       </GameText>
       <GameText style={{ color: colors.textSecondary }}>
         {account.is_anonymous
-          ? 'Secure progress by connecting Apple, Google or email. Your battles, credits and purchases stay on this account.'
+          ? 'Secure progress by connecting a sign-in method. Your battles, credits and purchases stay on this account.'
           : 'Connect another way to sign in to this account.'}
       </GameText>
       {account.is_anonymous && (

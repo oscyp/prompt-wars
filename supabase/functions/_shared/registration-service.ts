@@ -39,6 +39,7 @@ export async function registrationRpc(
       'registration_rate_limited',
       'eligibility_already_recorded',
       'account_unavailable',
+      'adult_attestation_required',
     ];
     const code = allowed.find((value) => error.message === value);
     throw new RegistrationError(
@@ -159,6 +160,7 @@ export async function handleRegistration(
     const config = (await deps.rpc('auth_release_configuration')) as {
       enabled: boolean;
       guest_signup_enabled?: boolean;
+      adult_guest_signup_enabled?: boolean;
       minimum_client_version: string;
     } | null;
     if (body.action === 'config')
@@ -166,9 +168,28 @@ export async function handleRegistration(
         enabled: config?.enabled === true,
         guest_signup_enabled:
           config?.enabled === true && config?.guest_signup_enabled === true,
+        adult_guest_signup_enabled:
+          config?.enabled === false &&
+          config?.adult_guest_signup_enabled === true,
         minimum_client_version: config?.minimum_client_version ?? '',
         guardian_consent_ready: deps.guardian.readiness().ready,
       });
+    if (body.action === 'authorize_adult_guest') {
+      if (
+        config?.enabled !== false ||
+        config.adult_guest_signup_enabled !== true
+      )
+        throw new RegistrationError('registration_unavailable', 503);
+      if (body.age_confirmed !== true || body.terms_accepted !== true)
+        throw new RegistrationError('adult_attestation_required', 403);
+      return registrationResponse(
+        await deps.rpc('authorize_adult_guest', {
+          p_network_hash: await deps.networkHash(req),
+          p_age_confirmed: true,
+          p_terms_accepted: true,
+        }),
+      );
+    }
     if (config?.enabled !== true)
       throw new RegistrationError('registration_unavailable', 503);
     if (body.action === 'start') {

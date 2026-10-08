@@ -239,6 +239,10 @@ BEGIN
    character_id,false,'completed',(SELECT unnest(enum_range(NULL::public.battle_mode)) LIMIT 1)) RETURNING id INTO b;
  IF public.enqueue_auto_battle_video(b,NULL,NULL,'registration-ineligible-opponent') IS NOT NULL THEN
    RAISE EXCEPTION 'automatic video ignored revoked human opponent'; END IF;
+ -- Current cinematic funding requires a completed Bo3 round before it reaches
+ -- the ledger purchase gate that this case exercises.
+ UPDATE public.battles SET format='bo3',best_of=3 WHERE id=b;
+ INSERT INTO public.battle_rounds(battle_id,round_number,status) VALUES(b,1,'result_ready');
  BEGIN
    PERFORM public.reserve_round_upgrade_credit(current_setting('test.eligible_user')::uuid,b,1::smallint,'blocked-bo3-credit');
    RAISE EXCEPTION 'direct Bo3 credit debit bypassed purchase policy';
@@ -256,8 +260,17 @@ END $$;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub',current_setting('test.eligible_user'),true);
 DO $$ BEGIN
- IF NOT private.account_capability(auth.uid(),'play') THEN RAISE EXCEPTION 'own eligible capability denied'; END IF;
- IF private.account_capability(current_setting('test.legacy_user')::uuid,'play') THEN RAISE EXCEPTION 'cross-user capability probe'; END IF;
+ -- Later private-schema migrations may forbid direct client helper calls;
+ -- application-facing RLS and entitlement behavior is asserted below either way.
+ IF has_schema_privilege(current_user,'private','USAGE') THEN
+   IF NOT private.account_capability(auth.uid(),'play') THEN RAISE EXCEPTION 'own eligible capability denied'; END IF;
+   IF private.account_capability(current_setting('test.legacy_user')::uuid,'play') THEN RAISE EXCEPTION 'cross-user capability probe'; END IF;
+ ELSE
+   BEGIN
+     PERFORM private.account_capability(current_setting('test.legacy_user')::uuid,'play');
+     RAISE EXCEPTION 'cross-user capability probe';
+   EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ END IF;
  IF NOT EXISTS(SELECT 1 FROM public.profiles WHERE id=auth.uid()) THEN RAISE EXCEPTION 'eligible RLS access denied'; END IF;
  IF NOT EXISTS(SELECT 1 FROM public.get_my_entitlements()) THEN RAISE EXCEPTION 'eligible entitlements denied'; END IF;
  IF NOT EXISTS(SELECT 1 FROM public.public_player_cosmetics WHERE profile_id=auth.uid()) THEN RAISE EXCEPTION 'eligible presentation denied'; END IF;
@@ -271,7 +284,9 @@ DO $$ BEGIN
 END $$;
 SELECT set_config('request.jwt.claim.sub',current_setting('test.revoked_user'),true);
 DO $$ BEGIN
- IF private.account_capability(auth.uid(),'play') THEN RAISE EXCEPTION 'revoked capability allowed'; END IF;
+ IF has_schema_privilege(current_user,'private','USAGE') THEN
+   IF private.account_capability(auth.uid(),'play') THEN RAISE EXCEPTION 'revoked capability allowed'; END IF;
+ END IF;
  IF EXISTS(SELECT 1 FROM public.profiles WHERE id=auth.uid()) THEN RAISE EXCEPTION 'revoked RLS read allowed'; END IF;
  IF EXISTS(SELECT 1 FROM public.get_my_entitlements()) THEN RAISE EXCEPTION 'revoked definer entitlement read allowed'; END IF;
  IF EXISTS(SELECT 1 FROM public.public_player_cosmetics) THEN RAISE EXCEPTION 'revoked owner-view read allowed'; END IF;

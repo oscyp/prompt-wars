@@ -205,6 +205,8 @@ it('offers guest email linking even without native providers', async () => {
   });
   render(<SignInMethods />);
   expect(await screen.findByText('Guest account')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Connect Google' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Connect Apple' })).toBeNull();
   fireEvent.press(screen.getByRole('button', { name: 'Connect email' }));
   expect(await screen.findByLabelText('Email')).toBeTruthy();
 });

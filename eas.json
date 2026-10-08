@@ -20,10 +20,18 @@
       "android": {
         "buildType": "apk",
         "autoIncrement": true
+      },
+      "env": {
+        "EXPO_PUBLIC_ADULT_GUEST_ENABLED": "1",
+        "EXPO_PUBLIC_SOCIAL_AUTH_ENABLED": "0"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_ADULT_GUEST_ENABLED": "1",
+        "EXPO_PUBLIC_SOCIAL_AUTH_ENABLED": "0"
+      }
     },
     "visual-validation": {
       "extends": "preview",

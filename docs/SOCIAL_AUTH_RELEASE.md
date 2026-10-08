@@ -1,5 +1,7 @@
 # Combined social authentication and eligibility release
 
+**8 October adult-launch exception:** The owner approved guest play for the current 18+ release separately from this combined rollout. See [adult guest launch](deployments/2026-10-08-adult-guest-launch.md). Its separate flag and single-use permit flow retain adult confirmation and current terms; they do not activate regional 13+ registration or guardian consent. The combined rollout below remains disabled.
+
 Implementation is staged and **disabled by default**. No production jurisdiction
 policy is seeded. This is not a worldwide launch or a completed guardian-provider
 integration. The current public legal pages remain in force until coordinated

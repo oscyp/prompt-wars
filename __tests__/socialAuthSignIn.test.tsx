@@ -17,6 +17,7 @@ import {
 } from '@/utils/authSession';
 
 const mockExchange = {
+  signInWithPassword: jest.fn(),
   signInWithIdToken: jest.fn(),
   stopAutoRefresh: jest.fn(),
 };
@@ -75,6 +76,7 @@ jest.mock('@/utils/supabase', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  delete process.env.EXPO_PUBLIC_ADULT_GUEST_ENABLED;
   mockParams = {};
   process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://example.test';
   process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'public-key';
@@ -91,6 +93,51 @@ beforeEach(() => {
     type: 'success',
     data: { idToken: 'provider-token' },
   });
+});
+
+it('adult launch sign-in can return to entry without exposing social providers', async () => {
+  process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED = '0';
+  process.env.EXPO_PUBLIC_ADULT_GUEST_ENABLED = '1';
+  const view = render(<SignInScreen />);
+  fireEvent.press(await view.findByLabelText('Back to play options'));
+  expect(mockRouter.replace).toHaveBeenCalledWith('/(auth)/entry');
+  expect(
+    view.queryByRole('button', { name: 'Sign in with Google' }),
+  ).toBeNull();
+  expect(view.queryByRole('button', { name: 'Sign in with Apple' })).toBeNull();
+});
+
+it('returning to adult play options cancels a pending email sign-in', async () => {
+  process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED = '0';
+  process.env.EXPO_PUBLIC_ADULT_GUEST_ENABLED = '1';
+  let finish!: (value: unknown) => void;
+  mockExchange.signInWithPassword.mockReturnValueOnce(
+    new Promise((done) => {
+      finish = done;
+    }),
+  );
+  const view = render(<SignInScreen />);
+  fireEvent.changeText(view.getByLabelText('Email'), 'player@example.com');
+  fireEvent.changeText(view.getByLabelText('Password'), 'secure-password');
+  fireEvent.press(view.getByLabelText('Sign in'));
+  await waitFor(() =>
+    expect(mockExchange.signInWithPassword).toHaveBeenCalled(),
+  );
+  fireEvent.press(view.getByLabelText('Back to play options'));
+  expect(mockRouter.replace).toHaveBeenCalledWith('/(auth)/entry');
+  await act(async () =>
+    finish({
+      data: {
+        session: {
+          user: { id: 'returning' },
+          access_token: 'a',
+          refresh_token: 'r',
+        },
+      },
+      error: null,
+    }),
+  );
+  expect(supabase.auth.setSession).not.toHaveBeenCalled();
 });
 
 it('routes a new social identity to explicit registration without putting its token in navigation', async () => {

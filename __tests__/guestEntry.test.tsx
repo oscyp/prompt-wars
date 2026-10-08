@@ -28,7 +28,39 @@ beforeEach(() => {
 });
 afterEach(() => {
   delete process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED;
+  delete process.env.EXPO_PUBLIC_ADULT_GUEST_ENABLED;
 });
+
+test('adult guest play opens independently of the combined social release', async () => {
+  delete process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED;
+  process.env.EXPO_PUBLIC_ADULT_GUEST_ENABLED = '1';
+  jest.mocked(getRegistrationConfiguration).mockResolvedValue({
+    ...ready,
+    enabled: false,
+    adult_guest_signup_enabled: true,
+  });
+  const view = render(<EntryScreen />);
+  fireEvent.press(await view.findByLabelText('Play now'));
+  expect(mockRouter.push).toHaveBeenCalledWith('/(auth)/sign-up?guest=1');
+  expect(view.getByLabelText('Sign in')).toBeEnabled();
+  expect(view.getByLabelText('Create an account')).toBeEnabled();
+});
+
+test.each([false, undefined, 'true'])(
+  'adult guest entry requires the strict server flag: %s',
+  async (adult_guest_signup_enabled) => {
+    delete process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED;
+    process.env.EXPO_PUBLIC_ADULT_GUEST_ENABLED = '1';
+    jest.mocked(getRegistrationConfiguration).mockResolvedValue({
+      ...ready,
+      enabled: false,
+      adult_guest_signup_enabled,
+    } as never);
+    const view = render(<EntryScreen />);
+    await waitFor(() => expect(view.getByLabelText('Sign in')).toBeEnabled());
+    expect(view.queryByLabelText('Play now')).toBeNull();
+  },
+);
 
 test('offers guest play and returning sign-in as separate paths', async () => {
   const view = render(<EntryScreen />);

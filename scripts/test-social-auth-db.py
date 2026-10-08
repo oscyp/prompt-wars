@@ -6,6 +6,7 @@ No migration-history changes, resets, or persistent schema writes.
 from pathlib import Path
 import re
 import subprocess
+import sys
 
 root = Path(__file__).resolve().parent.parent
 command = ['docker', 'exec', '-i', 'supabase_db_prompt-wars', 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1']
@@ -18,7 +19,7 @@ for path in sorted((root / 'supabase/migrations').glob('*.sql')):
     if re.search(r'^\s*(COMMIT|ROLLBACK)\s*;', source, re.M | re.I):
         raise RuntimeError(f'Refusing migration with transaction control: {path.name}')
     parts.append(f'\\echo Applying {path.name}\n{source}')
-for name in ['social_registration.sql', 'apple_authorization.sql', 'guest_registration.sql']:
+for name in sys.argv[1:] or ['social_registration.sql', 'apple_authorization.sql', 'guest_registration.sql', 'adult_guest_registration.sql']:
     source = (root / 'supabase/tests' / name).read_text()
     parts.append(re.sub(r'^(BEGIN|ROLLBACK);', '', source, flags=re.M))
 result = subprocess.run(command, input='BEGIN;\n' + '\n'.join(parts) + '\nROLLBACK;\n', text=True, capture_output=True)

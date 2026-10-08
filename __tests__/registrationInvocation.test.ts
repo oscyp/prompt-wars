@@ -203,3 +203,19 @@ it('authorizes guest creation without a fabricated email or social token', async
     provider: 'anonymous',
   });
 });
+
+it('authorizes adult guest play through the public registration boundary with only the explicit confirmations', async () => {
+  await registration.authorizeAdultGuest({
+    age_confirmed: true,
+    terms_accepted: true,
+  });
+  const [url, request] = mockFetch.mock.calls[0];
+  expect(url).toBe('https://example.supabase.co/functions/v1/registration');
+  expect(JSON.parse(request.body)).toEqual({
+    action: 'authorize_adult_guest',
+    age_confirmed: true,
+    terms_accepted: true,
+  });
+  expect(request.headers.Authorization).toBeUndefined();
+  expect(mockAuth.getSession).not.toHaveBeenCalled();
+});

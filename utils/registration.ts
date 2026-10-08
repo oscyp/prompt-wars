@@ -28,6 +28,7 @@ export type RegistrationConfiguration = {
   minimum_client_version: string;
   guardian_consent_ready: boolean;
   guest_signup_enabled?: boolean;
+  adult_guest_signup_enabled?: boolean;
 };
 
 const preAuth = { auth: 'registration' } as const;
@@ -37,6 +38,16 @@ export function getRegistrationConfiguration() {
     { action: 'config' },
     preAuth,
   );
+}
+export function authorizeAdultGuest(input: {
+  age_confirmed: boolean;
+  terms_accepted: boolean;
+}) {
+  return invokeAuthenticatedFunction<{
+    authorized: true;
+    authorization_token: string;
+    permit_expires_at: string;
+  }>('registration', { action: 'authorize_adult_guest', ...input }, preAuth);
 }
 export function startRegistration(input: {
   birth_date: string;

@@ -4,6 +4,7 @@ import {
   type RegistrationDependencies,
 } from '../_shared/registration-service.ts';
 import { createGuardianConsentProvider } from '../_shared/guardian-consent.ts';
+import { RegistrationError } from '../_shared/registration-policy.ts';
 
 const policy = {
   id: 'reviewed-policy',
@@ -50,6 +51,164 @@ const request = (body: unknown) =>
     method: 'POST',
     body: JSON.stringify(body),
   });
+
+Deno.test(
+  'adult guest config is effective only while the combined release is explicitly off',
+  async () => {
+    for (const [enabled, adult, expected] of [
+      [false, true, true],
+      [false, false, false],
+      [true, true, false],
+      [undefined, true, false],
+      ['false', true, false],
+      [false, 'true', false],
+    ] as const) {
+      const { deps } = fixture();
+      deps.rpc = async () => ({ enabled, adult_guest_signup_enabled: adult });
+      const response = await handleRegistration(
+        request({ action: 'config' }),
+        deps,
+      );
+      assertEquals(
+        (await response.json()).adult_guest_signup_enabled,
+        expected,
+      );
+    }
+  },
+);
+
+Deno.test(
+  'adult guest authorization uses strict adult and terms attestations with trusted network evidence',
+  async () => {
+    const { deps } = fixture();
+    deps.rpc = async (name, args) => {
+      if (name === 'auth_release_configuration')
+        return { enabled: false, adult_guest_signup_enabled: true };
+      if (
+        name === 'authorize_adult_guest' &&
+        args?.p_network_hash === 'private-network-hash' &&
+        args.p_age_confirmed === true &&
+        args.p_terms_accepted === true
+      )
+        return {
+          authorized: true,
+          authorization_token: 'c'.repeat(64),
+          permit_expires_at: '2026-09-22T12:05:00Z',
+        };
+      throw new Error('unexpected authorization or untrusted claims');
+    };
+    const response = await handleRegistration(
+      request({
+        action: 'authorize_adult_guest',
+        age_confirmed: true,
+        terms_accepted: true,
+        network_hash: 'attacker-network',
+      }),
+      deps,
+    );
+    assertEquals(response.status, 200);
+    assertEquals(response.headers.get('Cache-Control'), 'no-store');
+    assertEquals(await response.json(), {
+      authorized: true,
+      authorization_token: 'c'.repeat(64),
+      permit_expires_at: '2026-09-22T12:05:00Z',
+    });
+  },
+);
+
+Deno.test(
+  'adult guest authorization rejects absent, false, and string attestations before issuing a permit',
+  async () => {
+    for (const field of ['age_confirmed', 'terms_accepted']) {
+      for (const value of [undefined, false, 'true', 'false', 1, null]) {
+        const { deps } = fixture();
+        let issued = false;
+        deps.rpc = async (name) => {
+          if (name === 'auth_release_configuration')
+            return { enabled: false, adult_guest_signup_enabled: true };
+          issued = true;
+          return { authorized: true };
+        };
+        const response = await handleRegistration(
+          request({
+            action: 'authorize_adult_guest',
+            age_confirmed: true,
+            terms_accepted: true,
+            [field]: value,
+          }),
+          deps,
+        );
+        assertEquals(response.status, 403);
+        assertEquals(
+          (await response.json()).code,
+          'adult_attestation_required',
+        );
+        assertEquals(issued, false);
+      }
+    }
+  },
+);
+
+Deno.test(
+  'adult guest authorization fails closed for disabled, combined, or malformed rollout settings',
+  async () => {
+    for (const config of [
+      { enabled: false, adult_guest_signup_enabled: false },
+      { enabled: true, adult_guest_signup_enabled: true },
+      { adult_guest_signup_enabled: true },
+      { enabled: 'false', adult_guest_signup_enabled: true },
+      { enabled: false, adult_guest_signup_enabled: 'true' },
+    ]) {
+      const { deps } = fixture();
+      let issued = false;
+      deps.rpc = async (name) => {
+        if (name === 'auth_release_configuration') return config;
+        issued = true;
+        return { authorized: true };
+      };
+      const response = await handleRegistration(
+        request({
+          action: 'authorize_adult_guest',
+          age_confirmed: true,
+          terms_accepted: true,
+        }),
+        deps,
+      );
+      assertEquals(response.status, 503);
+      assertEquals((await response.json()).code, 'registration_unavailable');
+      assertEquals(issued, false);
+    }
+  },
+);
+
+Deno.test(
+  'adult guest authorization fails closed without trusted network evidence and preserves rate-limit errors',
+  async () => {
+    const { deps } = fixture();
+    deps.rpc = async (name) => {
+      if (name === 'auth_release_configuration')
+        return { enabled: false, adult_guest_signup_enabled: true };
+      throw new RegistrationError('registration_rate_limited', 429);
+    };
+    const body = {
+      action: 'authorize_adult_guest',
+      age_confirmed: true,
+      terms_accepted: true,
+    };
+    const limited = await handleRegistration(request(body), deps);
+    assertEquals(limited.status, 429);
+    assertEquals((await limited.json()).code, 'registration_rate_limited');
+    deps.networkHash = async () => {
+      throw new Error('private network detail');
+    };
+    const missing = await handleRegistration(request(body), deps);
+    assertEquals(missing.status, 503);
+    assertEquals(
+      (await missing.text()).includes('private network detail'),
+      false,
+    );
+  },
+);
 
 Deno.test('guest config requires both rollout switches', async () => {
   for (const [enabled, guest, expected] of [

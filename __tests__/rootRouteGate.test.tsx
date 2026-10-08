@@ -114,6 +114,7 @@ jest.mock('@/utils/supabase', () => ({
 }));
 beforeEach(() => {
   delete process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED;
+  delete process.env.EXPO_PUBLIC_ADULT_GUEST_ENABLED;
   mockEligibility = null;
   mockEligibilityLoading = false;
   mockEligibilityError = false;
@@ -340,6 +341,21 @@ test('signed-out combined release opens guest entry only after restoration succe
   mockUserId = null;
   render(<RootLayout />);
   expect(mockReplace).toHaveBeenCalledWith('/(auth)/entry');
+});
+
+test('adult guest release opens entry while leaving legacy account access intact', async () => {
+  process.env.EXPO_PUBLIC_ADULT_GUEST_ENABLED = '1';
+  mockUserId = null;
+  const view = render(<RootLayout />);
+  expect(mockReplace).toHaveBeenCalledWith('/(auth)/entry');
+  mockUserId = 'adult-guest';
+  mockAnonymous = true;
+  mockSegments = ['(auth)', 'sign-up'];
+  mockReplace.mockClear();
+  view.rerender(<RootLayout />);
+  await act(async () => mockRequests[0].resolve({ data: null, error: null }));
+  expect(mockReplace).toHaveBeenCalledWith('/(onboarding)/welcome');
+  expect(gate(view).resolved).toBe(true);
 });
 
 test.each([

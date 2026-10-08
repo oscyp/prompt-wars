@@ -2,6 +2,7 @@ import { useNativeHeaderOffset } from '@/hooks/useNativeHeaderOffset';
 import { GamePanel } from '@/components/game';
 import BrandMark from '@/components/game/BrandMark';
 import { RegistrationForm } from '@/components/auth/RegistrationForm';
+import { AdultGuestForm } from '@/components/auth/AdultGuestForm';
 import { GameHeader, GameButton, GameField } from '@/components/game';
 import { GameText } from '@/components/game';
 import { useEffect, useRef, useState } from 'react';
@@ -50,7 +51,11 @@ const TOAST_MS = 2500;
 export default function SignUpScreen() {
   const { guest } = useLocalSearchParams<{ guest?: string }>();
   if (guest === '1' && process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED !== '1')
-    return <Redirect href="/(auth)/sign-in" />;
+    return process.env.EXPO_PUBLIC_ADULT_GUEST_ENABLED === '1' ? (
+      <AdultGuestForm />
+    ) : (
+      <Redirect href="/(auth)/sign-in" />
+    );
   return process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED === '1' ? (
     <RegistrationForm guest={guest === '1'} />
   ) : (

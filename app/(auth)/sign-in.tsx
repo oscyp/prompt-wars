@@ -440,6 +440,24 @@ export default function SignInScreen() {
               label="Don’t have an account? Sign up"
             />
           )}
+          {!loadingExistingAccount &&
+            process.env.EXPO_PUBLIC_ADULT_GUEST_ENABLED === '1' && (
+              <GameButton
+                label="Back to play options"
+                tone="secondary"
+                onPress={() => {
+                  if (currentOperation.current) {
+                    try {
+                      assertAuthOperationCurrent(currentOperation.current);
+                      beginAuthOperation();
+                    } catch {
+                      /* Preserve any newer intent. */
+                    }
+                  }
+                  router.replace('/(auth)/entry');
+                }}
+              />
+            )}
         </GamePanel>
       </ScrollView>
       {toast ? <Toast text={toast} /> : null}

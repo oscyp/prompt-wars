@@ -19,7 +19,9 @@ export default function EntryScreen() {
   const [configuration, setConfiguration] =
     useState<RegistrationConfiguration | null>(null);
   const [failed, setFailed] = useState(false);
-  const enabled = process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED === '1';
+  const socialEnabled = process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED === '1';
+  const adultGuestEnabled = process.env.EXPO_PUBLIC_ADULT_GUEST_ENABLED === '1';
+  const enabled = socialEnabled || adultGuestEnabled;
   const load = useCallback(async () => {
     setFailed(false);
     try {
@@ -39,8 +41,13 @@ export default function EntryScreen() {
 
   if (!enabled) return <Redirect href="/(auth)/sign-in" />;
   const guestAvailable =
-    configuration?.enabled === true &&
-    configuration.guest_signup_enabled === true;
+    (socialEnabled &&
+      configuration?.enabled === true &&
+      configuration.guest_signup_enabled === true) ||
+    (!socialEnabled &&
+      adultGuestEnabled &&
+      configuration?.enabled === false &&
+      configuration.adult_guest_signup_enabled === true);
 
   return (
     <ScrollView
