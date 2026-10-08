@@ -1,0 +1,27 @@
+{
+  "observedAt": "2026-10-08T13:06:38.840833+00:00",
+  "sourceCommit": "475d538aec619a35810fb0f826d436cf7bbf5c5c",
+  "easBuildId": "f3ceb8ea-7074-4705-b1b8-b49c6b036913",
+  "package": "gg.promptwars.app",
+  "versionName": "1.3.4",
+  "versionCode": 10,
+  "track": "internal",
+  "status": "Available to internal testers",
+  "latestRelease": "1.3.4 (10)",
+  "versionCodeCount": 1,
+  "releaseTimeDisplayed": "Oct 8 3:05 PM",
+  "timeZone": "Europe/Warsaw",
+  "releaseUrl": "https://play.google.com/console/u/0/developers/6091751989392131587/app/4972578862027355782/tracks/4699748352806262214/releases/2/details",
+  "notesLocales": [
+    "en-US"
+  ],
+  "validationErrors": 0,
+  "warnings": [
+    "No deobfuscation file associated with this App Bundle."
+  ],
+  "supportedDevicesChanged": false,
+  "publicReviewSubmitted": false,
+  "productionRollout": false,
+  "verificationMethod": "Google Play Console release listing after Save and publish confirmation",
+  "physicalInstallVerified": false
+}

@@ -50,5 +50,9 @@ Builds must use the committed source and reuse existing signing credentials. Ver
 - Bundletool validation, ZIP integrity, JAR signature and existing upload-certificate checks passed.
 - AAB SHA256: `2f3938152f96778b8075fe316bdcf84b182d34d7914a3d22b57eac5184bca714`.
 - EAS has no assigned Google Play service-account key; authenticated Play Console is the delivery route.
-- Initial file upload was blocked by the ChatGPT Chrome extension's disabled “Allow access to file URLs” setting. User was asked to enable it. The internal-release draft was saved and confirmed by Play Console with release name `1.3.4 (10)` and en-US notes; no successful upload or release is claimed at this point.
+- Delivered through the native Chrome file picker after the extension upload path continued to report a file-access error. No Chrome settings were changed by the agent.
+- Google Play accepted version code `10`; release name `1.3.4 (10)` and en-US notes were saved and published to internal testing.
+- Final Play Console status: **Available to internal testers**, latest release **1.3.4 (10)**, one version code, released October 8 at 15:05 Europe/Warsaw. No public store review or production rollout.
+- One non-blocking warning: no deobfuscation mapping file. Supported-device counts unchanged.
+- Screenshot: `docs/audits/2026-10-08-all-changes-release/android/play-internal-testing.jpg`.
 - Evidence: `docs/audits/2026-10-08-all-changes-release/android/aab-inspection.json`.
