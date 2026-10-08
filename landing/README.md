@@ -27,12 +27,13 @@ landing/
 ├── release-social-auth/ # Non-effective legal drafts; exclude from public deployments
 ├── styles.css          # Existing legal-page design system (preserved)
 ├── script.js           # Existing legal-page progressive enhancement (preserved)
+├── favicon.ico         # Browser fallback with 16/32/48px Battle emblem
 ├── site.webmanifest    # PWA manifest
 ├── robots.txt          # Crawl directives + sitemap pointer
 ├── sitemap.xml         # Single-page sitemap with image entry
 └── assets/
     ├── logo.svg            # Header / footer logomark
-    ├── favicon.svg         # Favicon (SVG)
+    ├── favicon.png         # 48px Battle emblem favicon
     ├── apple-touch-icon.png
     ├── icon-192.png        # PWA icon
     ├── icon-512.png        # PWA icon
@@ -63,7 +64,10 @@ are live. Do not use App Store Connect or Play Console administrative URLs.
 
 The public domain is `https://promptwars.gg/`. On 8 October 2026, live response
 headers identify Vercel and `/api/subscribe` returns the expected method restriction.
-Existing PNG social cards, icons, manifest, legal pages and support email are retained.
+Existing PNG social cards, legal pages and support email are retained. Browser and
+home-screen icons use the approved Battle emblem (`assets/branding/app-icon-square.png`
+in the app repository), resized without changing its artwork. Icon URLs are versioned
+to refresh cached branding. Manifest icons use `purpose: "any"` to avoid mask clipping.
 The legal pages are available at their `.html` URLs; Vercel rewrites also serve
 `/privacy-policy` and `/terms-and-conditions` to match their canonical URLs.
 
