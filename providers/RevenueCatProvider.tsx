@@ -143,6 +143,7 @@ export function RevenueCatProvider({ children }: { children: ReactNode }) {
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [storeAccountVersion, setStoreAccountVersion] = useState(0);
   const [pendingPurchase, setPendingPurchase] =
     useState<PendingPurchase | null>(null);
   const [fulfilledPurchase, setFulfilledPurchase] =
@@ -150,6 +151,7 @@ export function RevenueCatProvider({ children }: { children: ReactNode }) {
   const mounted = useRef(true);
   const account = useRef<string | null | undefined>(undefined);
   const publication = useRef(0);
+  const storeGeneration = useRef(0);
   const purchaseInFlight = useRef(false);
   const checks = useRef(new Map<string, Promise<boolean>>());
 
@@ -268,6 +270,12 @@ export function RevenueCatProvider({ children }: { children: ReactNode }) {
       if (id !== account.current) {
         account.current = id;
         publication.current++;
+        // Invalidate synchronously, including sign-out/sign-in to the same ID
+        // before React commits. The effect loads outside the auth callback.
+        storeGeneration.current++;
+        setStoreAccountVersion((version) => version + 1);
+        setOfferings(null);
+        setIsLoading(Boolean(id));
         setPendingPurchase(null);
         setFulfilledPurchase(null);
         setCustomerInfo(null);
@@ -288,15 +296,20 @@ export function RevenueCatProvider({ children }: { children: ReactNode }) {
   }, [checkPendingPurchase, isCurrent]);
 
   useEffect(() => {
+    let active = true;
+    const generation = storeGeneration.current;
+    const canPublish = () =>
+      active && mounted.current && generation === storeGeneration.current;
     void (async () => {
       try {
+        if (canPublish()) setIsLoading(true);
         const apiKey = Platform.select({
           ios: IOS_API_KEY,
           android: ANDROID_API_KEY,
         });
         if (!apiKey) return;
         const user = (await supabase.auth.getUser()).data.user;
-        if (!user) return;
+        if (!user || !canPublish()) return;
         const result = await withStoreAccount(user.id, async () => {
           const [available, info] = await Promise.all([
             Purchases.getOfferings(),
@@ -304,17 +317,20 @@ export function RevenueCatProvider({ children }: { children: ReactNode }) {
           ]);
           return { available, info };
         });
-        if (await isCurrent(user.id)) {
+        if (canPublish() && (await isCurrent(user.id)) && canPublish()) {
           setOfferings(result.available);
           setCustomerInfo(result.info);
         }
       } catch {
-        if (mounted.current) setError('Could not load store. Check again.');
+        if (canPublish()) setError('Could not load store. Check again.');
       } finally {
-        if (mounted.current) setIsLoading(false);
+        if (canPublish()) setIsLoading(false);
       }
     })();
-  }, [isCurrent]);
+    return () => {
+      active = false;
+    };
+  }, [isCurrent, storeAccountVersion]);
 
   async function purchase(pkg: PurchasesPackage): Promise<PurchaseOutcome> {
     if (purchaseInFlight.current) return 'pending';
