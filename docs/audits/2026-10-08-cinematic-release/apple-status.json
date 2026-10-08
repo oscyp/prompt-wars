@@ -1,0 +1,67 @@
+{
+  "ios": {
+    "ascAppIdentifier": "6788787677",
+    "testFlightBuilds": [
+      {
+        "appVersion": "1.3.4",
+        "buildNumber": "19",
+        "processingState": "VALID",
+        "internalState": "IN_BETA_TESTING",
+        "externalState": "READY_FOR_BETA_SUBMISSION",
+        "uploadedDate": "2026-10-08T04:04:48-07:00",
+        "expired": false,
+        "easSubmissionId": "a1353759-705a-4169-ac41-a6541ccf001e",
+        "easBuildId": "6ccdf2ab-8a5e-407c-89a8-fc8601c53faa",
+        "fingerprintHash": "9e773983959cb0252a3243c148a9dea5a110c821"
+      },
+      {
+        "appVersion": "1.3.3",
+        "buildNumber": "18",
+        "processingState": "VALID",
+        "internalState": "IN_BETA_TESTING",
+        "externalState": "READY_FOR_BETA_SUBMISSION",
+        "uploadedDate": "2026-10-07T07:17:58-07:00",
+        "expired": false,
+        "easSubmissionId": "bb09da5a-13cd-4e2f-b8ab-79ea3d486a76",
+        "easBuildId": "9301c70c-2276-481c-a0ea-fcd63323bcfc",
+        "fingerprintHash": "b0037e5177bbee980fafcb38af6761be2c8006cd"
+      },
+      {
+        "appVersion": "1.3.3",
+        "buildNumber": "17",
+        "processingState": "VALID",
+        "internalState": "IN_BETA_TESTING",
+        "externalState": "READY_FOR_BETA_SUBMISSION",
+        "uploadedDate": "2026-10-06T16:49:24-07:00",
+        "expired": false,
+        "easSubmissionId": "9d527e75-b014-4b1c-b8be-a3cf0e964955",
+        "easBuildId": "23d9c863-be66-4640-aa68-79711522050f",
+        "fingerprintHash": "b0037e5177bbee980fafcb38af6761be2c8006cd"
+      },
+      {
+        "appVersion": "1.3.3",
+        "buildNumber": "16",
+        "processingState": "VALID",
+        "internalState": "IN_BETA_TESTING",
+        "externalState": "READY_FOR_BETA_SUBMISSION",
+        "uploadedDate": "2026-10-02T08:47:14-07:00",
+        "expired": false,
+        "easSubmissionId": "d50ee6c3-b4c8-4273-b088-007d281c44e6",
+        "easBuildId": "c60b6c40-b019-46d6-bf93-b88e3200fd33",
+        "fingerprintHash": "b0037e5177bbee980fafcb38af6761be2c8006cd"
+      },
+      {
+        "appVersion": "1.3.3",
+        "buildNumber": "14",
+        "processingState": "VALID",
+        "internalState": "IN_BETA_TESTING",
+        "externalState": "READY_FOR_BETA_SUBMISSION",
+        "uploadedDate": "2026-10-02T01:20:55-07:00",
+        "expired": false,
+        "easSubmissionId": "0bb38afd-be02-453c-a536-4ec67b9971ea",
+        "easBuildId": "7db76299-0128-406d-8b24-86fe7b6058b5",
+        "fingerprintHash": "11b375fb96dd8ca1f68c02faf4ac4614f526b608"
+      }
+    ]
+  }
+}

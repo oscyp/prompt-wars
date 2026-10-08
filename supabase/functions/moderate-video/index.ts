@@ -1,3 +1,4 @@
+import { VIDEO_LEASE_SECONDS } from '../_shared/video-constants.ts';
 // Moderate Video Edge Function
 // Post-generation video moderation
 // Marks videos approved/rejected/flagged, keeps blurred preview until approved
@@ -17,6 +18,7 @@ import { ModerationStatus } from '../_shared/types.ts';
 
 interface ModerateVideoRequest {
   video_id: string;
+  lease_token: string;
   battle_id: string;
   provider_moderation_approved?: boolean;
   provider_moderation_source?: string;
@@ -47,12 +49,13 @@ Deno.serve(async (req) => {
     const {
       video_id,
       battle_id,
+      lease_token,
       provider_moderation_approved,
       provider_moderation_source,
     }: ModerateVideoRequest = await req.json();
 
-    if (!video_id || !battle_id) {
-      return errorResponse('video_id and battle_id required');
+    if (!video_id || !battle_id || !lease_token) {
+      return errorResponse('video_id, battle_id and lease_token required');
     }
 
     const supabase = createServiceClient();
@@ -60,7 +63,7 @@ Deno.serve(async (req) => {
     // Fetch video
     const { data: video, error: videoError } = await supabase
       .from('videos')
-      .select('storage_path, battle_id, moderation_status')
+      .select('storage_path, battle_id, moderation_status, video_job_id')
       .eq('id', video_id)
       .single();
 
@@ -68,9 +71,24 @@ Deno.serve(async (req) => {
       return errorResponse('Video not found', 404);
     }
 
+    if (video.battle_id !== battle_id)
+      return errorResponse('Video does not belong to battle', 400);
+
     if (video.moderation_status !== 'pending') {
       return errorResponse('Video already moderated', 400);
     }
+
+    if (!video.video_job_id) return errorResponse('Video job required', 400);
+    const hasCurrentLease = async () => {
+      const { data, error } = await supabase.rpc('renew_video_job_lease', {
+        p_job_id: video.video_job_id,
+        p_token: lease_token,
+        p_lease_seconds: VIDEO_LEASE_SECONDS,
+      });
+      return !error && data === true;
+    };
+    if (!(await hasCurrentLease()))
+      return errorResponse('Video job lease lost', 409);
 
     let result: VideoModerationResult;
     if (
@@ -125,7 +143,13 @@ Deno.serve(async (req) => {
 
     if (eventError) {
       console.error('Failed to record moderation event:', eventError);
+      return errorResponse('Failed to record moderation audit', 500);
     }
+
+    // Match the worker's fresh prewrite check. The lease check and video update
+    // are separate requests; a future DB finalization RPC can make them atomic.
+    if (!(await hasCurrentLease()))
+      return errorResponse('Video job lease lost', 409);
 
     // Update video moderation status
     const { error: updateError } = await supabase
@@ -137,7 +161,9 @@ Deno.serve(async (req) => {
         moderation_provider: result.provider,
         moderation_confidence: result.confidence,
       })
-      .eq('id', video_id);
+      .eq('id', video_id)
+      .eq('video_job_id', video.video_job_id)
+      .eq('moderation_status', 'pending');
 
     if (updateError) {
       console.error('Failed to update video moderation_status:', updateError);
@@ -147,30 +173,8 @@ Deno.serve(async (req) => {
     // If rejected, trigger source-aware refund
     const shouldRefund = result.status === 'rejected';
 
-    if (shouldRefund) {
-      // Fetch video_job to refund based on entitlement source
-      // Use video_job_id from videos table, not battle_id query
-      const { data: video } = await supabase
-        .from('videos')
-        .select('video_job_id')
-        .eq('id', video_id)
-        .single();
-
-      if (video?.video_job_id) {
-        const { data: videoJob } = await supabase
-          .from('video_jobs')
-          .select(
-            'id, requester_profile_id, entitlement_source, credits_charged, spend_transaction_id, refunded',
-          )
-          .eq('id', video.video_job_id)
-          .single();
-
-        if (videoJob && !videoJob.refunded) {
-          // Use source-aware refund logic
-          await refundVideoJob(supabase, videoJob);
-        }
-      }
-    }
+    // process-video-job is the sole funding finalizer. Its owned lease and
+    // reservation-aware reconciliation prevent a second credit/grant refund.
 
     const response: ModerateVideoResponse = {
       status: result.status,
@@ -188,103 +192,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-
-/**
- * Refund video job based on entitlement source
- * Handles credits, subscription_allowance, and free_grant sources
- */
-async function refundVideoJob(
-  supabase: ReturnType<typeof createServiceClient>,
-  job: {
-    id: string;
-    requester_profile_id: string | null;
-    entitlement_source: string | null;
-    credits_charged: number | null;
-    spend_transaction_id: string | null;
-    refunded: boolean;
-  },
-): Promise<void> {
-  if (job.refunded) {
-    console.log('Video job already refunded:', job.id);
-    return;
-  }
-
-  if (!job.requester_profile_id || !job.entitlement_source) {
-    console.warn(
-      'Video job missing requester or entitlement source, cannot refund:',
-      job.id,
-    );
-    // Mark as refunded to prevent retry loops
-    await supabase
-      .from('video_jobs')
-      .update({ refunded: true })
-      .eq('id', job.id);
-    return;
-  }
-
-  const refundIdempotencyKey = `refund-video-${job.id}`;
-
-  try {
-    switch (job.entitlement_source) {
-      case 'credits':
-        // Refund credits using grant_credits RPC
-        if (job.credits_charged && job.credits_charged > 0) {
-          await supabase.rpc('grant_credits', {
-            p_profile_id: job.requester_profile_id,
-            p_amount: job.credits_charged,
-            p_reason: 'video_moderation_refund',
-            p_idempotency_key: refundIdempotencyKey,
-            p_battle_id: null,
-            p_purchase_id: null,
-            p_metadata: {
-              video_job_id: job.id,
-              original_transaction_id: job.spend_transaction_id,
-            },
-          });
-          console.log(
-            `Refunded ${job.credits_charged} credits to profile ${job.requester_profile_id}`,
-          );
-        }
-        break;
-
-      case 'free_grant':
-        // Restore free tier reveal
-        await supabase.rpc('restore_free_tier1_reveal', {
-          p_profile_id: job.requester_profile_id,
-          p_video_job_id: job.id,
-          p_idempotency_key: refundIdempotencyKey,
-        });
-        console.log(
-          `Restored free Tier 1 reveal to profile ${job.requester_profile_id}`,
-        );
-        break;
-
-      case 'subscription_allowance':
-        // Restore subscription allowance
-        await supabase.rpc('restore_subscription_allowance', {
-          p_profile_id: job.requester_profile_id,
-          p_video_job_id: job.id,
-          p_idempotency_key: refundIdempotencyKey,
-        });
-        console.log(
-          `Restored subscription allowance to profile ${job.requester_profile_id}`,
-        );
-        break;
-
-      default:
-        console.warn(
-          'Unknown entitlement source for refund:',
-          job.entitlement_source,
-        );
-    }
-
-    // Mark job as refunded
-    await supabase
-      .from('video_jobs')
-      .update({ refunded: true })
-      .eq('id', job.id);
-  } catch (error) {
-    console.error('Refund error for video job:', job.id, error);
-    // Don't throw - we'll retry on next moderation invocation
-  }
-}

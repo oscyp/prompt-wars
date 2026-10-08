@@ -1,0 +1,17 @@
+[
+  {
+    "at": "2026-10-07T12:58:38.428686+00:00",
+    "stage": "after-ios-upload",
+    "drift": []
+  },
+  {
+    "at": "2026-10-07T12:58:51.178991+00:00",
+    "stage": "after-android-upload",
+    "drift": []
+  },
+  {
+    "at": "2026-10-07T14:03:02.912943+00:00",
+    "stage": "delivery-observation-after-one-hour",
+    "drift": []
+  }
+]

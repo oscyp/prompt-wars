@@ -1,0 +1,11 @@
+{
+  "application-identifier": "9665HWDCCA.gg.promptwars.app",
+  "aps-environment": "production",
+  "beta-reports-active": true,
+  "com.apple.developer.applesignin": [
+    "Default"
+  ],
+  "com.apple.developer.team-identifier": "9665HWDCCA",
+  "get-task-allow": false,
+  "strict_recursive_signature_verification": "/tmp/prompt-wars-remediation-16-unpacked/Payload/PromptWars.app: valid on disk\n/tmp/prompt-wars-remediation-16-unpacked/Payload/PromptWars.app: satisfies its Designated Requirement"
+}

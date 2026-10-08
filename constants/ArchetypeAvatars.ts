@@ -11,6 +11,7 @@
  * These are static app assets and safe to commit.
  */
 import { Image } from 'react-native';
+import { Asset } from 'expo-asset';
 
 export type ArchetypeAvatarKey =
   | 'strategist'
@@ -50,6 +51,11 @@ export function getArchetypeAvatar(archetype?: string | null): number {
 export function archetypeIllustrationUri(
   archetype?: string | null,
 ): string | null {
-  const source = Image.resolveAssetSource(getArchetypeAvatar(archetype));
+  const asset = getArchetypeAvatar(archetype);
+  // React Native Web does not expose the native resolveAssetSource helper.
+  const source =
+    typeof Image.resolveAssetSource === 'function'
+      ? Image.resolveAssetSource(asset)
+      : Asset.fromModule(asset);
   return source?.uri ?? null;
 }

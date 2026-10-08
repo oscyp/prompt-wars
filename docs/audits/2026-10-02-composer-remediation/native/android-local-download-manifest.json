@@ -1,0 +1,41 @@
+{
+  "checkedAt": "2026-10-02",
+  "metadataSources": [
+    "https://dl.google.com/android/repository/repository2-3.xml",
+    "https://dl.google.com/android/repository/sys-img/android/sys-img2-3.xml"
+  ],
+  "archives": [
+    {
+      "package": "cmdline-tools;latest",
+      "revision": "23.0",
+      "bytes": 155384151,
+      "url": "https://dl.google.com/android/repository/commandlinetools-mac_arm64-16111833_latest.zip"
+    },
+    {
+      "package": "platform-tools",
+      "revision": "37.0.1",
+      "bytes": 16110554,
+      "url": "https://dl.google.com/android/repository/platform-tools_r37.0.1-darwin.zip"
+    },
+    {
+      "package": "emulator",
+      "revision": "37.2.12",
+      "bytes": 416112708,
+      "url": "https://dl.google.com/android/repository/emulator-darwin_aarch64-16428233.zip"
+    },
+    {
+      "package": "system-images;android-35;default;arm64-v8a",
+      "revision": "2",
+      "bytes": 769099654,
+      "url": "https://dl.google.com/android/repository/sys-img/android/arm64-v8a-35_r02.zip"
+    },
+    {
+      "package": "Android CLI bootstrap",
+      "bytes": 89417200,
+      "url": "https://dl.google.com/android/cli/latest/darwin_arm64/android-cli"
+    }
+  ],
+  "totalKnownArchiveBytes": 1446124267,
+  "maximumDownloadBytes": 3000000000,
+  "maximumDiskBytes": 15000000000
+}

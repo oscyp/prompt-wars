@@ -1,0 +1,246 @@
+{
+  "verified_at": "2026-10-07T12:47:23.793103+00:00",
+  "project_ref": "uoyjhudegdpanrgllfoj",
+  "migration_version": "20261007122059",
+  "installed": {
+    "changed_functions": [
+      {
+        "function": "generate-move-suggestions",
+        "before_version": 20,
+        "after_version": 21,
+        "status": "ACTIVE",
+        "verify_jwt": false,
+        "updated_at": 1791377017532
+      },
+      {
+        "function": "record-funnel-event",
+        "before_version": 14,
+        "after_version": 15,
+        "status": "ACTIVE",
+        "verify_jwt": false,
+        "updated_at": 1791377072511
+      },
+      {
+        "function": "complete-move-suggestion",
+        "before_version": null,
+        "after_version": 1,
+        "status": "ACTIVE",
+        "verify_jwt": false,
+        "updated_at": 1791377050993
+      }
+    ],
+    "source_drift": [],
+    "function_count_before": 49,
+    "function_count_after": 50
+  },
+  "before_metrics": {
+    "completions_table_installed": false,
+    "expired_pending_leases": 0,
+    "failure_codes": [
+      {
+        "count": 3,
+        "failure_code": "moderation_rejected"
+      }
+    ],
+    "moderation_categories": [
+      {
+        "category": "self-harm",
+        "count": 5
+      },
+      {
+        "category": "self-harm/intent",
+        "count": 1
+      },
+      {
+        "category": "violence",
+        "count": 6
+      }
+    ],
+    "occurrence_table_installed": false,
+    "operation_statuses": [
+      {
+        "count": 3,
+        "mean_success_seconds": null,
+        "paid": 0,
+        "refunded_credits": 0,
+        "refunded_operations": 0,
+        "reserved_credits": 0,
+        "status": "failed"
+      },
+      {
+        "count": 12,
+        "mean_success_seconds": 16.286,
+        "paid": 0,
+        "refunded_credits": 0,
+        "refunded_operations": 0,
+        "reserved_credits": 0,
+        "status": "succeeded"
+      }
+    ],
+    "recorded_at": "2026-10-07T12:41:47.359165+00:00",
+    "window_hours": 24
+  },
+  "after_metrics": {
+    "completions_table_installed": true,
+    "expired_pending_leases": 0,
+    "failure_codes": [
+      {
+        "count": 3,
+        "failure_code": "moderation_rejected"
+      }
+    ],
+    "moderation_categories": [
+      {
+        "category": "self-harm",
+        "count": 5
+      },
+      {
+        "category": "self-harm/intent",
+        "count": 1
+      },
+      {
+        "category": "violence",
+        "count": 6
+      }
+    ],
+    "occurrence_table_installed": true,
+    "operation_statuses": [
+      {
+        "count": 3,
+        "mean_success_seconds": null,
+        "paid": 0,
+        "refunded_credits": 0,
+        "refunded_operations": 0,
+        "reserved_credits": 0,
+        "status": "failed"
+      },
+      {
+        "count": 12,
+        "mean_success_seconds": 16.286,
+        "paid": 0,
+        "refunded_credits": 0,
+        "refunded_operations": 0,
+        "reserved_credits": 0,
+        "status": "succeeded"
+      }
+    ],
+    "recorded_at": "2026-10-07T12:45:07.281584+00:00",
+    "window_hours": 24
+  },
+  "access_verification": {
+    "completion_counts": [],
+    "private_table_access": [
+      {
+        "anon_select": false,
+        "authenticated_select": false,
+        "name": "suggestion_completion_attempts",
+        "rls": true
+      },
+      {
+        "anon_select": false,
+        "authenticated_select": false,
+        "name": "suggestion_completions",
+        "rls": true
+      }
+    ],
+    "recorded_at": "2026-10-07T12:46:30.526484+00:00",
+    "rpc_grants": [
+      {
+        "anon_execute": false,
+        "arguments": "p_operation_id uuid, p_lease_token uuid, p_result jsonb, p_metadata jsonb, p_failure text",
+        "authenticated_execute": false,
+        "name": "finish_suggestion_completion",
+        "service_execute": true
+      },
+      {
+        "anon_execute": false,
+        "arguments": "p_operation_id uuid, p_lease_token uuid",
+        "authenticated_execute": false,
+        "name": "renew_suggestion_completion",
+        "service_execute": true
+      },
+      {
+        "anon_execute": false,
+        "arguments": "p_profile_id uuid, p_battle_id uuid, p_round_number integer, p_move_type move_type, p_target text, p_action_text text, p_intent_text text, p_suggestion_id uuid, p_composition_version integer, p_allow_generate boolean",
+        "authenticated_execute": false,
+        "name": "reserve_suggestion_completion",
+        "service_execute": true
+      },
+      {
+        "anon_execute": false,
+        "arguments": "p_profile_id uuid, p_battle_id uuid, p_round_number integer, p_move_type move_type, p_operation text, p_idempotency_key text, p_expected_credits integer, p_source text, p_allow_generate boolean, p_allow_reroll boolean",
+        "authenticated_execute": false,
+        "name": "reserve_suggestion_operation",
+        "service_execute": true
+      },
+      {
+        "anon_execute": false,
+        "arguments": "p_profile_id uuid, p_battle_id uuid, p_round_number integer, p_move_type move_type, p_operation text, p_idempotency_key text, p_expected_credits integer, p_source text, p_allow_generate boolean, p_allow_reroll boolean, p_composition_version integer",
+        "authenticated_execute": false,
+        "name": "reserve_suggestion_operation",
+        "service_execute": true
+      }
+    ],
+    "suggestion_wallet_last24h": {
+      "debits": 0,
+      "refunds": 0,
+      "returned_credits": 0,
+      "spent_credits": 0
+    }
+  },
+  "unauthenticated_probes": {
+    "recorded_at": "2026-10-07T12:45:58.619Z",
+    "results": [
+      {
+        "function": "generate-move-suggestions",
+        "status": 401,
+        "body": {
+          "ok": false,
+          "error": {
+            "code": "unauthorized",
+            "message": "authentication required"
+          }
+        }
+      },
+      {
+        "function": "complete-move-suggestion",
+        "status": 401,
+        "body": {
+          "ok": false,
+          "error": {
+            "code": "unauthorized",
+            "message": "authentication required"
+          }
+        }
+      },
+      {
+        "function": "record-funnel-event",
+        "status": 401,
+        "body": {
+          "ok": false,
+          "error": {
+            "code": "unauthorized",
+            "message": "authentication required"
+          }
+        }
+      }
+    ]
+  },
+  "source_manifest": {
+    "frozen_at": "2026-10-07T12:41:58.933192+00:00",
+    "files": {
+      "supabase/migrations/20261007122059_composer_three_decision_operations.sql": "47f607978cfbc3ae9786265fd0590f23379ebed79380aae63928402cdd162ee6",
+      "supabase/functions/generate-move-suggestions/index.ts": "1092ba282f3390494c397948011341c9d559d6e113d1241b8c1d9206d1f4c9f7",
+      "supabase/functions/complete-move-suggestion/index.ts": "eb341a00a0a01d8268e98cf9a8475c6be914b5c9f96c359cebaf420fb4c2f76d",
+      "supabase/functions/record-funnel-event/index.ts": "7bb30b8115688fcf4603dcec720d062dc04964a4985a115664a1f6cc977201c9",
+      "supabase/functions/_shared/move-suggestions.ts": "9a8d92e933bee772d598178a4638ec5d19600ff0621ba7d3997b426ae4f2eb07",
+      "supabase/functions/_shared/suggestion-service.ts": "1fa24d2eb08e9d9c4130dff6772c1c3ae17d4e49dda56203a2afdb67d68a7ef5",
+      "supabase/functions/_shared/suggestion-completion.ts": "bf1e9ed977bec0a2fbb59c0431020cde3950c345bd90db34d937841b03eda200",
+      "supabase/functions/_shared/moderation.ts": "759d1759a3f1975f2165a7bcd1461c126e2829415fdde92fab24113d9a1a9f32",
+      "supabase/functions/_shared/composer-events.ts": "4fc8080a3d24ee55c2d9585188835356da6ab0948279860c0b2f9187397c1bcb",
+      "supabase/config.toml": "84fb347ef5839bbdeaa273f6465d41e72dbbc211a8b6b85975c204d45d7a47c3"
+    }
+  },
+  "no_additional_paid_ai_calls": true,
+  "client_builds_started": false
+}

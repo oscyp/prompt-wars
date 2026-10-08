@@ -2,13 +2,20 @@ import {
   GameScreen,
   GameHeader,
   GamePanel,
+  GameFooter,
   GameButton,
   GameText,
 } from '@/components/game';
 import BrandMark from '@/components/game/BrandMark';
 
 import { useState } from 'react';
-import { Alert, Platform, StyleSheet, Image } from 'react-native';
+import {
+  Alert,
+  Platform,
+  StyleSheet,
+  Image,
+  useWindowDimensions,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { UiArt } from '@/constants/UiArt';
@@ -22,7 +29,7 @@ import { hapticSelection } from '@/utils/haptics';
  * First impression of the game: full-bleed arena hero (bundled generated art)
  * with a bottom scrim for AA text, brand title, the value line and one CTA.
  *
- * The 18+ gate that used to sit here was a duplicate: sign-up already requires
+ * The legacy age gate that used to sit here was a duplicate: registration handles
  * the confirmation and persists it server-side (`handle_new_user` rejects
  * sign-ups without it), so asking again here only added a screen between a new
  * player and their fighter.
@@ -31,6 +38,7 @@ import { hapticSelection } from '@/utils/haptics';
  */
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { height, fontScale } = useWindowDimensions();
   const { signOut } = useAuth();
   const [starting, setStarting] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -76,35 +84,44 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <GameScreen contentContainerStyle={styles.content}>
-      <BrandMark size={280} style={{ alignSelf: 'center' }} />
+    <GameScreen
+      contentContainerStyle={styles.content}
+      footer={
+        <GameFooter style={{ paddingHorizontal: 24, gap: 8 }}>
+          <GameButton
+            label={starting ? 'Preparing practice…' : 'Play practice'}
+            accessibilityLabel="Play practice"
+            onPress={handlePractice}
+            busy={starting}
+          />
+          <GameButton
+            label="Customize first"
+            tone="secondary"
+            onPress={handleContinue}
+            disabled={starting}
+          />
+        </GameFooter>
+      }
+    >
+      <BrandMark size={180} style={{ alignSelf: 'center' }} />
       <Image
         source={UiArt.welcomeHero}
         resizeMode="contain"
         accessible={false}
-        style={{ width: '100%', height: 240 }}
+        style={{
+          width: '100%',
+          height: Math.max(100, Math.min(240, height - 450 * fontScale)),
+        }}
       />
-      <GamePanel tone="ornate" style={{ width: '100%', gap: 16 }}>
+      <GamePanel tone="quiet" style={{ width: '100%', gap: 16 }}>
         <GameHeader title="Your words. Your fighter." />
         <GameText style={{ textAlign: 'center' }}>
           Try a guided prompt battle with a ready-to-play fighter. Customize
           whenever you like.
         </GameText>
         <GameButton
-          label={starting ? 'Preparing practice…' : 'Play practice'}
-          accessibilityLabel="Play practice"
-          onPress={handlePractice}
-          busy={starting}
-        />
-        <GameButton
-          label="Customize first"
-          tone="secondary"
-          onPress={handleContinue}
-          disabled={starting}
-        />
-        <GameButton
           label="Not you? Sign out"
-          tone="secondary"
+          chrome="utility"
           onPress={handleSignOut}
           busy={signingOut}
         />

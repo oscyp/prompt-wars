@@ -127,11 +127,21 @@ export function roundOutcomeFor(input: {
   isDraw: boolean;
   roundWinnerId: string | null;
   myProfileId: string | null | undefined;
+  /** Server-frozen judge_payload.combat.winner; bots have no profile id. */
+  winnerSide?: unknown;
+  viewerSide?: 1 | 2 | null;
 }): RoundOutcome {
   if (input.status !== 'result_ready') return 'pending';
   if (input.isDraw) return 'draw';
-  if (!input.roundWinnerId || !input.myProfileId) return 'pending';
-  return input.roundWinnerId === input.myProfileId ? 'won' : 'lost';
+  if (!input.myProfileId) return 'pending';
+  if (input.roundWinnerId)
+    return input.roundWinnerId === input.myProfileId ? 'won' : 'lost';
+  if (
+    (input.winnerSide === 1 || input.winnerSide === 2) &&
+    (input.viewerSide === 1 || input.viewerSide === 2)
+  )
+    return input.winnerSide === input.viewerSide ? 'won' : 'lost';
+  return 'pending';
 }
 
 export interface RoundOutcomeCopy {

@@ -1,0 +1,321 @@
+[
+  {
+    "file": "screenshots/01-arena-402.jpg",
+    "title": "Arena",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Compact hero, actions and safe status region."
+  },
+  {
+    "file": "screenshots/02-wallet-402.jpg",
+    "title": "Wallet",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Single sharp metallic heading and quiet information panels."
+  },
+  {
+    "file": "screenshots/03-shop-402.jpg",
+    "title": "Shop",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Equipped Neon Circuit summary, tabs and explicit previews."
+  },
+  {
+    "file": "screenshots/04-signature-shortcut-402.jpg",
+    "title": "Signature colour shortcut",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Actual Shop entry into Fighter / Signature colour; existing draft retained."
+  },
+  {
+    "file": "screenshots/05-profile-402.jpg",
+    "title": "Profile",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Compact identity and actions; development avatar-endpoint toast retained."
+  },
+  {
+    "file": "screenshots/06-profile-rivals-402.jpg",
+    "title": "Profile / Rivals",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Shared hierarchy and quiet panel; development toast retained."
+  },
+  {
+    "file": "screenshots/07-battles-402.jpg",
+    "title": "Battles",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Finished bot/legacy rows; no populated human safety acceptance."
+  },
+  {
+    "file": "screenshots/08-series-result-402.jpg",
+    "title": "Series result",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Actual practice victory, intact 2–1 score and equipment; development toast retained."
+  },
+  {
+    "file": "screenshots/09-active-workspace-402.jpg",
+    "title": "Active practice workspace",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Single authoring selector in an actual opened round."
+  },
+  {
+    "file": "screenshots/10-workspace-keyboard-402.jpg",
+    "title": "Writing with keyboard",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Typed local text, caret and unavailable lock control remain reachable."
+  },
+  {
+    "file": "screenshots/11-workspace-restored-tips-402.jpg",
+    "title": "Restored writing / tips",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Same local draft after parking/reopening and disclosure toggle."
+  },
+  {
+    "file": "screenshots/12-arena-accessibility-402.jpg",
+    "title": "Arena at accessibility size",
+    "evidence": "real",
+    "textSize": "accessibility",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Sharp heading and protected status area; tab-label truncation remains visible."
+  },
+  {
+    "file": "screenshots/13-settings-banner-402.jpg",
+    "title": "Settings banner",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Message and utility action have independent rows."
+  },
+  {
+    "file": "screenshots/14-native-type-banner-fixture-402.jpg",
+    "title": "Native typography / banner",
+    "evidence": "fixture",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Bundled component fixture; no account operations."
+  },
+  {
+    "file": "screenshots/15-winner-fixture-402.jpg",
+    "title": "Measured winner stage",
+    "evidence": "fixture",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Real winner component with local fighter data and pinned fixture Continue."
+  },
+  {
+    "file": "screenshots/16-result-export-fixture-402.jpg",
+    "title": "Result export PNG preview",
+    "evidence": "fixture",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Actual local capture after font/avatar/frame readiness; no OS share destination."
+  },
+  {
+    "file": "screenshots/17-no-contest-fixture-402.jpg",
+    "title": "No contest",
+    "evidence": "fixture",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Supplied stale winner, 2–1 and KO do not appear as the current verdict."
+  },
+  {
+    "file": "screenshots/18-creator-fixture-402.jpg",
+    "title": "Creator preset / style controls",
+    "evidence": "fixture",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Shared real controls, not authenticated creator progression."
+  },
+  {
+    "file": "screenshots/19-sign-in-375.jpg",
+    "title": "Sign in",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "note": "Compact brand and functional heading on small phone."
+  },
+  {
+    "file": "screenshots/20-create-account-375.jpg",
+    "title": "Create account",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "note": "Readable form/header boundary; no signup submitted."
+  },
+  {
+    "file": "screenshots/21-create-account-accessibility-375.jpg",
+    "title": "Create account at accessibility size",
+    "evidence": "real",
+    "textSize": "accessibility",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "note": "Sharp wrapped title; inside-word wrapping remains visible."
+  },
+  {
+    "file": "screenshots/22-type-banner-fixture-375.jpg",
+    "title": "Small native typography / banner",
+    "evidence": "fixture",
+    "textSize": "default",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "note": "Diacritics, non-Latin solid fallback and banner."
+  },
+  {
+    "file": "screenshots/23-winner-fixture-375.jpg",
+    "title": "Small measured winner stage",
+    "evidence": "fixture",
+    "textSize": "default",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "note": "Winner name, contained frame and Continue visible together."
+  },
+  {
+    "file": "screenshots/24-feedback-fixture-375.jpg",
+    "title": "Empty and error feedback",
+    "evidence": "fixture",
+    "textSize": "default",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "note": "Distinct empty/error headings and retry; no failed live request induced."
+  },
+  {
+    "file": "screenshots/25-skeleton-fixture-375.jpg",
+    "title": "Compact Profile skeleton",
+    "evidence": "fixture",
+    "textSize": "default",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "note": "Current hero, four-stat row and paired action geometry."
+  },
+  {
+    "file": "screenshots/26-banner-accessibility-fixture-375.jpg",
+    "title": "Banner at accessibility size",
+    "evidence": "fixture",
+    "textSize": "accessibility",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "note": "Full message and long action wrap independently; fontScale 2.143."
+  },
+  {
+    "file": "screenshots/27-open-cjk-accessibility-375.jpg",
+    "title": "OPEN: Japanese heading clipping",
+    "evidence": "fixture",
+    "textSize": "accessibility",
+    "viewport": {
+      "width": 375,
+      "height": 812
+    },
+    "note": "Unresolved at 375pt / fontScale 2.143 in the tested native runtime."
+  },
+  {
+    "file": "screenshots/28-rankings-season-402.jpg",
+    "title": "Rankings / ended season",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Actual server season state; no dates or rewards invented."
+  },
+  {
+    "file": "screenshots/29-wallet-packs-402.jpg",
+    "title": "Localized credit packs",
+    "evidence": "real",
+    "textSize": "default",
+    "viewport": {
+      "width": 402,
+      "height": 874
+    },
+    "note": "Full-width price rows, one border each; no purchase initiated."
+  }
+]

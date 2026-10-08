@@ -1,4 +1,4 @@
-import { GameButton } from '@/components/game';
+import { GameButton, CreditAmount } from '@/components/game';
 import { GameField } from '@/components/game';
 import { GameText } from '@/components/game';
 
@@ -77,7 +77,7 @@ export default function CustomItemSheet({
 
   const ready = name.trim().length > 0 && description.trim().length > 0;
   const copy = customItemButtonCopy({ price: cost, balance, pricingVerified });
-  const rows = spendRows(cost, balance);
+  const rows = spendRows(pricingVerified ? cost : null, balance);
   const disabled = busy || !ready || copy.intent === 'disabled';
 
   const onPress = () => {
@@ -185,17 +185,21 @@ export default function CustomItemSheet({
               >
                 {row.label}
               </GameText>
-              <GameText
-                variant="body"
-                style={[
-                  styles.rowValue,
-                  accessibleText,
-                  NumericFontVariant,
-                  { color: colors.text },
-                ]}
-              >
-                {row.value}
-              </GameText>
+              {row.amount !== undefined ? (
+                <CreditAmount amount={row.amount} />
+              ) : (
+                <GameText
+                  variant="body"
+                  style={[
+                    styles.rowValue,
+                    accessibleText,
+                    NumericFontVariant,
+                    { color: colors.text },
+                  ]}
+                >
+                  {row.value}
+                </GameText>
+              )}
             </View>
           ))}
         </View>

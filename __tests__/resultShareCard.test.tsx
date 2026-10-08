@@ -46,7 +46,7 @@ describe('ResultShareCard', () => {
   });
   it('shows the headline, both names, the score, the theme and the rating', () => {
     const { getByText } = render(<ResultShareCard {...props} />);
-    getByText('You won the series 2–1');
+    getByText('Victory');
     getByText('Rook');
     getByText('Vex');
     getByText('2–1');
@@ -85,7 +85,7 @@ describe('ResultShareCard', () => {
   it('is one accessible element that reads the whole result', () => {
     const { getByLabelText } = render(<ResultShareCard {...props} />);
     const card = getByLabelText(
-      'You won the series 2–1. Knockout. Rook versus Vex, 2–1. Theme: Neon graveyard. Rating +12',
+      'Victory. Knockout. Rook versus Vex, 2–1. Theme: Neon graveyard. Rating +12',
     );
     expect(card.props.accessible).toBe(true);
   });
@@ -93,5 +93,20 @@ describe('ResultShareCard', () => {
   it('never renders an AI-generated disclosure', () => {
     const { queryByText } = render(<ResultShareCard {...props} />);
     expect(queryByText(/AI[- ]GENERATED/i)).toBeNull();
+  });
+
+  it('suppresses the original score, KO and winner for no contest even if supplied', () => {
+    const view = render(
+      <ResultShareCard
+        {...props}
+        outcome="no_contest"
+        adjudicationRevision={2}
+      />,
+    );
+    expect(view.getByText('No contest')).toBeTruthy();
+    expect(view.queryByText('2–1')).toBeNull();
+    expect(view.queryByText(KNOCKOUT_TAG)).toBeNull();
+    expect(view.queryByTestId('share-card-winner-badge')).toBeNull();
+    expect(view.getByLabelText(/No contest.*Rook versus Vex/)).toBeTruthy();
   });
 });

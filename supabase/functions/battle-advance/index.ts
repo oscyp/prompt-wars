@@ -22,6 +22,7 @@ import { computeRatingDeltas } from '../_shared/glicko2.ts';
 import { RATING_QUALITY_FLOOR } from '../_shared/judge.ts';
 import { notifyBattleResult, notifyRoundStarted } from '../_shared/push.ts';
 import { enqueueAutoBattleVideo } from '../_shared/auto-video.ts';
+import { kickSuggestionPrefetch } from '../_shared/suggestion-service.ts';
 
 interface AdvanceRequest {
   battle_id: string;
@@ -51,7 +52,7 @@ Deno.serve(async (req) => {
       .from('battles')
       .select(
         `
-        id, format, status, mode, rules_version,
+        id, format, status, mode, rules_version, prompt_experience_version,
         player_one_id, player_two_id, is_player_two_bot,
         current_round, best_of,
         player_one_hp, player_two_hp, player_one_hp_max, player_two_hp_max,
@@ -135,29 +136,34 @@ Deno.serve(async (req) => {
         nextRound,
       );
 
-      const { error: insertErr } = await supabase.from('battle_rounds').insert({
-        battle_id,
-        round_number: nextRound,
-        status: 'waiting_for_prompts',
-        lock_in_deadline: deadline,
-      });
-      if (insertErr && !/duplicate/i.test(insertErr.message)) {
-        return errorResponse(
-          `Failed to create next round: ${insertErr.message}`,
-          500,
-        );
-      }
+      const { data: openedRound, error: openError } = await supabase.rpc(
+        'open_next_prompt_round',
+        {
+          p_battle_id: battle_id,
+          p_previous_round: battle.current_round ?? 1,
+          p_deadline: deadline,
+        },
+      );
+      if (openError) return errorResponse('Failed to open next round', 500);
+      if (!openedRound)
+        return successResponse({
+          skipped: true,
+          reason: 'concurrent_or_ineligible',
+        });
 
-      await supabase
-        .from('battles')
-        .update({
-          current_round: nextRound,
-          status: 'waiting_for_prompts',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', battle_id)
-        .eq('current_round', battle.current_round ?? 1)
-        .in('status', ['waiting_for_prompts', 'resolving']);
+      // Legacy only: composer2 waits for explicit Build entry.
+      // Generate the next round's suggestions now, while the players are
+      // still watching the round result. That reveal runs ~21s on its auto
+      // timings, so unlike round 1 this prefetch is fully covered -- the ideas
+      // are simply there when the prompt screen opens.
+      //
+      // `nextRound` is passed EXPLICITLY rather than letting the prefetcher
+      // read battles.current_round: the UPDATE above is conditional and can
+      // no-op under a race, in which case the stored round is still the
+      // previous one and we would claim the wrong round's free slots.
+      if ((battle.prompt_experience_version ?? 1) === 1) {
+        await kickSuggestionPrefetch(battle_id, nextRound);
+      }
 
       // Fire-and-forget: the round is already open, so a push failure must not
       // fail the advance.
@@ -166,7 +172,7 @@ Deno.serve(async (req) => {
       return successResponse({
         battle_id,
         next_round: nextRound,
-        lock_in_deadline: deadline,
+        lock_in_deadline: openedRound.lock_in_deadline,
       });
     }
 

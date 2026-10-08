@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const userId = await getAuthUserId(req);
+    const userId = await getAuthUserId(req, { capability: 'account' });
     const { blocked_profile_id }: UnblockProfileRequest = await req.json();
 
     if (!blocked_profile_id) {

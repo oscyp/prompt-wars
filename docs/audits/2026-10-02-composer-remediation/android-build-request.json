@@ -1,0 +1,22 @@
+{
+  "requestedAt": "2026-10-02T16:22:52.365963+00:00",
+  "command": [
+    "eas",
+    "build",
+    "--platform",
+    "android",
+    "--profile",
+    "preview",
+    "--non-interactive",
+    "--no-wait",
+    "--json",
+    "--message",
+    "Composer FINAL Android 7 QA APK: verified Android keyboard correction"
+  ],
+  "submissionRequested": false,
+  "replacesIntermediateBuild": "6a6caf8c-1848-43c1-9f9d-11be150105e2",
+  "ios16SourceMapDifferences": [
+    "app/(battle)/prompt-entry.tsx"
+  ],
+  "iosBuildUnchanged": true
+}

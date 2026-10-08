@@ -18,8 +18,11 @@ import Purchases, {
   PURCHASES_ERROR_CODE,
 } from 'react-native-purchases';
 import { AppState, Platform } from 'react-native';
+import { router } from 'expo-router';
+import { confirmGuestPurchase } from '@/utils/guestAccount';
 import { supabase } from '@/utils/supabase';
 import { isPlusActive } from '@/utils/revenuecat';
+import { getAccountEligibility } from '@/utils/registration';
 import { generateIdempotencyKey } from '@/utils/characters';
 import { restoreOutcomeFor, type RestoreOutcome } from '@/utils/walletView';
 
@@ -321,9 +324,22 @@ export function RevenueCatProvider({ children }: { children: ReactNode }) {
     let id: string | undefined;
     let storeStarted = false;
     try {
-      id = (await supabase.auth.getUser()).data.user?.id;
+      const purchaser = (await supabase.auth.getUser()).data.user;
+      id = purchaser?.id;
       if (!id) throw new Error('Sign in before purchasing');
       if (await isCurrent(id)) setError(null);
+      if (purchaser?.is_anonymous && !(await readPendingPurchase(id))) {
+        const decision = await confirmGuestPurchase(id);
+        if (!(await isCurrent(id))) return 'cancelled';
+        if (decision === 'secure') {
+          router.push({
+            pathname: '/(profile)/settings',
+            params: { secure: '1' },
+          });
+          return 'cancelled';
+        }
+        if (decision !== 'continue') return 'cancelled';
+      }
       return await withStoreAccount(id, async () => {
         const existing = await readPendingPurchase(id!);
         if (existing) {
@@ -356,6 +372,20 @@ export function RevenueCatProvider({ children }: { children: ReactNode }) {
         await publishPending(id!);
         if (!(await isCurrent(id!)))
           throw new Error('Account changed before checkout opened');
+        if (process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED === '1') {
+          // Recheck the server immediately before new checkout. Existing store
+          // transactions and Restore remain recoverable if consent changes.
+          const eligibility = await getAccountEligibility();
+          if (eligibility.can_purchase !== true) {
+            if (await isCurrent(id!))
+              setError('Purchases are currently unavailable for this account.');
+            throw new Error(
+              'Purchases are currently unavailable for this account.',
+            );
+          }
+          if (!(await isCurrent(id!)))
+            throw new Error('Account changed before checkout opened');
+        }
         const started: CheckoutRecord = {
           ...pending,
           checkoutPhase: 'started',

@@ -61,6 +61,11 @@ Deno.serve(async (req) => {
     const supabase = createServiceClient();
 
     if (action === 'purchase') {
+      const { data: eligibility, error: accessError } = await supabase.rpc('get_account_eligibility', { p_profile_id: userId });
+      if (accessError || eligibility?.can_purchase !== true) {
+        return errorResponse('account_eligibility_required', 403);
+      }
+
       if (!body.cosmetic_slug) {
         return errorResponse('cosmetic_slug required');
       }

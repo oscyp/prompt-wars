@@ -1,0 +1,41 @@
+{
+  "completed": "2026-09-27",
+  "typescript": {
+    "command": "yarn tsc --noEmit",
+    "status": "passed"
+  },
+  "eslint": {
+    "command": "yarn lint",
+    "errors": 0,
+    "warnings": 1,
+    "existingWarning": "app/_layout.tsx:29 @typescript-eslint/no-require-imports"
+  },
+  "jest": {
+    "command": "yarn test --runInBand",
+    "suitesPassed": 198,
+    "testsPassed": 1613,
+    "failed": 0
+  },
+  "fixtureIsolation": {
+    "command": "node scripts/visual-fixtures-check.cjs",
+    "status": "passed"
+  },
+  "review": "No actionable regressions in scoped change",
+  "native": {
+    "actualRouteCaptures": 3,
+    "componentFixtureCaptures": 19,
+    "userReferences": 4,
+    "viewports": [
+      "375x812",
+      "402x874"
+    ],
+    "textCategories": [
+      "large",
+      "accessibility-large"
+    ],
+    "voiceOver": "unverified",
+    "actualBetweenRoundAndClaimableQuest": "unavailable in existing account",
+    "android": "blocked",
+    "acceptance": "partial"
+  }
+}

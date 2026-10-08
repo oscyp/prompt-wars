@@ -1,12 +1,9 @@
+import BattleHeader from '@/components/battle/BattleHeader';
+import { environmentForTheme } from '@/constants/BattleEnvironmentArt';
 import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BattleThemePlaque } from '@/components/game/battle/BattleThemePlaque';
-import {
-  GameText as Text,
-  GameFooter,
-  GameButton,
-  GamePanel,
-} from '@/components/game';
+import { GameText as Text, GamePanel } from '@/components/game';
 import BattleOpponentSafety from '@/components/BattleOpponentSafety';
 import { requestFirstAsyncWaitNotifications } from '@/utils/asyncWaitNotifications';
 import { exactBattleDeadline } from '@/utils/battleCopy';
@@ -21,7 +18,6 @@ import {
   View,
   StyleSheet,
   ActivityIndicator,
-  TouchableOpacity,
   ScrollView,
   ImageBackground,
   Alert,
@@ -41,7 +37,6 @@ import {
   Elevation,
   NumericFontVariant,
 } from '@/constants/DesignTokens';
-import { presentationForTheme } from '@/constants/ThemeArt';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import { useLeaveBattle } from '@/hooks/useLeaveBattle';
 import { useAuth } from '@/providers/AuthProvider';
@@ -102,7 +97,6 @@ export default function WaitingScreen() {
   const isBo3 = format === 'bo3';
   const isBot = Boolean(battle?.is_player_two_bot);
   useBattleAudio(battle?.theme);
-  const arenaPresentation = presentationForTheme(battle?.theme);
   const isPlayerOne =
     Boolean(battle) && Boolean(user) && battle!.player_one_id === user!.id;
 
@@ -512,20 +506,21 @@ export default function WaitingScreen() {
     isBot,
     hasOpponent: opponentReady,
   });
-  const isFinishing =
-    battle?.status === 'resolving' ||
-    battle?.status === 'result_ready' ||
-    battle?.status === 'generating_video';
-
   return (
     <ImageBackground
-      source={arenaPresentation.backdrop}
+      source={environmentForTheme(battle?.theme).backdrop}
       style={styles.container}
       resizeMode="cover"
     >
       {/* Scrim keeps overlay text AA on top of the arena illustration. */}
       <View style={styles.scrim} />
-      <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+      <BattleHeader
+        onPark={() => router.dismissTo('/(tabs)/home')}
+        onLeave={() => leave.confirmLeave()}
+        leaveDisabled={leave.isLeaving || !leave.canForfeit || !canLeave}
+        leaveLabel={leaveLabel}
+      />
+      <SafeAreaView edges={['left', 'right']} style={{ flex: 1 }}>
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.content}
@@ -700,24 +695,6 @@ export default function WaitingScreen() {
             </Text>
           )}
 
-          {canLeave ? (
-            <TouchableOpacity
-              style={styles.leaveLink}
-              onPress={() => leave.confirmLeave()}
-              disabled={leave.isLeaving || !leave.canForfeit}
-              accessibilityLabel={leaveLabel}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: leave.isLeaving }}
-            >
-              <Text style={styles.leaveLinkText}>
-                {leave.isLeaving ? 'Leaving…' : leaveLabel}
-              </Text>
-            </TouchableOpacity>
-          ) : isFinishing ? (
-            <Text style={styles.hint}>
-              This battle is finishing now, so it can no longer be left.
-            </Text>
-          ) : null}
           <BattleOpponentSafety
             battle={battle}
             myId={user?.id}
@@ -726,19 +703,6 @@ export default function WaitingScreen() {
         </ScrollView>
       </SafeAreaView>
 
-      <SafeAreaView
-        edges={['bottom']}
-        style={{ backgroundColor: colors.background }}
-      >
-        <GameFooter>
-          <GameButton
-            label="Return to Arena"
-            tone="secondary"
-            icon="chevron-back"
-            onPress={() => router.dismissTo('/(tabs)/home')}
-          />
-        </GameFooter>
-      </SafeAreaView>
       <PortraitViewer
         returnFocusRef={portraitViewer.returnFocusRef}
         visible={portraitViewer.visible}
@@ -759,7 +723,7 @@ const styles = StyleSheet.create({
   },
   scrim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(11, 11, 15, 0.55)',
+    backgroundColor: 'rgba(11, 11, 15, 0.45)',
   },
   scroll: {
     flex: 1,
@@ -769,7 +733,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.lg,
-    paddingTop: Spacing.lg + 44,
+    paddingTop: Spacing.lg,
   },
   seriesBlock: {
     width: '100%',

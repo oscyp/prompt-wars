@@ -2,11 +2,19 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useBattleAppeal } from '@/hooks/useBattleAppeal';
 import { readBattleAppeal, reviewedRounds } from '@/utils/appeals';
 import type { BattleRound } from '@/types/battle';
+import { FunctionInvokeError } from '@/utils/supabase';
 jest.mock('@/utils/appeals', () => ({
   ...jest.requireActual('@/utils/appeals'),
   readBattleAppeal: jest.fn(),
 }));
 jest.mock('@/utils/supabase', () => ({
+  FunctionInvokeError: class extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+      super(message);
+      this.status = status;
+    }
+  },
   supabase: {
     channel: jest.fn(() => ({
       on: jest.fn().mockReturnThis(),
@@ -23,6 +31,23 @@ jest.mock('expo-router', () => ({
 }));
 const read = readBattleAppeal as jest.Mock;
 beforeEach(() => read.mockReset());
+it('refreshes authoritative availability after a 409 submit', async () => {
+  read.mockResolvedValueOnce({ appeal: null, available: true, reason: null });
+  const { result } = renderHook(() => useBattleAppeal('battle', 'me'));
+  await waitFor(() => expect(result.current.data?.available).toBe(true));
+  read.mockRejectedValueOnce(
+    new FunctionInvokeError('No longer available', 409, null),
+  );
+  read.mockResolvedValueOnce({
+    appeal: null,
+    available: false,
+    reason: 'Daily limit reached.',
+  });
+  await act(() => result.current.submit());
+  expect(read).toHaveBeenLastCalledWith('battle', 'status');
+  expect(result.current.data?.available).toBe(false);
+  expect(result.current.error).toBeNull();
+});
 it('restores final status and refreshes authoritative result after remount', async () => {
   read.mockResolvedValue({
     appeal: { id: 'appeal', review_status: 'overturned' },

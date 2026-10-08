@@ -69,6 +69,9 @@ export interface VideoJobUpdate {
   error_message: string | null;
   /** Newest-first ordering uses this. */
   created_at?: string;
+  cinematic_profile?: 'standard' | 'plus' | null;
+  target_duration_seconds?: number | null;
+  duration_policy_version?: string | null;
 }
 
 export interface PromptUpdate {

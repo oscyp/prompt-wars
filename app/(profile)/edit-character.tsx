@@ -4,8 +4,9 @@ import {
   EditorFooter,
 } from '@/components/edit-character/EditorChrome';
 import BottomSheet from '@/components/sheets/BottomSheet';
+import HeaderBackButton from '@/components/HeaderBackButton';
 import FighterCard from '@/components/game/FighterCard';
-import { GameIcon } from '@/components/game/icons/GameIcon';
+import { GameHeader } from '@/components/game/GameHeader';
 import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
 import {
   useSheetReturnFocus,
@@ -28,7 +29,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Pressable,
   AppState,
   TextInput,
   findNodeHandle,
@@ -56,7 +56,6 @@ import {
 } from '@/hooks/useCharacterEditDraft';
 import { describeEditError, EditError } from '@/utils/editErrors';
 import { fetchEditPricing, type EditPricing } from '@/utils/editCooldowns';
-import { formatCredits } from '@/utils/credits';
 import {
   saveConfirmCopy,
   renderConfirmCopy,
@@ -179,14 +178,40 @@ function CharacterEditor() {
   const {
     credits,
     loading: creditsLoading,
+    error: creditsError,
     refresh: refreshCredits,
-  } = useCredits();
+  } = useCredits(user?.id ?? null);
 
   const window = useWindowDimensions();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const scrollPosition = useRef(0);
   const [footerHeight, setFooterHeight] = useState(0);
+  const revealFocusedInput = useCallback(() => {
+    requestAnimationFrame(() => {
+      const focused = TextInput.State.currentlyFocusedInput?.();
+      if (!focused) return;
+      const handle = findNodeHandle(
+        focused as unknown as Parameters<typeof findNodeHandle>[0],
+      );
+      if (handle)
+        scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(
+          handle,
+          12,
+          true,
+        );
+    });
+  }, []);
+  useEffect(() => {
+    if (keyboardVisible) revealFocusedInput();
+  }, [
+    keyboardVisible,
+    footerHeight,
+    window.height,
+    window.width,
+    window.fontScale,
+    revealFocusedInput,
+  ]);
   const panelOffset = useRef(0);
   const colorOffset = useRef<number | null>(null);
   const colorFocused = useRef(false);
@@ -751,7 +776,7 @@ function CharacterEditor() {
     paidRecovery.checking ||
     paidRecovery.dispatching ||
     paidRecovery.operation?.status === 'pending';
-  const balance = creditsLoading ? null : credits;
+  const balance = creditsLoading || creditsError ? null : credits;
   const canRetryAvatar = Boolean(pricing.prices.avatar_retry);
 
   /** No avatar, or one drawn for an earlier look than the fighter. */
@@ -820,8 +845,8 @@ function CharacterEditor() {
           }
         : initialPortraitsLeft > 0
           ? {
-              label: `Draw portrait · Free (${initialPortraitsLeft} left)`,
-              accessibilityLabel: `Draw portrait free. ${initialPortraitsLeft} initial portraits remaining.`,
+              label: 'Review & draw',
+              accessibilityLabel: `Review and draw. ${initialPortraitsLeft} included draws remaining.`,
               intent: editingDisabled
                 ? ('disabled' as const)
                 : ('render' as const),
@@ -944,13 +969,12 @@ function CharacterEditor() {
       const ok = await saveDraft();
       if (ok) {
         await afterEdit();
-        showToast('Changes saved · free');
       }
     } finally {
       mutationBusy.current = false;
       setBusyKey(null);
     }
-  }, [saveDraft, afterEdit, showToast, editingDisabled, saveBlocked]);
+  }, [saveDraft, afterEdit, editingDisabled, saveBlocked]);
 
   /**
    * Avatar state for a server too old to report it: read the reloaded row and
@@ -1272,22 +1296,41 @@ function CharacterEditor() {
     switch (sheet.kind) {
       case 'save':
         return saveConfirmCopy({ changes: draft.changes });
-      case 'render':
-        return renderConfirmCopy({
-          price: renderCost,
+      case 'render': {
+        const copy = renderConfirmCopy({
+          price:
+            initialPortraitsLeft > 0 ? 0 : pricingVerified ? renderCost : null,
           balance,
           changes: draft.changes,
         });
+        return initialPortraitsLeft > 0
+          ? {
+              ...copy,
+              lines: [
+                ...copy.lines,
+                `Uses 1 included draw. ${initialPortraitsLeft - 1} remaining afterwards.`,
+              ],
+            }
+          : copy;
+      }
       case 'random':
         return randomConfirmCopy({
-          price: randomCost,
+          price: pricingVerified ? randomCost : null,
           balance,
           changes: draft.changes,
         });
       case 'topUp':
         return topUpCopy({ price: sheet.price, balance });
     }
-  }, [sheet, draft.changes, renderCost, randomCost, balance]);
+  }, [
+    sheet,
+    draft.changes,
+    renderCost,
+    randomCost,
+    balance,
+    pricingVerified,
+    initialPortraitsLeft,
+  ]);
 
   const runRestore = useCallback(
     async (portraitId: string, fallbackAvatarId?: string | null) => {
@@ -1352,7 +1395,7 @@ function CharacterEditor() {
         setReveal((r) => (r ? { ...r, avatar: { status: 'ready', uri } } : r));
       }
       setAvatarNeedsRetry(false);
-      showToast('Avatar drawn · free');
+      showToast('Avatar drawn');
       await afterEdit();
     } catch (err) {
       console.error('Failed to retry avatar', {
@@ -1378,12 +1421,8 @@ function CharacterEditor() {
   const onKeep = useCallback(() => {
     if (!reveal) return;
     hapticSelection();
-    const spent =
-      reveal.creditsSpent > 0
-        ? ` · ${formatCredits(reveal.creditsSpent, 'sentence')} spent`
-        : ' · free';
     showToast(
-      `${reveal.mode === 'random' ? 'New character kept' : 'New look kept'}${spent}`,
+      reveal.mode === 'random' ? 'New character kept' : 'New look kept',
     );
     if (paidRecovery.operation) {
       void paidRecovery.dismiss().then((ok) => {
@@ -1431,45 +1470,30 @@ function CharacterEditor() {
     }
   }, [allowRemove, navigation]);
   const header = (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        paddingHorizontal: 12,
-        minHeight: 56,
-      }}
-    >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={
-          router.canGoBack() ? 'Go back' : 'Return to Profile'
-        }
-        onPress={() =>
-          router.canGoBack() ? router.back() : router.replace('/(tabs)/profile')
-        }
-        style={{ minWidth: 48, minHeight: 48, justifyContent: 'center' }}
-      >
-        <GameIcon name="chevron-left" size={24} color={colors.ornament} />
-        {!router.canGoBack() && <GameText variant="caption">Profile</GameText>}
-      </Pressable>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <GameDisplayTitle
-          style={{
-            fontSize: window.fontScale > 1.3 ? 24 : 30,
-            textAlign: 'center',
-          }}
-        >
-          EDIT LOOK
-        </GameDisplayTitle>
-      </View>
-      <CreditChip
-        focusRef={walletFocusRef}
-        credits={credits}
-        unavailable={creditsLoading}
-        onPress={goToWallet}
-      />
-    </View>
+    <GameHeader
+      presentation="secondary"
+      title="Edit Look"
+      style={{ paddingHorizontal: 12 }}
+      leading={
+        <HeaderBackButton
+          onPress={() =>
+            router.canGoBack()
+              ? router.back()
+              : router.replace('/(tabs)/profile')
+          }
+        />
+      }
+      trailing={
+        !keyboardVisible && (
+          <CreditChip
+            focusRef={walletFocusRef}
+            credits={credits}
+            unavailable={creditsLoading || creditsError}
+            onPress={goToWallet}
+          />
+        )
+      }
+    />
   );
 
   // --- Render --------------------------------------------------------------
@@ -1551,7 +1575,7 @@ function CharacterEditor() {
                 ? 'Unsaved changes · artwork unchanged'
                 : portraitStale
                   ? 'Choices saved · artwork not updated'
-                  : 'Current artwork · drawing is optional'));
+                  : ''));
   const footerRenderLabel = paidRecovery.blocked
     ? paidRecovery.loading || paidRecovery.checking
       ? 'Checking status…'
@@ -1562,23 +1586,20 @@ function CharacterEditor() {
           : 'Check status'
     : initialRecoveryBlocked
       ? renderButton.label
-      : initialPortraitsLeft > 0
-        ? 'Review & draw · Free (' + initialPortraitsLeft + ' left)'
-        : !pricingVerified
-          ? renderButton.label
-          : renderButton.intent === 'topUp'
-            ? renderButton.label
-            : (draft.dirty
-                ? 'Review & draw'
-                : portraitStale
-                  ? 'Draw updated look'
-                  : 'Draw another version') +
-              ' · ' +
-              formatCredits(renderCost, 'sentence');
+      : 'Review & draw';
+  const editorStatus = [
+    initialPortraitsLeft > 0 && !paidRecovery.blocked && !initialRecoveryBlocked
+      ? `${initialPortraitsLeft} included draws remaining`
+      : '',
+    footerStatus,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   const panel =
     activeCategory === 'identity' ? (
       <IdentityPanel
+        onInputFocus={revealFocusedInput}
         character={character}
         staged={draft.values}
         changedKeys={changedKeys}
@@ -1601,6 +1622,7 @@ function CharacterEditor() {
       />
     ) : activeCategory === 'look' ? (
       <LookPanel
+        onInputFocus={revealFocusedInput}
         mode={draft.activeMode}
         writtenText={draft.writtenText}
         onModeChange={draft.setMode}
@@ -1645,23 +1667,25 @@ function CharacterEditor() {
     >
       <Stack.Screen options={{ headerShown: false }} />
       {header}
-      <EditorPreview
-        name={stagedName}
-        archetype={stagedArchetype}
-        avatarUri={avatarUrl ?? fallbackUri}
-        cosmetics={cosmetics}
-        accentColor={accentColor}
-        compact={compactPreview}
-        dirty={draft.dirty}
-        onImageError={() => setArtLoadError(true)}
-        onView={openViewer}
-        onHistory={(opener) => {
-          rememberSheetOpener(opener);
-          Keyboard.dismiss();
-          setHistoryOpen(true);
-          void loadHistory();
-        }}
-      />
+      {!keyboardVisible && window.fontScale <= 1.3 && (
+        <EditorPreview
+          name={stagedName}
+          archetype={stagedArchetype}
+          avatarUri={avatarUrl ?? fallbackUri}
+          cosmetics={cosmetics}
+          accentColor={accentColor}
+          compact={compactPreview}
+          dirty={draft.dirty}
+          onImageError={() => setArtLoadError(true)}
+          onView={openViewer}
+          onHistory={(opener) => {
+            rememberSheetOpener(opener);
+            Keyboard.dismiss();
+            setHistoryOpen(true);
+            void loadHistory();
+          }}
+        />
+      )}
       <EditorTabs
         value={activeCategory}
         dirty={draft.dirtySections}
@@ -1686,31 +1710,40 @@ function CharacterEditor() {
           draft.setScrollPosition(activeCategory, scrollPosition.current)
         }
         scrollEventThrottle={32}
-        onLayout={() => {
-          if (keyboardVisible && footerHeight > 0) {
-            const node = scrollRef.current as ScrollView & {
-              scrollResponderScrollNativeHandleToKeyboard?: (
-                node: number,
-                offset: number,
-                prevent: boolean,
-              ) => void;
-            };
-            // ScrollView owns field scrolling; the outer avoider owns keyboard height.
-            const focused = TextInput.State.currentlyFocusedInput?.();
-            if (focused) {
-              const handle = findNodeHandle(
-                focused as unknown as Parameters<typeof findNodeHandle>[0],
-              );
-              if (handle)
-                node?.scrollResponderScrollNativeHandleToKeyboard?.(
-                  handle,
-                  12,
-                  true,
-                );
-            }
-          }
+        onLayout={revealFocusedInput}
+        onContentSizeChange={() => {
+          if (keyboardVisible) revealFocusedInput();
         }}
       >
+        {!keyboardVisible && window.fontScale > 1.3 && (
+          <EditorPreview
+            name={stagedName}
+            archetype={stagedArchetype}
+            avatarUri={avatarUrl ?? fallbackUri}
+            cosmetics={cosmetics}
+            accentColor={accentColor}
+            compact={compactPreview}
+            dirty={draft.dirty}
+            onImageError={() => setArtLoadError(true)}
+            onView={openViewer}
+            onHistory={(opener) => {
+              rememberSheetOpener(opener);
+              Keyboard.dismiss();
+              setHistoryOpen(true);
+              void loadHistory();
+            }}
+          />
+        )}
+
+        {!!editorStatus && window.fontScale > 1.3 && (
+          <GameText
+            variant="caption"
+            accessibilityLiveRegion="polite"
+            style={{ paddingHorizontal: 16, paddingVertical: 8 }}
+          >
+            {editorStatus}
+          </GameText>
+        )}
         {paidRecovery.blocked && !paidRecovery.loading && (
           <View style={styles.notice}>
             <GameText variant="body" accessibilityLiveRegion="polite">
@@ -1883,7 +1916,7 @@ function CharacterEditor() {
         )}
         {avatarPending && canRetryAvatar && (
           <GameButton
-            label="Repair avatar · Free"
+            label="Repair avatar"
             tone="secondary"
             disabled={editingDisabled}
             onPress={() => void runRetryAvatar()}
@@ -1891,16 +1924,15 @@ function CharacterEditor() {
         )}
         <View style={styles.notice}>
           <GameButton
-            label={
-              pricingVerified
-                ? randomButton.label.replace(/^.*?·/, 'Shuffle & draw ·')
-                : 'Shuffle & draw · Price unavailable'
+            label="Shuffle & draw"
+            amount={
+              pricingVerified ? (randomCost > 0 ? randomCost : undefined) : null
             }
             accessibilityLabel={randomButton.accessibilityLabel.replace(
               'Generate a random character',
               'Shuffle and draw',
             )}
-            gameIcon="replay"
+            gameIcon="dice"
             tone="secondary"
             disabled={randomButton.intent === 'disabled' || rendering}
             onPress={() => onRandomPress(walletFocusRef)}
@@ -1918,7 +1950,7 @@ function CharacterEditor() {
       </ScrollView>
       <View style={{ paddingBottom: keyboardVisible ? 0 : insets.bottom }}>
         <EditorFooter
-          status={footerStatus}
+          status={editorStatus}
           renderLabel={footerRenderLabel}
           saveDisabled={!draft.dirty || editingDisabled || saveBlocked}
           renderDisabled={
@@ -2103,7 +2135,7 @@ function CharacterEditor() {
           <View style={{ gap: 8 }}>
             {viewerPortraitId && (
               <GameButton
-                label="Restore this look · Free"
+                label="Restore this look"
                 disabled={editingDisabled}
                 busy={restoringId === viewerPortraitId}
                 onPress={() => void runRestore(viewerPortraitId)}
@@ -2120,9 +2152,9 @@ function CharacterEditor() {
           </View>
         }
       >
-        <GameText variant="caption">
-          {viewerPortraitId ? 'Previous artwork' : 'Current artwork'}
-        </GameText>
+        {viewerPortraitId && (
+          <GameText variant="caption">Previous artwork</GameText>
+        )}
         {viewerUri ? (
           <FighterCard
             name={stagedName}

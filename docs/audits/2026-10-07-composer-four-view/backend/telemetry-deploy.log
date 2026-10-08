@@ -1,0 +1,4 @@
+Bundling Function: record-funnel-event
+Deploying Function: record-funnel-event (script size: 122kB)
+Deployed Functions on project uoyjhudegdpanrgllfoj: record-funnel-event
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/uoyjhudegdpanrgllfoj/functions

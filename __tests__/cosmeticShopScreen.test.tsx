@@ -8,6 +8,7 @@ const ReactNative =
 jest.mock('@/hooks/useCosmeticShop');
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
+  useSegments: () => ['(profile)', 'shop'],
   Stack: { Screen: () => null },
   useRouter: () => ({
     push: mockPush,
@@ -37,6 +38,7 @@ const item = {
 };
 const refresh = jest.fn();
 beforeEach(() => {
+  mockPush.mockClear();
   jest
     .spyOn(AppState, 'addEventListener')
     .mockImplementation(() => ({ remove: jest.fn() }));
@@ -77,13 +79,14 @@ it('hides unsupported reveals and filters owned items', () => {
   fireEvent.press(screen.getByLabelText('Preview Gold Frame'));
   screen.getByLabelText('Remove Gold Frame');
 });
-it('puts the full header in the scroller and previews in a bounded sheet', () => {
+it('keeps one fixed shared header and previews in a bounded sheet', () => {
   const screen = render(<Shop />);
   expect(
     screen
       .getByTestId('shop-scroll')
       .findAllByProps({ accessibilityRole: 'header' }).length,
-  ).toBeGreaterThan(0);
+  ).toBe(0);
+  expect(screen.getByRole('header', { name: 'COSMETIC SHOP' })).toBeTruthy();
   fireEvent.press(screen.getByLabelText('Preview Gold Frame'));
   screen.getByText('Previewing Gold Frame');
   screen.getByLabelText('Portrait context');
@@ -168,9 +171,12 @@ it('keeps all equipment slots discoverable behind the compact summary', () => {
   screen.getByText('Aura: None');
   screen.getByText('Badge: None');
   fireEvent.press(
-    screen.getByRole('button', { name: 'Edit character colours' }),
+    screen.getByRole('button', { name: 'Edit Look · Signature colour' }),
   );
-  expect(mockPush).toHaveBeenCalledWith('/(profile)/edit-character');
+  expect(mockPush).toHaveBeenLastCalledWith({
+    pathname: '/(profile)/edit-character',
+    params: { section: 'fighter', focus: 'signature-color' },
+  });
 });
 
 it('selects all five categories and retains the owned filter across them', () => {
@@ -205,7 +211,10 @@ it('routes owned colour previews to Edit character without equipping', () => {
   fireEvent.press(
     screen.getByRole('button', { name: 'Wear Violet. Opens Edit character' }),
   );
-  expect(mockPush).toHaveBeenCalledWith('/(profile)/edit-character');
+  expect(mockPush).toHaveBeenLastCalledWith({
+    pathname: '/(profile)/edit-character',
+    params: { section: 'fighter', focus: 'signature-color' },
+  });
   expect(state.equip).not.toHaveBeenCalled();
 });
 
@@ -268,7 +277,7 @@ it('keeps catalog tiles non-actionable and the full price visible before Preview
     screen.getByText('A long frame name that must stay complete').props
       .numberOfLines,
   ).toBeUndefined();
-  expect(screen.getByText(/12345 credits/).props.numberOfLines).toBeUndefined();
+  expect(screen.getByText('12,345').props.numberOfLines).toBeUndefined();
   expect(state.purchase).not.toHaveBeenCalled();
   expect(state.equip).not.toHaveBeenCalled();
 });

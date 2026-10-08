@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const userId = await getAuthUserId(req);
+    const userId = await getAuthUserId(req, { capability: 'purchase' });
     const body: FtuoRequest = await req.json().catch(() => ({}));
     const action = body.action ?? 'get';
     const supabase = createServiceClient();

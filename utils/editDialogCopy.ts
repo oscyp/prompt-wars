@@ -19,6 +19,8 @@ import { describeLook, type DescribedLook } from '@/constants/CharacterTraits';
 export interface SpendRow {
   label: 'Price' | 'Balance' | 'After';
   value: string;
+  /** Structured visual amount; value remains for prose and legacy callers. */
+  amount?: number | null;
 }
 
 export interface SheetCopy {
@@ -34,18 +36,27 @@ export interface SheetCopy {
  * Price / Balance / After. Balance rows are omitted while the balance is still
  * loading (`null`) rather than shown as zero.
  */
-export function spendRows(price: number, balance: number | null): SpendRow[] {
-  if (!Number.isFinite(price) || price <= 0) {
-    return [{ label: 'Price', value: 'Free' }];
+export function spendRows(
+  price: number | null,
+  balance: number | null,
+): SpendRow[] {
+  if (price === null || !Number.isFinite(price) || price < 0) {
+    return [{ label: 'Price', value: 'Unavailable', amount: null }];
   }
+  if (price === 0) return [];
   const rows: SpendRow[] = [
-    { label: 'Price', value: formatCredits(price, 'sentence') },
+    { label: 'Price', value: formatCredits(price, 'sentence'), amount: price },
   ];
   if (balance !== null && Number.isFinite(balance)) {
-    rows.push({ label: 'Balance', value: creditsNoun(balance) });
+    rows.push({
+      label: 'Balance',
+      value: creditsNoun(balance),
+      amount: balance,
+    });
     rows.push({
       label: 'After',
       value: creditsNoun(Math.max(0, balance - price)),
+      amount: Math.max(0, balance - price),
     });
   }
   return rows;
@@ -75,7 +86,6 @@ function plural(n: number, noun: string): string {
 export function saveConfirmCopy(a: { changes: DraftChange[] }): SheetCopy {
   return {
     title: 'Save changes?',
-    subtitle: 'Free',
     lines: changeLines(a.changes),
     rows: [],
     footnote: locksFootnote(a.changes),
@@ -84,7 +94,7 @@ export function saveConfirmCopy(a: { changes: DraftChange[] }): SheetCopy {
 }
 
 export function renderConfirmCopy(a: {
-  price: number;
+  price: number | null;
   balance: number | null;
   changes: DraftChange[];
 }): SheetCopy {
@@ -102,7 +112,7 @@ export function renderConfirmCopy(a: {
 }
 
 export function randomConfirmCopy(a: {
-  price: number;
+  price: number | null;
   balance: number | null;
   changes: DraftChange[];
 }): SheetCopy {

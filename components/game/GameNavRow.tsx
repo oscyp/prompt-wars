@@ -81,7 +81,8 @@ export function GameNavRow({
         <GameBevel
           color={focused ? colors.focusRing : colors.ornamentMuted}
           fill={colors.card}
-          strokeWidth={focused ? 2 : 1}
+          strokeWidth={focused ? 2 : 1.5}
+          insetColor={colors.ornamentMuted}
           cut={8}
         />
       )}

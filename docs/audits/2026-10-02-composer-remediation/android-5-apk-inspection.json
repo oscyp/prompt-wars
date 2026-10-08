@@ -1,0 +1,419 @@
+{
+  "apkPath": "/tmp/prompt-wars-android-remediation-20261002.apk",
+  "bytes": 138992069,
+  "sha256": "6af97e2faf5f320589d82f71ac2a1f9b254207a0c979ef8a4592a87d97581e91",
+  "zipIntegrity": true,
+  "firstBadZipMember": null,
+  "manifest": [
+    {
+      "element": "manifest",
+      "attributes": {
+        "versionCode": 5,
+        "versionName": "1.3.3",
+        "compileSdkVersion": 36,
+        "compileSdkVersionCodename": "16",
+        "package": "gg.promptwars.app",
+        "platformBuildVersionCode": 36,
+        "platformBuildVersionName": 16
+      }
+    },
+    {
+      "element": "uses-sdk",
+      "attributes": {
+        "minSdkVersion": 24,
+        "targetSdkVersion": 36
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "android.intent.action.VIEW"
+      }
+    },
+    {
+      "element": "category",
+      "attributes": {
+        "name": "android.intent.category.BROWSABLE"
+      }
+    },
+    {
+      "element": "data",
+      "attributes": {
+        "scheme": "https"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "android.intent.action.SEND"
+      }
+    },
+    {
+      "element": "data",
+      "attributes": {
+        "mimeType": "*/*"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "android.intent.action.OPEN_DOCUMENT_TREE"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "com.android.vending.billing.InAppBillingService.BIND"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "com.google.android.apps.play.billingtestcompanion.BillingOverrideService.BIND"
+      }
+    },
+    {
+      "element": "application",
+      "attributes": {
+        "theme": {
+          "type": 1,
+          "data": 2131951629
+        },
+        "label": {
+          "type": 1,
+          "data": 2131886111
+        },
+        "icon": {
+          "type": 1,
+          "data": 2131689472
+        },
+        "name": "gg.promptwars.app.MainApplication",
+        "allowBackup": true,
+        "supportsRtl": true,
+        "extractNativeLibs": false,
+        "roundIcon": {
+          "type": 1,
+          "data": 2131689474
+        },
+        "appComponentFactory": "androidx.core.app.CoreComponentFactory",
+        "enableOnBackInvokedCallback": false
+      }
+    },
+    {
+      "element": "activity",
+      "attributes": {
+        "theme": {
+          "type": 1,
+          "data": 2131952264
+        },
+        "name": "gg.promptwars.app.MainActivity",
+        "exported": true,
+        "launchMode": 2,
+        "screenOrientation": 1,
+        "configChanges": 4016,
+        "windowSoftInputMode": 16
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "android.intent.action.MAIN"
+      }
+    },
+    {
+      "element": "category",
+      "attributes": {
+        "name": "android.intent.category.LAUNCHER"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "android.intent.action.VIEW"
+      }
+    },
+    {
+      "element": "category",
+      "attributes": {
+        "name": "android.intent.category.DEFAULT"
+      }
+    },
+    {
+      "element": "category",
+      "attributes": {
+        "name": "android.intent.category.BROWSABLE"
+      }
+    },
+    {
+      "element": "data",
+      "attributes": {
+        "scheme": "promptwars"
+      }
+    },
+    {
+      "element": "data",
+      "attributes": {
+        "scheme": "exp+prompt-wars"
+      }
+    },
+    {
+      "element": "activity",
+      "attributes": {
+        "theme": {
+          "type": 1,
+          "data": 2131951955
+        },
+        "name": "expo.modules.video.FullscreenPlayerActivity",
+        "configChanges": 3520,
+        "supportsPictureInPicture": true
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "com.google.firebase.MESSAGING_EVENT"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "expo.modules.notifications.NOTIFICATION_EVENT"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "android.intent.action.BOOT_COMPLETED"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "android.intent.action.REBOOT"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "android.intent.action.QUICKBOOT_POWERON"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "com.htc.intent.action.QUICKBOOT_POWERON"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "android.intent.action.MY_PACKAGE_REPLACED"
+      }
+    },
+    {
+      "element": "activity",
+      "attributes": {
+        "theme": {
+          "type": 1,
+          "data": 16973840
+        },
+        "name": "expo.modules.notifications.service.NotificationForwarderActivity",
+        "exported": false,
+        "taskAffinity": "",
+        "excludeFromRecents": true,
+        "launchMode": 0,
+        "noHistory": true
+      }
+    },
+    {
+      "element": "activity",
+      "attributes": {
+        "theme": {
+          "type": 1,
+          "data": 2131952300
+        },
+        "name": "androidx.credentials.playservices.controllers.identityauth.HiddenActivity",
+        "enabled": true,
+        "exported": false,
+        "configChanges": 1440,
+        "fitsSystemWindows": true
+      }
+    },
+    {
+      "element": "activity",
+      "attributes": {
+        "theme": {
+          "type": 1,
+          "data": 2131952300
+        },
+        "name": "androidx.credentials.playservices.controllers.identitycredentials.IdentityCredentialApiHiddenActivity",
+        "enabled": true,
+        "exported": false,
+        "configChanges": 1440,
+        "fitsSystemWindows": true
+      }
+    },
+    {
+      "element": "activity",
+      "attributes": {
+        "theme": {
+          "type": 1,
+          "data": 16973840
+        },
+        "name": "com.google.android.gms.auth.api.signin.internal.SignInHubActivity",
+        "exported": false,
+        "excludeFromRecents": true
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "com.google.android.c2dm.intent.RECEIVE"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "com.google.firebase.MESSAGING_EVENT"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "com.amazon.inapp.purchasing.NOTIFY"
+      }
+    },
+    {
+      "element": "activity",
+      "attributes": {
+        "theme": {
+          "type": 1,
+          "data": 16973840
+        },
+        "name": "com.revenuecat.purchases.amazon.purchasing.ProxyAmazonBillingActivity",
+        "configChanges": 1456
+      }
+    },
+    {
+      "element": "activity",
+      "attributes": {
+        "theme": {
+          "type": 1,
+          "data": 16974374
+        },
+        "name": "com.revenuecat.purchases.SimulatedStoreErrorDialogActivity",
+        "excludeFromRecents": true,
+        "configChanges": 1152
+      }
+    },
+    {
+      "element": "activity",
+      "attributes": {
+        "theme": {
+          "type": 1,
+          "data": 16973840
+        },
+        "name": "com.android.billingclient.api.ProxyBillingActivity",
+        "exported": false,
+        "configChanges": 1456
+      }
+    },
+    {
+      "element": "activity",
+      "attributes": {
+        "theme": {
+          "type": 1,
+          "data": 16973840
+        },
+        "name": "com.android.billingclient.api.ProxyBillingActivityV2",
+        "exported": false,
+        "configChanges": 1456
+      }
+    },
+    {
+      "element": "activity",
+      "attributes": {
+        "theme": {
+          "type": 1,
+          "data": 16973840
+        },
+        "name": "com.google.android.gms.common.api.GoogleApiActivity",
+        "exported": false
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "androidx.profileinstaller.action.INSTALL_PROFILE"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "androidx.profileinstaller.action.SKIP_FILE"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "androidx.profileinstaller.action.SAVE_PROFILE"
+      }
+    },
+    {
+      "element": "action",
+      "attributes": {
+        "name": "androidx.profileinstaller.action.BENCHMARK_OPERATION"
+      }
+    }
+  ],
+  "bundle": {
+    "assets/index.android.bundle": {
+      "bytes": 5275600,
+      "sha256": "3ad0554a5dc47cf433fc06aaeaf3950fa2d33df681a6b8b98e949f73a34a2a8c",
+      "markers": {
+        "I swing around the nearest stone post": true,
+        "to approach outside their guard.": true,
+        "ensureFreeMoveSuggestionBanks": true,
+        "All ideas": true,
+        "authoring_origin": true,
+        "affordance_ids": false,
+        "promptwars": true
+      },
+      "hermesMagic": "c61fbc03c103191f",
+      "publicSupabaseUrlPresent": true,
+      "publicPublishableKeyPrefixPresent": true,
+      "privateBotModuleMarkers": {
+        "bot_policy_catalog": false,
+        "bot_policy_seeds": false,
+        "bot_round_choices": false,
+        "private_bot_tactics": false
+      }
+    }
+  },
+  "nativeAbis": [
+    "arm64-v8a",
+    "armeabi-v7a",
+    "x86",
+    "x86_64"
+  ],
+  "v1SignatureEntries": [],
+  "apkSigningBlockPresent": true,
+  "cryptographicSignatureVerification": {
+    "verified": true,
+    "v1": false,
+    "v2": true,
+    "v3": false,
+    "v31": false,
+    "v4": false,
+    "signers": [
+      {
+        "sha256": "0c64ae959415b1406a00943daa0bb4cae83c9e5f816d4be726d8089dd3612c14",
+        "publicKeyAlgorithm": "RSA"
+      }
+    ],
+    "errors": [],
+    "warnings": [],
+    "verifier": "Google com.android.tools.build:apksig:8.9.3"
+  },
+  "runtimeVerification": "not performed: Android SDK, emulator and adb unavailable"
+}

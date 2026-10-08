@@ -1,3 +1,4 @@
+import { environmentForTheme } from '@/constants/BattleEnvironmentArt';
 import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
 import { GameText as Text, GameBevel } from '@/components/game';
 import React, { useEffect, useRef, useState } from 'react';
@@ -28,7 +29,6 @@ import type { EquippedCosmetics } from '@/utils/cosmetics';
 import StatBar from './StatBar';
 import HPBar from './HPBar';
 import { StatBlock } from '@/types/battle';
-import { presentationForTheme } from '@/constants/ThemeArt';
 
 export interface FaceOffPlayer {
   characterId: string;
@@ -265,7 +265,7 @@ export default function FaceOffPortraits({
 
   return (
     <ImageBackground
-      source={presentationForTheme(theme).backdrop}
+      source={environmentForTheme(theme).backdrop}
       style={[styles.root, { backgroundColor: colors.background }]}
       resizeMode="cover"
     >
@@ -405,7 +405,10 @@ function PlayerSide({
         },
       ]}
     >
-      <GameBevel color={colors.ornamentMuted} />
+      <GameBevel
+        color={colors.ornamentMuted}
+        insetColor={colors.ornamentMuted}
+      />
       <View style={styles.portraitWrap}>
         {player.portraitUrl ? (
           <Pressable

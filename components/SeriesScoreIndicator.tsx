@@ -17,6 +17,8 @@ export interface SeriesScoreIndicatorProps {
   format: BattleFormat;
   bestOf?: number;
   compact?: boolean;
+  /** Disable when the enclosing outcome panel already owns the frame. */
+  framed?: boolean;
   /**
    * Which side the viewer is. The score is always shown as "you – opponent",
    * so player two sees a 2–1 lead as 2–1, not as the raw 1–2 the row stores.
@@ -49,6 +51,7 @@ export default function SeriesScoreIndicator({
   bestOf,
   viewer = 'p1',
   compact = false,
+  framed = true,
 }: SeriesScoreIndicatorProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
@@ -80,12 +83,17 @@ export default function SeriesScoreIndicator({
 
   return (
     <View
-      style={styles.wrap}
+      style={[styles.wrap, !framed && { padding: 0, marginBottom: 0 }]}
       accessible
       accessibilityRole="header"
       accessibilityLabel={`Series: you ${mine}, opponent ${theirs}. Round ${safeRound} of ${totalRounds}.`}
     >
-      <GameBevel color={colors.ornamentMuted} />
+      {framed ? (
+        <GameBevel
+          color={colors.ornamentMuted}
+          insetColor={colors.ornamentMuted}
+        />
+      ) : null}
       <View style={styles.row}>
         <View style={styles.scoreBlock}>
           <View style={styles.scoreCol}>

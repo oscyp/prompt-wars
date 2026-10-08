@@ -1,4 +1,5 @@
-import { GameField } from '@/components/game';
+import { useRef, useState } from 'react';
+import { GameButton, GameField } from '@/components/game';
 import { GameText } from '@/components/game';
 
 import { View, type LayoutChangeEvent } from 'react-native';
@@ -10,9 +11,9 @@ import {
   describeCooldownLength,
   type EditPricing,
 } from '@/utils/editCooldowns';
-import { archetypeOptions } from '@/utils/traitOptions';
+import { ARCHETYPES } from '@/constants/Archetypes';
 import type { DraftKey } from '@/hooks/useCharacterEditDraft';
-import OptionGrid from '../OptionGrid';
+import ArchetypeSheet from './ArchetypeSheet';
 import ColorSwatchGrid, {
   withCustomOption,
   selectedValueForHex,
@@ -35,6 +36,7 @@ export interface IdentityPanelProps {
   changedKeys: Set<string>;
   pricing: EditPricing;
   disabled?: boolean;
+  onInputFocus?: () => void;
   /**
    * Signature colours unlocked by owning `color` cosmetics.
    *
@@ -75,15 +77,19 @@ export default function IdentityPanel({
   changedKeys,
   pricing,
   disabled = false,
+  onInputFocus,
   unlockedColors = [],
   onStage,
   onColorLayout,
 }: IdentityPanelProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
+  const [archetypeOpen, setArchetypeOpen] = useState(false);
+  const archetypeOpener = useRef<View>(null);
 
   const name = (staged.name as string) ?? character.name;
   const archetype = (staged.archetype ?? character.archetype) as ArchetypeId;
+  const archetypeName = ARCHETYPES[archetype]?.name ?? archetype;
   const battleCry = (staged.battleCry as string) ?? character.battle_cry;
   const colorHex =
     (staged.signatureColor as string) ?? character.signature_color;
@@ -123,6 +129,8 @@ export default function IdentityPanel({
         disabled={disabled}
       >
         <GameField
+          onFocus={onInputFocus}
+          onSelectionChange={onInputFocus}
           value={name}
           disabled={blocked('rename')}
           onChangeText={(v) => {
@@ -147,20 +155,30 @@ export default function IdentityPanel({
 
       <EditCardShell
         title="Archetype"
-        subtitle="A free identity preset for your fighter and portrait. No scoring bonus."
+        subtitle="Identity preset for your fighter and portrait. No scoring bonus."
         cost={pricing.prices.archetype?.credits ?? 0}
         cooldownMs={pricing.cooldownMs.archetype}
         changed={changedKeys.has('archetype')}
         disabled={disabled}
+        previewable
       >
-        <OptionGrid
-          label="Archetype"
-          options={archetypeOptions()}
-          value={archetype}
-          onChange={(v) => {
-            if (!blocked('archetype')) onStage('archetype', v);
-          }}
-          disabled={blocked('archetype')}
+        <GameButton
+          ref={archetypeOpener}
+          label={archetypeName}
+          accessibilityLabel={`View archetypes, ${archetypeName}`}
+          accessibilityHint={
+            blocked('archetype')
+              ? 'View presets. Changes are currently locked.'
+              : 'Choose an identity preset. Applied when you save.'
+          }
+          accessibilityState={{ expanded: archetypeOpen }}
+          gameIcon="mask"
+          endIcon="chevron-right"
+          chrome="utility"
+          tone="secondary"
+          onPress={() => setArchetypeOpen(true)}
+          style={{ justifyContent: 'flex-start' }}
+          labelStyle={{ flex: 1, textAlign: 'left' }}
         />
         {archetypeLockLength ? (
           <GameText
@@ -181,6 +199,8 @@ export default function IdentityPanel({
         disabled={disabled}
       >
         <GameField
+          onFocus={onInputFocus}
+          onSelectionChange={onInputFocus}
           value={battleCry}
           disabled={blocked('battle_cry')}
           onChangeText={(v) => {
@@ -228,6 +248,18 @@ export default function IdentityPanel({
           />
         </EditCardShell>
       </View>
+      <ArchetypeSheet
+        visible={archetypeOpen}
+        value={archetype}
+        savedValue={character.archetype}
+        pricing={pricing}
+        disabled={disabled}
+        returnFocusRef={archetypeOpener}
+        onStage={(next) => {
+          if (!blocked('archetype')) onStage('archetype', next);
+        }}
+        onClose={() => setArchetypeOpen(false)}
+      />
     </View>
   );
 }

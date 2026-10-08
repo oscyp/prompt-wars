@@ -1,0 +1,207 @@
+{
+  "created_at": "2026-10-07T12:33:35.967Z",
+  "runs": [
+    {
+      "name": "safer three-type bank",
+      "model": "grok-4.20-0309-non-reasoning",
+      "generation_ms": 36362,
+      "total_ms": 40723,
+      "estimated_generation_cost_usd": 0.008105,
+      "paths": 81,
+      "units": 243,
+      "rejected": 5,
+      "rejections": [
+        {
+          "kind": "intent",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit/violent",
+          "categories": [
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "triple",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: violence",
+          "categories": [
+            "violence"
+          ]
+        },
+        {
+          "kind": "approach",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit/violent",
+          "categories": [
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "triple",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: violence",
+          "categories": [
+            "violence"
+          ]
+        },
+        {
+          "kind": "triple",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: violence",
+          "categories": [
+            "violence"
+          ]
+        }
+      ],
+      "generation_errors": null
+    },
+    {
+      "name": "safe saved bank upgrade",
+      "model": "grok-4.20-0309-non-reasoning",
+      "generation_ms": 10388,
+      "total_ms": 12976,
+      "estimated_generation_cost_usd": 0.002525,
+      "paths": 27,
+      "units": 81,
+      "rejected": 0,
+      "rejections": [],
+      "generation_errors": null
+    }
+  ],
+  "provider_shape_diagnostics": [
+    {
+      "status": 200,
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 1292,
+        "completion_tokens": 2596,
+        "total_tokens": 3888,
+        "prompt_tokens_details": {
+          "text_tokens": 1292,
+          "audio_tokens": 0,
+          "image_tokens": 0,
+          "cached_tokens": 128
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        },
+        "num_sources_used": 0,
+        "cost_in_usd_ticks": 79706000
+      }
+    },
+    {
+      "status": 200,
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 832,
+        "completion_tokens": 594,
+        "total_tokens": 1426,
+        "prompt_tokens_details": {
+          "text_tokens": 832,
+          "audio_tokens": 0,
+          "image_tokens": 0,
+          "cached_tokens": 128
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        },
+        "num_sources_used": 0,
+        "cost_in_usd_ticks": 23906000
+      },
+      "approach_matrix": [
+        [
+          {
+            "length": 3,
+            "duplicateCount": 0,
+            "textLengths": [
+              150,
+              115,
+              113
+            ]
+          },
+          {
+            "length": 3,
+            "duplicateCount": 0,
+            "textLengths": [
+              140,
+              115,
+              131
+            ]
+          },
+          {
+            "length": 3,
+            "duplicateCount": 0,
+            "textLengths": [
+              135,
+              106,
+              110
+            ]
+          }
+        ],
+        [
+          {
+            "length": 3,
+            "duplicateCount": 0,
+            "textLengths": [
+              125,
+              126,
+              120
+            ]
+          },
+          {
+            "length": 3,
+            "duplicateCount": 0,
+            "textLengths": [
+              123,
+              110,
+              121
+            ]
+          },
+          {
+            "length": 3,
+            "duplicateCount": 0,
+            "textLengths": [
+              126,
+              98,
+              116
+            ]
+          }
+        ],
+        [
+          {
+            "length": 3,
+            "duplicateCount": 0,
+            "textLengths": [
+              136,
+              118,
+              128
+            ]
+          },
+          {
+            "length": 3,
+            "duplicateCount": 0,
+            "textLengths": [
+              136,
+              111,
+              114
+            ]
+          },
+          {
+            "length": 3,
+            "duplicateCount": 0,
+            "textLengths": [
+              135,
+              121,
+              118
+            ]
+          }
+        ]
+      ]
+    }
+  ]
+}

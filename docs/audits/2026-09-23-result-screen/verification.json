@@ -1,0 +1,40 @@
+{
+  "checkedAt": "2026-09-23T18:12:41.757259+00:00",
+  "checks": {
+    "typescript": {
+      "command": "rtk proxy yarn tsc --noEmit",
+      "exitCode": 0,
+      "seconds": 9.3,
+      "log": "/private/tmp/pw-visible-result-stats-checks-20260923/typescript.log"
+    },
+    "eslint": {
+      "command": "rtk proxy yarn lint",
+      "exitCode": 0,
+      "seconds": 5.7,
+      "log": "/private/tmp/pw-visible-result-stats-checks-20260923/eslint.log"
+    },
+    "jest": {
+      "command": "rtk proxy yarn test --runInBand --json --outputFile /private/tmp/pw-visible-result-stats-checks-20260923/jest-results.json",
+      "exitCode": 0,
+      "seconds": 40.3,
+      "log": "/private/tmp/pw-visible-result-stats-checks-20260923/jest.log",
+      "summary": {
+        "success": true,
+        "numTotalTestSuites": 197,
+        "numPassedTestSuites": 197,
+        "numFailedTestSuites": 0,
+        "numTotalTests": 1605,
+        "numPassedTests": 1605,
+        "numFailedTests": 0,
+        "numPendingTests": 0
+      }
+    },
+    "fixtureBoundary": {
+      "command": "rtk proxy node scripts/visual-fixtures-check.cjs",
+      "exitCode": 0,
+      "seconds": 0.2,
+      "log": "/private/tmp/pw-visible-result-stats-checks-20260923/fixtureBoundary.log"
+    }
+  },
+  "scope": "Client presentation; no server, dependency, version or deployment changes. Native evidence tracked separately."
+}

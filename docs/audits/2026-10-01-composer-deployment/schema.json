@@ -1,0 +1,94 @@
+[
+  {
+    "verification": {
+      "catalogue_count": 15,
+      "catalogue_themes": 5,
+      "migrations": [
+        "20261001190848",
+        "20261001191303",
+        "20261001191306",
+        "20261001191732"
+      ],
+      "rpc_grants": [
+        {
+          "anon": false,
+          "authenticated": false,
+          "name": "create_matchmaking_battle_composer",
+          "service_role": true
+        },
+        {
+          "anon": false,
+          "authenticated": false,
+          "name": "expire_suggestion_operations",
+          "service_role": true
+        },
+        {
+          "anon": false,
+          "authenticated": false,
+          "name": "finish_suggestion_operation",
+          "service_role": true
+        },
+        {
+          "anon": false,
+          "authenticated": false,
+          "name": "match_battle_request_composer",
+          "service_role": true
+        },
+        {
+          "anon": false,
+          "authenticated": false,
+          "name": "open_next_prompt_round",
+          "service_role": true
+        },
+        {
+          "anon": false,
+          "authenticated": false,
+          "name": "renew_suggestion_operation",
+          "service_role": true
+        },
+        {
+          "anon": false,
+          "authenticated": false,
+          "name": "reserve_suggestion_operation",
+          "service_role": true
+        },
+        {
+          "anon": false,
+          "authenticated": false,
+          "name": "select_prompt_situation",
+          "service_role": true
+        }
+      ],
+      "sweeper": [
+        {
+          "active": true,
+          "command": "SELECT public.expire_suggestion_operations()",
+          "schedule": "* * * * *"
+        }
+      ],
+      "tables": [
+        {
+          "client_insert": false,
+          "client_select": false,
+          "name": "suggestion_operations",
+          "rls": true,
+          "schema": "private"
+        },
+        {
+          "client_insert": false,
+          "client_select": true,
+          "name": "composer_events",
+          "rls": true,
+          "schema": "public"
+        },
+        {
+          "client_insert": false,
+          "client_select": false,
+          "name": "prompt_situation_catalog",
+          "rls": true,
+          "schema": "public"
+        }
+      ]
+    }
+  }
+]

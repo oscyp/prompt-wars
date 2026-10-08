@@ -1,0 +1,336 @@
+--------- beginning of main
+10-02 19:46:35.141  6755  6755 I .promptwars.app: Using CollectorTypeCMC GC.
+10-02 19:46:35.143  6755  6755 E .promptwars.app: Not starting debugger since process cannot load the jdwp agent.
+10-02 19:46:35.148  6755  6755 D nativeloader: Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+10-02 19:46:35.194  6755  6755 D nativeloader: Configuring clns-7 for other apk /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk. target_sdk_version=36, uses_libraries=, library_path=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/lib/arm64:/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/gg.promptwars.app
+10-02 19:46:35.196  6755  6755 V GraphicsEnvironment: Currently set values for:
+10-02 19:46:35.196  6755  6755 V GraphicsEnvironment:   angle_gl_driver_selection_pkgs=[]
+10-02 19:46:35.196  6755  6755 V GraphicsEnvironment:   angle_gl_driver_selection_values=[]
+10-02 19:46:35.196  6755  6755 V GraphicsEnvironment: Global.Settings values are invalid: number of packages: 0, number of values: 0
+10-02 19:46:35.196  6755  6755 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+10-02 19:46:35.200  6755  6755 W FirebaseApp: Default FirebaseApp failed to initialize because no default options were found. This usually means that com.google.gms:google-services was not applied to your gradle project.
+10-02 19:46:35.200  6755  6755 I FirebaseInitProvider: FirebaseApp initialization unsuccessful
+10-02 19:46:35.201  6755  6755 W SoLoader: Initializing SoLoader: 0
+10-02 19:46:35.201  6755  6755 W SoLoader: Recording new base apk path: /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk
+10-02 19:46:35.201  6755  6755 W SoLoader: Previously recorded 0 base apk paths.
+10-02 19:46:35.202  6755  6755 I SoLoader: Preparing SO source: DirectorySoSource[root = /vendor/lib64 flags = 2]
+10-02 19:46:35.202  6755  6755 I SoLoader: Preparing SO source: DirectorySoSource[root = /system/lib64 flags = 2]
+10-02 19:46:35.202  6755  6755 I SoLoader: Preparing SO source: DirectApkSoSource[root = [/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a]]
+10-02 19:46:35.203  6755  6755 I SoLoader: Preparing SO source: ApplicationSoSource[DirectorySoSource[root = /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/lib/arm64 flags = 0]]
+10-02 19:46:35.203  6755  6755 I SoLoader: init finish: 4 SO sources prepared
+10-02 19:46:35.203  6755  6755 W SoLoader: SoLoader initialized: 8
+10-02 19:46:35.209  6755  6755 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libc++_shared.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes2.dex): ok
+10-02 19:46:35.211  6755  6755 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libjsi.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes2.dex): ok
+10-02 19:46:35.212  6755  6755 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libfbjni.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes2.dex): ok
+10-02 19:46:35.213  6755  6755 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libreactnative.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes2.dex): ok
+10-02 19:46:35.213  6755  6755 D jni_lib_merge: Entering merged library JNI_OnLoad.
+10-02 19:46:35.213  6755  6755 D jni_lib_merge: Preparing 12 pre-merged libs (including stub)
+10-02 19:46:35.213  6755  6755 D jni_lib_merge: Preparing to register libfabricjni_so.  onload_func: 0x6e7d40f988
+10-02 19:46:35.213  6755  6755 D jni_lib_merge: Preparing to register libreact_devsupportjni_so.  onload_func: 0x6e7d4cf870
+10-02 19:46:35.213  6755  6755 D jni_lib_merge: Preparing to register libreact_featureflagsjni_so.  onload_func: 0x6e7d4e9c44
+10-02 19:46:35.213  6755  6755 D jni_lib_merge: Preparing to register libreact_newarchdefaults_so.  onload_func: 0x6e7d52ae0c
+10-02 19:46:35.213  6755  6755 D jni_lib_merge: Preparing to register libreactnativeblob_so.  onload_func: 0x6e7d5ca948
+10-02 19:46:35.213  6755  6755 D jni_lib_merge: Preparing to register libreactnativejni_so.  onload_func: 0x6e7d5e1208
+10-02 19:46:35.213  6755  6755 D jni_lib_merge: Preparing to register libreactnativejni_common_so.  onload_func: 0x6e7d5e7ae4
+10-02 19:46:35.213  6755  6755 D jni_lib_merge: Preparing to register librninstance_so.  onload_func: 0x6e7d604190
+10-02 19:46:35.213  6755  6755 D jni_lib_merge: Preparing to register libturbomodulejsijni_so.  onload_func: 0x6e7d6ad390
+10-02 19:46:35.213  6755  6755 D jni_lib_merge: Preparing to register libuimanagerjni_so.  onload_func: 0x6e7d6b4888
+10-02 19:46:35.213  6755  6755 D jni_lib_merge: Preparing to register libyoga_so.  onload_func: 0x6e7d6bbe4c
+10-02 19:46:35.213  6755  6755 D jni_lib_merge: About to register 11 actual methods.
+10-02 19:46:35.217  6755  6755 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libreact_codegen_rnscreens.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes2.dex): ok
+10-02 19:46:35.217  6755  6755 D jni_lib_merge: Entering merged library JNI_OnLoad.
+10-02 19:46:35.217  6755  6755 D jni_lib_merge: Preparing 12 pre-merged libs (including stub)
+10-02 19:46:35.217  6755  6755 D jni_lib_merge: Preparing to register libfabricjni_so.  onload_func: 0x6e7d40f988
+10-02 19:46:35.217  6755  6755 D jni_lib_merge: Preparing to register libreact_devsupportjni_so.  onload_func: 0x6e7d4cf870
+10-02 19:46:35.217  6755  6755 D jni_lib_merge: Preparing to register libreact_featureflagsjni_so.  onload_func: 0x6e7d4e9c44
+10-02 19:46:35.217  6755  6755 D jni_lib_merge: Preparing to register libreact_newarchdefaults_so.  onload_func: 0x6e7d52ae0c
+10-02 19:46:35.217  6755  6755 D jni_lib_merge: Preparing to register libreactnativeblob_so.  onload_func: 0x6e7d5ca948
+10-02 19:46:35.217  6755  6755 D jni_lib_merge: Preparing to register libreactnativejni_so.  onload_func: 0x6e7d5e1208
+10-02 19:46:35.217  6755  6755 D jni_lib_merge: Preparing to register libreactnativejni_common_so.  onload_func: 0x6e7d5e7ae4
+10-02 19:46:35.217  6755  6755 D jni_lib_merge: Preparing to register librninstance_so.  onload_func: 0x6e7d604190
+10-02 19:46:35.217  6755  6755 D jni_lib_merge: Preparing to register libturbomodulejsijni_so.  onload_func: 0x6e7d6ad390
+10-02 19:46:35.217  6755  6755 D jni_lib_merge: Preparing to register libuimanagerjni_so.  onload_func: 0x6e7d6b4888
+10-02 19:46:35.217  6755  6755 D jni_lib_merge: Preparing to register libyoga_so.  onload_func: 0x6e7d6bbe4c
+10-02 19:46:35.217  6755  6755 D jni_lib_merge: About to register 11 actual methods.
+10-02 19:46:35.218  6755  6755 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libreact_codegen_rnsvg.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes2.dex): ok
+10-02 19:46:35.218  6755  6755 D jni_lib_merge: Entering merged library JNI_OnLoad.
+10-02 19:46:35.218  6755  6755 D jni_lib_merge: Preparing 12 pre-merged libs (including stub)
+10-02 19:46:35.218  6755  6755 D jni_lib_merge: Preparing to register libfabricjni_so.  onload_func: 0x6e7d40f988
+10-02 19:46:35.218  6755  6755 D jni_lib_merge: Preparing to register libreact_devsupportjni_so.  onload_func: 0x6e7d4cf870
+10-02 19:46:35.218  6755  6755 D jni_lib_merge: Preparing to register libreact_featureflagsjni_so.  onload_func: 0x6e7d4e9c44
+10-02 19:46:35.218  6755  6755 D jni_lib_merge: Preparing to register libreact_newarchdefaults_so.  onload_func: 0x6e7d52ae0c
+10-02 19:46:35.218  6755  6755 D jni_lib_merge: Preparing to register libreactnativeblob_so.  onload_func: 0x6e7d5ca948
+10-02 19:46:35.218  6755  6755 D jni_lib_merge: Preparing to register libreactnativejni_so.  onload_func: 0x6e7d5e1208
+10-02 19:46:35.218  6755  6755 D jni_lib_merge: Preparing to register libreactnativejni_common_so.  onload_func: 0x6e7d5e7ae4
+10-02 19:46:35.218  6755  6755 D jni_lib_merge: Preparing to register librninstance_so.  onload_func: 0x6e7d604190
+10-02 19:46:35.218  6755  6755 D jni_lib_merge: Preparing to register libturbomodulejsijni_so.  onload_func: 0x6e7d6ad390
+10-02 19:46:35.218  6755  6755 D jni_lib_merge: Preparing to register libuimanagerjni_so.  onload_func: 0x6e7d6b4888
+10-02 19:46:35.218  6755  6755 D jni_lib_merge: Preparing to register libyoga_so.  onload_func: 0x6e7d6bbe4c
+10-02 19:46:35.218  6755  6755 D jni_lib_merge: About to register 11 actual methods.
+10-02 19:46:35.219  6755  6755 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libreact_codegen_safeareacontext.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes2.dex): ok
+10-02 19:46:35.220  6755  6755 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libappmodules.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes2.dex): ok
+10-02 19:46:35.226  6755  6755 D AppCompatDelegate: Checking for metadata for AppLocalesMetadataHolderService : Service not found
+10-02 19:46:35.242  6755  6755 I NitroGoogleSigninOnLoad: Loading NitroGoogleSignin C++ library...
+10-02 19:46:35.244  6755  6755 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libNitroGoogleSignin.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes3.dex): ok
+10-02 19:46:35.244  6755  6755 I NitroGoogleSigninOnLoad: Successfully loaded NitroGoogleSignin C++ library!
+10-02 19:46:35.248  6755  6755 W unknown:BridgelessReact: ReactHost{0}.startSurface(surfaceId = 0): Schedule
+10-02 19:46:35.248  6755  6755 W unknown:BridgelessReact: ReactHost{0}.attachSurface(surfaceId = 0)
+10-02 19:46:35.254  6755  6779 W unknown:BridgelessReact: ReactHost{0}.getOrCreateReactInstanceTask()
+10-02 19:46:35.254  6755  6779 W unknown:BridgelessReact: ReactHost{0}.getOrCreateReactInstanceTask(): Start
+10-02 19:46:35.254  6755  6779 W unknown:BridgelessReact: ReactHost{0}.getJSBundleLoader()
+10-02 19:46:35.254  6755  6779 W unknown:BridgelessReact: ReactHost{0}.getOrCreateReactInstanceTask(): Creating BridgelessReactContext
+10-02 19:46:35.254  6755  6779 W unknown:BridgelessReact: ReactHost{0}.getOrCreateReactInstanceTask(): Creating ReactInstance
+10-02 19:46:35.258  6755  6779 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libhermesvm.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes2.dex): ok
+10-02 19:46:35.258  6755  6755 W unknown:BridgelessReact: ReactHost{0}.onHostResume(activity)
+10-02 19:46:35.258  6755  6755 W unknown:BridgelessReact: ReactHost{0}.ReactContext.onHostResume()
+10-02 19:46:35.258  6755  6779 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libhermestooling.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes2.dex): ok
+10-02 19:46:35.258  6755  6779 D jni_lib_merge: Entering merged library JNI_OnLoad.
+10-02 19:46:35.258  6755  6779 D jni_lib_merge: Preparing 4 pre-merged libs (including stub)
+10-02 19:46:35.258  6755  6779 D jni_lib_merge: Preparing to register libhermes_executor_so.  onload_func: 0x6f00eaa760
+10-02 19:46:35.258  6755  6779 D jni_lib_merge: Preparing to register libhermesinstancejni_so.  onload_func: 0x6f00eb1dd4
+10-02 19:46:35.258  6755  6779 D jni_lib_merge: Preparing to register libjsijniprofiler_so.  onload_func: 0x6f00eb25c0
+10-02 19:46:35.258  6755  6779 D jni_lib_merge: About to register 3 actual methods.
+10-02 19:46:35.260  6755  6755 W HWUI    : Unknown dataspace 0
+10-02 19:46:35.279  6755  6775 I EGL_emulation: Opening libGLESv1_CM_emulation.so
+10-02 19:46:35.279  6755  6775 I EGL_emulation: Opening libGLESv2_emulation.so
+10-02 19:46:35.292  6755  6775 W HWUI    : Failed to choose config with EGL_SWAP_BEHAVIOR_PRESERVED, retrying without...
+10-02 19:46:35.292  6755  6775 W HWUI    : Failed to initialize 101010-2 format, error = EGL_SUCCESS
+10-02 19:46:35.305  6755  6779 I ExpoModulesCore: ✅ AppContext was initialized
+10-02 19:46:35.308  6755  6775 I Gralloc4: mapper 4.x is not supported
+10-02 19:46:35.315  6755  6779 W unknown:BridgelessReact: ReactHost{0}.getOrCreateReactInstanceTask(): Loading JS Bundle
+10-02 19:46:35.319  6755  6779 W unknown:BridgelessReact: ReactHost{0}.getOrCreateReactInstanceTask(): DevSupportManager.onNewReactContextCreated()
+10-02 19:46:35.319  6755  6779 W unknown:BridgelessReact: ReactHost{0}.startSurface(surfaceId = 0): Execute
+10-02 19:46:35.322  6755  6780 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libworklets.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes2.dex): ok
+10-02 19:46:35.322  6755  6780 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libexpo-modules-core.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes2.dex): ok
+10-02 19:46:35.323  6755  6780 W BridgelessReactContext: [WARNING] Bridgeless doesn't support CatalystInstance. Accessing an API that's not part of the new architecture is not encouraged usage.
+10-02 19:46:35.324  6755  6780 I ExpoModulesCore: ✅ JSI interop was installed
+10-02 19:46:35.325  6755  6780 I ExpoModulesCore: ✅ Constants were exported
+10-02 19:46:35.329  6755  6755 W unknown:BridgelessReact: ReactHost{0}.ReactContext.onHostResume()
+10-02 19:46:35.329  6755  6755 W unknown:BridgelessReact: ReactHost{0}.getOrCreateReactInstanceTask(): Executing ReactInstanceEventListeners
+10-02 19:46:35.338  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.rnscreens.ScreenFooterManager
+10-02 19:46:35.339  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.uimanager.LayoutShadowNode
+10-02 19:46:35.339  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.rnscreens.gamma.tabs.TabScreenViewManager
+10-02 19:46:35.340  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class expo.modules.kotlin.views.GroupViewManagerWrapper
+10-02 19:46:35.340  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.rnscreens.ScreenContainerViewManager
+10-02 19:46:35.341  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.rnscreens.gamma.tabs.TabsHostViewManager
+10-02 19:46:35.342  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.rnscreens.ModalScreenViewManager
+10-02 19:46:35.343  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.th3rdwave.safeareacontext.SafeAreaViewManager
+10-02 19:46:35.343  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.th3rdwave.safeareacontext.SafeAreaViewShadowNode
+10-02 19:46:35.343  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.rnscreens.safearea.SafeAreaViewManager
+10-02 19:46:35.343  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.rnscreens.safearea.paper.SafeAreaViewShadowNode
+10-02 19:46:35.343  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.rnscreens.ScreenViewManager
+10-02 19:46:35.344  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.rnscreens.ScreenStackViewManager
+10-02 19:46:35.344  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.th3rdwave.safeareacontext.SafeAreaProviderManager
+10-02 19:46:35.344  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.rnscreens.SearchBarManager
+10-02 19:46:35.344  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.nitrogooglesignin.GoogleSignInButtonViewManager
+10-02 19:46:35.344  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.nitrogooglesignin.GoogleSignInButtonShadowNode
+10-02 19:46:35.345  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.reactnative.maskedview.RNCMaskedViewManager
+10-02 19:46:35.345  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.rnscreens.ScreenStackHeaderConfigViewManager
+10-02 19:46:35.345  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.rnscreens.ScreenContentWrapperManager
+10-02 19:46:35.345  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.rnscreens.gamma.stack.host.StackHostViewManager
+10-02 19:46:35.345  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.rnscreens.ScreenStackHeaderSubviewManager
+10-02 19:46:35.346  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.rnscreens.gamma.stack.screen.StackScreenViewManager
+10-02 19:46:35.350  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$DefsViewManager
+10-02 19:46:35.351  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.VirtualViewManager$RenderableShadowNode
+10-02 19:46:35.351  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FeMergeManager
+10-02 19:46:35.351  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.safeareaview.ReactSafeAreaViewManager
+10-02 19:46:35.352  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$LinearGradientManager
+10-02 19:46:35.352  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FeGaussianBlurManager
+10-02 19:46:35.353  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.progressbar.ReactProgressBarViewManager
+10-02 19:46:35.353  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.progressbar.ProgressBarShadowNode
+10-02 19:46:35.354  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.scroll.ReactHorizontalScrollViewManager
+10-02 19:46:35.355  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.text.ReactTextViewManager
+10-02 19:46:35.355  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.text.ReactTextShadowNode
+10-02 19:46:35.357  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FeColorMatrixManager
+10-02 19:46:35.357  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.scroll.ReactHorizontalScrollContainerViewManager
+10-02 19:46:35.358  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$ClipPathViewManager
+10-02 19:46:35.358  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$SymbolManager
+10-02 19:46:35.359  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$PatternManager
+10-02 19:46:35.359  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FeBlendManager
+10-02 19:46:35.359  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.view.ReactViewManager
+10-02 19:46:35.360  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.SvgViewManager
+10-02 19:46:35.360  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.switchview.ReactSwitchManager
+10-02 19:46:35.360  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.switchview.ReactSwitchShadowNode
+10-02 19:46:35.361  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$UseViewManager
+10-02 19:46:35.361  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$CircleViewManager
+10-02 19:46:35.362  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$TSpanViewManager
+10-02 19:46:35.362  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FilterManager
+10-02 19:46:35.363  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$MarkerManager
+10-02 19:46:35.364  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.gesturehandler.react.RNGestureHandlerButtonViewManager
+10-02 19:46:35.364  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.modal.ReactModalHostManager
+10-02 19:46:35.365  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$ForeignObjectManager
+10-02 19:46:35.366  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$EllipseViewManager
+10-02 19:46:35.367  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$LineViewManager
+10-02 19:46:35.367  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.text.frescosupport.FrescoBasedReactTextInlineImageViewManager
+10-02 19:46:35.367  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.text.frescosupport.FrescoBasedReactTextInlineImageShadowNode
+10-02 19:46:35.367  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FeFloodManager
+10-02 19:46:35.368  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$GroupViewManager
+10-02 19:46:35.368  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$TextViewManager
+10-02 19:46:35.368  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$ImageViewManager
+10-02 19:46:35.369  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FeCompositeManager
+10-02 19:46:35.369  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.image.ReactImageManager
+10-02 19:46:35.369  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$RadialGradientManager
+10-02 19:46:35.370  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$MaskManager
+10-02 19:46:35.370  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.unimplementedview.ReactUnimplementedViewManager
+10-02 19:46:35.370  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$RectViewManager
+10-02 19:46:35.370  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$TextPathViewManager
+10-02 19:46:35.371  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.scroll.ReactScrollViewManager
+10-02 19:46:35.371  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$FeOffsetManager
+10-02 19:46:35.373  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.horcrux.svg.RenderableViewManager$PathViewManager
+10-02 19:46:35.374  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.drawer.ReactDrawerLayoutManager
+10-02 19:46:35.375  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.swiperefresh.SwipeRefreshLayoutManager
+10-02 19:46:35.375  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.textinput.ReactTextInputManager
+10-02 19:46:35.376  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.facebook.react.views.textinput.ReactTextInputShadowNode
+10-02 19:46:35.376  6755  6780 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class com.swmansion.gesturehandler.react.RNGestureHandlerRootViewManager
+10-02 19:46:35.388  6755  6780 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/librnscreens.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes4.dex): ok
+10-02 19:46:35.389  6755  6780 I ReactNativeJS: Running "main"
+10-02 19:46:35.478  6755  6780 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libreanimated.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes2.dex): ok
+10-02 19:46:35.539  6755  6781 W unknown:ReactNative: StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+10-02 19:46:35.539  6755  6781 W unknown:ReactNative: StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+10-02 19:46:35.541  6755  6781 W unknown:ReactNative: StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+10-02 19:46:35.542  6755  6780 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libgesturehandler.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes2.dex): ok
+10-02 19:46:35.542  6755  6780 D jni_lib_merge: Entering merged library JNI_OnLoad.
+10-02 19:46:35.542  6755  6780 D jni_lib_merge: Preparing 12 pre-merged libs (including stub)
+10-02 19:46:35.542  6755  6780 D jni_lib_merge: Preparing to register libfabricjni_so.  onload_func: 0x6e7d40f988
+10-02 19:46:35.542  6755  6780 D jni_lib_merge: Preparing to register libreact_devsupportjni_so.  onload_func: 0x6e7d4cf870
+10-02 19:46:35.542  6755  6780 D jni_lib_merge: Preparing to register libreact_featureflagsjni_so.  onload_func: 0x6e7d4e9c44
+10-02 19:46:35.542  6755  6780 D jni_lib_merge: Preparing to register libreact_newarchdefaults_so.  onload_func: 0x6e7d52ae0c
+10-02 19:46:35.542  6755  6780 D jni_lib_merge: Preparing to register libreactnativeblob_so.  onload_func: 0x6e7d5ca948
+10-02 19:46:35.542  6755  6780 D jni_lib_merge: Preparing to register libreactnativejni_so.  onload_func: 0x6e7d5e1208
+10-02 19:46:35.542  6755  6780 D jni_lib_merge: Preparing to register libreactnativejni_common_so.  onload_func: 0x6e7d5e7ae4
+10-02 19:46:35.542  6755  6780 D jni_lib_merge: Preparing to register librninstance_so.  onload_func: 0x6e7d604190
+10-02 19:46:35.542  6755  6780 D jni_lib_merge: Preparing to register libturbomodulejsijni_so.  onload_func: 0x6e7d6ad390
+10-02 19:46:35.542  6755  6780 D jni_lib_merge: Preparing to register libuimanagerjni_so.  onload_func: 0x6e7d6b4888
+10-02 19:46:35.542  6755  6780 D jni_lib_merge: Preparing to register libyoga_so.  onload_func: 0x6e7d6bbe4c
+10-02 19:46:35.542  6755  6780 D jni_lib_merge: About to register 11 actual methods.
+10-02 19:46:35.546  6755  6781 W unknown:ReactNative: StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+10-02 19:46:35.548  6755  6755 W [RNScreens]: backTitleFontFamily prop is not available on Android
+10-02 19:46:35.548  6755  6755 W [RNScreens]: disableBackButtonMenu prop is not available on Android
+10-02 19:46:35.548  6755  6755 W [RNScreens]: backTitleVisible prop is not available on Android
+10-02 19:46:35.548  6755  6755 W [RNScreens]: topInsetEnabled prop is not available on Android
+10-02 19:46:35.548  6755  6755 W [RNScreens]: largeTitleHideShadow prop is not available on Android
+10-02 19:46:35.548  6755  6755 W [RNScreens]: largeTitleFontWeight prop is not available on Android
+10-02 19:46:35.548  6755  6755 W [RNScreens]: userInterfaceStyle prop is not available on Android
+10-02 19:46:35.548  6755  6755 W [RNScreens]: largeTitleFontFamily prop is not available on Android
+10-02 19:46:35.555  6755  6755 I ReactNative: [GESTURE HANDLER] Initialize gesture handler for root view com.facebook.react.runtime.ReactSurfaceView{9d67da7 V.E...... ......ID 0,0-1080,2340 #1}
+10-02 19:46:35.568  6755  6794 D nativeloader: Load /data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!/lib/arm64-v8a/libimagepipeline.so using ns clns-7 from class loader (caller=/data/app/~~aGQ9Mn6qMfcE3M4ene5Jig==/gg.promptwars.app-7OBYS8LLKNQ4NlRpA9zaeg==/base.apk!classes2.dex): ok
+10-02 19:46:35.610  6755  6781 W unknown:ReactNative: StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+10-02 19:46:35.622  6755  6781 W unknown:ReactNative: StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+10-02 19:46:35.644  6755  6755 W [RNScreens]: backTitleFontFamily prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: disableBackButtonMenu prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: backTitleVisible prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: topInsetEnabled prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: largeTitleHideShadow prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: largeTitleFontWeight prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: userInterfaceStyle prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: largeTitleFontFamily prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: backTitle prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: backTitleFontFamily prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: disableBackButtonMenu prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: largeTitleFontFamily prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: topInsetEnabled prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: backTitleVisible prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: largeTitleHideShadow prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: largeTitleFontWeight prop is not available on Android
+10-02 19:46:35.644  6755  6755 W [RNScreens]: userInterfaceStyle prop is not available on Android
+10-02 19:46:35.702  6755  6755 D SplashScreenView: Building from parcel drawable: android.graphics.drawable.BitmapDrawable@59a9dec
+10-02 19:46:35.702  6755  6755 D SplashScreenView: Build android.window.SplashScreenView{a9ed44a V.E...... ......ID 0,0-0,0}
+10-02 19:46:35.702  6755  6755 D SplashScreenView: Icon: view: androidx.appcompat.widget.AppCompatImageView{58b1fbb V.ED..... ......I. 0,0-0,0 #1020504 android:id/splashscreen_icon_view} drawable: android.graphics.drawable.BitmapDrawable@59a9dec size: 528
+10-02 19:46:35.702  6755  6755 D SplashScreenView: Branding: view: android.view.View{589acd8 G.ED..... ......I. 0,0-0,0 #1020503 android:id/splashscreen_branding_view} drawable: null size w: 0 h: 0
+10-02 19:46:36.199  6755  6755 D SplashScreenView: remove starting view
+10-02 19:46:40.838  6755  6809 D ProfileInstaller: Skipping profile installation for gg.promptwars.app
+10-02 19:46:51.597  6755  6763 W .promptwars.app: Cleared Reference was only reachable from finalizer (only reported once)
+10-02 19:46:51.613  6755  6765 W System  : A resource failed to call release. 
+10-02 19:47:16.811  6755  6755 I ImeTracker: gg.promptwars.app:80a1ac38: onRequestShow at ORIGIN_CLIENT reason SHOW_SOFT_INPUT fromUser true
+10-02 19:47:16.812  6755  6755 D InputMethodManager: showSoftInput() view=com.facebook.react.views.textinput.ReactEditText{54fc162 VFED..CL. .F.P..ID 110,939-970,1077 #5a aid=1073741824} flags=0 reason=SHOW_SOFT_INPUT
+10-02 19:47:16.825  6755  6775 D EGL_emulation: app_time_stats: avg=1709.43ms min=6.86ms max=40595.78ms count=24
+10-02 19:47:16.846  6755  6755 I ImeTracker: gg.promptwars.app:5435e67f: onRequestShow at ORIGIN_CLIENT reason SHOW_SOFT_INPUT fromUser false
+10-02 19:47:16.846  6755  6755 D InputMethodManager: showSoftInput() view=com.facebook.react.views.textinput.ReactEditText{54fc162 VFED..CL. .F.P.... 110,939-970,1077 #5a aid=1073741824} flags=0 reason=SHOW_SOFT_INPUT
+10-02 19:47:16.929  6755  6755 D InsetsController: show(ime(), fromIme=true)
+10-02 19:47:16.937  6755  6755 D InsetsController: show(ime(), fromIme=true)
+10-02 19:47:16.938  6755  6755 I ImeTracker: gg.promptwars.app:5435e67f: onCancelled at PHASE_CLIENT_APPLY_ANIMATION
+10-02 19:47:16.941  6755  6840 W InteractionJankMonitor: Initializing without READ_DEVICE_CONFIG permission. enabled=true, interval=1, missedFrameThreshold=3, frameTimeThreshold=64, package=gg.promptwars.app
+10-02 19:47:16.957  6755  6755 D AutofillManager: notifyViewReadyInner:1073741825
+10-02 19:47:17.145  6755  6755 I ImeTracker: gg.promptwars.app:80a1ac38: onShown
+10-02 19:47:17.825  6755  6775 D EGL_emulation: app_time_stats: avg=42.35ms min=6.97ms max=328.76ms count=21
+10-02 19:47:18.997  6755  6775 D EGL_emulation: app_time_stats: avg=101.82ms min=5.78ms max=498.47ms count=11
+10-02 19:47:20.002  6755  6775 D EGL_emulation: app_time_stats: avg=502.59ms min=502.55ms max=502.62ms count=2
+10-02 19:47:21.502  6755  6775 D EGL_emulation: app_time_stats: avg=499.97ms min=495.56ms max=502.71ms count=3
+10-02 19:47:22.514  6755  6775 D EGL_emulation: app_time_stats: avg=506.18ms min=499.26ms max=513.09ms count=2
+10-02 19:47:23.517  6755  6775 D EGL_emulation: app_time_stats: avg=501.06ms min=499.20ms max=502.91ms count=2
+10-02 19:47:24.519  6755  6775 D EGL_emulation: app_time_stats: avg=501.17ms min=496.71ms max=505.63ms count=2
+10-02 19:47:26.014  6755  6775 D EGL_emulation: app_time_stats: avg=498.16ms min=495.77ms max=501.02ms count=3
+10-02 19:47:27.031  6755  6775 D EGL_emulation: app_time_stats: avg=508.91ms min=505.34ms max=512.47ms count=2
+10-02 19:47:27.392  6755  6755 E FrameTracker: force finish cuj, time out: J<IME_INSETS_SHOW_ANIMATION::0@0@gg.promptwars.app>
+10-02 19:47:27.392  6755  6755 W FrameTracker: Missed SF frame:PREDICTION_ERROR, 3020010, 0, CUJ=J<IME_INSETS_SHOW_ANIMATION::0@0@gg.promptwars.app>
+10-02 19:47:27.392  6755  6755 W FrameTracker: Missed SF frame:PREDICTION_ERROR, 3020082, 0, CUJ=J<IME_INSETS_SHOW_ANIMATION::0@0@gg.promptwars.app>
+10-02 19:47:27.392  6755  6755 W FrameTracker: Missed SF frame:SURFACE_FLINGER_SCHEDULING, 3020119, 0, CUJ=J<IME_INSETS_SHOW_ANIMATION::0@0@gg.promptwars.app>
+10-02 19:47:27.392  6755  6755 W FrameTracker: Missed SF frame:PREDICTION_ERROR, 3020183, 0, CUJ=J<IME_INSETS_SHOW_ANIMATION::0@0@gg.promptwars.app>
+10-02 19:47:27.392  6755  6755 W FrameTracker: Missed SF frame:PREDICTION_ERROR, 3020212, 0, CUJ=J<IME_INSETS_SHOW_ANIMATION::0@0@gg.promptwars.app>
+10-02 19:47:27.392  6755  6755 W FrameTracker: Missed SF frame:PREDICTION_ERROR, 3020299, 0, CUJ=J<IME_INSETS_SHOW_ANIMATION::0@0@gg.promptwars.app>
+10-02 19:47:27.392  6755  6755 W FrameTracker: Missed SF frame:PREDICTION_ERROR, 3020321, 0, CUJ=J<IME_INSETS_SHOW_ANIMATION::0@0@gg.promptwars.app>
+10-02 19:47:27.394  6755  6841 V PerfettoTrigger: Triggering /system/bin/trigger_perfetto com.android.telemetry.interaction-jank-monitor-80
+10-02 19:47:28.529  6755  6775 D EGL_emulation: app_time_stats: avg=499.07ms min=486.22ms max=512.97ms count=3
+10-02 19:47:29.533  6755  6775 D EGL_emulation: app_time_stats: avg=502.31ms min=501.14ms max=503.47ms count=2
+10-02 19:47:31.032  6755  6775 D EGL_emulation: app_time_stats: avg=499.45ms min=497.38ms max=501.82ms count=3
+10-02 19:47:32.051  6755  6775 D EGL_emulation: app_time_stats: avg=509.55ms min=503.68ms max=515.42ms count=2
+10-02 19:47:33.052  6755  6775 D EGL_emulation: app_time_stats: avg=500.44ms min=497.41ms max=503.47ms count=2
+10-02 19:47:34.546  6755  6775 D EGL_emulation: app_time_stats: avg=498.06ms min=495.88ms max=500.24ms count=3
+10-02 19:47:35.548  6755  6775 D EGL_emulation: app_time_stats: avg=501.02ms min=500.66ms max=501.37ms count=2
+10-02 19:47:37.047  6755  6775 D EGL_emulation: app_time_stats: avg=499.47ms min=499.17ms max=499.82ms count=3
+10-02 19:47:38.064  6755  6775 D EGL_emulation: app_time_stats: avg=508.55ms min=502.25ms max=514.84ms count=2
+10-02 19:47:39.564  6755  6775 D EGL_emulation: app_time_stats: avg=499.84ms min=495.20ms max=503.73ms count=3
+10-02 19:47:40.568  6755  6775 D EGL_emulation: app_time_stats: avg=502.22ms min=500.47ms max=503.97ms count=2
+10-02 19:47:42.064  6755  6775 D EGL_emulation: app_time_stats: avg=498.48ms min=495.24ms max=501.60ms count=3
+10-02 19:47:43.067  6755  6775 D EGL_emulation: app_time_stats: avg=501.66ms min=500.09ms max=503.22ms count=2
+10-02 19:47:44.082  6755  6775 D EGL_emulation: app_time_stats: avg=507.49ms min=497.49ms max=517.49ms count=2
+10-02 19:47:45.083  6755  6775 D EGL_emulation: app_time_stats: avg=500.57ms min=498.79ms max=502.35ms count=2
+10-02 19:47:46.084  6755  6775 D EGL_emulation: app_time_stats: avg=500.22ms min=499.16ms max=501.28ms count=2
+10-02 19:47:47.099  6755  6775 D EGL_emulation: app_time_stats: avg=507.74ms min=502.50ms max=512.98ms count=2
+10-02 19:47:48.104  6755  6775 D EGL_emulation: app_time_stats: avg=502.21ms min=484.62ms max=519.81ms count=2
+10-02 19:47:49.598  6755  6775 D EGL_emulation: app_time_stats: avg=498.12ms min=483.25ms max=513.26ms count=3
+10-02 19:47:50.599  6755  6775 D EGL_emulation: app_time_stats: avg=500.39ms min=498.15ms max=502.63ms count=2
+10-02 19:47:51.615  6755  6775 D EGL_emulation: app_time_stats: avg=508.00ms min=500.29ms max=515.70ms count=2
+10-02 19:47:53.118  6755  6775 D EGL_emulation: app_time_stats: avg=500.77ms min=498.76ms max=503.07ms count=3
+10-02 19:47:54.614  6755  6775 D EGL_emulation: app_time_stats: avg=498.75ms min=498.06ms max=500.06ms count=3
+10-02 19:47:55.636  6755  6775 D EGL_emulation: app_time_stats: avg=510.92ms min=502.63ms max=519.21ms count=2
+10-02 19:47:57.133  6755  6775 D EGL_emulation: app_time_stats: avg=499.00ms min=497.54ms max=501.06ms count=3
+10-02 19:47:58.636  6755  6775 D EGL_emulation: app_time_stats: avg=500.81ms min=496.22ms max=505.19ms count=3
+10-02 19:48:00.132  6755  6775 D EGL_emulation: app_time_stats: avg=498.67ms min=497.76ms max=499.25ms count=3
+10-02 19:48:01.133  6755  6775 D EGL_emulation: app_time_stats: avg=500.76ms min=499.97ms max=501.54ms count=2
+10-02 19:48:02.147  6755  6775 D EGL_emulation: app_time_stats: avg=506.73ms min=497.65ms max=515.80ms count=2
+10-02 19:48:03.148  6755  6775 D EGL_emulation: app_time_stats: avg=500.32ms min=497.22ms max=503.42ms count=2
+10-02 19:48:04.160  6755  6775 D EGL_emulation: app_time_stats: avg=126.54ms min=5.38ms max=505.31ms count=8
+10-02 19:48:05.170  6755  6775 D EGL_emulation: app_time_stats: avg=21.11ms min=6.19ms max=235.69ms count=37
+10-02 19:48:06.185  6755  6775 D EGL_emulation: app_time_stats: avg=507.62ms min=502.92ms max=512.32ms count=2
+10-02 19:48:07.681  6755  6775 D EGL_emulation: app_time_stats: avg=498.49ms min=495.98ms max=502.21ms count=3
+10-02 19:48:08.706  6755  6775 D EGL_emulation: app_time_stats: avg=512.27ms min=503.21ms max=521.34ms count=2
+10-02 19:48:10.206  6755  6775 D EGL_emulation: app_time_stats: avg=500.00ms min=496.60ms max=503.19ms count=3
+10-02 19:48:11.700  6755  6775 D EGL_emulation: app_time_stats: avg=497.88ms min=495.01ms max=502.05ms count=3
+10-02 19:48:13.214  6755  6775 D EGL_emulation: app_time_stats: avg=504.79ms min=494.05ms max=514.77ms count=3
+10-02 19:48:14.216  6755  6775 D EGL_emulation: app_time_stats: avg=500.93ms min=497.27ms max=504.59ms count=2
+10-02 19:48:15.713  6755  6775 D EGL_emulation: app_time_stats: avg=498.87ms min=498.21ms max=499.35ms count=3
+10-02 19:48:16.714  6755  6775 D EGL_emulation: app_time_stats: avg=500.50ms min=499.18ms max=501.81ms count=2
+10-02 19:48:17.734  6755  6775 D EGL_emulation: app_time_stats: avg=509.89ms min=502.49ms max=517.29ms count=2
+10-02 19:48:19.235  6755  6775 D EGL_emulation: app_time_stats: avg=500.03ms min=496.07ms max=503.34ms count=3
+10-02 19:48:20.236  6755  6775 D EGL_emulation: app_time_stats: avg=500.57ms min=496.75ms max=504.39ms count=2
+10-02 19:48:21.252  6755  6775 D EGL_emulation: app_time_stats: avg=508.19ms min=504.27ms max=512.11ms count=2
+10-02 19:48:22.749  6755  6775 D EGL_emulation: app_time_stats: avg=498.90ms min=496.16ms max=501.09ms count=3
+10-02 19:48:24.248  6755  6775 D EGL_emulation: app_time_stats: avg=499.43ms min=494.62ms max=502.29ms count=3
+10-02 19:48:25.253  6755  6775 D EGL_emulation: app_time_stats: avg=502.65ms min=502.38ms max=502.91ms count=2
+10-02 19:48:26.254  6755  6775 D EGL_emulation: app_time_stats: avg=500.51ms min=488.74ms max=512.28ms count=2
+10-02 19:48:27.265  6755  6775 D EGL_emulation: app_time_stats: avg=505.29ms min=495.17ms max=515.41ms count=2
+10-02 19:48:28.267  6755  6775 D EGL_emulation: app_time_stats: avg=500.79ms min=497.08ms max=504.51ms count=2
+10-02 19:48:29.283  6755  6775 D EGL_emulation: app_time_stats: avg=508.23ms min=499.25ms max=517.21ms count=2
+10-02 19:48:30.785  6755  6775 D EGL_emulation: app_time_stats: avg=500.67ms min=487.20ms max=511.48ms count=3
+10-02 19:48:32.281  6755  6775 D EGL_emulation: app_time_stats: avg=498.63ms min=495.60ms max=500.79ms count=3
+10-02 19:48:33.302  6755  6775 D EGL_emulation: app_time_stats: avg=510.33ms min=504.03ms max=516.63ms count=2
+10-02 19:48:34.800  6755  6775 D EGL_emulation: app_time_stats: avg=499.29ms min=497.49ms max=502.03ms count=3
+10-02 19:48:35.801  6755  6775 D EGL_emulation: app_time_stats: avg=500.31ms min=499.79ms max=500.82ms count=2
+10-02 19:48:36.814  6755  6775 D EGL_emulation: app_time_stats: avg=506.43ms min=502.02ms max=510.85ms count=2
+10-02 19:48:37.816  6755  6775 D EGL_emulation: app_time_stats: avg=500.83ms min=496.08ms max=505.57ms count=2
+10-02 19:48:38.816  6755  6775 D EGL_emulation: app_time_stats: avg=500.27ms min=499.68ms max=500.86ms count=2
+10-02 19:48:39.603  6755  6755 D InsetsController: hide(ime(), fromIme=true)
+10-02 19:48:39.823  6755  6775 D EGL_emulation: app_time_stats: avg=249.38ms min=7.85ms max=497.81ms count=4
+10-02 19:48:39.830  6755  6755 I ImeTracker: gg.promptwars.app:87932a80: onRequestHide at ORIGIN_CLIENT reason HIDE_SOFT_INPUT_ON_ANIMATION_STATE_CHANGED fromUser false
+10-02 19:48:39.837  6755  6755 I ImeTracker: com.android.inputmethod.latin:4b7d3dff: onHidden

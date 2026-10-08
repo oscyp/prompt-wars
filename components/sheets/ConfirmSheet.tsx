@@ -10,7 +10,7 @@ import {
 } from '@/constants/DesignTokens';
 import type { SheetCopy, SpendRow } from '@/utils/editDialogCopy';
 import PortraitPreview from '../PortraitPreview';
-import { GameText as Text, GameButton } from '@/components/game';
+import { GameText as Text, GameButton, CreditAmount } from '@/components/game';
 import BottomSheet from './BottomSheet';
 
 export interface ConfirmSheetProps {
@@ -170,16 +170,20 @@ export default function ConfirmSheet({
               >
                 {row.label}
               </Text>
-              <Text
-                style={[
-                  styles.rowValue,
-                  accessibleText,
-                  NumericFontVariant,
-                  { color: colors.text },
-                ]}
-              >
-                {row.value}
-              </Text>
+              {row.amount !== undefined ? (
+                <CreditAmount amount={row.amount} />
+              ) : (
+                <Text
+                  style={[
+                    styles.rowValue,
+                    accessibleText,
+                    NumericFontVariant,
+                    { color: colors.text },
+                  ]}
+                >
+                  {row.value}
+                </Text>
+              )}
             </View>
           ))}
         </View>

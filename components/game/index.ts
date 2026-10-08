@@ -1,4 +1,6 @@
 export { GameText } from './GameText';
+export { CreditAmount, creditAmountLabel } from './CreditAmount';
+export type { CreditAmountProps } from './CreditAmount';
 export type { GameTextProps, GameTextVariant } from './GameText';
 export { GameBevel } from './GameBevel';
 export type { GameBevelProps } from './GameBevel';

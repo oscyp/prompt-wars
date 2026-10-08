@@ -1,0 +1,191 @@
+[
+  {
+    "screen": "Arena",
+    "source": "app/(tabs)/home.tsx",
+    "evidence": "Native + source",
+    "captures": [
+      "01-arena",
+      "28-arena-progress"
+    ],
+    "disposition": "Compact hero/stat/actions retained. F4; verify urgent rows and 375-point signed-in layout later."
+  },
+  {
+    "screen": "Profile",
+    "source": "app/(tabs)/profile.tsx",
+    "evidence": "Native + source",
+    "captures": [
+      "02-profile",
+      "03-profile-progress",
+      "04-profile-navigation"
+    ],
+    "disposition": "Hero is improved. F4/F6/F9; sharing was verified in the preceding implementation, not recaptured here."
+  },
+  {
+    "screen": "Battles",
+    "source": "app/(tabs)/battles.tsx",
+    "evidence": "Native + source",
+    "captures": [
+      "17-battles"
+    ],
+    "disposition": "Played bot/legacy history inspected. F10; live active/frozen human avatar states remain a release check."
+  },
+  {
+    "screen": "Rankings",
+    "source": "app/(tabs)/rankings.tsx",
+    "evidence": "Native + source",
+    "captures": [
+      "14-rankings-ended"
+    ],
+    "disposition": "Ended-season route captured. F9/F10; populated podium/list, 0–4 populations reviewed in source only."
+  },
+  {
+    "screen": "Mode picker",
+    "source": "app/create.tsx",
+    "evidence": "Native + source",
+    "captures": [
+      "22-mode-picker",
+      "27-battle-mode-sheet"
+    ],
+    "disposition": "Shared illustrated modes work; harmonize header/Back. No matchmaking started."
+  },
+  {
+    "screen": "Matchmaking",
+    "source": "app/(battle)/matchmaking.tsx",
+    "evidence": "Source only",
+    "captures": [],
+    "disposition": "Fighter entrance/Return to Arena retained. Normalize retry/error controls through F6; capture actual active state later."
+  },
+  {
+    "screen": "Battle workspace",
+    "source": "app/(battle)/prompt-entry.tsx",
+    "evidence": "Source only",
+    "captures": [],
+    "disposition": "New environment, duel, move glyphs and lock-in already exist. F8; real active keyboard/submission states not exercised."
+  },
+  {
+    "screen": "Waiting",
+    "source": "app/(battle)/waiting.tsx",
+    "evidence": "Source only",
+    "captures": [],
+    "disposition": "Matching environment, snapshot portraits, deadline and footer retained. Capture actual waiting/long-theme/offline states later."
+  },
+  {
+    "screen": "Round result",
+    "source": "app/(battle)/round-result.tsx",
+    "evidence": "Source only",
+    "captures": [],
+    "disposition": "Outcome, HP/score, details and pinned Continue retained. F6 for remaining icons/borders/retry controls."
+  },
+  {
+    "screen": "Series result",
+    "source": "app/(battle)/result.tsx",
+    "evidence": "Native + source",
+    "captures": [
+      "18-series-summary",
+      "19-reveal-verdict",
+      "20-reveal-winner",
+      "21-reveal-rewards"
+    ],
+    "disposition": "Historical practice result and replay captured. F3/F5/F6/F7; live appeals/paid-video recovery not exercised."
+  },
+  {
+    "screen": "Sign-in",
+    "source": "app/(auth)/sign-in.tsx",
+    "evidence": "Native + source",
+    "captures": [
+      "23-small-sign-in"
+    ],
+    "disposition": "F1/F4/F10. No login or password-reset request submitted."
+  },
+  {
+    "screen": "Sign-up",
+    "source": "app/(auth)/sign-up.tsx",
+    "evidence": "Native + source",
+    "captures": [
+      "24-small-sign-up",
+      "25-small-sign-up-large-text"
+    ],
+    "disposition": "Default and accessibility-extra-large on small iPhone. F1/F4/F10. No account created."
+  },
+  {
+    "screen": "Password reset",
+    "source": "app/(auth)/reset-password.tsx",
+    "evidence": "Native + source",
+    "captures": [
+      "26-small-reset-expired"
+    ],
+    "disposition": "Expired-link state captured; actual password-entry/success reviewed in source only."
+  },
+  {
+    "screen": "Welcome",
+    "source": "app/(onboarding)/welcome.tsx",
+    "evidence": "Source only",
+    "captures": [],
+    "disposition": "F10: large brand, fixed 240-point illustration and action panel. Starter/practice flow untouched."
+  },
+  {
+    "screen": "Create fighter",
+    "source": "app/(onboarding)/create-character.tsx",
+    "evidence": "Source only",
+    "captures": [],
+    "disposition": "F10: preset/style presentation differs from Edit Look; new illustrated item grid already integrated. All creator steps retained."
+  },
+  {
+    "screen": "Edit Look",
+    "source": "app/(profile)/edit-character.tsx",
+    "evidence": "Native + source",
+    "captures": [
+      "15-edit-look",
+      "16-editor-card-viewer"
+    ],
+    "disposition": "Visible tabs/compact preview are improved. Existing draft retained. Lock/pending/history/review states inspected in source, not newly triggered."
+  },
+  {
+    "screen": "Cosmetic Shop",
+    "source": "app/(profile)/shop.tsx",
+    "evidence": "Native + source",
+    "captures": [
+      "10-shop",
+      "11-shop-preview"
+    ],
+    "disposition": "Tabs/filters/trust strip/explicit previews remain. F5/F6 plus C1 link inconsistency; no buying/equipping."
+  },
+  {
+    "screen": "Stats",
+    "source": "app/(profile)/stats.tsx",
+    "evidence": "Native + source",
+    "captures": [
+      "06-stats",
+      "07-stats-details"
+    ],
+    "disposition": "Quieter data panels and recent-window copy retained. F4; chart/data hierarchy can follow shared utility typography."
+  },
+  {
+    "screen": "Wallet",
+    "source": "app/(profile)/wallet.tsx",
+    "evidence": "Native + source",
+    "captures": [
+      "08-wallet",
+      "09-wallet-offers"
+    ],
+    "disposition": "F1/F4/F6. Purchase, restore and ledger recovery read in source; no billing flow triggered."
+  },
+  {
+    "screen": "Settings",
+    "source": "app/(profile)/settings.tsx",
+    "evidence": "Native + source",
+    "captures": [
+      "12-settings"
+    ],
+    "disposition": "F2. Native switches remain appropriate; no setting changed."
+  },
+  {
+    "screen": "Blocked users",
+    "source": "app/(profile)/blocked.tsx",
+    "evidence": "Native + source",
+    "captures": [
+      "13-blocked"
+    ],
+    "disposition": "F9 empty-state polish. Populated unblock states reviewed in source; no block changes."
+  }
+]

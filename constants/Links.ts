@@ -15,5 +15,6 @@ export const LANDING_ORIGIN = 'https://promptwars.gg';
 export const Links = {
   privacyPolicy: `${LANDING_ORIGIN}/privacy-policy.html`,
   termsAndConditions: `${LANDING_ORIGIN}/terms-and-conditions.html`,
+  accountDeletion: `${LANDING_ORIGIN}/account-deletion.html`,
   support: `${LANDING_ORIGIN}/#support`,
 } as const;

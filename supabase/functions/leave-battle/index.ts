@@ -59,7 +59,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const userId = await getAuthUserId(req);
+    // Existing battles must still settle after gameplay consent is withdrawn.
+    // The claim RPC retains participant checks and normal forfeit rules.
+    const userId = await getAuthUserId(req, { capability: 'account' });
     const { battle_id }: LeaveBattleRequest = await req.json();
 
     if (!battle_id) {

@@ -1,0 +1,40 @@
+{
+  "checkedAt": "2026-09-23T14:33:31.176388+00:00",
+  "checks": {
+    "typescript": {
+      "command": "rtk proxy yarn tsc --noEmit",
+      "exitCode": 0,
+      "seconds": 7.2,
+      "log": "/private/tmp/pw-result-refinement-checks-20260923/typescript.log"
+    },
+    "eslint": {
+      "command": "rtk proxy yarn lint",
+      "exitCode": 0,
+      "seconds": 4.4,
+      "log": "/private/tmp/pw-result-refinement-checks-20260923/eslint.log"
+    },
+    "jest": {
+      "command": "rtk proxy yarn test --runInBand --json --outputFile /private/tmp/pw-result-refinement-checks-20260923/jest-results.json",
+      "exitCode": 0,
+      "seconds": 42.1,
+      "log": "/private/tmp/pw-result-refinement-checks-20260923/jest.log",
+      "summary": {
+        "success": true,
+        "numTotalTestSuites": 196,
+        "numPassedTestSuites": 196,
+        "numFailedTestSuites": 0,
+        "numTotalTests": 1592,
+        "numPassedTests": 1592,
+        "numFailedTests": 0,
+        "numPendingTests": 0
+      }
+    },
+    "fixtureBoundary": {
+      "command": "rtk proxy node scripts/visual-fixtures-check.cjs",
+      "exitCode": 0,
+      "seconds": 0.2,
+      "log": "/private/tmp/pw-result-refinement-checks-20260923/fixtureBoundary.log"
+    }
+  },
+  "scope": "Client presentation; no server, dependency, version or deployment changes. Native evidence tracked separately."
+}

@@ -1,0 +1,33 @@
+{
+  "eas_build_id": "c60b6c40-b019-46d6-bf93-b88e3200fd33",
+  "source_manifest_files": 503,
+  "private_backend_marker_hits": [],
+  "bundle_id": "gg.promptwars.app",
+  "version": "1.3.3",
+  "build": "16",
+  "ipa_sha256": "47f2ab418ee6befc609b55c5c0ba373eed66dc0d060b0cf86899eccea1e4ba4b",
+  "ipa_bytes": 59281896,
+  "javascript_bundle_bytes": 7940407,
+  "composer_markers": {
+    "Build move": true,
+    "Write your own": true,
+    "All ideas": true,
+    "Write an action": true,
+    "Check included AI ideas": true,
+    "authoring_origin": true,
+    "ensure_free": true,
+    "move_types": true,
+    "winnerSide": true,
+    "viewerSide": true
+  },
+  "fonts": [
+    "BarlowCondensed-Bold.ttf",
+    "BarlowCondensed-ExtraBoldItalic.ttf",
+    "BarlowCondensed-Bold.ttf",
+    "BarlowCondensed-ExtraBoldItalic.ttf"
+  ],
+  "encryption_declaration": false,
+  "supported_platforms": [
+    "iPhoneOS"
+  ]
+}

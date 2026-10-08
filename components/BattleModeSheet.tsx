@@ -10,7 +10,6 @@ import { useRouter } from 'expo-router';
 import { BATTLE_MODES, BattleMode } from '@/constants/BattleModes';
 import BottomSheet from './sheets/BottomSheet';
 import ModeCard from './ModeCard';
-import { GameText } from './game';
 
 /**
  * Lets any screen inside the tab shell open the battle-mode sheet (the raised
@@ -73,9 +72,6 @@ export default function BattleModeSheet({
       closeAccessibilityLabel="Close battle modes"
     >
       <View style={{ gap: 16 }}>
-        <GameText variant="caption" style={{ textAlign: 'center' }}>
-          Your words. Your fighter.
-        </GameText>
         {BATTLE_MODES.map((info) => (
           <ModeCard
             key={info.mode}

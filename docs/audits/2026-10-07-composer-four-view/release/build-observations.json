@@ -1,0 +1,32 @@
+[
+  {
+    "at": "2026-10-07T12:59:30.387692+00:00",
+    "platform": "ios",
+    "id": "9301c70c-2276-481c-a0ea-fcd63323bcfc",
+    "status": "IN_PROGRESS"
+  },
+  {
+    "at": "2026-10-07T12:59:30.387932+00:00",
+    "platform": "android",
+    "id": "c177cc6f-084e-4130-981f-ac85f9cabfac",
+    "status": "IN_QUEUE"
+  },
+  {
+    "at": "2026-10-07T13:05:39.677314+00:00",
+    "platform": "ios",
+    "id": "9301c70c-2276-481c-a0ea-fcd63323bcfc",
+    "status": "FINISHED"
+  },
+  {
+    "at": "2026-10-07T14:04:00.721429+00:00",
+    "platform": "android",
+    "id": "c177cc6f-084e-4130-981f-ac85f9cabfac",
+    "status": "IN_PROGRESS"
+  },
+  {
+    "at": "2026-10-07T14:25:15.540741+00:00",
+    "platform": "android",
+    "id": "c177cc6f-084e-4130-981f-ac85f9cabfac",
+    "status": "FINISHED"
+  }
+]

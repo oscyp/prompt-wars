@@ -1,0 +1,8 @@
+{
+  "checked_at": "2026-10-02T14:59:13.325050+00:00",
+  "files": 503,
+  "ios_android_source_maps_identical": true,
+  "checkout_drift": [],
+  "digest_algorithm": "SHA256 of sorted path<TAB>hash records joined by newline, no final newline",
+  "digest": "b853eb945d94865a66cddc69580175bd4e37bf28e247a0a66279d66d9ee83088"
+}

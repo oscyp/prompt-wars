@@ -1,0 +1,52 @@
+[
+  {
+    "name": "security_definer_view",
+    "level": "ERROR",
+    "object": "public_player_cosmetics"
+  },
+  {
+    "name": "function_search_path_mutable",
+    "level": "WARN",
+    "object": "update_updated_at"
+  },
+  {
+    "name": "function_search_path_mutable",
+    "level": "WARN",
+    "object": "characters_guard_and_touch"
+  },
+  {
+    "name": "function_search_path_mutable",
+    "level": "WARN",
+    "object": "can_send_notification"
+  },
+  {
+    "name": "function_search_path_mutable",
+    "level": "WARN",
+    "object": "default_signature_item_for"
+  },
+  {
+    "name": "authenticated_security_definer_function_executable",
+    "level": "WARN",
+    "object": "get_my_entitlements"
+  },
+  {
+    "name": "authenticated_security_definer_function_executable",
+    "level": "WARN",
+    "object": "get_opponent_move_profile"
+  },
+  {
+    "name": "authenticated_security_definer_function_executable",
+    "level": "WARN",
+    "object": "is_blocked"
+  },
+  {
+    "name": "authenticated_security_definer_function_executable",
+    "level": "WARN",
+    "object": "user_can_see_signature_item"
+  },
+  {
+    "name": "auth_leaked_password_protection",
+    "level": "WARN",
+    "object": null
+  }
+]

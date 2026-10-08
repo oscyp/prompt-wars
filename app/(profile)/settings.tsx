@@ -1,4 +1,4 @@
-import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
+import { SignInMethods } from '@/components/auth/SignInMethods';
 import { GameText as Text, GamePanel, GameNavRow } from '@/components/game';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -10,8 +10,7 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import * as Application from 'expo-application';
@@ -26,7 +25,6 @@ import {
 import { Links } from '@/constants/Links';
 import InlineBanner from '@/components/InlineBanner';
 import Toast from '@/components/Toast';
-import { HEADER_BUTTON_SIZE } from '@/components/HeaderBackButton';
 import { invokeAuthenticatedFunction } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import {
@@ -38,6 +36,11 @@ import {
 } from '@/utils/notifications';
 import { NOTIFICATION_COPY, appVersionLabel } from '@/utils/settingsCopy';
 import { setAudioPreference, useAudioPreferences } from '@/utils/audioSettings';
+import { fetchProfileRow, type ProfileRow } from '@/utils/profileData';
+import { joinedLabel } from '@/components/profile/FighterHero';
+import { confirmGuestExit } from '@/utils/guestAccount';
+import { beginAuthOperation } from '@/utils/authSession';
+import { supabase } from '@/utils/supabase';
 
 const TOAST_MS = 2500;
 
@@ -107,11 +110,65 @@ function SwitchRow({
 
 export default function SettingsScreen() {
   const colors = useThemedColors();
-  const insets = useSafeAreaInsets();
   // Keep persisted readable-text styling on the remaining settings content.
   const accessibleText = useAccessibleTextStyle();
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const userId = user?.id;
+  const { secure } = useLocalSearchParams<{ secure?: string }>();
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollToAccount = useRef(secure === '1');
+  useEffect(() => {
+    scrollToAccount.current = secure === '1';
+  }, [secure]);
+  const secureProgress = () =>
+    scrollRef.current?.scrollToEnd({ animated: true });
+  const runForCurrentAccount = async (action: () => void | Promise<void>) => {
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.user.id === userId) await action();
+  };
+  const loadExistingAccount = () => {
+    const navigate = () =>
+      void runForCurrentAccount(() => {
+        // Settings stays mounted under the pushed sign-in screen. Supersede any
+        // pending link before it can publish into the account-switch flow.
+        beginAuthOperation();
+        router.push({
+          pathname: '/(auth)/sign-in',
+          params: { switchAccount: '1' },
+        });
+      });
+    if (user?.is_anonymous)
+      confirmGuestExit({ onSecure: secureProgress, onContinue: navigate });
+  };
+  const [accountInfo, setAccountInfo] = useState<{
+    userId: string;
+    profile: ProfileRow | null;
+  } | null>(null);
+  const [accountRetry, setAccountRetry] = useState(0);
+
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    setAccountInfo((previous) =>
+      previous?.userId === userId && previous.profile ? previous : null,
+    );
+    void fetchProfileRow(userId).then((profile) => {
+      if (!active) return;
+      setAccountInfo((previous) => ({
+        userId,
+        profile:
+          profile ?? (previous?.userId === userId ? previous.profile : null),
+      }));
+    });
+    return () => {
+      active = false;
+    };
+  }, [userId, accountRetry]);
+  const currentAccountInfo =
+    accountInfo?.userId === userId ? accountInfo : null;
+  const accountProfile = currentAccountInfo?.profile;
+  const joined = joinedLabel(accountProfile?.created_at);
 
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -134,6 +191,13 @@ export default function SettingsScreen() {
   // is what deactivates this device's push token. Calling the client straight
   // left signed-out devices receiving the account's battle notifications.
   const confirmSignOut = () => {
+    if (user?.is_anonymous) {
+      confirmGuestExit({
+        onSecure: secureProgress,
+        onContinue: () => void runForCurrentAccount(signOut),
+      });
+      return;
+    }
     Alert.alert('Sign out?', 'You can sign back in any time.', [
       { text: 'Stay', style: 'cancel' },
       { text: 'Sign out', style: 'destructive', onPress: () => void signOut() },
@@ -246,19 +310,16 @@ export default function SettingsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
+        ref={scrollRef}
+        onContentSizeChange={() => {
+          if (scrollToAccount.current) {
+            scrollToAccount.current = false;
+            secureProgress();
+          }
+        }}
         style={styles.container}
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + HEADER_BUTTON_SIZE },
-        ]}
+        contentContainerStyle={[styles.content, { paddingTop: Spacing.md }]}
       >
-        <GameDisplayTitle
-          accessibilityRole="header"
-          style={[styles.title, accessibleText]}
-        >
-          Settings
-        </GameDisplayTitle>
-
         {/* Battle audio is independent from haptics and split by intent: a
             player may keep event feedback without the ambient loop. */}
         <GamePanel style={[styles.section, { backgroundColor: colors.card }]}>
@@ -501,6 +562,56 @@ export default function SettingsScreen() {
           >
             Account
           </Text>
+          {userId ? (
+            accountProfile ? (
+              <View style={styles.accountIdentity}>
+                <Text
+                  selectable
+                  style={[accessibleText, { color: colors.text }]}
+                >
+                  @{accountProfile.username}
+                </Text>
+                {joined ? (
+                  <Text
+                    style={[accessibleText, { color: colors.textSecondary }]}
+                  >
+                    {joined}
+                  </Text>
+                ) : null}
+              </View>
+            ) : currentAccountInfo ? (
+              <InlineBanner
+                tone="error"
+                text="Couldn’t load your account details."
+                actionLabel="Retry"
+                onAction={() => setAccountRetry((attempt) => attempt + 1)}
+              />
+            ) : (
+              <Text
+                style={[
+                  styles.note,
+                  accessibleText,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                Loading account details…
+              </Text>
+            )
+          ) : null}
+          <SignInMethods
+            onLoadExistingAccount={
+              user?.is_anonymous ? loadExistingAccount : undefined
+            }
+          />
+          {user?.is_anonymous ? (
+            <GameNavRow
+              inline
+              title="Load existing account"
+              gameIcon="external"
+              onPress={loadExistingAccount}
+              accessibilityLabel="Load existing account"
+            />
+          ) : null}
           <GameNavRow
             inline
             title="Sign out"
@@ -562,6 +673,10 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontSize: Typography.sizes.sm,
     marginBottom: Spacing.sm,
+  },
+  accountIdentity: {
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
   },
   banner: {
     marginBottom: Spacing.sm,

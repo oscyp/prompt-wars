@@ -1,0 +1,121 @@
+{
+  "checkedAt": "2026-10-01T08:44:39.093Z",
+  "userChoice": "Move all incoming mail to Resend (reported by coordinating agent /root).",
+  "changePerformedBy": "Coordinating agent /root via DirectAdmin UI",
+  "intendedChange": {
+    "owner": "promptwars.gg.",
+    "type": "MX",
+    "priority": 9,
+    "target": "inbound-smtp.eu-west-1.amazonaws.com.",
+    "removed": "10 mail.promptwars.gg."
+  },
+  "verificationScope": "Read-only public DNS; no email sent and no DNS modified by verifier.",
+  "conclusions": [
+    "Both authoritative nameservers confirm only priority 9 Resend receiving MX over TCP with recursion disabled. Old mail.promptwars.gg MX is absent from these fresh authoritative responses.",
+    "Ordinary UDP responses through this environment and public recursive resolver caches still return the prior priority 10 mail.promptwars.gg route; propagation is incomplete at check time.",
+    "The send subdomain sending MX and SPF are unchanged and match expected Resend values.",
+    "DNS verification does not establish Resend dashboard verification or end-to-end inbound delivery."
+  ],
+  "authoritativeTcpNoRecursion": [
+    {
+      "server": "ns1.seohost.pl",
+      "name": "promptwars.gg",
+      "type": "MX",
+      "commandSucceeded": true,
+      "output": "\n; <<>> DiG 9.10.6 <<>> @ns1.seohost.pl promptwars.gg MX +tcp +norecurse +noall +answer +comments\n; (2 servers found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 62898\n;; flags: qr aa; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1\n\n;; OPT PSEUDOSECTION:\n; EDNS: version: 0, flags:; udp: 1232\n;; ANSWER SECTION:\npromptwars.gg.\t\t2000\tIN\tMX\t9 inbound-smtp.eu-west-1.amazonaws.com.\n\n"
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "promptwars.gg",
+      "type": "MX",
+      "commandSucceeded": true,
+      "output": "\n; <<>> DiG 9.10.6 <<>> @ns2.seohost.pl promptwars.gg MX +tcp +norecurse +noall +answer +comments\n; (2 servers found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 23877\n;; flags: qr aa; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1\n\n;; OPT PSEUDOSECTION:\n; EDNS: version: 0, flags:; udp: 1232\n;; ANSWER SECTION:\npromptwars.gg.\t\t2000\tIN\tMX\t9 inbound-smtp.eu-west-1.amazonaws.com.\n\n"
+    }
+  ],
+  "udpChecks": [
+    {
+      "server": "ns1.seohost.pl",
+      "name": "promptwars.gg",
+      "type": "MX",
+      "commandSucceeded": true,
+      "output": "\n; <<>> DiG 9.10.6 <<>> @ns1.seohost.pl promptwars.gg MX +noall +answer +comments\n; (2 servers found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 27454\n;; flags: qr aa rd; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 2\n;; WARNING: recursion requested but not available\n\n;; OPT PSEUDOSECTION:\n; EDNS: version: 0, flags:; udp: 1232\n;; ANSWER SECTION:\npromptwars.gg.\t\t1035\tIN\tMX\t10 mail.promptwars.gg.\n\n"
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "MX",
+      "commandSucceeded": true,
+      "output": "\n; <<>> DiG 9.10.6 <<>> @ns1.seohost.pl send.promptwars.gg MX +noall +answer +comments\n; (2 servers found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 62345\n;; flags: qr aa rd; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1\n;; WARNING: recursion requested but not available\n\n;; OPT PSEUDOSECTION:\n; EDNS: version: 0, flags:; udp: 1232\n;; ANSWER SECTION:\nsend.promptwars.gg.\t1033\tIN\tMX\t10 feedback-smtp.eu-west-1.amazonses.com.\n\n"
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "commandSucceeded": true,
+      "output": "\n; <<>> DiG 9.10.6 <<>> @ns1.seohost.pl send.promptwars.gg TXT +noall +answer +comments\n; (2 servers found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 47176\n;; flags: qr aa rd; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1\n;; WARNING: recursion requested but not available\n\n;; OPT PSEUDOSECTION:\n; EDNS: version: 0, flags:; udp: 1232\n;; ANSWER SECTION:\nsend.promptwars.gg.\t1034\tIN\tTXT\t\"v=spf1 include:amazonses.com ~all\"\n\n"
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "promptwars.gg",
+      "type": "MX",
+      "commandSucceeded": true,
+      "output": "\n; <<>> DiG 9.10.6 <<>> @ns2.seohost.pl promptwars.gg MX +noall +answer +comments\n; (2 servers found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 9253\n;; flags: qr aa rd; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 2\n;; WARNING: recursion requested but not available\n\n;; OPT PSEUDOSECTION:\n; EDNS: version: 0, flags:; udp: 1232\n;; ANSWER SECTION:\npromptwars.gg.\t\t1035\tIN\tMX\t10 mail.promptwars.gg.\n\n"
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "MX",
+      "commandSucceeded": true,
+      "output": "\n; <<>> DiG 9.10.6 <<>> @ns2.seohost.pl send.promptwars.gg MX +noall +answer +comments\n; (2 servers found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 27373\n;; flags: qr aa rd; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1\n;; WARNING: recursion requested but not available\n\n;; OPT PSEUDOSECTION:\n; EDNS: version: 0, flags:; udp: 1232\n;; ANSWER SECTION:\nsend.promptwars.gg.\t1032\tIN\tMX\t10 feedback-smtp.eu-west-1.amazonses.com.\n\n"
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "commandSucceeded": true,
+      "output": "\n; <<>> DiG 9.10.6 <<>> @ns2.seohost.pl send.promptwars.gg TXT +noall +answer +comments\n; (2 servers found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 22640\n;; flags: qr aa rd; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1\n;; WARNING: recursion requested but not available\n\n;; OPT PSEUDOSECTION:\n; EDNS: version: 0, flags:; udp: 1232\n;; ANSWER SECTION:\nsend.promptwars.gg.\t1034\tIN\tTXT\t\"v=spf1 include:amazonses.com ~all\"\n\n"
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "promptwars.gg",
+      "type": "MX",
+      "commandSucceeded": true,
+      "output": "\n; <<>> DiG 9.10.6 <<>> @1.1.1.1 promptwars.gg MX +noall +answer +comments\n; (1 server found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 20609\n;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1\n\n;; OPT PSEUDOSECTION:\n; EDNS: version: 0, flags:; udp: 1232\n;; ANSWER SECTION:\npromptwars.gg.\t\t1063\tIN\tMX\t10 mail.promptwars.gg.\n\n"
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "send.promptwars.gg",
+      "type": "MX",
+      "commandSucceeded": true,
+      "output": "\n; <<>> DiG 9.10.6 <<>> @1.1.1.1 send.promptwars.gg MX +noall +answer +comments\n; (1 server found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 15422\n;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1\n\n;; OPT PSEUDOSECTION:\n; EDNS: version: 0, flags:; udp: 1232\n;; ANSWER SECTION:\nsend.promptwars.gg.\t1730\tIN\tMX\t10 feedback-smtp.eu-west-1.amazonses.com.\n\n"
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "commandSucceeded": true,
+      "output": "\n; <<>> DiG 9.10.6 <<>> @1.1.1.1 send.promptwars.gg TXT +noall +answer +comments\n; (1 server found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 40593\n;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1\n\n;; OPT PSEUDOSECTION:\n; EDNS: version: 0, flags:; udp: 1232\n;; ANSWER SECTION:\nsend.promptwars.gg.\t1037\tIN\tTXT\t\"v=spf1 include:amazonses.com ~all\"\n\n"
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "promptwars.gg",
+      "type": "MX",
+      "commandSucceeded": true,
+      "output": "\n; <<>> DiG 9.10.6 <<>> @8.8.8.8 promptwars.gg MX +noall +answer +comments\n; (1 server found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 13493\n;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1\n\n;; OPT PSEUDOSECTION:\n; EDNS: version: 0, flags:; udp: 512\n;; ANSWER SECTION:\npromptwars.gg.\t\t818\tIN\tMX\t10 mail.promptwars.gg.\n\n"
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "send.promptwars.gg",
+      "type": "MX",
+      "commandSucceeded": true,
+      "output": "\n; <<>> DiG 9.10.6 <<>> @8.8.8.8 send.promptwars.gg MX +noall +answer +comments\n; (1 server found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 30734\n;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1\n\n;; OPT PSEUDOSECTION:\n; EDNS: version: 0, flags:; udp: 512\n;; ANSWER SECTION:\nsend.promptwars.gg.\t1732\tIN\tMX\t10 feedback-smtp.eu-west-1.amazonses.com.\n\n"
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "commandSucceeded": true,
+      "output": "\n; <<>> DiG 9.10.6 <<>> @8.8.8.8 send.promptwars.gg TXT +noall +answer +comments\n; (1 server found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 27892\n;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1\n\n;; OPT PSEUDOSECTION:\n; EDNS: version: 0, flags:; udp: 512\n;; ANSWER SECTION:\nsend.promptwars.gg.\t1730\tIN\tTXT\t\"v=spf1 include:amazonses.com ~all\"\n\n"
+    }
+  ]
+}

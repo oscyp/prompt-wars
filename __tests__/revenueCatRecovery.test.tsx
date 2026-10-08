@@ -78,26 +78,38 @@ beforeEach(async () => {
   jest.spyOn(console, 'warn').mockImplementation(() => {});
 });
 afterEach(() => jest.restoreAllMocks());
-it('persists the SDK transaction and prevents a second checkout while fulfillment is pending', async () => {
-  (Purchases.purchasePackage as jest.Mock).mockResolvedValue({
-    customerInfo: { entitlements: { active: {} } },
-    transaction: { transactionIdentifier: 'txn-123' },
-  });
-  const { result } = renderHook(useRevenueCat, { wrapper });
-  await waitFor(() => expect(result.current.isLoading).toBe(false));
-  let first: string | undefined;
-  await act(async () => {
-    first = await result.current.purchase(pkg);
-  });
-  expect(first).toBe('purchased');
-  expect((await readPendingPurchase('alice'))?.transactionId).toBe('txn-123');
-  let second: string | undefined;
-  await act(async () => {
-    second = await result.current.purchase(pkg);
-  });
-  expect(second).toBe('pending');
-  expect(Purchases.purchasePackage).toHaveBeenCalledTimes(1);
-});
+it.each([
+  'credits_30',
+  'promptwars_plus_monthly:monthly',
+  'promptwars_plus_annual:annual',
+])(
+  'persists the full %s store identity and prevents a second checkout while fulfillment is pending',
+  async (productId) => {
+    const selectedPackage = { ...pkg, product: { identifier: productId } };
+    (Purchases.purchasePackage as jest.Mock).mockResolvedValue({
+      customerInfo: { entitlements: { active: {} } },
+      transaction: { transactionIdentifier: 'txn-123' },
+    });
+    const { result } = renderHook(useRevenueCat, { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    let first: string | undefined;
+    await act(async () => {
+      first = await result.current.purchase(selectedPackage);
+    });
+    expect(first).toBe('purchased');
+    expect(await readPendingPurchase('alice')).toMatchObject({
+      productId,
+      transactionId: 'txn-123',
+    });
+    let second: string | undefined;
+    await act(async () => {
+      second = await result.current.purchase(pkg);
+    });
+    expect(second).toBe('pending');
+    expect(Purchases.purchasePackage).toHaveBeenCalledTimes(1);
+    expect(Purchases.purchasePackage).toHaveBeenCalledWith(selectedPackage);
+  },
+);
 it('restores a pending purchase after remount and Check again never opens checkout', async () => {
   await writePendingPurchase({
     accountId: 'alice',

@@ -21,18 +21,23 @@ export function BattleLockInControl({
   reason,
   progress,
   screenReaderEnabled,
+  activation = 'hold',
   onStart,
   onCancel,
   onConfirm,
+  controlRef,
 }: {
   state: LockInState;
   reason?: string;
   progress: SharedValue<number>;
   screenReaderEnabled: boolean;
+  activation?: 'hold' | 'confirm';
   onStart: () => void;
   onCancel: () => void;
   onConfirm: () => void;
+  controlRef?: React.Ref<View>;
 }) {
+  const usesConfirmation = activation === 'confirm' || screenReaderEnabled;
   const blocked =
     state === 'unavailable' || state === 'submitting' || state === 'submitted';
   const ink = blocked ? '#ABA6BA' : '#171026';
@@ -45,15 +50,18 @@ export function BattleLockInControl({
       ? 'LOCKING IN…'
       : state === 'submitted'
         ? 'PROMPT LOCKED IN'
-        : state === 'holding'
+        : state === 'holding' && !usesConfirmation
           ? 'KEEP HOLDING'
           : state === 'failure'
-            ? 'HOLD TO TRY AGAIN'
-            : screenReaderEnabled
+            ? usesConfirmation
+              ? 'TRY AGAIN'
+              : 'HOLD TO TRY AGAIN'
+            : usesConfirmation
               ? 'LOCK IN PROMPT'
               : 'HOLD TO LOCK IN';
   return (
     <Pressable
+      ref={controlRef}
       testID="battle-lock-in"
       disabled={blocked}
       accessibilityRole="button"
@@ -61,13 +69,13 @@ export function BattleLockInControl({
       accessibilityState={{ disabled: blocked, busy: state === 'submitting' }}
       accessibilityHint={
         reason ??
-        (screenReaderEnabled
+        (usesConfirmation
           ? 'Opens confirmation. You can’t change your prompt afterward.'
           : 'Press and hold. You can’t change your prompt afterward.')
       }
-      onPressIn={screenReaderEnabled || blocked ? undefined : onStart}
-      onPressOut={screenReaderEnabled || blocked ? undefined : onCancel}
-      onPress={screenReaderEnabled && !blocked ? onConfirm : undefined}
+      onPressIn={usesConfirmation || blocked ? undefined : onStart}
+      onPressOut={usesConfirmation || blocked ? undefined : onCancel}
+      onPress={usesConfirmation && !blocked ? onConfirm : undefined}
       style={styles.control}
     >
       <GameBevel
@@ -94,35 +102,37 @@ export function BattleLockInControl({
       >
         {label}
       </GameText>
-      <View
-        accessible={false}
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-      >
-        <Svg width={36} height={36}>
-          <Circle
-            cx={18}
-            cy={18}
-            r={15}
-            fill="none"
-            stroke={ink}
-            strokeOpacity={0.22}
-            strokeWidth={4}
-          />
-          <ProgressCircle
-            cx={18}
-            cy={18}
-            r={15}
-            fill="none"
-            stroke={ink}
-            strokeWidth={4}
-            strokeDasharray={[circumference, circumference]}
-            animatedProps={ring}
-            rotation={-90}
-            origin="18,18"
-          />
-        </Svg>
-      </View>
+      {!usesConfirmation ? (
+        <View
+          accessible={false}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          <Svg width={36} height={36}>
+            <Circle
+              cx={18}
+              cy={18}
+              r={15}
+              fill="none"
+              stroke={ink}
+              strokeOpacity={0.22}
+              strokeWidth={4}
+            />
+            <ProgressCircle
+              cx={18}
+              cy={18}
+              r={15}
+              fill="none"
+              stroke={ink}
+              strokeWidth={4}
+              strokeDasharray={[circumference, circumference]}
+              animatedProps={ring}
+              rotation={-90}
+              origin="18,18"
+            />
+          </Svg>
+        </View>
+      ) : null}
     </Pressable>
   );
 }

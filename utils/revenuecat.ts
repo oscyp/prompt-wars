@@ -65,6 +65,21 @@ export const PRODUCT_IDS = {
   FTUO_STARTER: 'ftuo_starter_legend',
 } as const;
 
+/** Classify known Plus products without changing their store/receipt identity. */
+export function plusSubscriptionPeriod(
+  productId: string,
+): 'month' | 'year' | null {
+  const [product, basePlan, extra] = productId.split(':');
+  if (
+    extra !== undefined ||
+    (basePlan !== undefined && !/^[a-z0-9][a-z0-9-]{0,62}$/.test(basePlan))
+  )
+    return null;
+  if (product === PRODUCT_IDS.PLUS_MONTHLY) return 'month';
+  if (product === PRODUCT_IDS.PLUS_ANNUAL) return 'year';
+  return null;
+}
+
 /**
  * IMPORTANT: All purchase validation and entitlement grants MUST happen
  * server-side via Supabase Edge Functions. Never trust client-side

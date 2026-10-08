@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
+import { GameBevel } from '@/components/game';
 import { BorderRadius, Spacing } from '@/constants/DesignTokens';
 
 export interface ListSkeletonProps {
@@ -40,6 +41,10 @@ export default function ListSkeleton({
             { backgroundColor: colors.card, borderColor: colors.borderLight },
           ]}
         >
+          <GameBevel
+            color={colors.ornamentMuted}
+            insetColor={colors.ornamentMuted}
+          />
           <View style={[styles.avatar, block]} />
           <View style={styles.lines}>
             <View style={[styles.line, styles.title, block]} />
@@ -58,8 +63,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     minHeight: 72,
     padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
+
     marginBottom: Spacing.sm,
   },
   avatar: {

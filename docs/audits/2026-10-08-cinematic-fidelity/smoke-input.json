@@ -1,0 +1,100 @@
+{
+  "version": 2,
+  "battleId": "synthetic-smoke",
+  "roundId": null,
+  "roundNumber": null,
+  "policy": {
+    "cinematic_profile": "plus",
+    "target_duration_seconds": 15,
+    "duration_policy_version": "cinematics-v2"
+  },
+  "fighters": {
+    "p1": {
+      "side": "p1",
+      "characterId": "Ari",
+      "name": "Ari",
+      "archetype": "engineer",
+      "signatureColor": "#8B5CF6",
+      "artStyle": null,
+      "appearanceVersion": null,
+      "traits": {},
+      "item": {
+        "id": "Ari-item",
+        "name": "Fountain Pen",
+        "description": "Fountain Pen",
+        "reference": {
+          "bucket": "character-portraits",
+          "path": "cinematic-bundled/item/fountain_pen/a86ce72e6013750ff388dcc5cc1c6ed85a55573f7e2da9ccbe68d33cec808c87.jpg",
+          "version": "a86ce72e6013750ff388dcc5cc1c6ed85a55573f7e2da9ccbe68d33cec808c87",
+          "recordId": "Ari-item",
+          "source": "item"
+        }
+      },
+      "itemDepictedInFighter": false,
+      "reference": {
+        "bucket": "character-portraits",
+        "path": "cinematic-bundled/fighter/engineer/8c863b1681d6562339daecc0ab11972fca305b03eef5bfb33056edd120e08af1.jpg",
+        "version": "8c863b1681d6562339daecc0ab11972fca305b03eef5bfb33056edd120e08af1",
+        "recordId": null,
+        "source": "bundled"
+      },
+      "provenance": "matched"
+    },
+    "p2": {
+      "side": "p2",
+      "characterId": "Mira",
+      "name": "Mira",
+      "archetype": "mystic",
+      "signatureColor": "#8B5CF6",
+      "artStyle": null,
+      "appearanceVersion": null,
+      "traits": {},
+      "item": {
+        "id": "Mira-item",
+        "name": "Compass",
+        "description": "Compass",
+        "reference": {
+          "bucket": "character-portraits",
+          "path": "cinematic-bundled/item/compass/201a71cae5d8b5ce2d1533226b9b11d5ed8b68661f7f7c0b19e3647d318856c9.jpg",
+          "version": "201a71cae5d8b5ce2d1533226b9b11d5ed8b68661f7f7c0b19e3647d318856c9",
+          "recordId": "Mira-item",
+          "source": "item"
+        }
+      },
+      "itemDepictedInFighter": false,
+      "reference": {
+        "bucket": "character-portraits",
+        "path": "cinematic-bundled/fighter/mystic/5ae2307e93e45a306506f874631f3ea4601738385efb6e2fa2cbe150dc5ae0e0.jpg",
+        "version": "5ae2307e93e45a306506f874631f3ea4601738385efb6e2fa2cbe150dc5ae0e0",
+        "recordId": null,
+        "source": "bundled"
+      },
+      "provenance": "matched"
+    }
+  },
+  "moves": {
+    "p1": {
+      "side": "p1",
+      "text": "I use my fountain pen to draw a glowing bridge across the gap and step onto it.",
+      "moveType": "attack",
+      "moderationEventId": null,
+      "provenance": "frozen_judge"
+    },
+    "p2": {
+      "side": "p2",
+      "text": "I turn my compass to reveal a shorter floating path, then skip across it and reach the rooftop flag first.",
+      "moveType": "defense",
+      "moderationEventId": null,
+      "provenance": "frozen_judge"
+    }
+  },
+  "theme": "Playful rooftop obstacle contest",
+  "situation": "",
+  "outcome": {
+    "winner": "p2",
+    "isDraw": false,
+    "isKo": false,
+    "forfeit": null
+  },
+  "templateVersion": "cinematic-v2"
+}

@@ -1,0 +1,12 @@
+Uploading asset (generate-move-suggestions): supabase/functions/generate-move-suggestions/index.ts
+Uploading asset (generate-move-suggestions): supabase/functions/_shared/prompt-affordances.ts
+Uploading asset (generate-move-suggestions): supabase/functions/_shared/suggestion-service.ts
+Uploading asset (generate-move-suggestions): supabase/functions/_shared/prompt-situations.ts
+Uploading asset (generate-move-suggestions): supabase/functions/_shared/utils.ts
+Uploading asset (generate-move-suggestions): supabase/functions/_shared/moderation.ts
+Uploading asset (generate-move-suggestions): supabase/functions/_shared/types.ts
+Uploading asset (generate-move-suggestions): supabase/functions/_shared/move-suggestions.ts
+Uploading asset (generate-move-suggestions): supabase/functions/_shared/suggestion-completion.ts
+Uploading asset (generate-move-suggestions): supabase/functions/_shared/character-creation.ts
+unexpected deploy status 400: {"message":"Failed to bundle the function (reason: Module not found \"https://esm.sh/@supabase/functions-js@^2.1.5?target=denonext\".\n    at https://esm.sh/@supabase/supabase-js@2.39.3:2:8)."}
+Try rerunning the command with --debug to troubleshoot the error.

@@ -57,11 +57,12 @@ describe('RenderRevealSheet', () => {
     expect(hapticSuccess).toHaveBeenCalledTimes(1);
   });
 
-  it('captions the spend in sentence form', () => {
+  it('captions the new look without repeating its charge', () => {
     const { getByText, queryByText } = render(
       <RenderRevealSheet {...baseProps} />,
     );
-    getByText('Golota · New look · 3 credits spent');
+    getByText('Golota · New look');
+    expect(queryByText(/credits spent/i)).toBeNull();
     // The in-app AI disclosure was removed as a product decision (042c59a);
     // this surface must not quietly reintroduce it.
     expect(queryByText('AI-GENERATED')).toBeNull();
@@ -75,7 +76,7 @@ describe('RenderRevealSheet', () => {
 
   it('restores the previous pair when allowed', () => {
     const { getByLabelText } = render(<RenderRevealSheet {...baseProps} />);
-    fireEvent.press(getByLabelText('Restore previous, free'));
+    fireEvent.press(getByLabelText('Restore previous'));
     expect(baseProps.onRestorePrevious).toHaveBeenCalledTimes(1);
   });
 
@@ -84,8 +85,7 @@ describe('RenderRevealSheet', () => {
       <RenderRevealSheet {...baseProps} canRestorePrevious={false} />,
     );
     expect(
-      getByLabelText('Restore previous, free').props.accessibilityState
-        .disabled,
+      getByLabelText('Restore previous').props.accessibilityState.disabled,
     ).toBe(true);
   });
 

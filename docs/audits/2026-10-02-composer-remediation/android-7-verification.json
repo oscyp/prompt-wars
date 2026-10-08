@@ -1,0 +1,56 @@
+{
+  "verifiedAt": "2026-10-02T17:46:34.099879+00:00",
+  "buildId": "bc22e58f-7250-4796-94e8-4489e3e80642",
+  "apkPath": "/tmp/prompt-wars-android-7-remediation-20261002.apk",
+  "apkUrl": "https://expo.dev/artifacts/eas/ipYBjrgacAsSHqXsM5drO8aAOcADMFIoUSWAMJYrlC0.apk",
+  "apkBytes": 138992353,
+  "apkSha256": "f94aa5520bae299c28ceca16cf1d15a2252ab418c32bbaa36078c228cf81187d",
+  "versionName": "1.3.3",
+  "versionCode": 7,
+  "package": "gg.promptwars.app",
+  "allRequiredStaticChecksPassed": true,
+  "sourceFileCount": 503,
+  "sourceMapExactlyMatchesIos16": false,
+  "intentionalDifferencesFromIos16": [
+    "app/(battle)/prompt-entry.tsx"
+  ],
+  "sourceManifestSha256": "ffc47a95e7c4598328574e2c6253cf024031cc01db87ce84317c1dbf39081048",
+  "finalSourceReadback": "android-7-final-source-readback.json",
+  "signerMatchesIntermediate6": true,
+  "bundleSha256": "de61a7660617f45945496b3216155c9b567de2e4b0dbf6c90687b82e824ce519",
+  "bundleMatchesLinkedBackend": true,
+  "requiredComposerAndResultCopyMarkersPresent": true,
+  "compiledConditionalAndroidPaddingVerified": true,
+  "keyboardBytecodeProof": "android-7-keyboard-bytecode-proof.json",
+  "nativeQaOwner": "implement_mobile_composer",
+  "nativeQaReport": "native/android-local-README.md",
+  "nativeQaStatus": "PASS: exact APK 1.3.3 (7) updated/installed, cold-started and exercised signed-out email/keyboard UI on AOSP Android 15/API35 arm64; no fatal/AndroidRuntime/ReactNativeJS errors in 336 captured process-log lines; owned QA resources stopped.",
+  "storeSubmissionRequested": false,
+  "finalDeliveryCandidate": true,
+  "requiredBundleMarkerNames": [
+    "I swing around the nearest stone post",
+    "to approach outside their guard.",
+    "ensureFreeMoveSuggestionBanks",
+    "All ideas",
+    "authoring_origin",
+    "winnerSide",
+    "viewerSide"
+  ],
+  "optionalDiagnosticMarkerNames": [
+    "affordance_ids",
+    "promptwars"
+  ],
+  "nativeQaCompletedAt": "2026-10-02T17:53:16.098561+00:00",
+  "nativeQaIdentityProof": "native/android-final7-identity.txt",
+  "nativeQaRuntimeProof": "native/android-final7-runtime-proof.json",
+  "nativeQaCleanupProof": "native/android-cleanup-proof.json",
+  "nativeQaColdLaunchTimeMs": 539,
+  "nativeQaProcessLogLines": 336,
+  "nativeQaFatalOrAndroidRuntimeOrJsErrors": [],
+  "nativeQaScopeLimits": [
+    "Signed-out final APK startup and native keyboard field only; no authentication submission, accounts, eligibility decisions, battles or purchases.",
+    "Composer interaction evidence is from the isolated Expo Go fixture, separate from signed-in release APK acceptance.",
+    "AOSP API35 emulator only; no physical device, TalkBack, Google Play services or billing verification.",
+    "Native startup and buffered Expo Router fixture advisories are documented separately; no warning-free-log claim."
+  ]
+}

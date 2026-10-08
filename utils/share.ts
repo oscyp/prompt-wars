@@ -15,16 +15,26 @@ import * as FileSystem from 'expo-file-system/legacy';
 /** Capture the scored result card to a PNG and open the share sheet. */
 export async function shareResultCard(
   ref: RefObject<View | null>,
+  isCurrent: () => boolean = () => true,
 ): Promise<boolean> {
   if (!ref.current) return false;
+  const assertCurrent = () => {
+    if (!isCurrent())
+      throw new Error(
+        'The result changed. Review the updated card and share again.',
+      );
+  };
+  assertCurrent();
 
   const uri = await captureRef(ref as RefObject<View>, {
     format: 'png',
     quality: 0.95,
     result: 'tmpfile',
   });
+  assertCurrent();
 
   if (!(await Sharing.isAvailableAsync())) return false;
+  assertCurrent();
 
   await Sharing.shareAsync(uri, {
     mimeType: 'image/png',
@@ -35,11 +45,23 @@ export async function shareResultCard(
 }
 
 /** Download the cinematic video to cache and open the share sheet. */
-export async function shareBattleVideo(videoUrl: string): Promise<boolean> {
+export async function shareBattleVideo(
+  videoUrl: string,
+  isCurrent: () => boolean = () => true,
+): Promise<boolean> {
+  const assertCurrent = () => {
+    if (!isCurrent())
+      throw new Error(
+        'The result changed. Review the updated result and share again.',
+      );
+  };
+  assertCurrent();
   if (!(await Sharing.isAvailableAsync())) return false;
+  assertCurrent();
 
   const target = `${FileSystem.cacheDirectory}prompt-wars-battle-${Date.now()}.mp4`;
   const { uri } = await FileSystem.downloadAsync(videoUrl, target);
+  assertCurrent();
 
   await Sharing.shareAsync(uri, {
     mimeType: 'video/mp4',

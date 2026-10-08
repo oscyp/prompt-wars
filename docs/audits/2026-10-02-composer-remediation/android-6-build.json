@@ -1,0 +1,38 @@
+{
+  "id": "6a6caf8c-1848-43c1-9f9d-11be150105e2",
+  "status": "FINISHED",
+  "platform": "ANDROID",
+  "artifacts": {
+    "buildUrl": "https://expo.dev/artifacts/eas/jZ0nzJYG8Jz8wHp6JrdIDp5EU4cJfXB8qrv_mrd15n0.apk",
+    "applicationArchiveUrl": "https://expo.dev/artifacts/eas/jZ0nzJYG8Jz8wHp6JrdIDp5EU4cJfXB8qrv_mrd15n0.apk"
+  },
+  "fingerprint": {
+    "id": "01a0fd0e-3f05-7d9f-8c75-c1d835b5873e",
+    "hash": "d2263d60fbb207fad1a98f98bb12f56813567ffe"
+  },
+  "project": {
+    "id": "d4c525e1-0a95-4c6a-b1ee-106fa2f03f46",
+    "name": "prompt-wars",
+    "slug": "prompt-wars",
+    "ownerAccount": {
+      "id": "72cb62bc-d38d-4706-a12c-a881967fb6f1",
+      "name": "prompt-wars"
+    }
+  },
+  "distribution": "INTERNAL",
+  "buildProfile": "preview",
+  "sdkVersion": "55.0.0",
+  "appVersion": "1.3.3",
+  "appBuildVersion": "6",
+  "gitCommitHash": "d66e621264fb56b6471ecbaa4a7971bb689abaca",
+  "createdAt": "2026-10-02T14:39:24.354Z",
+  "updatedAt": "2026-10-02T15:50:02.183Z",
+  "completedAt": "2026-10-02T15:50:01.983Z",
+  "message": "Composer remediation FINAL 2026-10-02 Android QA APK; verified result copy",
+  "metrics": {
+    "buildWaitTime": 1974,
+    "buildQueueTime": 3038206,
+    "buildDuration": 1197449
+  },
+  "observedAt": "2026-10-02T15:51:59.772038+00:00"
+}

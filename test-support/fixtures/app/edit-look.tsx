@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Image,
   Keyboard,
@@ -12,12 +12,12 @@ import {
   findNodeHandle,
   useWindowDimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GameButton,
-  GameDisplayTitle,
-  GameIcon,
+  GameHeader,
+  CreditAmount,
   GameText,
 } from '@/components/game';
 import FighterCard from '@/components/game/FighterCard';
@@ -49,6 +49,7 @@ import {
 import { useThemedColors } from '@/hooks/useThemedColors';
 import type { CatalogSignatureItem } from '@/utils/characters';
 import type { EditPricing } from '@/utils/editCooldowns';
+import { spendRows } from '@/utils/editDialogCopy';
 import { equipment, fighter, statCases } from '../mockupParity';
 
 const identity: IdentityPanelProps['character'] = {
@@ -92,6 +93,12 @@ const items: CatalogSignatureItem[] = [
     itemClass: 'symbol',
   },
   {
+    id: 'fixture-briefcase',
+    name: 'Briefcase',
+    description: 'Carries everything needed for a brilliant argument.',
+    itemClass: 'tool',
+  },
+  {
     id: 'fixture-coin',
     name: 'Lucky coin',
     description: 'A familiar token carried through every battle.',
@@ -114,6 +121,42 @@ const items: CatalogSignatureItem[] = [
     name: 'Tarot card',
     description: 'An illustrated glimpse of another possible future.',
     itemClass: 'relic',
+  },
+  {
+    id: 'fixture-stopwatch',
+    name: 'Stopwatch',
+    description: 'Makes every second count.',
+    itemClass: 'tool',
+  },
+  {
+    id: 'fixture-chair',
+    name: 'Folding Chair',
+    description: 'A seat at any table.',
+    itemClass: 'weaponized_mundane',
+  },
+  {
+    id: 'fixture-polaroid',
+    name: 'Polaroid',
+    description: 'Captures the moment an idea becomes real.',
+    itemClass: 'tool',
+  },
+  {
+    id: 'fixture-fork',
+    name: 'Tuning Fork',
+    description: 'Finds the right frequency for every word.',
+    itemClass: 'instrument',
+  },
+  {
+    id: 'fixture-megaphone',
+    name: 'Megaphone',
+    description: 'A little more reach for a big idea.',
+    itemClass: 'instrument',
+  },
+  {
+    id: 'fixture-umbrella',
+    name: 'Umbrella',
+    description: 'A shelter for unexpected inspiration.',
+    itemClass: 'weaponized_mundane',
   },
 ];
 const pricing: EditPricing = {
@@ -143,11 +186,16 @@ const identityKeys: DraftKey[] = [
 const localArt = fighter('Mira');
 const cosmetics = equipment(2);
 type Presentation = 'ready' | 'locked' | 'pending' | 'failure';
-type Sheet = 'card' | 'history' | 'save' | 'render' | null;
+type Sheet = 'card' | 'history' | 'save' | 'render' | 'shuffle' | null;
 
 /** Presentation only: no persistent draft hook, account provider, or server action. */
 export default function EditLookFixture() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    section?: string;
+    controls?: string;
+    included?: string;
+  }>();
   const colors = useThemedColors();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
@@ -168,6 +216,42 @@ export default function EditLookFixture() {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [footerHeight, setFooterHeight] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
+  const includedDraws = Math.min(
+    3,
+    Math.max(0, Math.floor(Number(params.included) || 0)),
+  );
+  const revealFocusedInput = useCallback(() => {
+    requestAnimationFrame(() => {
+      const focused = TextInput.State.currentlyFocusedInput?.();
+      if (!focused) return;
+      const handle = findNodeHandle(
+        focused as unknown as Parameters<typeof findNodeHandle>[0],
+      );
+      if (handle)
+        scroll.current?.scrollResponderScrollNativeHandleToKeyboard(
+          handle,
+          12,
+          true,
+        );
+    });
+  }, []);
+  useEffect(() => {
+    if (keyboardVisible) revealFocusedInput();
+  }, [
+    keyboardVisible,
+    footerHeight,
+    window.width,
+    window.height,
+    window.fontScale,
+    revealFocusedInput,
+  ]);
+
+  useEffect(() => {
+    if (params.section === 'gear' || params.section === 'look')
+      setSection(params.section);
+    if (params.section === 'fighter') setSection('identity');
+    if (params.controls === 'hide') setControls(false);
+  }, [params.section, params.controls]);
 
   useEffect(() => {
     const show = Keyboard.addListener(
@@ -290,7 +374,7 @@ export default function EditLookFixture() {
           ? 'Drawing failed · your choices are kept'
           : dirty
             ? 'Unsaved changes · artwork unchanged'
-            : 'Current artwork · drawing is optional';
+            : '';
   const control = (label: string, action: () => void) => (
     <Pressable
       key={label}
@@ -327,12 +411,11 @@ export default function EditLookFixture() {
           style={{ flex: 1, paddingVertical: 4 }}
         >
           <GameText variant="caption" style={styles.devLabel}>
-            DEV · local presentation · {window.width} × {window.height} ·{' '}
-            {controls ? 'hide' : 'controls'}
+            {controls
+              ? `DEV · local presentation · ${window.width} × ${window.height} · hide`
+              : 'DEV · local presentation · controls'}
           </GameText>
         </Pressable>
-        {keyboardVisible &&
-          control('Dismiss keyboard', () => Keyboard.dismiss())}
       </View>
       {controls && !keyboardVisible && (
         <ScrollView
@@ -354,40 +437,35 @@ export default function EditLookFixture() {
           {control('Reset', reset)}
         </ScrollView>
       )}
-      <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back to native fixtures"
-          onPress={() => router.back()}
-          style={styles.back}
-        >
-          <GameIcon name="chevron-left" size={24} />
-        </Pressable>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <GameDisplayTitle
-            style={{
-              textAlign: 'center',
-              fontSize: window.fontScale > 1.3 ? 24 : 30,
-            }}
-          >
-            Edit Look
-          </GameDisplayTitle>
-        </View>
-        <GameText variant="caption" style={{ color: colors.ornament }}>
-          12 credits
-        </GameText>
-      </View>
-      <EditorPreview
-        name={stagedName}
-        archetype={archetype}
-        avatarUri={localArt.avatarUri}
-        cosmetics={cosmetics}
-        accentColor={accent}
-        compact={compact}
-        dirty={dirty}
-        onView={(ref) => show('card', ref)}
-        onHistory={(ref) => show('history', ref)}
+      <GameHeader
+        presentation="secondary"
+        title="Edit Look"
+        style={{ paddingHorizontal: 12 }}
+        leading={
+          <GameButton
+            label="Back"
+            chrome="text"
+            tone="secondary"
+            gameIcon="chevron-left"
+            accessibilityLabel="Back to native fixtures"
+            onPress={() => router.back()}
+          />
+        }
+        trailing={!keyboardVisible && <CreditAmount amount={12} />}
       />
+      {!keyboardVisible && window.fontScale <= 1.3 && (
+        <EditorPreview
+          name={stagedName}
+          archetype={archetype}
+          avatarUri={localArt.avatarUri}
+          cosmetics={cosmetics}
+          accentColor={accent}
+          compact={compact}
+          dirty={dirty}
+          onView={(ref) => show('card', ref)}
+          onHistory={(ref) => show('history', ref)}
+        />
+      )}
       <EditorTabs
         value={section}
         dirty={dirtySections}
@@ -402,22 +480,39 @@ export default function EditLookFixture() {
         keyboardDismissMode="on-drag"
         automaticallyAdjustKeyboardInsets={false}
         contentInsetAdjustmentBehavior="never"
-        onLayout={() => {
-          if (!keyboardVisible) return;
-          const focused = TextInput.State.currentlyFocusedInput?.();
-          const handle = focused
-            ? findNodeHandle(
-                focused as unknown as Parameters<typeof findNodeHandle>[0],
-              )
-            : null;
-          if (handle)
-            scroll.current?.scrollResponderScrollNativeHandleToKeyboard(
-              handle,
-              footerHeight + 12,
-              true,
-            );
+        onLayout={revealFocusedInput}
+        onContentSizeChange={() => {
+          if (keyboardVisible) revealFocusedInput();
         }}
       >
+        {!keyboardVisible && window.fontScale > 1.3 && (
+          <EditorPreview
+            name={stagedName}
+            archetype={archetype}
+            avatarUri={localArt.avatarUri}
+            cosmetics={cosmetics}
+            accentColor={accent}
+            compact={compact}
+            dirty={dirty}
+            onView={(ref) => show('card', ref)}
+            onHistory={(ref) => show('history', ref)}
+          />
+        )}
+
+        {(status || (includedDraws > 0 && presentation === 'ready')) &&
+          window.fontScale > 1.3 && (
+            <GameText
+              variant="caption"
+              accessibilityLiveRegion="polite"
+              style={{ paddingHorizontal: 16, paddingVertical: 8 }}
+            >
+              {includedDraws > 0 && presentation === 'ready'
+                ? [`${includedDraws} included draws remaining`, status]
+                    .filter(Boolean)
+                    .join(' · ')
+                : status}
+            </GameText>
+          )}
         {presentation === 'locked' && (
           <View style={styles.notice}>
             <InlineBanner
@@ -432,7 +527,7 @@ export default function EditLookFixture() {
           <View style={styles.notice}>
             <InlineBanner
               text="Your drawing is still processing. You can leave and return; your current artwork remains available."
-              actionLabel="Check render"
+              actionLabel="Check status"
               onAction={localOnly}
             />
           </View>
@@ -442,7 +537,7 @@ export default function EditLookFixture() {
             <InlineBanner
               tone="error"
               text="The last drawing could not finish. Your choices and current artwork are kept."
-              actionLabel="Check render"
+              actionLabel="Check status"
               onAction={localOnly}
             />
           </View>
@@ -467,6 +562,7 @@ export default function EditLookFixture() {
         )}
         {section === 'look' ? (
           <LookPanel
+            onInputFocus={revealFocusedInput}
             look={look}
             changedKeys={changedKeys}
             disabled={disabled}
@@ -481,6 +577,7 @@ export default function EditLookFixture() {
           />
         ) : section === 'identity' ? (
           <IdentityPanel
+            onInputFocus={revealFocusedInput}
             character={identity}
             staged={editingDraft}
             changedKeys={changedKeys}
@@ -503,7 +600,7 @@ export default function EditLookFixture() {
                 : 'Wait for the current drawing to finish.'
             }
             disabledActionLabel={
-              presentation === 'locked' ? 'Manage 2 battles' : 'Check render'
+              presentation === 'locked' ? 'Manage 2 battles' : 'Check status'
             }
             onDisabledAction={localOnly}
             onRetry={localOnly}
@@ -512,11 +609,12 @@ export default function EditLookFixture() {
         )}
         <View style={styles.notice}>
           <GameButton
-            label="Shuffle & draw · 5 credits"
+            label="Shuffle & draw"
+            amount={5}
             tone="secondary"
-            gameIcon="replay"
+            gameIcon="dice"
             disabled={disabled}
-            onPress={() => show('render')}
+            onPress={() => show('shuffle')}
           />
           {dirty && (
             <GameButton
@@ -530,11 +628,17 @@ export default function EditLookFixture() {
       </ScrollView>
       <View style={{ paddingBottom: keyboardVisible ? 0 : insets.bottom }}>
         <EditorFooter
-          status={status}
+          status={
+            includedDraws > 0 && presentation === 'ready'
+              ? [`${includedDraws} included draws remaining`, status]
+                  .filter(Boolean)
+                  .join(' · ')
+              : status
+          }
           renderLabel={
             presentation === 'pending' || presentation === 'failure'
-              ? 'Check render'
-              : 'Draw this look · 3 credits'
+              ? 'Check status'
+              : 'Review & draw'
           }
           saveDisabled={!dirty || disabled}
           renderDisabled={presentation === 'locked'}
@@ -561,7 +665,6 @@ export default function EditLookFixture() {
           />
         }
       >
-        <GameText variant="caption">Current artwork</GameText>
         <FighterCard
           name={stagedName}
           archetype={archetype}
@@ -603,9 +706,15 @@ export default function EditLookFixture() {
         ))}
       </BottomSheet>
       <ConfirmSheet
-        visible={sheet === 'save' || sheet === 'render'}
+        visible={sheet === 'save' || sheet === 'render' || sheet === 'shuffle'}
         returnFocusRef={returnFocusRef}
-        title={sheet === 'save' ? 'Save your changes?' : 'Draw this look?'}
+        title={
+          sheet === 'save'
+            ? 'Save your changes?'
+            : sheet === 'shuffle'
+              ? 'Shuffle a random character?'
+              : 'Draw this look?'
+        }
         subtitle={
           sheet === 'save'
             ? 'Update your fighter’s choices. Your current artwork stays as it is.'
@@ -614,25 +723,29 @@ export default function EditLookFixture() {
         lines={
           sheet === 'save'
             ? [
-                'Your staged choices will be saved for free.',
+                'Preview of your staged choices only; no draft is persisted.',
                 'Drawing new artwork is optional.',
               ]
-            : undefined
+            : sheet === 'render' && includedDraws > 0
+              ? [
+                  `Uses 1 included draw. ${includedDraws - 1} remaining afterwards.`,
+                ]
+              : undefined
         }
         rows={
           sheet === 'save'
             ? []
-            : [
-                { label: 'Price', value: '3 credits' },
-                { label: 'Balance', value: '12 credits' },
-                { label: 'After', value: '9 credits' },
-              ]
+            : spendRows(sheet === 'shuffle' ? 5 : includedDraws > 0 ? 0 : 3, 12)
         }
         thumbnailUri={sheet === 'render' ? localArt.portraitUri : undefined}
         accentColor={accent}
-        footnote="DEV preview only. Confirm closes this sheet; no request or account change is made."
+        footnote="DEV preview only. Confirm closes this sheet; no request, account change, or durable draft is made."
         confirmLabel={
-          sheet === 'save' ? 'Save changes · Free' : 'Draw · 3 credits'
+          sheet === 'save'
+            ? 'Save changes'
+            : sheet === 'shuffle'
+              ? 'Shuffle and draw'
+              : 'Draw this look'
         }
         onConfirm={localOnly}
         onCancel={() => setSheet(null)}

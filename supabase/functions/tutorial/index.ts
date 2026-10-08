@@ -55,11 +55,16 @@ Deno.serve(async (req) => {
           character_id: fighter.data.id,
           mode: 'bot',
           request_id: prepared.data.request_id,
-          client_contract_version: 2,
+          client_contract_version: body.client_contract_version,
         }),
       },
     );
     const matched = await response.json();
+    if (response.status === 426)
+      return new Response(JSON.stringify(matched), {
+        status: 426,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     if (!response.ok || !matched.battle_id)
       return err(
         'practice_unavailable',

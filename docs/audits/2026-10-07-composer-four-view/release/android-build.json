@@ -1,0 +1,19 @@
+{
+  "id": "c177cc6f-084e-4130-981f-ac85f9cabfac",
+  "status": "FINISHED",
+  "platform": "ANDROID",
+  "distribution": "INTERNAL",
+  "buildProfile": "preview",
+  "appVersion": "1.3.3",
+  "appBuildVersion": "9",
+  "createdAt": "2026-10-07T12:58:29.721Z",
+  "updatedAt": "2026-10-07T14:22:59.867Z",
+  "completedAt": "2026-10-07T14:22:59.653Z",
+  "expirationDate": "2026-10-21T12:58:29.774Z",
+  "priority": "NORMAL",
+  "artifacts": {
+    "buildUrl": "https://expo.dev/artifacts/eas/wLVxM2ADE8p3-7X-ZDki69YaiJCObWRLAT4n6etkKKI.apk",
+    "applicationArchiveUrl": "https://expo.dev/artifacts/eas/wLVxM2ADE8p3-7X-ZDki69YaiJCObWRLAT4n6etkKKI.apk"
+  },
+  "lastObservedAt": "2026-10-07T14:25:15.535426+00:00"
+}

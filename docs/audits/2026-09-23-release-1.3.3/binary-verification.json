@@ -1,0 +1,14 @@
+{
+  "bundleIdentifier": "gg.promptwars.app",
+  "version": "1.3.3",
+  "build": "13",
+  "registeredBundledDisplayFonts": [
+    "BarlowCondensed-Bold.ttf",
+    "BarlowCondensed-ExtraBoldItalic.ttf"
+  ],
+  "javascriptBundlePresent": true,
+  "archiveBytes": 59202203,
+  "sha256": "3d624622bb70a84666f3e4d9b2a5e35769ab3be580cbfd36d6a74a8994a19cc7",
+  "checkedAt": "2026-09-23T18:44:35.328390+00:00",
+  "passed": true
+}

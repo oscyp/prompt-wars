@@ -1,0 +1,12 @@
+Installed APK SHA256: f94aa5520bae299c28ceca16cf1d15a2252ab418c32bbaa36078c228cf81187d
+    versionCode=7 minSdk=24 targetSdk=36
+    versionName=1.3.3
+Starting: Intent { cmp=gg.promptwars.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: gg.promptwars.app/.MainActivity
+TotalTime: 539
+WaitTime: 542
+Complete
+
+PID: 6755

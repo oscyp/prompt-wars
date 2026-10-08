@@ -1,0 +1,16 @@
+Deployed Functions on project uoyjhudegdpanrgllfoj: round-resolve
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/uoyjhudegdpanrgllfoj/functions
+
+Uploading asset (round-resolve): supabase/functions/round-resolve/index.ts
+Uploading asset (round-resolve): supabase/functions/_shared/compose-reveal-payload.ts
+Uploading asset (round-resolve): supabase/functions/_shared/types.ts
+Uploading asset (round-resolve): supabase/functions/_shared/providers.ts
+Uploading asset (round-resolve): supabase/functions/_shared/video-constants.ts
+Uploading asset (round-resolve): supabase/functions/_shared/prompt-situations.ts
+Uploading asset (round-resolve): supabase/functions/_shared/judge-policy.ts
+Uploading asset (round-resolve): supabase/functions/_shared/combat.ts
+Uploading asset (round-resolve): supabase/functions/_shared/judge.ts
+Uploading asset (round-resolve): supabase/functions/_shared/anti-p2w.ts
+Uploading asset (round-resolve): supabase/functions/_shared/utils.ts
+Uploading asset (round-resolve): supabase/functions/_shared/round-forfeit.ts
+Uploading asset (round-resolve): supabase/functions/_shared/private-bot.ts

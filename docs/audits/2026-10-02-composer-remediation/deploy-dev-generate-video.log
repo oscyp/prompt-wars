@@ -1,0 +1,11 @@
+Deployed Functions on project uoyjhudegdpanrgllfoj: dev-generate-video
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/uoyjhudegdpanrgllfoj/functions
+
+Uploading asset (dev-generate-video): supabase/functions/dev-generate-video/index.ts
+Uploading asset (dev-generate-video): supabase/functions/_shared/dev-gate.ts
+Uploading asset (dev-generate-video): supabase/functions/_shared/providers.ts
+Uploading asset (dev-generate-video): supabase/functions/_shared/video-constants.ts
+Uploading asset (dev-generate-video): supabase/functions/_shared/prompt-situations.ts
+Uploading asset (dev-generate-video): supabase/functions/_shared/judge-policy.ts
+Uploading asset (dev-generate-video): supabase/functions/_shared/types.ts
+Uploading asset (dev-generate-video): supabase/functions/_shared/utils.ts

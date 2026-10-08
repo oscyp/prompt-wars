@@ -261,7 +261,7 @@ Deno.test(
             moveTypeOne: 'attack',
             moveTypeTwo: 'attack',
             theme: null,
-            promptVersion: 'v',
+            promptVersion: 'v1.0.0-mvp',
             seed: 1,
           }),
         Error,
@@ -272,5 +272,36 @@ Deno.test(
       if (oldKey === undefined) Deno.env.delete('JUDGE_API_KEY');
       else Deno.env.set('JUDGE_API_KEY', oldKey);
     }
+  },
+);
+
+Deno.test(
+  'ideas review cannot be enabled by authored candidates or legacy-only accuracy evidence',
+  () => {
+    const c = {
+      status: 'passed',
+      judge_model_id: 'review',
+      judge_prompt_version: 'v2.0.0-ideas',
+      locale: 'en',
+      created_at: new Date().toISOString(),
+      total_count: 1,
+      threshold: 0.9,
+      accuracy: 1,
+      per_item_results: [
+        {
+          calls: [
+            {
+              model_id: 'review',
+              fallback: false,
+              prompt_version: 'v2.0.0-ideas',
+            },
+          ],
+        },
+      ],
+    };
+    assertEquals(
+      calibrationEligible(c, 'review', 'v2.0.0-ideas', 'en', 168),
+      false,
+    );
   },
 );

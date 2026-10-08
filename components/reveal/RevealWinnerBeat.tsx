@@ -22,6 +22,7 @@ import {
   type RevealInsets,
 } from '@/utils/revealLayout';
 import MoveSting from './MoveSting';
+import { useHeroArtworkBudget } from '@/hooks/useHeroArtworkBudget';
 
 export interface RevealWinnerBeatProps {
   winner: RevealSide;
@@ -51,6 +52,11 @@ export default function RevealWinnerBeat({
 }: RevealWinnerBeatProps) {
   const colors = useThemedColors();
   const active = useBattlePresentationActive();
+  const [stageHeight, setStageHeight] = useState<number>();
+  const budget = useHeroArtworkBudget(
+    insets.top + insets.bottom + 32,
+    stageHeight,
+  );
   const copy = winnerBeatCopy({
     name: winner.name,
     isMe,
@@ -72,12 +78,14 @@ export default function RevealWinnerBeat({
   return (
     <ScrollView
       style={styles.root}
+      onLayout={(event) => setStageHeight(event.nativeEvent.layout.height)}
       contentContainerStyle={[
         styles.content,
         { paddingTop: insets.top, paddingBottom: insets.bottom },
       ]}
     >
       <GameText
+        onLayout={budget.measure('header')}
         variant="display"
         style={{ color: colors.ornament, textAlign: 'center' }}
       >
@@ -95,6 +103,8 @@ export default function RevealWinnerBeat({
           avatarUri={avatarUrl}
           signatureColor={color}
           cosmetics={cosmetics}
+          maxArtworkHeight={budget.maxArtworkHeight}
+          onBodyHeight={budget.onCardBodyHeight}
           onImageError={() => setFailed((n) => n + 1)}
         />
         <MoveSting
@@ -105,7 +115,7 @@ export default function RevealWinnerBeat({
         />
       </Animated.View>
       {move ? (
-        <View style={styles.move}>
+        <View style={styles.move} onLayout={budget.measure('actions')}>
           <GameSymbol
             name={MOVE_META[move].icon}
             size={20}

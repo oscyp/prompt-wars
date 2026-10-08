@@ -1,17 +1,5 @@
-// Delete Account Edge Function
-// In-app account deletion, required by App Store guideline 5.1.1(v).
-//
-// Two steps, in this order:
-//   1. delete_my_account() scrubs all personal data but keeps the profile row.
-//      A hard DELETE would cascade to battles (destroying the opponent's match
-//      history) and to purchases / wallet_transactions.
-//   2. auth.admin.deleteUser() removes the credential, which is what actually
-//      makes the account unrecoverable. There is no FK from profiles to
-//      auth.users, so this does not cascade.
-//
-// If step 2 fails the profile is already anonymized and the call returns an
-// error, so a retry is safe: step 1 is idempotent via profiles.deleted_at.
-
+// Preserve opponents' match history by scrubbing the profile, then remove Auth.
+// Apple revocation is captured durably before Auth deletion and retried separately.
 import {
   createServiceClient,
   corsHeaders,
@@ -19,70 +7,109 @@ import {
   successResponse,
   getAuthUserId,
 } from '../_shared/utils.ts';
+import {
+  createAppleRevocationStore,
+  processAppleRevocations,
+  readAppleConfig,
+} from '../_shared/apple-auth.ts';
 
-interface DeleteAccountRequest {
-  // Typed confirmation from the UI so an accidental invocation cannot delete
-  // an account. The client sends the literal string "DELETE".
-  confirm?: string;
+export interface DeleteAccountDependencies {
+  getUserId(req: Request): Promise<string>;
+  prepareDeletion(
+    userId: string,
+  ): Promise<{ already_deleted?: boolean; profile_missing?: boolean }>;
+  deleteAuthUser(userId: string): Promise<void>;
+  revokeApple(userId: string): Promise<void>;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
-
-  try {
-    const userId = await getAuthUserId(req);
-
-    let body: DeleteAccountRequest = {};
-    try {
-      body = await req.json();
-    } catch {
-      // Empty body is fine; the confirm check below still applies.
-    }
-
-    if (body.confirm !== 'DELETE') {
-      return errorResponse('Confirmation required', 400);
-    }
-
-    const supabase = createServiceClient();
-
-    const { data: scrubbed, error: scrubError } = await supabase.rpc(
-      'delete_my_account',
-      { p_profile_id: userId },
-    );
-
-    if (scrubError) {
-      console.error('Account scrub failed:', scrubError);
-      return errorResponse('Failed to delete account', 500);
-    }
-
-    // Revoke access last. Anonymized-but-signed-in is a recoverable state;
-    // deleted-auth-but-unscrubbed would leave personal data behind with no
-    // way for the user to retry.
-    const { error: authError } = await supabase.auth.admin.deleteUser(userId);
-
-    if (authError) {
-      console.error('Auth user deletion failed:', authError);
-      return errorResponse(
-        'Your data was removed but sign-out failed. Please contact support.',
-        500,
+function dependencies(): DeleteAccountDependencies {
+  return {
+    getUserId: (req) => getAuthUserId(req, { capability: 'account' }),
+    async prepareDeletion(userId) {
+      const { data, error } = await createServiceClient().rpc(
+        'prepare_account_deletion',
+        { p_user_id: userId },
       );
-    }
+      if (error) throw new Error('Account scrub failed');
+      return data ?? {};
+    },
+    async deleteAuthUser(userId) {
+      const { error } =
+        await createServiceClient().auth.admin.deleteUser(userId);
+      if (error) throw new Error('Auth deletion failed');
+    },
+    async revokeApple(userId) {
+      await processAppleRevocations(
+        { config: readAppleConfig(), store: createAppleRevocationStore() },
+        userId,
+      );
+    },
+  };
+}
 
-    return successResponse({
-      deleted: true,
-      already_deleted:
-        (scrubbed as { already_deleted?: boolean } | null)?.already_deleted ??
-        false,
-      message: 'Your account and personal data have been deleted.',
-    });
+export async function handleDeleteAccount(
+  req: Request,
+  deps = dependencies(),
+): Promise<Response> {
+  if (req.method === 'OPTIONS')
+    return new Response('ok', { headers: corsHeaders });
+  if (req.method !== 'POST') return errorResponse('Method not allowed', 405);
+  let userId: string;
+  try {
+    userId = await deps.getUserId(req);
   } catch (error) {
-    console.error('Delete account error:', error);
-    const message = error instanceof Error ? error.message : 'Internal error';
-    // getAuthUserId throws on a missing/invalid token; surface that as 401
-    // rather than the blanket 500 other functions return.
-    const status = message.toLowerCase().includes('unauthorized') ? 401 : 500;
-    return errorResponse(message, status);
+    const unauthorized =
+      error instanceof Error && error.message === 'Unauthorized';
+    return errorResponse(
+      unauthorized ? 'Unauthorized' : 'Account deletion unavailable',
+      unauthorized ? 401 : 500,
+    );
   }
-});
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return errorResponse('Confirmation required', 400);
+  }
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    (body as Record<string, unknown>).confirm !== 'DELETE'
+  ) {
+    return errorResponse('Confirmation required', 400);
+  }
+  let scrubbed: Awaited<
+    ReturnType<DeleteAccountDependencies['prepareDeletion']>
+  >;
+  try {
+    // One transaction captures Apple credentials, erases registration data, and scrubs
+    // an existing profile. A missing profile is allowed: Auth must still be removed.
+    scrubbed = await deps.prepareDeletion(userId);
+  } catch {
+    console.warn('Account deletion preparation failed');
+    return errorResponse('Failed to delete account. Please try again.', 500);
+  }
+  try {
+    await deps.deleteAuthUser(userId);
+  } catch {
+    console.warn('Auth identity deletion failed after profile scrub');
+    return errorResponse(
+      'Your profile was deactivated, but account deletion is incomplete. Please try again.',
+      500,
+    );
+  }
+  try {
+    await deps.revokeApple(userId);
+  } catch {
+    // Missing Apple configuration or a provider outage must not block deletion.
+    // The durable queue survives Auth deletion and is serviced by the worker.
+    console.warn('Apple revocation deferred to worker');
+  }
+  return successResponse({
+    deleted: true,
+    already_deleted: scrubbed.already_deleted ?? false,
+    message: 'Your account has been deleted. Retained match records are described in the Privacy Policy.',
+  });
+}
+
+if (import.meta.main) Deno.serve((req) => handleDeleteAccount(req));

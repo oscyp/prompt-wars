@@ -1,0 +1,13 @@
+{
+  "buildId": "6a6caf8c-1848-43c1-9f9d-11be150105e2",
+  "observedAt": "2026-10-02T15:05:45.206238+00:00",
+  "status": "IN_QUEUE",
+  "createdAt": "2026-10-02T14:39:24.354Z",
+  "lastStatusChange": "2026-10-02T14:39:26.448Z",
+  "priority": "NORMAL",
+  "queuePositionAvailable": false,
+  "estimatedWaitAvailable": false,
+  "error": null,
+  "pollIntervalSeconds": 180,
+  "duplicateBuildCreated": false
+}

@@ -1,0 +1,30 @@
+{
+  "recorded_at": "2026-10-07T12:48:03.692245+00:00",
+  "jest": {
+    "command": "yarn test --runInBand",
+    "exit_code": 0,
+    "suites_passed": 224,
+    "suites_total": 224,
+    "tests_passed": 1900,
+    "tests_total": 1900,
+    "runtime_seconds": 46.169
+  },
+  "typescript": {
+    "command": "node_modules/.bin/tsc --noEmit",
+    "exit_code": 0
+  },
+  "focused": {
+    "suites_passed": 4,
+    "tests_passed": 74
+  },
+  "lint": {
+    "scope": [
+      "hooks/useMoveSuggestions.ts",
+      "hooks/useMoveSuggestionBanks.ts",
+      "hooks/useMoveCompletion.ts",
+      "__tests__/useMoveSuggestions.test.tsx"
+    ],
+    "exit_code": 0
+  },
+  "native_or_production_verified_by_this_task": false
+}

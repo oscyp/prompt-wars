@@ -1,0 +1,9 @@
+Initialising login role...
+Connecting to remote database...
+Skipping migration README.md... (file name must match pattern "<timestamp>_name.sql")
+Do you want to push these migrations to the remote database?
+ • 20261007154542_paid_composer_step_rerolls.sql
+
+ [Y/n] y
+Applying migration 20261007154542_paid_composer_step_rerolls.sql...
+Finished supabase db push.

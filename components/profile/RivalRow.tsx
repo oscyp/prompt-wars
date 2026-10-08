@@ -15,9 +15,13 @@ import {
   rivalRecordSentence,
   type RivalRecord,
 } from '@/utils/profileView';
-import PortraitPreview from '../PortraitPreview';
+import PlayerListAvatar from '../PlayerListAvatar';
+import { usePlayerAvatars } from '@/hooks/usePlayerAvatars';
+import { resolveEquippedCosmetics } from '@/utils/cosmetics';
 
 export interface RivalRowProps {
+  accountId?: string;
+  profileId?: string;
   name: string;
   archetype: string | null;
   /** The rival's signature colour (hex or palette key); ring falls back to grey. */
@@ -54,18 +58,24 @@ export function rivalRowLabel(input: {
   } in 30 days`;
 }
 
-/**
- * One rival: their archetype illustration ringed in their signature colour,
- * their name, and the viewer's record against them. Opponent characters are
- * not readable, so the face is the archetype's bundled art, never a portrait.
- */
 export default function RivalRow({
-  name,
-  archetype,
-  signatureColor,
+  accountId,
+  profileId,
+  name: fallbackName,
+  archetype: fallbackArchetype,
+  signatureColor: fallbackColor,
   record,
   battlesCount,
 }: RivalRowProps) {
+  const reference = profileId
+    ? { kind: 'players' as const, id: profileId }
+    : undefined;
+  const avatars = usePlayerAvatars(accountId, reference ? [reference] : []);
+  const identity = reference ? avatars.get(reference)?.identity : undefined;
+  const name = identity?.name ?? fallbackName;
+  const archetype = identity?.archetype ?? fallbackArchetype;
+  const signatureColor = identity?.signature_color ?? fallbackColor;
+  const cosmetics = resolveEquippedCosmetics(identity?.cosmetic_config);
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
   const tone = rivalRecordTone(record);
@@ -85,12 +95,16 @@ export default function RivalRow({
       accessible
       accessibilityLabel={rivalRowLabel({ name, record, battlesCount })}
     >
-      <PortraitPreview
-        uri={archetypeIllustrationUri(archetype) ?? ''}
+      <PlayerListAvatar
+        accountId={accountId}
+        reference={reference}
+        frame={cosmetics.frame}
+        avatarEffect={cosmetics.avatarEffect}
+        fallbackUri={archetypeIllustrationUri(archetype) ?? ''}
         variant="circle"
         size={RIVAL_PORTRAIT_SIZE}
         accentColor={ring}
-        accessibilityLabel={`${name}'s archetype`}
+        accessibilityLabel={`${name}'s fighter portrait`}
       />
       <GameText
         variant="fighter"

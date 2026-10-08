@@ -62,6 +62,7 @@ export function useBattleCharacters(
 ): {
   p1: BattleCharacterInfo | null;
   p2: BattleCharacterInfo | null;
+  portraitsResolved: boolean;
   refreshPortraits: () => void;
 } {
   const { user } = useAuth();
@@ -125,6 +126,7 @@ export function useBattleCharacters(
       : null;
   const value = signed?.key === key ? signed?.value : null;
   return {
+    portraitsResolved: value != null,
     p1: toInfo(value?.player_one ?? fallback(snapshot?.player_one)),
     p2: toInfo(value?.player_two ?? fallback(snapshot?.player_two)),
     refreshPortraits: () => setNonce((n) => n + 1),

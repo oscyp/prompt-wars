@@ -8,13 +8,30 @@ import {
   hasSupabaseSecretAuthorization,
   successResponse,
 } from '../_shared/utils.ts';
-import { runJudgePipeline, JUDGE_PROMPT_VERSION } from '../_shared/judge.ts';
+import {
+  runJudgePipeline,
+  JUDGE_PROMPT_VERSION,
+  IDEAS_JUDGE_PROMPT_VERSION,
+  judgePolicyVersion,
+} from '../_shared/judge.ts';
+import { JUDGE_EVALUATION_CASES } from '../_shared/judge-evaluation-corpus.ts';
+import type { EvaluationObservation } from '../_shared/judge-evaluation.ts';
+import { buildComposerCalibrationRecord } from '../_shared/judge-calibration-evidence.ts';
+import {
+  applyHumanReview,
+  budgetedEvaluationProvider,
+  runJudgeEvaluationCase,
+} from '../_shared/judge-evaluation-runner.ts';
 import { independentProvider } from '../_shared/appeals-service.ts';
 import { assertIndependentCalls, type ActualCall } from '../_shared/appeals.ts';
-import { createJudgeProvider } from '../_shared/providers.ts';
+import { createJudgeProvider, XAIJudgeProvider } from '../_shared/providers.ts';
 
 interface RunCalibrationRequest {
   target?: 'primary' | 'appeal';
+  judge_policy_version?: string;
+  split?: 'tuning' | 'holdout';
+  max_provider_calls?: number;
+  human_review?: unknown;
   locale?: string;
   limit?: number;
   threshold?: number;
@@ -23,7 +40,7 @@ interface RunCalibrationRequest {
 interface CalibrationItemResult {
   calls?: ActualCall[];
   id: string;
-  expected_winner: number;
+  expected_winner: number | null;
   actual_winner: number | null; // 1, 2, or null for draw
   correct: boolean;
   player_one_score: number;
@@ -46,12 +63,75 @@ Deno.serve(async (req) => {
   try {
     const {
       target = 'primary',
+      judge_policy_version = JUDGE_PROMPT_VERSION,
+      split = 'holdout',
+      max_provider_calls,
+      human_review,
       locale = 'en',
       limit = 100,
       threshold = 0.9,
     }: RunCalibrationRequest = await req.json();
 
     const supabase = createServiceClient();
+    const version = judgePolicyVersion(judge_policy_version);
+    if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1)
+      return errorResponse('threshold must be between 0 and 1', 400);
+    if (version === IDEAS_JUDGE_PROMPT_VERSION) {
+      if (threshold < 0.9)
+        return errorResponse('Composer threshold must be at least 0.9', 400);
+      if (!['tuning', 'holdout'].includes(split))
+        return errorResponse('Invalid dataset split', 400);
+      if (
+        !(Deno.env.get('JUDGE_API_KEY') || Deno.env.get('XAI_API_KEY')) ||
+        (target === 'primary' && !Deno.env.get('JUDGE_MODEL_ID'))
+      )
+        return errorResponse(
+          'Real-model evaluation requires configured model and credentials',
+          409,
+        );
+      const provider = budgetedEvaluationProvider(
+        target === 'appeal'
+          ? independentProvider()
+          : new XAIJudgeProvider(Deno.env.get('JUDGE_MODEL_ID')!),
+        max_provider_calls ?? 0,
+      );
+      let cases = JUDGE_EVALUATION_CASES.filter((c) => c.split === split);
+      if (human_review !== undefined)
+        cases = await applyHumanReview(cases, human_review);
+      const observations: EvaluationObservation[] = [];
+      for (const item of cases) {
+        try {
+          observations.push(await runJudgeEvaluationCase(provider, item));
+        } catch (error) {
+          console.error(
+            `Evaluation stopped at ${item.id}:`,
+            error instanceof Error ? error.message : 'provider error',
+          );
+          break;
+        }
+      }
+      const record = buildComposerCalibrationRecord({
+        cases,
+        observations,
+        model: provider.getModelId(),
+        providerCalls: provider.callsUsed(),
+        threshold,
+      });
+      const { data: saved, error } = await supabase
+        .from('judge_calibration_runs')
+        .insert(record)
+        .select('id')
+        .single();
+      if (error)
+        return errorResponse('Failed to save composer calibration evidence');
+      return successResponse({
+        calibration_run_id: saved.id,
+        judge_prompt_version: version,
+        status: record.status,
+        evaluation: record.evaluation_metadata,
+        provider_calls: provider.callsUsed(),
+      });
+    }
 
     // Load active calibration sets
     const { data: calibrationSets, error: setsError } = await supabase
@@ -59,6 +139,7 @@ Deno.serve(async (req) => {
       .select('*')
       .eq('locale', locale)
       .eq('is_active', true)
+      .eq('judge_policy_version', version)
       .limit(limit);
 
     if (setsError) {
@@ -104,7 +185,7 @@ Deno.serve(async (req) => {
           actualWinner = judgeResult.winner_profile_id === 'p1' ? 1 : 2;
         }
 
-        // Treat draw/null as incorrect
+        // Null is a valid expected draw; provider failures are recorded separately.
         const isCorrect = actualWinner === set.expected_winner;
 
         if (isCorrect) {

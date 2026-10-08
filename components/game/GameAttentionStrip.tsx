@@ -12,7 +12,9 @@ export function GameAttentionStrip({
   eyebrow,
   accessibilityLabel,
   onPress,
+  leading,
 }: {
+  leading?: React.ReactNode;
   title: string;
   subtitle: string;
   eyebrow: string;
@@ -55,7 +57,7 @@ export function GameAttentionStrip({
         </Svg>
       </View>
       <GameBevel color={colors.ornament} insetColor={colors.ornamentMuted} />
-      <GameIcon name="scroll" size={34} color={colors.ornament} />
+      {leading ?? <GameIcon name="scroll" size={34} color={colors.ornament} />}
       <View style={styles.copy}>
         <GameText variant="label" style={{ color: colors.ornament }}>
           {eyebrow}

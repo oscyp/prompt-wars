@@ -1,15 +1,9 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { GameText as Text } from './game';
+import { CreditAmount } from './game/CreditAmount';
 import { useRouter } from 'expo-router';
-import { GameIcon } from './game/icons/GameIcon';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import {
-  Spacing,
-  Typography,
-  NumericFontVariant,
-} from '@/constants/DesignTokens';
-import AnimatedCounter from './AnimatedCounter';
+import { Spacing, Typography } from '@/constants/DesignTokens';
 
 export interface CreditChipProps {
   credits: number;
@@ -59,29 +53,7 @@ export default function CreditChip({
         },
       ]}
     >
-      <GameIcon
-        name="crystal"
-        size={29}
-        color={colors.primary}
-        accent="#E8D9FF"
-      />
-      {unavailable ? (
-        <Text
-          style={[
-            styles.text,
-            NumericFontVariant,
-            { color: colors.textSecondary },
-          ]}
-        >
-          —
-        </Text>
-      ) : (
-        <AnimatedCounter
-          value={credits}
-          style={[styles.text, { color: colors.text }]}
-          accessibilityLabel={`${credits} credits`}
-        />
-      )}
+      <CreditAmount amount={unavailable ? null : credits} accessible={false} />
     </Pressable>
   );
 }

@@ -4,6 +4,7 @@ import { GameText, GamePanel, GameButton } from '@/components/game';
 import { GameIcon } from '@/components/game/icons/GameIcon';
 import PortraitPreview from '@/components/PortraitPreview';
 import { useThemedColors } from '@/hooks/useThemedColors';
+import { resolveEquippedCosmetics } from '@/utils/cosmetics';
 import type { ShopCharacter } from '@/hooks/useCosmeticShop';
 import type {
   CosmeticConfig,
@@ -34,6 +35,7 @@ export function ShopEquippedSummary({
   onImageError: () => void;
 }) {
   const colors = useThemedColors();
+  const cosmetics = resolveEquippedCosmetics(equipped);
   const [expanded, setExpanded] = useState(false);
   const slot = SLOTS.find(({ type }) => type === category);
   const slug = equipped[category];
@@ -59,6 +61,8 @@ export function ShopEquippedSummary({
             variant="circle"
             size={48}
             accentColor={character.signatureColor}
+            frame={cosmetics.frame}
+            avatarEffect={cosmetics.avatarEffect}
             onImageError={onImageError}
             accessibilityLabel={character.name}
           />
@@ -69,7 +73,7 @@ export function ShopEquippedSummary({
           <GameText variant="label">{heading}</GameText>
           <GameText variant="caption" style={{ color: colors.textSecondary }}>
             {category === 'color'
-              ? 'Change in Edit character'
+              ? 'Change in Edit Look'
               : `${slot?.label ?? 'Cosmetic'} · ${slug ? 'Equipped' : 'Not equipped'}`}
           </GameText>
         </View>
@@ -88,7 +92,7 @@ export function ShopEquippedSummary({
             </GameText>
           ))}
           <GameButton
-            label="Edit character colours"
+            label="Edit Look · Signature colour"
             chrome="utility"
             gameIcon="palette"
             onPress={onEdit}

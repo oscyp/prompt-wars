@@ -1,0 +1,17 @@
+{
+  "requestedAt": "2026-10-02T13:46:41.078839+00:00",
+  "command": [
+    "eas",
+    "build",
+    "--platform",
+    "android",
+    "--profile",
+    "preview",
+    "--non-interactive",
+    "--no-wait",
+    "--json",
+    "--message",
+    "Composer remediation 2026-10-02 Android QA APK"
+  ],
+  "submissionRequested": false
+}

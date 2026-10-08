@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { GameField, GameText } from '@/components/game';
-import { GameIcon } from '@/components/game/icons/GameIcon';
+import { GameIcon, type GameIconName } from '@/components/game/icons/GameIcon';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import {
   describeLook,
@@ -10,15 +10,20 @@ import {
   type ArtStyle,
 } from '@/constants/CharacterTraits';
 import { traitOptions, PALETTE_SWATCH_OPTIONS } from '@/utils/traitOptions';
-import OptionGrid from '../OptionGrid';
+import TraitChoiceSheet from './TraitChoiceSheet';
+import { useSheetReturnFocus } from '@/hooks/useSheetReturnFocus';
 import ColorSwatchGrid from '../ColorSwatchGrid';
 import ModeToggle, { type DescribeMode } from './ModeToggle';
 import EditorArtStyles from './EditorArtStyles';
-const GROUPS: { key: Exclude<StageTraitKey, 'palette'>; title: string }[] = [
-  { key: 'vibe', title: 'Vibe' },
-  { key: 'silhouette', title: 'Silhouette' },
-  { key: 'era', title: 'Era' },
-  { key: 'expression', title: 'Expression' },
+const GROUPS: {
+  key: Exclude<StageTraitKey, 'palette'>;
+  title: string;
+  icon: GameIconName;
+}[] = [
+  { key: 'vibe', title: 'Vibe', icon: 'aura' },
+  { key: 'silhouette', title: 'Silhouette', icon: 'profile' },
+  { key: 'era', title: 'Era', icon: 'clock' },
+  { key: 'expression', title: 'Expression', icon: 'look' },
 ];
 export interface LookPanelProps {
   look: {
@@ -32,6 +37,7 @@ export interface LookPanelProps {
   };
   changedKeys: Set<string>;
   disabled?: boolean;
+  onInputFocus?: () => void;
   onStage: (key: string, value: string | null) => void;
   mode?: DescribeMode;
   writtenText?: string;
@@ -42,12 +48,11 @@ export interface LookPanelProps {
 export default function LookPanel({
   look,
   disabled = false,
+  onInputFocus,
   onStage,
   mode: controlledMode,
   writtenText,
   onModeChange,
-  expandedGroups,
-  onExpandedGroupChange,
 }: LookPanelProps) {
   const colors = useThemedColors();
   const [localGroups, setLocalGroups] = useState<Record<string, boolean>>({});
@@ -56,10 +61,14 @@ export default function LookPanel({
     cachedText.current = look.portraitPromptRaw;
   const mode =
     controlledMode ?? (look.portraitPromptRaw !== null ? 'prompt' : 'guided');
-  const groups = expandedGroups ?? localGroups;
+  const groups = localGroups;
+  const [activeTrait, setActiveTrait] = useState<
+    (typeof GROUPS)[number] | null
+  >(null);
+  const openers = useRef<Record<string, View | null>>({});
+  const { remember, returnFocusRef } = useSheetReturnFocus();
   const toggle = (key: string) => {
     const next = !groups[key];
-    onExpandedGroupChange?.(key, next);
     setLocalGroups((prev) => ({ ...prev, [key]: next }));
   };
   const setMode = (next: DescribeMode) => {
@@ -77,8 +86,16 @@ export default function LookPanel({
       <ModeToggle value={mode} onChange={setMode} disabled={disabled} />
       {mode === 'prompt' ? (
         <>
+          <GameText
+            variant="fighter"
+            accessibilityRole="header"
+            style={{ fontSize: 19, color: colors.primary, letterSpacing: 0.8 }}
+          >
+            DESCRIBE YOUR FIGHTER
+          </GameText>
           <GameField
-            label="Describe your fighter"
+            onFocus={onInputFocus}
+            onSelectionChange={onInputFocus}
             accessibilityLabel="Your portrait description"
             value={text}
             multiline
@@ -119,7 +136,17 @@ export default function LookPanel({
             >
               Your guided choices are kept
             </GameText>
-            <GameIcon name="chevron-right" size={16} color={colors.ornament} />
+            <View
+              style={{
+                transform: [{ rotate: groups.inactive ? '90deg' : '0deg' }],
+              }}
+            >
+              <GameIcon
+                name="chevron-right"
+                size={16}
+                color={colors.ornament}
+              />
+            </View>
           </Pressable>
           {groups.inactive && (
             <GameText variant="caption" style={{ color: colors.textSecondary }}>
@@ -135,8 +162,12 @@ export default function LookPanel({
             disabled={disabled}
             onChange={(v) => onStage('artStyle', v)}
           />
-          <GameText variant="title" style={{ fontSize: 22 }}>
-            Outfit palette
+          <GameText
+            variant="fighter"
+            accessibilityRole="header"
+            style={{ fontSize: 19, color: colors.primary, letterSpacing: 0.8 }}
+          >
+            OUTFIT PALETTE
           </GameText>
           <ColorSwatchGrid
             groupLabel="Outfit palette"
@@ -148,7 +179,7 @@ export default function LookPanel({
             }}
           />
           <View>
-            {GROUPS.map(({ key, title }) => {
+            {GROUPS.map(({ key, title, icon }) => {
               const options = traitOptions(key);
               const label =
                 options.find((o) => o.value === look[key])?.label ?? 'Choose';
@@ -158,12 +189,23 @@ export default function LookPanel({
                   style={{ borderTopWidth: 1, borderColor: colors.border }}
                 >
                   <Pressable
-                    onPress={() => toggle(key)}
+                    ref={(node) => {
+                      openers.current[key] = node;
+                    }}
+                    onPress={() => {
+                      remember({
+                        get current() {
+                          return openers.current[key];
+                        },
+                      });
+                      setActiveTrait({ key, title, icon });
+                    }}
                     accessibilityRole="button"
                     accessibilityLabel={title + ', ' + label}
-                    accessibilityState={{ expanded: !!groups[key] }}
+                    accessibilityState={{ expanded: activeTrait?.key === key }}
                     style={styles.disclosure}
                   >
+                    <GameIcon name={icon} size={24} color={colors.primary} />
                     <GameText variant="label" style={{ flex: 1, fontSize: 20 }}>
                       {title}
                     </GameText>
@@ -173,25 +215,22 @@ export default function LookPanel({
                     >
                       {label}
                     </GameText>
-                    <GameIcon
-                      name="chevron-right"
-                      size={16}
-                      color={colors.ornament}
-                    />
-                  </Pressable>
-                  {groups[key] && (
-                    <View style={{ paddingBottom: 12 }}>
-                      <OptionGrid
-                        label={title}
-                        options={options}
-                        value={look[key]}
-                        disabled={disabled}
-                        onChange={(v) => {
-                          if (!disabled) onStage(key, v);
-                        }}
+                    <View
+                      style={{
+                        transform: [
+                          {
+                            rotate: activeTrait?.key === key ? '90deg' : '0deg',
+                          },
+                        ],
+                      }}
+                    >
+                      <GameIcon
+                        name="chevron-right"
+                        size={16}
+                        color={colors.ornament}
                       />
                     </View>
-                  )}
+                  </Pressable>
                 </View>
               );
             })}
@@ -207,6 +246,21 @@ export default function LookPanel({
           </GameText>
         </>
       )}
+      <TraitChoiceSheet
+        group={activeTrait?.key ?? 'vibe'}
+        title={activeTrait?.title ?? 'Vibe'}
+        visible={activeTrait !== null}
+        value={activeTrait ? look[activeTrait.key] : null}
+        disabled={disabled}
+        returnFocusRef={returnFocusRef}
+        onClose={() => setActiveTrait(null)}
+        onChoose={(value) => {
+          if (!disabled && activeTrait) {
+            onStage(activeTrait.key, value);
+            setActiveTrait(null);
+          }
+        }}
+      />
     </View>
   );
 }

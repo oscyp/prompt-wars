@@ -1,0 +1,52 @@
+{
+  "checkedAt": "2026-10-08T11:01:38.918079+00:00",
+  "buildId": "6ccdf2ab-8a5e-407c-89a8-fc8601c53faa",
+  "ipaBytes": 59326126,
+  "ipaSha256": "10dab8401f7cd8fb386d08e2b1ad43c2492074d3cbef6c36468c518c4beeeae9",
+  "bundleIdentifier": "gg.promptwars.app",
+  "version": "1.3.4",
+  "buildNumber": "19",
+  "zipCrcVerified": true,
+  "codeSignaturePresent": true,
+  "provisionPresent": true,
+  "minimumOS": "15.1",
+  "platforms": [
+    "iPhoneOS"
+  ],
+  "fonts": {
+    "BarlowCondensed-Bold.ttf": true,
+    "BarlowCondensed-ExtraBoldItalic.ttf": true
+  },
+  "bundle": {
+    "bytes": 8033873,
+    "sha256": "3b729940447de50d25ccd32b4ed9bf537da64c15e1d5f0e6c90282e86fb127a7",
+    "cinematicMarkers": {
+      "20-second cinematics": true,
+      "expected_cinematic_policy": true,
+      "expected_funding_quote": true,
+      "quote_changed": true,
+      "get_cinematic_capabilities": true
+    },
+    "privateBackendMarkers": {
+      "stripCinematicAudio": false,
+      "CinematicPreparationError": false,
+      "SUPABASE_SERVICE_ROLE_KEY": false,
+      "reserve_cinematic_round_funding": false,
+      "bot_policy_seeds": false
+    },
+    "fixtureMarkers": {
+      "local-synthetic-preview": false,
+      "sb_publishable_fixture_placeholder": false,
+      "127.0.0.1:9": false
+    }
+  },
+  "extractedApp": "/tmp/prompt-wars-1.3.4-19-extracted/Payload/PromptWars.app",
+  "signature": {
+    "strictRecursiveVerified": true,
+    "applicationIdentifier": "9665HWDCCA.gg.promptwars.app",
+    "teamIdentifier": "9665HWDCCA",
+    "debuggerAllowed": false,
+    "pushEnvironment": "production",
+    "provisionExpiresAt": "2027-07-08T15:00:17"
+  }
+}

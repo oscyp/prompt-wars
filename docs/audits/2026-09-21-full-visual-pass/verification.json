@@ -1,0 +1,28 @@
+{
+  "date": "2026-09-21",
+  "screenSourceCoverage": 21,
+  "nativeRouteCoverage": 15,
+  "sourceOnlyRoutes": 6,
+  "nativeCaptures": 28,
+  "findingCount": 10,
+  "priorities": {
+    "P1": 3,
+    "P2": 6,
+    "P3": 1
+  },
+  "checks": {
+    "routeAndFindingSourcePaths": "passed",
+    "captureManifestAndImageReferences": "passed",
+    "htmlLinksAndAnchors": "passed",
+    "markdownLinks": "passed",
+    "artifactWhitespace": "passed",
+    "nativeScreenshotsInspected": "passed",
+    "smallSimulatorTextSizeRestored": "large"
+  },
+  "galleryBrowserPreview": "blocked by browser URL security policy; no workaround attempted",
+  "galleryInteractiveFilters": "not runtime-verified",
+  "productAutomatedSuites": "not rerun for documentation-only audit",
+  "android": "blocked: no available test environment",
+  "nativeAcceptance": "partial; state-by-state limits are documented in README.md and coverage.json",
+  "productionMutations": "none"
+}

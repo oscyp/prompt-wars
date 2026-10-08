@@ -49,6 +49,35 @@ function renderPanel(
 const SHEET = 'item-detail-sheet';
 
 describe('GearPanel', () => {
+  it('leads with the four mockup choices without dropping catalogue entries', () => {
+    const names = [
+      'Fountain Pen',
+      'Wrench',
+      'Briefcase',
+      'Hourglass',
+      'Compass',
+      'Crown Fragment',
+      'Umbrella',
+    ];
+    const items = names.map((name) => ({ ...WRENCH, id: name, name }));
+    const ui = renderPanel({ items, equippedId: 'Fountain Pen' });
+    expect(
+      ui
+        .getAllByRole('button')
+        .filter((b) => b.props.accessibilityLabel?.startsWith('Preview '))
+        .map((b) => b.props.accessibilityLabel)
+        .slice(0, 4),
+    ).toEqual([
+      'Preview Compass',
+      'Preview Hourglass',
+      'Preview Crown Fragment',
+      'Preview Briefcase',
+    ]);
+    fireEvent.press(ui.getByText('Browse all 7 items'));
+    for (const name of names)
+      expect(ui.getByLabelText('Preview ' + name)).toBeTruthy();
+  });
+
   it('opens the tapped catalogue item in a sheet and highlights its tile', () => {
     const { getByLabelText, getByTestId, queryByTestId } = renderPanel();
     expect(queryByTestId(SHEET)).toBeNull();
@@ -61,13 +90,13 @@ describe('GearPanel', () => {
     expect(
       sheet.getByText('Loosens anything, including arguments.'),
     ).toBeTruthy();
-    expect(getByLabelText('Use Wrench · Free')).toBeTruthy();
+    expect(getByLabelText('Use Wrench')).toBeTruthy();
   });
 
   it('stages the chosen item and closes the sheet', () => {
     const { getByLabelText, queryByTestId, props } = renderPanel();
     fireEvent.press(getByLabelText('Preview Wrench'));
-    fireEvent.press(getByLabelText('Use Wrench · Free'));
+    fireEvent.press(getByLabelText('Use Wrench'));
 
     expect(props.onEquip).toHaveBeenCalledWith('wrench');
     expect(queryByTestId(SHEET)).toBeNull();
@@ -79,7 +108,7 @@ describe('GearPanel', () => {
 
     const sheet = within(getByTestId(SHEET));
     expect(sheet.getByText('Selected')).toBeTruthy();
-    expect(queryByLabelText('Use Lucky Coin · Free')).toBeNull();
+    expect(queryByLabelText('Use Lucky Coin')).toBeNull();
   });
 
   it('shows only predefined catalogue items', () => {
@@ -103,20 +132,26 @@ describe('GearPanel', () => {
     expect(queryByTestId(SHEET)).toBeNull();
   });
 
-  it('spells the catalogue the way the heading does', () => {
+  it('browses all catalogue entries without a redundant search field', () => {
     const items = Array.from({ length: 8 }, (_, index) => ({
       ...WRENCH,
       id: `item-${index}`,
       name: `Item ${index}`,
     }));
-    const { getByText, getByPlaceholderText, getByLabelText } = renderPanel({
+    const {
+      getByText,
+      queryByPlaceholderText,
+      getByLabelText,
+      queryByLabelText,
+    } = renderPanel({
       items,
       equippedId: 'item-0',
     });
 
     fireEvent.press(getByText('Browse all 8 items'));
-    expect(getByPlaceholderText('Search the catalogue')).toBeTruthy();
-    expect(getByLabelText('Search the item catalogue')).toBeTruthy();
+    expect(queryByPlaceholderText('Search the catalogue')).toBeNull();
+    expect(getByLabelText('Preview Item 7')).toBeTruthy();
+    expect(queryByLabelText('Search the item catalogue')).toBeNull();
   });
 
   it('shows two catalogue rows before asking the player to browse all', () => {

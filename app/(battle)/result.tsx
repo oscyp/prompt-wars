@@ -1,21 +1,25 @@
+import ResultVerdict, {
+  resultFinalHp,
+} from '@/components/battle/ResultVerdict';
+import BattleBackdrop from '@/components/battle/BattleBackdrop';
+import ResultMedia from '@/components/battle/ResultMedia';
+import ResultActions from '@/components/battle/ResultActions';
+import ResultMediaSection from '@/components/battle/ResultMediaSection';
+import { resultRewardsNode } from '@/components/battle/ResultRewards';
+import ResultDetails from '@/components/battle/ResultDetails';
+import { resultMediaRoundNumber } from '@/components/battle/resultMediaView';
+import { buildResultRewardsModel } from '@/components/battle/resultRewardsView';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
 import { useSheetReturnFocus } from '@/hooks/useSheetReturnFocus';
-import HPBar from '@/components/HPBar';
-import {
-  GameText as Text,
-  GameFooter,
-  GameButton,
-  GamePanel,
-  GameBevel,
-} from '@/components/game';
+import { GameText as Text, GameFooter, GameButton } from '@/components/game';
 import { humanOpponentId } from '@/components/BattleOpponentSafety';
 import {
   seriesDecisionExplanation,
   isUnratedExhibition,
-  EXHIBITION_EXPLANATION,
 } from '@/utils/battleExplanation';
 import { markBattleResultRead } from '@/utils/battleAttention';
-import { useMediaRecovery } from '@/hooks/useMediaRecovery';
+import { useResultMediaRecovery } from '@/hooks/useResultMediaRecovery';
 import React, {
   useCallback,
   useEffect,
@@ -34,22 +38,13 @@ import {
 } from 'react-native';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { useVideoPlayer } from 'expo-video';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useCredits } from '@/hooks/useCredits';
 import { useBattleCharacters } from '@/hooks/useBattleCharacters';
-import {
-  Spacing,
-  Typography,
-  NumericFontVariant,
-  Motion,
-  BorderRadius,
-} from '@/constants/DesignTokens';
-import { inkFor } from '@/utils/contrast';
+import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
 import { useRealtimeBattle } from '@/hooks/useRealtimeBattle';
 import { useBattleAppeal } from '@/hooks/useBattleAppeal';
 import { BattleAppealPanel } from '@/components/BattleAppealPanel';
@@ -62,19 +57,16 @@ import {
 } from '@/utils/monetization';
 import { ReportBlockSheet } from '@/components';
 import ConfirmSheet from '@/components/sheets/ConfirmSheet';
-import ResultShareCard from '@/components/ResultShareCard';
+import { type ResultShareCardProps } from '@/components/ResultShareCard';
+import ResultShareExport from '@/components/ResultShareExport';
 import { RevealSequence } from '@/components/reveal';
 import { orientSeriesScore } from '@/components/SeriesScoreIndicator';
 import { shareResultCard, shareBattleVideo } from '@/utils/share';
-import { invokeAuthenticatedFunction, supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
+import { useComposerResultTelemetry } from '@/hooks/useComposerResultTelemetry';
 import { useBattleAudio } from '@/providers/BattleAudioProvider';
-import { BattleRound, RewardSummary } from '@/types/battle';
-import {
-  revealModelFrom,
-  payoffRows,
-  payoffFallbackLine,
-} from '@/utils/revealBeats';
+import { RewardSummary } from '@/types/battle';
+import { revealModelFrom } from '@/utils/revealBeats';
 import { revealSeenKey, summaryJudgeLine } from '@/utils/revealLayout';
 import {
   RESULT_LOAD_TIMEOUT_MS,
@@ -83,14 +75,11 @@ import {
   outcomeAnnouncement,
   outcomeHeadline,
   ratingSummary,
-  roundMiniView,
   singleMatchupNote,
   upgradeBlockedCopy,
   upgradeSheetCopy,
   videoStatusCopy,
 } from '@/utils/resultView';
-
-type CaptionLine = { start_ms: number; end_ms: number; text: string };
 
 type ScorePayload = {
   explanation?: string;
@@ -100,9 +89,6 @@ type ScorePayload = {
 
 type RatingDeltaPayload = Record<string, { delta?: unknown }> | null;
 
-/** Header offset shared with the writing workspace under the transparent header. */
-const HEADER_OFFSET = 44;
-
 /** Statuses that carry a result the reveal can play. */
 const RESOLVED_STATUSES = new Set([
   'result_ready',
@@ -111,18 +97,10 @@ const RESOLVED_STATUSES = new Set([
 ]);
 
 /** Result is reached by replace; "Back to Arena" is the way out. */
-const HEADER_OPTIONS = { headerLeft: () => null };
-
-function formatTimestamp(ms: number): string {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-}
+const HEADER_OPTIONS = { headerShown: false };
 
 export default function ResultScreen() {
   const colors = useThemedColors();
-  const reduceMotion = useReducedMotion();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
@@ -139,8 +117,15 @@ export default function ResultScreen() {
     series_score,
     rounds: originalRounds,
   } = useRealtimeBattle(battleId || null);
-  const { p1, p2 } = useBattleCharacters(battleId || null, battle);
-  const { credits, loading: creditsLoading } = useCredits();
+  const { p1, p2, portraitsResolved, refreshPortraits } = useBattleCharacters(
+    battleId || null,
+    battle,
+  );
+  const {
+    credits,
+    loading: creditsLoading,
+    error: creditsError,
+  } = useCredits(user?.id ?? null);
   const appeal = useBattleAppeal(battleId || null, user?.id || null, refetch);
   const rounds = reviewedRounds(
     originalRounds,
@@ -149,9 +134,9 @@ export default function ResultScreen() {
     battle?.player_two_id || null,
   );
   const revised = (battle?.adjudication_revision ?? 0) > 0;
-  const noContest =
-    (battle?.resolution_metadata as { status?: string } | null)?.status ===
-    'no_contest';
+  const reviewStatus =
+    (battle?.resolution_metadata as { status?: string } | null)?.status ?? null;
+  const noContest = reviewStatus === 'no_contest';
   const [isCheckingUpgrade, setIsCheckingUpgrade] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   /** Non-null while the cost sheet is open. */
@@ -166,53 +151,78 @@ export default function ResultScreen() {
   );
   const [isSharing, setIsSharing] = useState(false);
 
-  const cardRef = useRef<View>(null);
+  const [exportRevision, setExportRevision] = useState<string | null>(null);
+  const resultRevision = `${user?.id}:${battleId}:${battle?.adjudication_revision ?? 0}`;
+  const currentRevision = useRef(resultRevision);
+  currentRevision.current = resultRevision;
+  useEffect(() => {
+    setUpgradePreview(null);
+    setIsCheckingUpgrade(false);
+    setIsUpgrading(false);
+  }, [resultRevision]);
+  useEffect(() => {
+    if (exportRevision && exportRevision !== resultRevision) {
+      setExportRevision(null);
+      setIsSharing(false);
+      Alert.alert(
+        'Result updated',
+        'Review the updated result before sharing again.',
+      );
+    }
+  }, [exportRevision, resultRevision]);
+  useEffect(
+    () => () => {
+      currentRevision.current = '';
+    },
+    [],
+  );
   const isBo3 = format === 'bo3';
 
   const [showReportSheet, setShowReportSheet] = useState(false);
   const finalRound = [...rounds]
     .filter((round) => round.status === 'result_ready')
     .sort((a, b) => b.round_number - a.round_number)[0];
-  const media = useMediaRecovery<CaptionLine[]>({
-    assetKey:
-      user?.id && videoJob?.id ? `${user.id}:${battleId}:${videoJob.id}` : null,
-    enabled: videoJob?.status === 'succeeded',
-    resolveVideoUrl: async () => {
-      const signed = await invokeAuthenticatedFunction<{ signed_url: string }>(
-        'sign-battle-video',
-        { video_job_id: videoJob?.id },
-      );
-      return signed.signed_url;
-    },
-    resolveCaptions: async () => {
-      const { data: videoRow, error: videoError } = await supabase
-        .from('videos')
-        .select('id')
-        .eq('battle_id', battleId)
-        .eq('video_job_id', videoJob?.id)
-        .limit(1)
-        .maybeSingle();
-      if (videoError) throw videoError;
-      if (!videoRow) return [];
-      const { data: captions, error } = await supabase
-        .from('video_captions')
-        .select('json_payload')
-        .eq('video_id', videoRow.id)
-        .eq('locale', 'en-US')
-        .maybeSingle();
-      if (error) throw error;
-      return (
-        (captions?.json_payload as { lines?: CaptionLine[] } | null)?.lines ??
-        []
-      );
-    },
+  const media = useResultMediaRecovery({
+    accountId: user?.id ?? null,
+    battleId: battleId ?? null,
+    videoJob,
   });
   const { reportPlaybackError } = media;
   const videoUrl = videoJob?.status === 'succeeded' ? media.videoUrl : null;
-  const captionLines = media.captions ?? [];
+
+  // The status copy escalates with elapsed time, so it needs a clock. It only
+  // ticks while a job is genuinely pending, and at 15s -- the copy has three
+  // stages, not a countdown, and this screen is already animation-heavy.
+  const videoStartedAt = videoJob?.created_at ?? null;
+  const videoPending =
+    Boolean(videoJob) && !videoUrl && videoJob?.status !== 'failed';
+  const [videoElapsedMs, setVideoElapsedMs] = useState(0);
+  useEffect(() => {
+    if (!videoPending || !videoStartedAt) return;
+    const startedMs = Date.parse(videoStartedAt);
+    if (!Number.isFinite(startedMs)) return;
+    const tick = () => setVideoElapsedMs(Date.now() - startedMs);
+    tick();
+    const id = setInterval(tick, 15_000);
+    return () => clearInterval(id);
+  }, [videoPending, videoStartedAt]);
+
+  // The status card is a polite live region, but the player that REPLACES it
+  // announces nothing -- so for a screen-reader user the cinematic simply
+  // stopped being mentioned. Say it arrived, once.
+  const announcedVideoRef = useRef(false);
+  useEffect(() => {
+    if (!videoUrl || announcedVideoRef.current) return;
+    announcedVideoRef.current = true;
+    AccessibilityInfo.announceForAccessibility(
+      'Your cinematic is ready to play.',
+    );
+  }, [videoUrl]);
+
   const player = useVideoPlayer(videoUrl, (p) => {
     p.loop = false;
     p.muted = true;
+    p.audioMixingMode = 'auto';
   });
 
   useEffect(() => {
@@ -294,6 +304,11 @@ export default function ResultScreen() {
 
   // --- Everything below is from the viewer's side ---------------------------
   const myId = user?.id ?? null;
+  const trackComposerResult = useComposerResultTelemetry(
+    myId,
+    battleId,
+    battle?.prompt_experience_version === 2,
+  );
   const isPlayerOne = Boolean(battle) && battle?.player_one_id === myId;
   const isBot = Boolean(battle?.is_player_two_bot);
   const outcome = battle
@@ -368,6 +383,7 @@ export default function ResultScreen() {
   const handleUpgradePreview = async () => {
     rememberUpgradeOpener(upgradeFocusRef);
     if (!battleId) return;
+    const requestedRevision = currentRevision.current;
 
     setIsCheckingUpgrade(true);
     try {
@@ -376,6 +392,7 @@ export default function ResultScreen() {
         false,
         finalRound?.id,
       );
+      if (requestedRevision !== currentRevision.current) return;
 
       if (preview.can_upgrade) {
         setUpgradePreview(
@@ -387,7 +404,7 @@ export default function ResultScreen() {
       } else if (preview.can_upgrade === false) {
         const blocked = upgradeBlockedCopy(
           preview.entitlement_check,
-          creditsLoading ? null : credits,
+          creditsLoading || creditsError ? null : credits,
         );
         Alert.alert(blocked.title, blocked.message, [
           { text: 'Not now', style: 'cancel' },
@@ -403,18 +420,21 @@ export default function ResultScreen() {
         );
       }
     } catch (err) {
+      if (requestedRevision !== currentRevision.current) return;
       Alert.alert(
         'Couldn’t start the video',
         err instanceof Error ? err.message : 'Please try again.',
       );
     } finally {
-      setIsCheckingUpgrade(false);
+      if (requestedRevision === currentRevision.current)
+        setIsCheckingUpgrade(false);
     }
   };
 
   /** Step 2: the player has seen the price and tapped confirm. */
   const handleUpgradeConfirm = async () => {
-    if (!battleId) return;
+    if (!battleId || !upgradePreview?.can_upgrade || isUpgrading) return;
+    const requestedRevision = currentRevision.current;
 
     setIsUpgrading(true);
     try {
@@ -422,8 +442,16 @@ export default function ResultScreen() {
         battleId as string,
         true,
         finalRound?.id,
+        upgradePreview ?? undefined,
       );
-      if (result.success || result.already_requested) {
+      if (requestedRevision !== currentRevision.current) return;
+      if (result.quote_changed && result.entitlement_check) {
+        setUpgradePreview(result.entitlement_check);
+        Alert.alert(
+          'Cinematic quote changed',
+          'Review the updated length and cost, then confirm again. Nothing was spent.',
+        );
+      } else if (result.success || result.already_requested) {
         setUpgradePreview(null);
         AccessibilityInfo.announceForAccessibility(
           'Video requested. Generating your cinematic.',
@@ -436,12 +464,13 @@ export default function ResultScreen() {
         );
       }
     } catch (err) {
+      if (requestedRevision !== currentRevision.current) return;
       Alert.alert(
         'Couldn’t start the video',
         err instanceof Error ? err.message : 'Please try again.',
       );
     } finally {
-      setIsUpgrading(false);
+      if (requestedRevision === currentRevision.current) setIsUpgrading(false);
     }
   };
 
@@ -452,38 +481,65 @@ export default function ResultScreen() {
     setShowReportSheet(true);
   };
 
-  const handleShareCard = async () => {
-    if (noContest) return;
+  const handleShareCard = () => {
     setIsSharing(true);
+    setExportRevision(resultRevision);
+  };
+  const exportReady = async (ref: React.RefObject<View | null>) => {
+    const revision = exportRevision;
     try {
-      const shared = await shareResultCard(cardRef);
-      if (!shared) {
+      const shared = await shareResultCard(
+        ref,
+        () => currentRevision.current === revision,
+      );
+      if (!shared)
         Alert.alert(
           'Sharing unavailable',
           'Sharing is not available on this device.',
         );
-      }
-    } catch {
-      Alert.alert('Couldn’t share', 'The result card could not be shared.');
+    } catch (error) {
+      Alert.alert(
+        'Couldn’t share',
+        error instanceof Error ? error.message : 'Please try again.',
+      );
     } finally {
+      setExportRevision(null);
       setIsSharing(false);
     }
+  };
+  const exportFailed = () => {
+    refreshPortraits();
+    setExportRevision(null);
+    setIsSharing(false);
+    Alert.alert(
+      'Artwork not ready',
+      'The card could not finish loading. Check your connection and try sharing again.',
+    );
   };
 
   const handleShareVideo = async () => {
     if (revised) return;
     if (!videoUrl) return;
+    const revision = resultRevision;
     setIsSharing(true);
     try {
-      const shared = await shareBattleVideo(videoUrl);
+      const shared = await shareBattleVideo(
+        videoUrl,
+        () => currentRevision.current === revision,
+      );
       if (!shared) {
         Alert.alert(
           'Sharing unavailable',
           'Sharing is not available on this device.',
         );
       }
-    } catch {
-      Alert.alert('Couldn’t share', 'The video could not be shared.');
+    } catch (error) {
+      Alert.alert(
+        'Couldn’t share',
+        error instanceof Error
+          ? error.message
+          : 'The video could not be shared.',
+      );
     } finally {
       setIsSharing(false);
     }
@@ -499,7 +555,7 @@ export default function ResultScreen() {
           styles.centered,
           {
             backgroundColor: colors.background,
-            paddingTop: insets.top + HEADER_OFFSET,
+            paddingTop: Spacing.md,
           },
         ]}
       >
@@ -538,10 +594,10 @@ export default function ResultScreen() {
               ]}
               onPress={goHome}
               accessibilityRole="button"
-              accessibilityLabel="Back to Arena"
+              accessibilityLabel="Arena"
             >
               <Text style={[styles.actionButtonText, { color: colors.text }]}>
-                Back to Arena
+                Arena
               </Text>
             </TouchableOpacity>
           </View>
@@ -563,7 +619,7 @@ export default function ResultScreen() {
   if (showReveal) {
     return (
       <>
-        <Stack.Screen options={HEADER_OPTIONS} />
+        <Stack.Screen options={{ ...HEADER_OPTIONS, headerShown: false }} />
         {revised ? (
           <Text
             style={{
@@ -646,14 +702,42 @@ export default function ResultScreen() {
   // takes over and this card goes away.
   const statusCopy =
     videoJob && !videoUrl && !media.playbackError
-      ? videoStatusCopy({ status: videoJob.status, hasUrl: false })
+      ? videoStatusCopy({
+          status: videoJob.status,
+          hasUrl: false,
+          elapsedMs: videoElapsedMs,
+        })
       : null;
   const sheet = upgradePreview
-    ? upgradeSheetCopy(upgradePreview, creditsLoading ? null : credits)
+    ? upgradeSheetCopy(
+        upgradePreview,
+        creditsLoading || creditsError ? null : credits,
+      )
     : null;
 
   const winnerSide: 'me' | 'them' | null =
     isDraw || noContest ? null : isWinner ? 'me' : 'them';
+  const finalHp = resultFinalHp({
+    round: finalRound,
+    battle,
+    isPlayerOne,
+    noContest,
+  });
+  const mediaRoundNumber = resultMediaRoundNumber(videoJob, originalRounds);
+  const videoPlayable = Boolean(videoUrl && !media.playbackError);
+  const showMediaSection = Boolean(
+    videoUrl || statusCopy || media.playbackError,
+  );
+  const rewardsModel = buildResultRewardsModel({
+    outcome,
+    isBot,
+    mode: battle.mode,
+    exhibition,
+    reviewStatus,
+    rating,
+    reward,
+    battleCompleted: battle.status === 'completed',
+  });
   const accentColor =
     (revised ? null : model.winnerColor) ??
     (winnerSide === 'me'
@@ -662,589 +746,225 @@ export default function ResultScreen() {
         ? (them?.signatureColor ?? model.them.signatureColor)
         : null);
 
+  const resultCard: ResultShareCardProps = {
+    headline,
+    adjudicationRevision: battle.adjudication_revision ?? 0,
+    outcome: noContest ? 'no_contest' : outcome,
+    isKo: noContest
+      ? false
+      : revised
+        ? rounds.some((r) => r.is_ko)
+        : model.isKo,
+    scoreLine: isBo3 && !noContest ? `${mine}–${theirs}` : null,
+    me: {
+      name: me?.name ?? model.me.name,
+      archetype: me?.archetype ?? model.me.archetype,
+      avatarUrl: me?.portraitUrl ?? model.me.portraitUrl,
+      signatureColor: me?.signatureColor ?? model.me.signatureColor,
+      cosmetics: me?.cosmetics,
+    },
+    them: {
+      name: them?.name ?? model.them.name,
+      archetype: them?.archetype ?? model.them.archetype,
+      avatarUrl: them?.portraitUrl ?? model.them.portraitUrl,
+      signatureColor: them?.signatureColor ?? model.them.signatureColor,
+      cosmetics: them?.cosmetics,
+    },
+    winnerSide,
+    theme: battle.theme,
+    accentColor,
+    ratingLine: rewardsModel.correctionLine ?? rating.line,
+  };
+
   return (
-    <>
-      <Stack.Screen options={HEADER_OPTIONS} />
-      <ScrollView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        contentContainerStyle={[
-          styles.content,
-          {
-            paddingTop: insets.top + HEADER_OFFSET,
-            paddingBottom: Spacing.xl,
-          },
-        ]}
-      >
-        {revised ? (
-          <Text style={{ color: colors.warning, paddingVertical: 12 }}>
-            The cinematic shows the original verdict before independent review.
-            The current result is shown below.
-          </Text>
-        ) : null}
-        <View style={styles.replayRow}>
-          <TouchableOpacity
-            style={styles.replayButton}
-            onPress={handleReplay}
-            accessibilityRole="button"
-            accessibilityLabel="Replay reveal"
-            hitSlop={{ top: 4, bottom: 4, left: 8, right: 8 }}
-          >
-            <GameSymbol
-              name="play-outline"
-              size={16}
-              color={colors.textSecondary}
-            />
-            <Text style={[styles.replayText, { color: colors.textSecondary }]}>
-              Replay reveal
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {exhibition ? (
-          <Text
-            accessibilityRole="text"
-            style={{ color: colors.warning, paddingVertical: 12 }}
-          >
-            {EXHIBITION_EXPLANATION}
-          </Text>
-        ) : null}
-        {/* Shareable scorecard region (captured by react-native-view-shot) */}
-        <View
-          ref={cardRef}
-          collapsable={false}
-          style={[styles.shareCapture, { backgroundColor: colors.background }]}
+    <View style={{ flex: 1 }}>
+      <BattleBackdrop theme={battle.theme} />
+      <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1 }}>
+        <Stack.Screen options={HEADER_OPTIONS} />
+        {exportRevision === resultRevision && (
+          <ResultShareExport
+            key={`${exportRevision}:${resultCard.me.avatarUrl}:${resultCard.them.avatarUrl}`}
+            card={resultCard}
+            portraitsResolved={portraitsResolved}
+            onReady={exportReady}
+            onError={exportFailed}
+          />
+        )}
+        <ScrollView
+          style={[styles.container, { backgroundColor: 'transparent' }]}
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingTop: Spacing.md,
+              paddingBottom: Spacing.xl,
+            },
+          ]}
         >
-          <Animated.View
-            entering={
-              reduceMotion
-                ? undefined
-                : FadeInDown.duration(Motion.durations.slow)
-            }
-          >
-            <ResultShareCard
-              adjudicationRevision={battle.adjudication_revision ?? 0}
-              headline={headline}
-              outcome={noContest ? 'draw' : outcome}
-              isKo={
-                noContest
-                  ? false
-                  : revised
-                    ? rounds.some((r) => r.is_ko)
-                    : model.isKo
-              }
-              scoreLine={isBo3 ? `${mine}–${theirs}` : null}
-              me={{
-                name: model.me.name,
-                archetype: me?.archetype ?? model.me.archetype,
-                avatarUrl: me?.portraitUrl ?? model.me.portraitUrl,
-              }}
+          <View style={styles.verdictSection}>
+            <ResultVerdict
+              outcome={resultCard.outcome}
+              isKo={resultCard.isKo}
+              scoreLine={resultCard.scoreLine}
+              ratingLine={resultCard.ratingLine}
+              adjudicationRevision={resultCard.adjudicationRevision}
+              winnerSide={resultCard.winnerSide}
+              exhibition={exhibition}
+              finalHp={finalHp}
+              me={{ ...resultCard.me, role: 'You' }}
               them={{
-                name: model.them.name,
-                archetype: them?.archetype ?? model.them.archetype,
-                avatarUrl: them?.portraitUrl ?? model.them.portraitUrl,
+                ...resultCard.them,
+                role: isBot ? 'AI opponent' : 'Opponent',
+                isBot,
               }}
-              winnerSide={winnerSide}
-              theme={battle.theme}
-              ratingLine={
-                noContest ||
-                (battle.resolution_metadata as { status?: string } | null)
-                  ?.status === 'overturned'
-                  ? 'Original rating points reversed. No replacement rating.'
-                  : rating.line
-              }
-              accentColor={accentColor}
             />
-          </Animated.View>
-        </View>
-        {/* End shareable scorecard region */}
-        {isBo3 &&
-        !noContest &&
-        finalRound?.player_one_hp_after != null &&
-        finalRound.player_two_hp_after != null ? (
-          <GamePanel
-            tone="ornate"
-            style={{ marginBottom: Spacing.md, gap: 12 }}
-          >
-            <Text variant="title" accessibilityRole="header">
-              Final HP
-            </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
-              <View style={{ flex: 1, minWidth: 120 }}>
-                <HPBar
-                  current={
-                    isPlayerOne
-                      ? finalRound.player_one_hp_after
-                      : finalRound.player_two_hp_after
-                  }
-                  max={
-                    (isPlayerOne
-                      ? battle.player_one_hp_max
-                      : battle.player_two_hp_max) ?? 100
-                  }
-                  side="left"
-                  playerName={model.me.name}
-                />
-              </View>
-              <View style={{ flex: 1, minWidth: 120 }}>
-                <HPBar
-                  current={
-                    isPlayerOne
-                      ? finalRound.player_two_hp_after
-                      : finalRound.player_one_hp_after
-                  }
-                  max={
-                    (isPlayerOne
-                      ? battle.player_two_hp_max
-                      : battle.player_one_hp_max) ?? 100
-                  }
-                  side="right"
-                  playerName={model.them.name}
-                />
-              </View>
-            </View>
-          </GamePanel>
-        ) : null}
-
-        {decisionExplanation ? (
-          <Text style={{ color: colors.textSecondary, paddingVertical: 12 }}>
-            {decisionExplanation}
-          </Text>
-        ) : null}
-
-        {isBo3 ? (
-          <Animated.View
-            style={[styles.card, { backgroundColor: colors.card }]}
-            entering={
-              reduceMotion
-                ? undefined
-                : FadeInDown.duration(Motion.durations.base).delay(120)
-            }
-          >
-            <GameBevel color={colors.ornamentMuted} />
-            <Text
-              variant="title"
-              style={[styles.cardTitle, { color: colors.text }]}
-              accessibilityRole="header"
-            >
-              Round by round
-            </Text>
-            {rounds.length === 0 ? (
-              <Text style={[styles.cardText, { color: colors.textSecondary }]}>
-                No round data yet.
-              </Text>
-            ) : (
-              rounds.map((r) => (
-                <RoundMiniCard
-                  key={r.id}
-                  round={r}
-                  myProfileId={myId}
-                  playerOneId={battle.player_one_id}
-                />
-              ))
-            )}
-          </Animated.View>
-        ) : null}
-
-        {/* Rewards, at rest: the payoff beat counts these up; a player who
-            opens the result later from the Battles tab still needs to see
-            what the battle was worth without replaying the reveal. */}
-        {(() => {
-          const rows = payoffRows({
-            outcome,
-            isBot: Boolean(battle.is_player_two_bot),
-            mode: battle.mode,
-            rating,
-            reward,
-            battleCompleted: battle.status === 'completed',
-          });
-          const fallback = payoffFallbackLine({
-            reward,
-            battleCompleted: battle.status === 'completed',
-          });
-          if (rows.length === 0 && !fallback) return null;
-          return (
-            <Animated.View
-              style={[styles.card, { backgroundColor: colors.card }]}
-              entering={
-                reduceMotion
-                  ? undefined
-                  : FadeInDown.duration(Motion.durations.base).delay(150)
-              }
-              accessible
-              accessibilityLabel={`Rewards. ${
-                rows.length > 0
-                  ? rows
-                      .map((r) =>
-                        r.detail
-                          ? `${r.label}: ${r.value}, ${r.detail}`
-                          : `${r.label}: ${r.value}`,
-                      )
-                      .join('. ')
-                  : fallback
-              }`}
-            >
-              <Text
-                variant="title"
-                style={[styles.cardTitle, { color: colors.text }]}
-                accessibilityRole="header"
-              >
-                Rewards
-              </Text>
-              {rows.length === 0 ? (
-                <Text
-                  style={[styles.cardText, { color: colors.textSecondary }]}
-                >
-                  {fallback}
-                </Text>
-              ) : (
-                rows.map((row) => (
-                  <View key={row.key} style={styles.rewardRow}>
-                    <View style={styles.rewardText}>
-                      <Text
-                        style={[
-                          styles.rewardLabel,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {row.label}
-                      </Text>
-                      {row.detail ? (
-                        <Text
-                          style={[
-                            styles.rewardDetail,
-                            { color: colors.textTertiary },
-                          ]}
-                        >
-                          {row.detail}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Text
-                      style={[
-                        styles.rewardValue,
-                        NumericFontVariant,
-                        {
-                          color:
-                            row.tone === 'up'
-                              ? colors.success
-                              : row.tone === 'down'
-                                ? colors.error
-                                : colors.text,
-                        },
-                      ]}
-                    >
-                      {row.value}
-                    </Text>
-                  </View>
-                ))
-              )}
-            </Animated.View>
-          );
-        })()}
-
-        {judgeLine || matchupNote ? (
-          <Animated.View
-            style={[styles.card, { backgroundColor: colors.card }]}
-            entering={
-              reduceMotion
-                ? undefined
-                : FadeInDown.duration(Motion.durations.base).delay(180)
-            }
-          >
-            <GameBevel color={colors.ornamentMuted} />
-            <Text
-              variant="title"
-              style={[styles.cardTitle, { color: colors.text }]}
-              accessibilityRole="header"
-            >
-              Judge’s line
-            </Text>
-            {judgeLine ? (
-              <Text
-                style={[styles.explanation, { color: colors.textSecondary }]}
-              >
-                {judgeLine}
-              </Text>
-            ) : null}
-            {matchupNote ? (
-              <Text
-                style={[styles.matchupNote, { color: colors.textTertiary }]}
-              >
-                {matchupNote}
-              </Text>
-            ) : null}
-          </Animated.View>
-        ) : null}
-
-        <TutorialCoach battleId={battleId} stage="result" />
-
-        {/* Share actions */}
-        <TouchableOpacity
-          style={[styles.shareButton, { backgroundColor: colors.primary }]}
-          onPress={handleShareCard}
-          disabled={isSharing || noContest}
-          accessibilityLabel="Share result card image"
-          accessibilityRole="button"
-          accessibilityState={{
-            disabled: isSharing || noContest,
-            busy: isSharing,
-          }}
-        >
-          {isSharing ? (
-            <ActivityIndicator color={inkFor(colors.primary)} />
-          ) : (
-            <View style={styles.buttonRow}>
-              <GameSymbol
-                name="share-outline"
-                size={18}
-                color={inkFor(colors.primary)}
+          </View>
+          <ResultMediaSection
+            showMedia={showMediaSection}
+            media={
+              <ResultMedia
+                videoUrl={videoUrl}
+                player={player}
+                playbackError={media.playbackError}
+                retry={() => void media.retry()}
+                status={statusCopy}
+                revised={revised}
+                roundNumber={mediaRoundNumber}
               />
-              <Text
-                style={[
-                  styles.shareButtonText,
-                  { color: inkFor(colors.primary) },
-                ]}
-              >
-                Share result card
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        {videoUrl ? (
-          <TouchableOpacity
-            style={[styles.shareVideoButton, { borderColor: colors.primary }]}
-            onPress={handleShareVideo}
-            disabled={isSharing || revised}
-            accessibilityLabel="Share cinematic video"
-            accessibilityRole="button"
-            accessibilityState={{ disabled: isSharing || revised }}
-          >
-            <View style={styles.buttonRow}>
-              <GameSymbol
-                name="film-outline"
-                size={18}
-                color={colors.primary}
+            }
+            actions={
+              <ResultActions
+                videoPlayable={videoPlayable}
+                revised={revised}
+                busy={isSharing}
+                onShareCard={handleShareCard}
+                onShareVideo={() => void handleShareVideo()}
+                onReplay={handleReplay}
               />
-              <Text
-                style={[styles.shareVideoButtonText, { color: colors.primary }]}
-              >
-                {revised
-                  ? 'Original cinematic — sharing unavailable'
-                  : 'Share cinematic video'}
+            }
+            rewards={resultRewardsNode(rewardsModel)}
+          />
+
+          {offerUpgrade ? (
+            <View style={styles.upgradeOffer}>
+              <GameButton
+                ref={upgradeFocusRef}
+                label={
+                  videoJob?.status === 'failed'
+                    ? 'Try the video again'
+                    : 'Get the cinematic video'
+                }
+                icon="film-outline"
+                tone="secondary"
+                chrome="utility"
+                busy={isCheckingUpgrade}
+                onPress={handleUpgradePreview}
+                accessibilityHint="Shows the cost before anything is spent."
+              />
+              <Text variant="caption" style={{ color: colors.textSecondary }}>
+                See the cost before you commit
               </Text>
             </View>
-          </TouchableOpacity>
-        ) : null}
+          ) : null}
 
-        {/* Cinematic video: player, status, or the offer. */}
-        {media.playbackError || media.captionError ? (
-          <View style={{ paddingVertical: 16, gap: 8 }}>
-            <Text style={{ color: colors.textSecondary }}>
-              {media.playbackError
-                ? 'Your cinematic is generated, but playback is unavailable.'
-                : 'Captions could not be loaded. Video is still available.'}
-            </Text>
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => void media.retry()}
-              style={{ minHeight: 48, justifyContent: 'center' }}
-            >
-              <Text style={{ color: colors.primary }}>
-                Retry loading media · free
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-        {videoUrl ? (
-          <View style={styles.videoCard}>
-            <Text
-              variant="title"
-              style={[styles.videoCardTitle, { color: colors.text }]}
-            >
-              Cinematic video
-            </Text>
-            <VideoView
-              player={player}
-              style={styles.videoView}
-              nativeControls
-              contentFit="cover"
-            />
-            {captionLines.length > 0 ? (
-              <View
-                style={styles.captionsContainer}
-                accessibilityLabel={`Captions: ${captionLines.length} lines`}
-              >
-                <Text style={[styles.captionsTitle, { color: colors.text }]}>
-                  Captions
-                </Text>
-                {captionLines.map((line, idx) => (
-                  <Text
-                    key={`${line.start_ms}-${idx}`}
-                    style={styles.captionLine}
-                  >
-                    <Text style={{ color: colors.textSecondary }}>
-                      {formatTimestamp(line.start_ms)}
-                    </Text>
-                    <Text
-                      style={{ color: colors.text }}
-                    >{`  ${line.text}`}</Text>
-                  </Text>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-
-        {statusCopy ? (
-          <View
-            style={[styles.card, { backgroundColor: colors.card }]}
-            accessible
-            accessibilityLiveRegion="polite"
-            accessibilityLabel={`${statusCopy.title}. ${statusCopy.body}`}
-          >
-            <GameBevel color={colors.ornamentMuted} />
-            <Text
-              variant="title"
-              style={[styles.cardTitle, { color: colors.text }]}
-            >
-              {statusCopy.title}
-            </Text>
-            <View style={styles.statusRow}>
-              {statusCopy.tone === 'error' ? (
-                <GameSymbol
-                  name="close-circle"
-                  size={16}
-                  color={colors.error}
-                />
-              ) : (
-                <ActivityIndicator size="small" color={colors.textSecondary} />
-              )}
-              <Text style={[styles.cardText, { color: colors.textSecondary }]}>
-                {statusCopy.body}
-              </Text>
-            </View>
-          </View>
-        ) : null}
-
-        {offerUpgrade ? (
-          <TouchableOpacity
-            style={[styles.upgradeButton, { backgroundColor: colors.primary }]}
-            ref={upgradeFocusRef}
-            onPress={handleUpgradePreview}
-            disabled={isCheckingUpgrade}
-            accessibilityLabel="Get the cinematic video. Shows the cost before anything is spent."
-            accessibilityRole="button"
-            accessibilityState={{
-              disabled: isCheckingUpgrade,
-              busy: isCheckingUpgrade,
+          <ResultDetails
+            key={battleId}
+            theme={battle.theme}
+            isBo3={isBo3}
+            rounds={rounds}
+            myProfileId={myId}
+            playerOneId={battle.player_one_id}
+            noContest={noContest}
+            info={{
+              rewards: rewardsModel,
+              decisionExplanation,
+              judgeLine,
+              matchupNote,
+              judgeNotesHistorical: revised,
             }}
+            onViewQuests={goHome}
+            onExplanationOpen={(roundNumber) =>
+              trackComposerResult('composer_explanation_read', roundNumber)
+            }
+          />
+          <TutorialCoach battleId={battleId} stage="result" />
+
+          {canAppeal || appeal.data?.appeal ? (
+            <BattleAppealPanel review={appeal} />
+          ) : null}
+
+          <TouchableOpacity
+            style={styles.reportLink}
+            onPress={handleReport}
+            accessibilityLabel={
+              opponentProfileId
+                ? 'Report this battle or block opponent'
+                : 'Report this battle'
+            }
+            accessibilityRole="button"
+            hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
           >
-            {isCheckingUpgrade ? (
-              <ActivityIndicator color={inkFor(colors.primary)} />
-            ) : (
-              <>
-                <View style={styles.buttonRow}>
-                  <GameSymbol
-                    name="film-outline"
-                    size={20}
-                    color={inkFor(colors.primary)}
-                  />
-                  <Text
-                    style={[
-                      styles.upgradeButtonText,
-                      { color: inkFor(colors.primary) },
-                    ]}
-                  >
-                    {videoJob?.status === 'failed'
-                      ? 'Try the video again'
-                      : 'Get the cinematic video'}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.upgradeButtonSubtext,
-                    { color: inkFor(colors.primary) },
-                  ]}
-                >
-                  See the cost before you commit
-                </Text>
-              </>
-            )}
+            <Text
+              style={[styles.reportLinkText, { color: colors.textSecondary }]}
+            >
+              {opponentProfileId ? 'Report / Block' : 'Report this battle'}
+            </Text>
           </TouchableOpacity>
-        ) : null}
+        </ScrollView>
+        <GameFooter style={{ paddingBottom: insets.bottom + Spacing.sm }}>
+          <View style={styles.actionsRow}>
+            <GameButton
+              style={{ flex: 1 }}
+              tone="secondary"
+              label="Arena"
+              onPress={goHome}
+            />
+            <GameButton
+              style={{ flex: 1 }}
+              ref={battleAgainFocusRef}
+              label="Battle Again"
+              accessibilityLabel="Battle again"
+              onPress={() => {
+                void recordFunnelEvent('result_next_battle', battleId);
+                trackComposerResult(
+                  'composer_next_battle',
+                  finalRound?.round_number ?? 1,
+                );
+                router.replace('/create');
+              }}
+            />
+          </View>
+        </GameFooter>
 
-        {canAppeal || appeal.data?.appeal ? (
-          <BattleAppealPanel review={appeal} />
-        ) : null}
-
-        <TouchableOpacity
-          style={styles.reportLink}
-          onPress={handleReport}
-          accessibilityLabel={
-            opponentProfileId
-              ? 'Report this battle or block opponent'
-              : 'Report this battle'
+        <ConfirmSheet
+          visible={sheet !== null}
+          returnFocusRef={upgradeReturnFocusRef}
+          title={sheet?.title ?? ''}
+          subtitle={
+            finalRound
+              ? `Cinematic for round ${finalRound.round_number}. ${sheet?.subtitle ?? ''}`
+              : sheet?.subtitle
           }
-          accessibilityRole="button"
-          hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
-        >
-          <Text
-            style={[styles.reportLinkText, { color: colors.textSecondary }]}
-          >
-            {opponentProfileId ? 'Report / Block' : 'Report this battle'}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-      <GameFooter style={{ paddingBottom: insets.bottom + Spacing.sm }}>
-        <View style={styles.actionsRow}>
-          <GameButton
-            style={{ flex: 1 }}
-            tone="secondary"
-            label="Back to Arena"
-            onPress={goHome}
-          />
-          <GameButton
-            style={{ flex: 1 }}
-            ref={battleAgainFocusRef}
-            label="Battle Again"
-            accessibilityLabel="Battle again"
-            onPress={() => {
-              void recordFunnelEvent('result_next_battle', battleId);
-              router.replace('/create');
-            }}
-          />
-        </View>
-      </GameFooter>
+          lines={sheet?.lines}
+          rows={sheet?.rows}
+          confirmLabel={sheet?.confirmLabel ?? 'Confirm'}
+          busy={isUpgrading}
+          confirmDisabled={!upgradePreview?.can_upgrade}
+          onConfirm={handleUpgradeConfirm}
+          onCancel={() => {
+            if (!isUpgrading) setUpgradePreview(null);
+          }}
+        />
 
-      <ConfirmSheet
-        visible={sheet !== null}
-        returnFocusRef={upgradeReturnFocusRef}
-        title={sheet?.title ?? ''}
-        subtitle={
-          finalRound
-            ? `Cinematic for round ${finalRound.round_number}. ${sheet?.subtitle ?? ''}`
-            : sheet?.subtitle
-        }
-        lines={sheet?.lines}
-        rows={sheet?.rows}
-        confirmLabel={sheet?.confirmLabel ?? 'Confirm'}
-        busy={isUpgrading}
-        onConfirm={handleUpgradeConfirm}
-        onCancel={() => {
-          if (!isUpgrading) setUpgradePreview(null);
-        }}
-      />
-
-      <ReportBlockSheet
-        visible={showReportSheet}
-        onClose={() => setShowReportSheet(false)}
-        reportedType="battle"
-        reportedId={battleId as string}
-        reportedProfileId={opponentProfileId}
-        subjectLabel="this battle"
-      />
-    </>
+        <ReportBlockSheet
+          visible={showReportSheet}
+          onClose={() => setShowReportSheet(false)}
+          reportedType="battle"
+          reportedId={battleId as string}
+          reportedProfileId={opponentProfileId}
+          subjectLabel="this battle"
+        />
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -1276,99 +996,18 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   content: {
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    gap: 20,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: Spacing.sm,
+  verdictSection: {
+    gap: 12,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  replayRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginBottom: Spacing.xs,
-  },
-  replayButton: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-  },
-  replayText: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold,
-  },
-  card: {
-    borderRadius: 0,
-    padding: Spacing.lg,
-
-    marginBottom: Spacing.md,
-  },
-  cardTitle: {
-    fontSize: Typography.sizes.lg,
-    marginBottom: Spacing.sm,
-  },
-  cardText: {
-    fontSize: Typography.sizes.base,
-    flexShrink: 1,
-  },
-  explanation: {
-    fontSize: Typography.sizes.base,
-    lineHeight: Typography.sizes.base * 1.4,
-  },
-  matchupNote: {
-    fontSize: Typography.sizes.sm,
-    marginTop: Spacing.sm,
-  },
-  videoCard: {
-    borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
-    marginBottom: Spacing.md,
-    backgroundColor: '#000',
-  },
-  videoView: {
-    width: '100%',
-    aspectRatio: 9 / 16,
-    backgroundColor: '#000',
-  },
-  videoCardTitle: {
-    fontSize: Typography.sizes.lg,
-    padding: Spacing.md,
-  },
-  captionsContainer: {
-    padding: Spacing.md,
-  },
-  captionsTitle: {
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
-    marginBottom: Spacing.sm,
-  },
-  captionLine: {
-    fontSize: Typography.sizes.base,
-    marginBottom: Spacing.xs,
-  },
-  upgradeButton: {
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  upgradeButtonText: {
-    flexShrink: 1,
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.xs,
-  },
-  upgradeButtonSubtext: {
-    fontSize: Typography.sizes.sm,
-  },
+  upgradeOffer: { gap: Spacing.sm },
   appealButton: {
     minHeight: 48,
     padding: Spacing.md,
@@ -1381,58 +1020,11 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.base,
     fontWeight: Typography.weights.semibold,
   },
-  rewardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.md,
-    paddingVertical: Spacing.sm,
-  },
-  rewardText: { flex: 1, gap: 2 },
-  rewardLabel: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold,
-  },
-  rewardDetail: {
-    fontSize: 14,
-  },
-  rewardValue: {
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.bold,
-    textAlign: 'right',
-    flexShrink: 0,
-  },
   shareCapture: {
     borderRadius: BorderRadius.xl,
     // Breathing room so the exported PNG does not crop tight to the card.
     padding: Spacing.sm,
     marginBottom: Spacing.md,
-  },
-  shareButton: {
-    minHeight: 48,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.md,
-  },
-  shareButtonText: {
-    flexShrink: 1,
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
-  },
-  shareVideoButton: {
-    minHeight: 48,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    marginBottom: Spacing.lg,
-  },
-  shareVideoButtonText: {
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
   },
   actionsRow: {
     flexWrap: 'wrap',
@@ -1460,102 +1052,10 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     minHeight: 48,
     justifyContent: 'center',
-    marginTop: Spacing.md,
   },
   reportLinkText: {
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
     textDecorationLine: 'underline',
   },
-  miniCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  miniBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: BorderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Spacing.md,
-  },
-  miniBody: {
-    flex: 1,
-  },
-  miniTitle: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold,
-  },
-  miniLine: {
-    fontSize: Typography.sizes.sm,
-  },
 });
-
-/**
- * One row of the round-by-round card. Colour, glyph and words all carry the
- * outcome, and the outcome comes from `round_winner_id`, never from comparing
- * scores (see `roundMiniView`).
- */
-function RoundMiniCard({
-  round,
-  myProfileId,
-  playerOneId,
-}: {
-  round: BattleRound;
-  myProfileId: string | null;
-  playerOneId: string | null;
-}) {
-  const colors = useThemedColors();
-  const view = roundMiniView(round, { myProfileId, playerOneId });
-
-  const tone =
-    view.outcome === 'won'
-      ? colors.success
-      : view.outcome === 'lost'
-        ? colors.error
-        : view.outcome === 'draw'
-          ? colors.warning
-          : colors.textTertiary;
-  const icon: React.ComponentProps<typeof GameSymbol>['name'] =
-    view.outcome === 'won'
-      ? 'checkmark'
-      : view.outcome === 'lost'
-        ? 'close'
-        : view.outcome === 'draw'
-          ? 'remove'
-          : 'time-outline';
-
-  const title = `Round ${round.round_number} · ${view.status}${
-    view.scoreLine ? ` · ${view.scoreLine}` : ''
-  }`;
-
-  return (
-    <View
-      style={[styles.miniCard, { borderColor: colors.border }]}
-      accessible
-      accessibilityLabel={`${title}. ${view.hpLine}`}
-    >
-      <View style={[styles.miniBadge, { backgroundColor: tone }]}>
-        <GameSymbol name={icon} size={18} color={inkFor(tone)} />
-      </View>
-      <View style={styles.miniBody}>
-        <Text
-          style={[styles.miniTitle, NumericFontVariant, { color: colors.text }]}
-        >
-          {title}
-        </Text>
-        <Text
-          style={[
-            styles.miniLine,
-            NumericFontVariant,
-            { color: colors.textSecondary },
-          ]}
-        >
-          {view.hpLine}
-        </Text>
-      </View>
-    </View>
-  );
-}

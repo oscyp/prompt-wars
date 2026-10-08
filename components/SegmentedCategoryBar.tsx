@@ -17,6 +17,8 @@ import { hapticSelection } from '@/utils/haptics';
 export interface SegmentedCategoryItem {
   key: string;
   label: string;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
   icon?: React.ComponentProps<typeof GameSymbol>['name'];
   gameIcon?: GameIconName;
   /** Shows a small accent dot on the segment (e.g. unsaved/staged changes). */
@@ -27,6 +29,10 @@ export interface SegmentedCategoryBarProps {
   items: SegmentedCategoryItem[];
   value: string;
   onChange: (key: string) => void;
+  disabled?: boolean;
+  itemRole?: 'tab' | 'button' | 'radio';
+  /** Short icon/label choices fit across a small phone; large text still stacks. */
+  compact?: boolean;
 }
 
 /**
@@ -39,16 +45,25 @@ export default function SegmentedCategoryBar({
   items,
   value,
   onChange,
+  disabled = false,
+  itemRole = 'tab',
+  compact = false,
 }: SegmentedCategoryBarProps) {
   const colors = useThemedColors();
   const textStyle = useAccessibleTextStyle();
   const { width, fontScale } = useWindowDimensions();
-  const largeText = width < 390 || fontScale > 1.15;
+  const largeText = width < (compact ? 320 : 390) || fontScale > 1.15;
 
   return (
     <GamePanel
       tone="ornate"
-      accessibilityRole="tablist"
+      accessibilityRole={
+        itemRole === 'tab'
+          ? 'tablist'
+          : itemRole === 'radio'
+            ? 'radiogroup'
+            : undefined
+      }
       style={[
         styles.bar,
         largeText && styles.stackedBar,
@@ -60,17 +75,28 @@ export default function SegmentedCategoryBar({
         return (
           <TouchableOpacity
             key={item.key}
+            disabled={disabled}
             onPress={() => {
+              if (disabled) return;
               if (!selected) hapticSelection();
               onChange(item.key);
             }}
-            accessibilityRole="tab"
-            accessibilityLabel={item.label}
-            accessibilityState={{ selected }}
+            accessibilityRole={itemRole}
+            accessibilityLabel={item.accessibilityLabel ?? item.label}
+            accessibilityState={{
+              selected,
+              disabled,
+              ...(itemRole === 'radio' ? { checked: selected } : {}),
+            }}
             accessibilityHint={
-              item.badge ? 'Contains unsaved changes' : undefined
+              item.accessibilityHint ??
+              (item.badge ? 'Contains unsaved changes' : undefined)
             }
-            style={[styles.segment, largeText && styles.stackedSegment]}
+            style={[
+              styles.segment,
+              largeText && styles.stackedSegment,
+              disabled && styles.disabledSegment,
+            ]}
           >
             <GameBevel
               color={selected ? colors.primary : 'transparent'}
@@ -78,11 +104,15 @@ export default function SegmentedCategoryBar({
               cut={6}
             />
             {item.gameIcon ? (
-              <GameIcon
-                name={item.gameIcon}
-                size={22}
-                color={selected ? inkFor(colors.primary) : colors.textSecondary}
-              />
+              <View style={styles.icon} pointerEvents="none">
+                <GameIcon
+                  name={item.gameIcon}
+                  size={compact ? 18 : 22}
+                  color={
+                    selected ? inkFor(colors.primary) : colors.textSecondary
+                  }
+                />
+              </View>
             ) : item.icon ? (
               <GameSymbol
                 name={item.icon}
@@ -96,12 +126,23 @@ export default function SegmentedCategoryBar({
               variant="label"
               style={[
                 styles.label,
+                compact && styles.compactLabel,
                 textStyle,
                 { color: selected ? inkFor(colors.primary) : colors.text },
               ]}
             >
               {item.label}
             </GameText>
+            {compact && selected ? (
+              <View
+                pointerEvents="none"
+                accessible={false}
+                style={[
+                  styles.selectionMarker,
+                  { backgroundColor: inkFor(colors.primary) },
+                ]}
+              />
+            ) : null}
             {item.badge ? (
               <View
                 style={[
@@ -130,6 +171,7 @@ const styles = StyleSheet.create({
   },
   stackedBar: { flexDirection: 'column', borderRadius: 0 },
   stackedSegment: { flex: 0, minHeight: 48, borderRadius: 0 },
+  disabledSegment: { opacity: 0.5 },
   segment: {
     flex: 1,
     flexDirection: 'row',
@@ -155,5 +197,13 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     marginLeft: Spacing.xs,
+  },
+  compactLabel: { fontSize: 18 },
+  selectionMarker: {
+    position: 'absolute',
+    bottom: 3,
+    width: 20,
+    height: 2,
+    borderRadius: 1,
   },
 });

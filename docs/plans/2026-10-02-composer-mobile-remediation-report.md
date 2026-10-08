@@ -1,0 +1,63 @@
+# Composer mobile remediation — Task 3
+
+Implemented 2 October 2026 in the existing authorized checkout. No deployment, commit, database reset, package installation, or native library upgrade was performed by the mobile implementer.
+
+## Delivered behavior
+
+- Build begins with nine bundled scene actions, grouped Attack / Defense / Finisher. Selecting an action sets its text and type atomically, collapses the entire chooser, and scrolls the selected summary/intentions into view without input focus; Reduced Motion disables the scroll animation. Change expands choices without changing the composed prompt. Three compatible intentions follow the selected action.
+- One illustrated panel owns the authoritative theme banner and complete shared situation, with optional single-select inspiration filters and All ideas. Filtering is local and cannot alter type/text, invoke generation, or purchase anything. Own action remains available. Own action and Write use compact explicit type controls.
+- The exact editor remains mounted through mode and action/type changes. Composition joins trimmed action and intention with exactly one separating space. Incomplete replacements block submission of the retained prior preview. Full-text editing preserves builder/manual/mixed lineage; switching modes alone does not change origin.
+- Move type, action origin, final authoring origin, and undo are inside composer snapshots. Draft serialization is version 3. Versions 1 and 2 preserve their stored text and type, use unknown origin when unavailable, and never infer prose structure. Queued storage writes, tombstones, account/battle/round scope, and single-level undo remain intact.
+- A new three-bank coordinator reads caches and uses one grouped free ensure for missing types only after Build entry and draft/preference/situation readiness. Opening Write alone makes no suggestion request. Incoming AI choices require explicit application. Each type keeps its journal and status independently of the selected type; retries reuse the recorded operation/price.
+- Applied AI choices open in an explicit type view with exactly three choices and Back to all ideas. Other types remain available through their own View controls. Purchased sets cannot be hidden by inspiration filters, lost on type changes, or replaced by late included-bank delivery. Cache reads restore paid metadata. Rerolls remain explicit, single-type, price-confirmed, and unavailable before an action/type is selected.
+- The v2 lock confirmation uses the existing bounded BottomSheet with the complete exact prompt and type, a scrolling body, and pinned Lock in / Keep editing actions. The confirmation snapshot must still match the current scope/type/text before submission. Focus returns directly to the native lock button. Legacy hold and screen-reader confirmation behavior remains supported.
+- V2 tutorial guidance teaches Finisher, action/intention completeness, and Tap Lock in. Normal draft-saving status is quiet; storage failures remain announced. Existing obsidian/gold/lavender components, 16-point body text, scalable labels, 48-point targets, keyboard owner, safe-area owner, and reduced-motion sheet support are retained.
+- The native presentation fixture now exercises all nine actions, local scene filters, atomic type selection, and exact confirmation. `state=paid` opens a local three-card paid-view fixture without any network request or purchase.
+
+## Verification
+
+Final targeted Jest command:
+
+```sh
+rtk yarn test __tests__/battleSituation.test.tsx __tests__/battleWorkspaceLayout.test.tsx __tests__/promptComposer.test.ts __tests__/battleDrafts.test.ts __tests__/usePromptComposer.test.tsx __tests__/useMoveSuggestions.test.tsx __tests__/useMoveSuggestionBanks.test.tsx __tests__/promptComposerPanel.test.tsx __tests__/tutorial.test.ts __tests__/tutorialCoach.test.tsx --runInBand
+```
+
+Result: **10 suites, 74 tests passed**. Coverage includes the real route at 320/375-point widths and font scale 2, stable editor identity, exact submission, replaced action cancellation/confirmation/undo, migration and storage failure, all-nine initial selection, purchased three-card views with filters, per-type journal recovery, cache-first Build activation, cached paid provenance, late free/paid races, submission suspension/resume, retained-preview origin, one scene-panel owner, and scroll notification only on committed action selection.
+
+Meaningful RED→GREEN runs were recorded for atomic type/origin and version-3 migration, grouped bank activation and cache staging, initial chooser collapse, purchase provenance, late-free protection, separate paid views, stable own-field layout, request resumption after failed submission, combined scene ownership, and committed-selection scroll.
+
+Targeted ESLint: no warnings or errors. `rtk proxy npx tsc --noEmit --pretty false`: passed once root telemetry and API changes were present. Existing npm/yarn environment warnings are unrelated to source diagnostics.
+
+Root owns the full repository regression, independent review, archive import closure and deployment/build delivery. The later delegated native/live pass is documented below. Jest layout checks are not evidence of native keyboard, VoiceOver, TalkBack or Dynamic Type visual acceptance.
+
+## Integration contracts
+
+Uses root-owned `getAllFallbackMoveSuggestions`, `getSituationAffordances`, `ensureFreeMoveSuggestionBanks`, optional cached `isPaid`, optional submit authoring origin, and the added inspiration/action-change/suggestions-applied telemetry names. No AI choice or origin information changes judge input, finance rules, battle completion, or server-owned state.
+
+Primary files: `app/(battle)/prompt-entry.tsx`, `components/battle/{PromptComposerPanel,BattleSituation,PromptLockConfirmation}.tsx`, `hooks/{useMoveSuggestions,useMoveSuggestionBanks}.ts`, `utils/{promptComposer,battleDrafts,tutorialState}.ts`, `components/TutorialCoach.tsx`, and `test-support/fixtures/app/prompt-composer.tsx`. `BattleThemePlaque` supports an optional unframed composition while keeping its legacy default. `BattleLockInControl` receives an optional native control ref for accessibility focus restoration.
+
+## Independent/native review follow-up
+
+- Fixed the mixed-bank failure case: a type that fails during the initial cache read or an earlier poll retains its retry error while other types continue and finish. Per-type failures are scoped to the round and persist during explicit retries; that type's successful delivery clears its failure. Two permanent table-driven regressions were observed RED, then GREEN. The independent reviewer reread the fix and ran all seven coordinator tests successfully.
+- Replaced numeric `getInnerViewNode()` measurement targets with the ScrollView's supported `innerViewRef` native content view in both the production route and fixture. This addresses the Fabric warning observed by root's native QA for action scrolling and the existing own-field reveal path. The later delegated native revalidation verified action/field scrolling and root confirmed no fresh measurement warning.
+- Follow-up checks: **4 affected suites / 42 tests passed**, TypeScript passed, and targeted ESLint passed. The earlier ten-suite result above remains the initial Task 3 snapshot; the coordinator now contains two additional regression cases.
+
+## Native and live acceptance follow-up
+
+The detailed evidence and limits are in [the native QA report](../audits/2026-10-02-composer-remediation/native/README.md).
+
+- Real iPhone 17 Pro/iOS26.5 at 402 pt: large-text (setting 6) and Reduce Motion checks verified all-nine grouping, last-Finisher collapse and automatic scroll, exact type/text confirmation, Cancel retention and native own-field reveal. Fixture Metro emitted no new Fabric measureLayout warning after these actions. Original settings were restored.
+- Exactly one new authorized free Practice vs Bot Bo3 completed through the ordinary signed-in app. Round 1 Finisher and round 2 Defense used authored action/intention selections, full confirmations, successful judge/reveal transitions and final Defeat 0–2. No paid idea/upgrade/reroll or extra battle was used. New round 2 context began with an empty, disabled composer.
+- Partial AI failure retained its error/retry affordance while Defense and Finisher banks remained ready. The chosen draft stayed stable. The first prompt-submit attempt failed without a recorded status; its exact type/text survived reload and a single retry succeeded. This remains an unclassified transient, not a source-fixed defect. A temporary bounded dev-only failure alert never fired on that retry, was immediately restored byte-for-byte, and all 503 then-frozen build 15 source hashes matched afterward.
+- The live series exposed bot-won rounds incorrectly labelled Pending. The separately owned result helper/route correction received 88 passing tests and native final-result recheck: both completed rows now display Opponent won with unchanged scores/HP and available Review moves. The individual round header redirects to final result for this completed series and was not independently re-exercised natively.
+- Existing 375 pt native simulator/installed app showed actual 375 width and fitting unified context/CTA. Its mirror input forwarding was unreliable, so this is layout evidence only. Exact 320/390/tablet, full software-keyboard geometry/manual edit/Undo, reliable VoiceOver traversal/speech, TalkBack, long 800-character modal and maximum text categories remain unverified natively. No release-binary or Android native acceptance is claimed.
+- The QA-started 375 simulator was shut down; original 402 remained running on Arena with size 3 / motion OFF / VoiceOver OFF. The delegated browser tab and ordinary Metro were closed; root was notified to clean up its own fixture/mirror sessions.
+
+
+A bounded final keyboard follow-up could not acquire a local Simulator window: Device Hub UI-state requests timed out twice. One seeded Write attempt showed focus and a caret, but multi-character input left the 82-character text unchanged and no software keyboard appeared. Keyboard/manual edit/Undo and tablet acceptance remain unverified. The evidence is `keyboard-followup-focus-no-input.jpg` in the native report. No runtime source, settings or live state changed; the follow-up-owned fixture/mirror and Chrome tab were stopped, ports 8082/3200 were clear, and the original 402 simulator remains at the isolated fixture with its original accessibility settings.
+
+## Android native acceptance and keyboard correction
+
+A later authorized disposable Android 15/API35 ARM environment and official Expo Go 55 extended native coverage; see [the Android native evidence](../audits/2026-10-02-composer-remediation/native/android-local-README.md). This supersedes the Android-unavailable statement in the earlier iOS snapshot. Android 6 installed/cold-launched to its signed-out screen and accepted an inert unsubmitted email value without startup errors. The fixture verified full native editing, exact Attack/text cancellation and Undo after a Defense replacement, an 800-character scrolling confirmation, 320dp/130%text layout and 800dp tablet-sized all-nine grouping/collapse/confirmation.
+
+Native measurements exposed Android's fixed CTA beneath the IME despite adjustResize. The final route and matching fixture now activate the existing KAV's padding behavior on Android only while the keyboard is visible; hiding returns normal flex. This avoids RN 0.83's retained hide-frame offset observed with height behavior. iOS remains padding and web/default undefined, with the same editor/KAV tree and no native configuration or dependency change. Three show/hide cycles put the CTA above the IME and restored exact original footer bounds every time. The final source passed 63 tests across 8 focused suites, TypeScript and scoped lint; independent review and 20 workspace tests also passed. Only prompt-entry differs among the 503 frozen iOS 16 runtime files. Android 7 is the release containing this fix. Its exact verified APK installed as 1.3.3 (7), cold-launched successfully in 539 ms and accepted native keyboard input in the signed-out Email field without submission. Its process log had no fatal or JavaScript error; native advisories and the separate buffered Expo Router fixture diagnostic are retained in the audit. Exact 375/390/402 dp layouts and the separate three-card paid view also passed in the isolated fixture. Authenticated release-composer behavior remains untested. All owned emulator/Metro/ADB resources and reverse mappings are stopped; original display settings were restored and owned ports checked clear.

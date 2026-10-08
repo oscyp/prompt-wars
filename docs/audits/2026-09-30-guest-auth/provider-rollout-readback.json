@@ -1,0 +1,75 @@
+{
+  "project_ref": "uoyjhudegdpanrgllfoj",
+  "verified_at_utc": "2026-09-30T21:25:19.673Z",
+  "probe_scope": "Read-only public Auth settings and registration configuration HTTP requests, plus official Supabase CLI SQL SELECTs. No accounts created, auth attempts made, provider settings changed, or scheduled jobs invoked.",
+  "http": {
+    "auth_settings_endpoint": "/auth/v1/settings",
+    "registration_config_endpoint": "/functions/v1/registration",
+    "registration_config_action": "config",
+    "checked_at": "2026-09-30T21:25:19.673Z",
+    "auth_settings": {
+      "status": 200,
+      "apple_enabled": true,
+      "google_enabled": true,
+      "anonymous_sign_in_enabled": true,
+      "email_enabled": true,
+      "email_confirmation_required": true
+    },
+    "registration_configuration": {
+      "status": 200,
+      "enabled": false,
+      "guest_signup_enabled": false,
+      "guardian_consent_ready": false,
+      "minimum_client_version": "1.4.0"
+    }
+  },
+  "database": {
+    "anonymous_auth_users": 0,
+    "auth_users": 7,
+    "checked_at": "2026-09-30T21:24:24.458301+00:00",
+    "jurisdiction_policy_count": 0,
+    "profiles": 7,
+    "release": {
+      "enabled": false,
+      "guest_signup_enabled": false,
+      "minimum_client_version": "1.4.0",
+      "singleton": true
+    },
+    "scheduled_jobs": [
+      {
+        "active": true,
+        "job_name": "process-apple-revocations-every-five-minutes",
+        "latest_run": {
+          "ended_at": "2026-09-30T21:20:00.143521+00:00",
+          "started_at": "2026-09-30T21:20:00.121552+00:00",
+          "status": "succeeded"
+        },
+        "schedule": "*/5 * * * *"
+      },
+      {
+        "active": true,
+        "job_name": "purge-expired-registration-data",
+        "latest_run": {
+          "ended_at": "2026-09-30T21:17:00.17572+00:00",
+          "started_at": "2026-09-30T21:17:00.168688+00:00",
+          "status": "succeeded"
+        },
+        "schedule": "17 * * * *"
+      }
+    ]
+  },
+  "checks": {
+    "google_apple_anonymous_email_enabled": true,
+    "email_confirmation_required": true,
+    "combined_release_and_guest_intake_disabled": true,
+    "guardian_consent_not_ready": true,
+    "existing_account_counts_preserved": true,
+    "no_jurisdiction_policy_provisioned": true,
+    "scheduled_jobs_active_and_latest_runs_succeeded": true
+  },
+  "limitations": [
+    "Public Auth settings do not expose manual linking, provider audience allowlists, SMTP configuration, or the Before User Created hook.",
+    "Scheduled job success confirms cron SQL completion, not the downstream Edge Function HTTP response; Apple worker HTTP 200 was separately verified in apple-provider-verification.json.",
+    "No real provider sign-in, linking, email delivery, purchases, or signed-device acceptance was exercised. The combined release remains disabled."
+  ]
+}

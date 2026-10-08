@@ -1,3 +1,5 @@
+import { getSituationBotMove } from '../_shared/prompt-situations.ts';
+import { readPrivateBotMove } from '../_shared/private-bot.ts';
 import { forfeitRoundPayload } from '../_shared/round-forfeit.ts';
 // Round Resolve Edge Function (Bo3, Phase 2)
 //
@@ -26,7 +28,7 @@ import {
 } from '../_shared/utils.ts';
 import { assertNoMonetizationDataInScoring } from '../_shared/anti-p2w.ts';
 import {
-  JUDGE_PROMPT_VERSION,
+  judgePolicyVersion,
   aggregateScore,
   runJudgePipeline,
 } from '../_shared/judge.ts';
@@ -92,7 +94,7 @@ Deno.serve(async (req) => {
       .from('battles')
       .select(
         `
-        id, format, status, mode, rules_version,
+        id, format, status, mode, rules_version, judge_policy_version, bot_policy_version,
         player_one_id, player_two_id, is_player_two_bot, bot_persona_id,
         theme, current_round, best_of,
         player_one_hp, player_two_hp,
@@ -112,7 +114,30 @@ Deno.serve(async (req) => {
       return errorResponse('round-resolve only applies to format=bo3', 400);
     }
 
+    const judgeVersion = judgePolicyVersion(battle.judge_policy_version);
     const roundNumber: number = body.round_number ?? battle.current_round ?? 1;
+
+    // Resolve private input before claiming: integrity failures stay retryable
+    // without stranding the round in resolving or changing the prepared choice.
+    let preparedBot = null;
+    if (battle.is_player_two_bot && battle.bot_policy_version === 2) {
+      try {
+        preparedBot = await readPrivateBotMove(
+          supabase,
+          battle_id,
+          roundNumber,
+        );
+      } catch {
+        return errorResponse(
+          'The opponent move is temporarily unavailable. Try again.',
+          503,
+          {
+            code: 'bot_choice_unavailable',
+            retryable: true,
+          },
+        );
+      }
+    }
 
     // Idempotent claim: waiting_for_prompts -> resolving
     const { data: claimedRows, error: claimErr } = await supabase.rpc(
@@ -205,7 +230,21 @@ Deno.serve(async (req) => {
     let p2 = await promptText(p2Row);
 
     // Bot opponent: synthesize prompt from bot_prompt_library.
-    if (battle.is_player_two_bot && !p2Row && battle.bot_persona_id) {
+    if (preparedBot) {
+      p2 = preparedBot;
+    } else if (
+      battle.is_player_two_bot &&
+      !p2Row &&
+      judgeVersion === 'v2.0.0-ideas'
+    ) {
+      p2 =
+        claimedRound.judge_payload?.frozen_inputs?.player_two ??
+        getSituationBotMove(
+          claimedRound.situation_snapshot,
+          battle_id,
+          roundNumber,
+        );
+    } else if (battle.is_player_two_bot && !p2Row && battle.bot_persona_id) {
       const { data: botPrompts } = await supabase
         .from('bot_prompt_library')
         .select('prompt_text, move_type')
@@ -259,7 +298,8 @@ Deno.serve(async (req) => {
         p1.wordCount,
         p2.wordCount,
         battle.theme,
-        JUDGE_PROMPT_VERSION,
+        judgeVersion,
+        claimedRound.situation_snapshot,
       );
     }
 
@@ -308,7 +348,7 @@ Deno.serve(async (req) => {
     if (judgeResult) {
       await supabase.from('judge_runs').insert({
         battle_id,
-        judge_prompt_version: JUDGE_PROMPT_VERSION,
+        judge_prompt_version: judgeVersion,
         model_id: judgeResult.calls.map((c) => c.model_id).join(','),
         seed: judgeResult.calls[0]?.seed ?? 0,
         player_one_raw_scores: judgeResult.player_one_raw_scores,
@@ -343,6 +383,8 @@ Deno.serve(async (req) => {
             player_one: p1,
             player_two: p2,
             theme: battle.theme,
+            judge_policy_version: judgeVersion,
+            situation_snapshot: claimedRound.situation_snapshot ?? null,
             rules_version: battle.rules_version ?? 1,
           },
           move_type_matchup: {
@@ -382,7 +424,7 @@ Deno.serve(async (req) => {
           player_two_hp_after: p2HpAfter,
           is_ko: isKo,
           judge_payload: judgePayload,
-          judge_prompt_version: JUDGE_PROMPT_VERSION,
+          judge_prompt_version: judgeVersion,
           judge_model_id:
             judgeResult?.calls.map((c) => c.model_id).join(',') ?? 'forfeit',
           stat_modifier_player_one: p1StatMod,

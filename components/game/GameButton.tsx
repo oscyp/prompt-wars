@@ -13,10 +13,15 @@ import { GameChrome } from '@/constants/DesignTokens';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { GameBevel } from './GameBevel';
 import { GameText } from './GameText';
+import { CreditAmount, creditAmountLabel } from './CreditAmount';
 import { GameIcon, type GameIconName } from './icons/GameIcon';
 
 export interface GameButtonProps extends Omit<PressableProps, 'children'> {
   label: string;
+  /** Omit for no price. Null means pricing has not been confirmed. */
+  amount?: number | null;
+  /** Rewards can show a leading plus without changing ordinary purchase prices. */
+  amountSigned?: boolean;
   icon?: React.ComponentProps<typeof GameSymbol>['name'];
   tone?: 'primary' | 'secondary' | 'danger';
   gameIcon?: GameIconName;
@@ -24,6 +29,8 @@ export interface GameButtonProps extends Omit<PressableProps, 'children'> {
   chrome?: 'action' | 'collection' | 'utility' | 'text';
   busy?: boolean;
   selected?: boolean;
+  /** Prose choices use an inset rail without reserving an icon column. */
+  selectionIndicator?: 'check' | 'accent-edge';
   unavailable?: boolean;
   unavailableHint?: string;
   labelStyle?: StyleProp<TextStyle>;
@@ -33,6 +40,8 @@ export const GameButton = React.forwardRef<View, GameButtonProps>(
   function GameButton(
     {
       label,
+      amount,
+      amountSigned = false,
       icon,
       gameIcon,
       endIcon,
@@ -40,6 +49,7 @@ export const GameButton = React.forwardRef<View, GameButtonProps>(
       tone = 'primary',
       busy = false,
       selected = false,
+      selectionIndicator = 'check',
       unavailable = false,
       unavailableHint,
       disabled,
@@ -60,6 +70,7 @@ export const GameButton = React.forwardRef<View, GameButtonProps>(
       disabled ||
       busy ||
       unavailable ||
+      amount === null ||
       accessibilityState?.disabled ||
       accessibilityState?.busy,
     );
@@ -91,7 +102,12 @@ export const GameButton = React.forwardRef<View, GameButtonProps>(
         {...props}
         disabled={blocked}
         accessibilityRole={props.accessibilityRole ?? 'button'}
-        accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityLabel={
+          accessibilityLabel ??
+          (amount === undefined
+            ? label
+            : `${label}, ${creditAmountLabel(amount, amountSigned).replace(/^Credits/, 'credits')}`)
+        }
         accessibilityHint={
           unavailable
             ? (unavailableHint ?? accessibilityHint ?? 'Currently unavailable')
@@ -156,20 +172,47 @@ export const GameButton = React.forwardRef<View, GameButtonProps>(
             accessible={false}
           />
         ) : null}
-        {activeSelected && !activeBusy && (
+        {activeSelected && !activeBusy && selectionIndicator === 'check' && (
           <GameIcon name="check" size={18} color={ink} />
         )}
+        {activeSelected &&
+          !activeBusy &&
+          selectionIndicator === 'accent-edge' && (
+            <View
+              pointerEvents="none"
+              accessible={false}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={[
+                styles.selectionEdge,
+                { backgroundColor: colors.primary },
+              ]}
+            />
+          )}
         <GameText
           variant="label"
           style={[
             styles.label,
             { color: ink },
+            selectionIndicator === 'accent-edge' &&
+              tone === 'secondary' &&
+              !blocked && { color: colors.text },
             chrome === 'text' && { textDecorationLine: 'underline' },
             labelStyle,
           ]}
         >
           {label}
         </GameText>
+        {amount !== undefined && (
+          <CreditAmount
+            amount={amount}
+            signed={amountSigned}
+            size="small"
+            color={ink}
+            accessible={false}
+            style={{ flexShrink: 0 }}
+          />
+        )}
         {endIcon && <GameIcon name={endIcon} size={18} color={ink} />}
       </Pressable>
     );
@@ -185,8 +228,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
   },
   pressed: { opacity: 0.84 },
   label: { flexShrink: 1, textAlign: 'center' },
+  selectionEdge: {
+    position: 'absolute',
+    left: 7,
+    top: 16,
+    bottom: 16,
+    width: 3,
+    borderRadius: 1,
+  },
 });

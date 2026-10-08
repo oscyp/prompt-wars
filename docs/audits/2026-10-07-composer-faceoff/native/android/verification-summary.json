@@ -1,0 +1,74 @@
+{
+  "verifiedAt": "2026-10-07T16:17:23.688104+00:00",
+  "runtime": "existing Android API35 emulator + Expo Go SDK55; isolated fixture Metro",
+  "builderFlow": "passed",
+  "keyboardMatrix": [
+    {
+      "width": 390,
+      "fontScale": 1.0,
+      "typeToActionGap": 8,
+      "choices": 3,
+      "editableBuilderFields": 0,
+      "nativeKeyboard": true,
+      "manualPromptCharacters": 83,
+      "manualExactReview": true,
+      "backPreservedText": true,
+      "inputBounds": "[16,403][374,603]",
+      "keyboardFooterBounds": "[16,458][374,506]"
+    },
+    {
+      "width": 320,
+      "fontScale": 1.0,
+      "typeToActionGap": 8,
+      "choices": 3,
+      "editableBuilderFields": 0,
+      "nativeKeyboard": true,
+      "manualPromptCharacters": 83,
+      "manualExactReview": true,
+      "backPreservedText": true,
+      "inputBounds": "[16,472][304,672]",
+      "keyboardFooterBounds": "[16,494][304,542]"
+    },
+    {
+      "width": 320,
+      "fontScale": 1.5,
+      "typeToActionGap": 8,
+      "choices": 3,
+      "editableBuilderFields": 0,
+      "nativeKeyboard": true,
+      "manualPromptCharacters": 83,
+      "manualExactReview": true,
+      "backPreservedText": true,
+      "inputBounds": "[16,691][304,719]",
+      "keyboardFooterBounds": "[16,490][304,542]"
+    }
+  ],
+  "allThreeLargeTextPurchaseLabels": "visually verified complete at320dp/150%",
+  "pricePreviews": "fixture only; cancelled; no wallet operations",
+  "shortTap": "does not submit",
+  "native850msHold": "submits fixture at existing600ms threshold",
+  "reducedMotion": "review smoke passed; animations restored",
+  "TalkBack": "unavailable, not verified",
+  "nativeErrorLog": "bounded600 entries, empty",
+  "sourceDigests": {
+    "components/battle/PromptComposerPanel.tsx": "6a2418355c5f74c6ed247adfd31627828dcde72b0ffe26df14330c9d476f61e5",
+    "utils/promptComposer.ts": "d67260e00069493cbb0ccc783530ee6e3491d0d1931431e7c5baaf6d771466f3",
+    "utils/promptComposerFlow.ts": "8834ea908011cab2fea9b82b9790fbf926de02fefa66d39f752c2df15d3ae495",
+    "test-support/fixtures/app/prompt-composer.tsx": "2cb0235b66f84f469b51f71da7787d7fefea1bb9f13826363e863e3ae5926111"
+  },
+  "cleanup": {
+    "observedAt": "2026-10-07T16:16:38.649026+00:00",
+    "display": "Physical size: 1080x2340",
+    "density": "Physical density: 440",
+    "fontScale": "1.0",
+    "softwareKeyboardOverride": "null",
+    "taskEmulatorKillResponse": "OK: killing emulator, bye bye\r\nOK",
+    "otherEmulatorsStopped": false,
+    "cachedSdkAvdRetained": true,
+    "newAppBuildCreated": false,
+    "realPurchases": 0,
+    "port5038Listening": false,
+    "port5582Listening": false,
+    "port8083Listening": false
+  }
+}

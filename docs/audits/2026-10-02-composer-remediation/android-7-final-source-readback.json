@@ -1,0 +1,18 @@
+{
+  "checked_at": "2026-10-02T17:42:55.310999+00:00",
+  "android_build_id": "bc22e58f-7250-4796-94e8-4489e3e80642",
+  "ios_build_id": "c60b6c40-b019-46d6-bf93-b88e3200fd33",
+  "android_archived_files": 503,
+  "ios_archived_files": 503,
+  "android_workspace_drift": [],
+  "platform_added": [],
+  "platform_removed": [],
+  "platform_changed": [
+    "app/(battle)/prompt-entry.tsx"
+  ],
+  "android_only_keyboard_delta_expected": true,
+  "git_diff_check_exit_code": 0,
+  "git_diff_check_stdout": "",
+  "git_line_ending_warnings_present": true,
+  "scope": "Runtime archive hashes. Native fixture and audit/documentation files are excluded from release archives."
+}

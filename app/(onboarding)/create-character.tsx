@@ -1,3 +1,6 @@
+import CreatorArchetypePicker from '@/components/character/CreatorArchetypePicker';
+import { useNativeHeaderOffset } from '@/hooks/useNativeHeaderOffset';
+import ArtStyleChoices from '@/components/character/ArtStyleChoices';
 import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
 import FighterCard from '@/components/game/FighterCard';
 
@@ -10,7 +13,6 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -23,11 +25,7 @@ import { useNavigation, useRouter } from 'expo-router';
 import { usePreventRemove } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
-import {
-  ARCHETYPES,
-  ARCHETYPE_ART,
-  type ArchetypeId,
-} from '@/constants/Archetypes';
+import { ARCHETYPES, type ArchetypeId } from '@/constants/Archetypes';
 import {
   BATTLE_CRY_SUGGESTIONS,
   type Era,
@@ -39,7 +37,6 @@ import {
 } from '@/constants/CharacterTraits';
 import {
   BorderRadius,
-  Ink,
   Layout,
   Motion,
   NumericFontVariant,
@@ -58,7 +55,6 @@ import { hapticError, hapticSelection, hapticSuccess } from '@/utils/haptics';
 import { STAT_POINT_TOTAL } from '@/utils/statAllocation';
 import { traitOptions, PALETTE_SWATCH_OPTIONS } from '@/utils/traitOptions';
 import {
-  ArtStylePicker,
   ColorSwatchGrid,
   ConfirmSheet,
   InlineBanner,
@@ -68,7 +64,6 @@ import {
   type ColorSwatchOption,
   type ItemGridItem,
 } from '@/components';
-import { HEADER_BUTTON_SIZE } from '@/components/HeaderBackButton';
 import {
   generatePortrait,
   getPortraitFallbackUri,
@@ -132,6 +127,7 @@ interface ConfirmNotice {
 export default function CreateCharacterScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const nativeHeaderOffset = useNativeHeaderOffset();
   const colors = useThemedColors();
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
@@ -454,14 +450,15 @@ export default function CreateCharacterScreen() {
 
   return (
     <KeyboardAvoidingView
+      keyboardVerticalOffset={nativeHeaderOffset}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.container, { backgroundColor: colors.background }]}
     >
       <View
         style={[
           styles.progressBar,
-          // The header is transparent; sit just below its 44pt back button.
-          { paddingTop: insets.top + HEADER_BUTTON_SIZE + Spacing.sm },
+          // The opaque navigator owns the top safe area.
+          { paddingTop: Spacing.sm },
         ]}
       >
         <GameText
@@ -758,82 +755,13 @@ function StepArchetype({
   value: ArchetypeId | null;
   onChange: (v: ArchetypeId) => void;
 }) {
-  const colors = useThemedColors();
   return (
     <View>
       <StepHeading
         title="Choose your archetype"
         sub="All are free and balanced."
       />
-      {Object.values(ARCHETYPES).map((arch) => {
-        const selected = arch.id === value;
-        return (
-          <TouchableOpacity
-            key={arch.id}
-            style={[
-              styles.archetypeCard,
-              { backgroundColor: colors.card },
-              selected && { borderColor: arch.color },
-            ]}
-            onPress={() => {
-              hapticSelection();
-              onChange(arch.id);
-            }}
-            accessibilityLabel={`${arch.name}. ${arch.description}`}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-          >
-            <Image
-              source={ARCHETYPE_ART[arch.id]}
-              style={{ width: '100%', height: 160 }}
-              resizeMode="contain"
-              accessibilityIgnoresInvertColors
-            />
-            {selected ? (
-              <View
-                style={[styles.selectedBadge, { backgroundColor: arch.color }]}
-              >
-                <GameSymbol
-                  name="checkmark"
-                  size={16}
-                  color={Ink.onAccentLight}
-                />
-              </View>
-            ) : null}
-            <View style={styles.archetypeTextBlock}>
-              <View style={styles.archetypeHeader}>
-                <View
-                  style={[
-                    styles.archetypeColor,
-                    { backgroundColor: arch.color },
-                  ]}
-                />
-                <GameText
-                  variant="fighter"
-                  style={[styles.archetypeName, { color: colors.text }]}
-                >
-                  {arch.name}
-                </GameText>
-              </View>
-              <GameText
-                variant="body"
-                style={[
-                  styles.archetypeDescription,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                {arch.description}
-              </GameText>
-              <GameText
-                variant="body"
-                style={[styles.archetypeTrait, { color: colors.textSecondary }]}
-              >
-                Trait: {arch.trait}
-              </GameText>
-            </View>
-          </TouchableOpacity>
-        );
-      })}
+      <CreatorArchetypePicker value={value} onChange={onChange} />
     </View>
   );
 }
@@ -1206,7 +1134,7 @@ function StepPortrait({
       ) : null}
 
       <View style={styles.section}>
-        <ArtStylePicker
+        <ArtStyleChoices
           value={draft.artStyle}
           onChange={(s) => patch({ artStyle: s })}
           disabled={generating}

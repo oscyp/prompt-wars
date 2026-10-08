@@ -1,7 +1,6 @@
 import { Stack } from 'expo-router';
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import HeaderBackButton from '@/components/HeaderBackButton';
 import { ForcedColorSchemeProvider } from '@/hooks/useThemedColors';
 import { BattleAudioProvider } from '@/providers/BattleAudioProvider';
 
@@ -15,12 +14,7 @@ export default function BattleLayout() {
       <BattleAudioProvider>
         <Stack
           screenOptions={{
-            headerShown: true,
-            headerTransparent: true,
-            headerTitle: '',
-            headerShadowVisible: false,
-            headerBackTitle: '',
-            headerLeft: () => <HeaderBackButton />,
+            headerShown: false,
             animation: 'slide_from_right',
           }}
         >

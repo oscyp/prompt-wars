@@ -1,5 +1,13 @@
 # Local native parity fixtures
 
+## Loading, round results and Claim fixtures
+
+`/round-controls?state=startup|round|quests|media` uses the production GameFeedback, RoundScorePanel, RoundDetails, RoundImpact, SeriesScoreIndicator, QuestRow and ResultMedia components. `busy=1` shows the disabled claiming state; media supports `media=pending|slow|failed|error`. Scores and quests are synthetic, Claim is inert, Retry counts local taps and Continue returns to the fixture index. These compositions do not prove real route, account or mutation behavior. Use the isolated development launcher below; native evidence is labelled in `docs/audits/2026-09-26-round-controls/`.
+
+## Visual remediation fixture
+
+`/remediation` reuses the production masked headings, InlineBanner, ResultShareCard, ResultShareExport, RevealWinnerBeat, creator preset/style selectors, ProfileSkeleton and GameFeedback. DEV controls select outcome/name and never mutate an account. Result export captures the actual offscreen export component into a local PNG preview; it does not open sharing or transmit it. No-contest deliberately receives stale winner/KO/score props to verify their suppression. Winner reserves a fixed footer and measures the remaining native stage. These captures prove component presentation, not a real appeal, purchase, creator progression or battle-data integration. Run only through the isolated fixture launcher.
+
 Start a **second** development server from the repository root:
 
 ```sh
@@ -20,7 +28,7 @@ For each capture record actual viewport, OS, font scale, runtime/build provenanc
 
 ## Edit Look native workspace
 
-Open **Edit Look fixture** from the index (fixture route `/edit-look`). This is a full-height editor composition using the real preview, tabs, Look/Fighter/Gear panels, footer, item details, card/history sheets, and confirmation sheet. It has one root iOS keyboard avoider and one vertical form scroll; the header, preview, tabs, and footer remain outside that scroll. The preview compacts when the keyboard opens or the actual viewport is short. Use actual small and standard simulators for keyboard and footer captures; this route does not simulate another device with a narrower container.
+Open **Edit Look fixture** from the index (fixture route `/edit-look`). This is a full-height editor composition using the real preview, tabs, Look/Fighter/Gear panels, footer, item details, card/history sheets, and confirmation sheet. It has one root iOS keyboard avoider and one vertical form scroll; the header, preview, tabs, and footer remain outside that scroll. The preview hides while the software keyboard is visible. At accessibility text sizes, preview and status move into the form scroll. The typing footer uses Save changes / Done. Use actual small and standard simulators for keyboard and footer captures; this route does not simulate another device with a narrower container.
 
 The horizontal DEV control rail exposes ordinary accessible buttons named **DEV Look**, **DEV Writing**, **DEV Fighter**, **DEV Gear**, **DEV Locked**, **DEV Pending**, **DEV Failure**, **DEV Card**, **DEV History**, **DEV Confirm**, and **DEV Reset**. Swipe the rail to reach later buttons. These duplicate state selection for native automation tools that omit `tab` targets; the real editor tabs remain interactive. Tap the small DEV note to hide or restore the rail before captures. While typing, **DEV Dismiss keyboard** dismisses the keyboard; the rail hides to preserve form space. Record the visible DEV note and native viewport as part of capture provenance.
 
@@ -43,3 +51,20 @@ The config test verifies normal-root preservation and rejection under production
 ## Native font-unavailable case
 
 Stop the fixture server, then run `rtk proxy env EXPO_PUBLIC_FIXTURE_SKIP_FONTS=1 sh scripts/visual-fixtures.sh --offline` and fully stop/reopen the development app against port 8082. The fixture skips font registration and reports actual `expo-font` availability in its controls. On an older binary without embedded display faces this exercises the shared native system fallback. If the native binary already embeds the fonts, it will report loaded; do not call that a missing-font check. This remains distinct from a freshly compiled production splash/font/offline launch. Stop the server and reopen the ordinary 8081 app after checking.
+
+## Shared visual refinement fixture — 22 September 2026
+
+`/refinement?state=round|review|recovery|rows` composes production verdict, authoritative-impact presentation, media feedback, shared headers/currency and independent Safety rows with bundled local data. `long=1` stresses names and large amounts. Row navigation and media Retry increment local counters; the existing safety sheet can be opened and dismissed, but never submit or block from a fixture. No real account/battle identifiers are used.
+
+`/edit-look?section=fighter&controls=hide&included=2` selects the editor category and included-draw display without production operations. Labels and synthetic prices are fixture data. The 22 September Mac lock prevented direct text-entry validation even in a plain React Native TextInput comparison. Focus-only captures do not prove software-keyboard behavior, persistence, or successful typing.
+
+## Battle result refinement — 23 September 2026
+
+`/result-screen?state=won|lost|draw|no_contest|overturned|single|exhibition|practice&long=1|2` composes the production result components with bundled fighter art and frozen synthetic equipment. `long=1` uses diacritics and non-Latin names; `long=2` uses an unbroken long name. No-contest deliberately receives original score/KO/winner/HP inputs to test suppression. Use the isolated launcher above. These are component fixtures, not actual account results or appeal-processing evidence.
+
+Add `media=pending|error` for compact media recovery feedback; Retry only increments a local counter. Add `rewards=granted|quests|pending|unavailable` for compact reward/progress and the Result info sheet. Combine `state=overturned` or `no_contest` with `rewards=granted` to supply stale original rating/streak values alongside retained diamonds. The illustrated theme and round panel are always visible; `theme=long|missing` exercises wrapping or omission without inventing a theme label. Single battles omit the round panel; no-contest labels played rounds as historical. Fixtures do not calculate corrections, claim quest rewards, generate media or purchase anything. `View quests` dismisses the sheet before returning to the fixture index rather than a live Arena. Earlier gallery captures with forced-open details are historical evidence, not the current fixture layout.
+
+
+### Face-off composer checks (7 October 2026)
+
+`/prompt-composer` now starts at Face-off and exercises the selection-only Action (explicit type first) → Intention → Approach → Your move flow, with independent Write your own. It uses local catalogue choices and shared production components/state; no authenticated battle, AI, wallet or submit calls run. The per-step one-credit controls open a **preview** confirmation; fixture staging is not proof of backend generation or billing. Native evidence for this change belongs to `docs/audits/2026-10-07-composer-faceoff/native/`, using existing iOS development-host/Android Expo Go installations without new builds. Migration recovery and production journals are covered by route/unit/SQL tests, not this isolated fixture.

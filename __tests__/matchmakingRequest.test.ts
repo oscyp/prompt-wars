@@ -39,7 +39,8 @@ describe('startMatchmaking request identity', () => {
       'matchmaking',
       {
         character_id: 'fighter-1',
-        client_contract_version: 2,
+        client_contract_version: 3,
+        accept_battle_id: undefined,
         mode: 'ranked',
         request_id: 'request-1',
         resume_battle_id: 'battle-1',
@@ -61,7 +62,8 @@ describe('startMatchmaking request identity', () => {
       'matchmaking',
       {
         character_id: 'fighter-1',
-        client_contract_version: 2,
+        client_contract_version: 3,
+        accept_battle_id: undefined,
         mode: 'bot',
         request_id: 'generated-request-id',
         resume_battle_id: undefined,

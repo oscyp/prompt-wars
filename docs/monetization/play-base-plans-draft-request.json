@@ -1,0 +1,90 @@
+{
+  "requests": [
+    {
+      "subscription": {
+        "packageName": "gg.promptwars.app",
+        "productId": "promptwars_plus_monthly",
+        "basePlans": [
+          {
+            "basePlanId": "monthly",
+            "autoRenewingBasePlanType": {
+              "billingPeriodDuration": "P1M",
+              "gracePeriodDuration": "P7D",
+              "resubscribeState": "RESUBSCRIBE_STATE_ACTIVE",
+              "prorationMode": "SUBSCRIPTION_PRORATION_MODE_CHARGE_ON_NEXT_BILLING_DATE",
+              "legacyCompatible": true
+            },
+            "regionalConfigs": [
+              {
+                "regionCode": "US",
+                "newSubscriberAvailability": true,
+                "price": {
+                  "currencyCode": "USD",
+                  "units": "9",
+                  "nanos": 990000000
+                }
+              },
+              {
+                "regionCode": "PL",
+                "newSubscriberAvailability": true,
+                "price": {
+                  "currencyCode": "PLN",
+                  "units": "46",
+                  "nanos": 990000000
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "updateMask": "basePlans",
+      "regionsVersion": {
+        "version": "2025/03"
+      },
+      "allowMissing": false
+    },
+    {
+      "subscription": {
+        "packageName": "gg.promptwars.app",
+        "productId": "promptwars_plus_annual",
+        "basePlans": [
+          {
+            "basePlanId": "annual",
+            "autoRenewingBasePlanType": {
+              "billingPeriodDuration": "P1Y",
+              "gracePeriodDuration": "P14D",
+              "resubscribeState": "RESUBSCRIBE_STATE_ACTIVE",
+              "prorationMode": "SUBSCRIPTION_PRORATION_MODE_CHARGE_ON_NEXT_BILLING_DATE",
+              "legacyCompatible": true
+            },
+            "regionalConfigs": [
+              {
+                "regionCode": "US",
+                "newSubscriberAvailability": true,
+                "price": {
+                  "currencyCode": "USD",
+                  "units": "59",
+                  "nanos": 990000000
+                }
+              },
+              {
+                "regionCode": "PL",
+                "newSubscriberAvailability": true,
+                "price": {
+                  "currencyCode": "PLN",
+                  "units": "279",
+                  "nanos": 990000000
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "updateMask": "basePlans",
+      "regionsVersion": {
+        "version": "2025/03"
+      },
+      "allowMissing": false
+    }
+  ]
+}

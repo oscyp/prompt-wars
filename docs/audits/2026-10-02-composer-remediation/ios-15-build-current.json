@@ -1,0 +1,49 @@
+{
+  "id": "83943bc5-2b6b-4ee1-8754-4fff472d45c6",
+  "status": "FINISHED",
+  "platform": "IOS",
+  "artifacts": {
+    "buildUrl": "https://expo.dev/artifacts/eas/RIMBQkGw6VnW7L3hZeWUIsfV9m7R8xdNjtugyJqkiHY.ipa",
+    "xcodeBuildLogsUrl": "https://storage.googleapis.com/eas-workflows-production/logs/d4c525e1-0a95-4c6a-b1ee-106fa2f03f46/83943bc5-2b6b-4ee1-8754-4fff472d45c6/2026-10-02T13%3A47%3A52Z-83943bc5-2b6b-4ee1-8754-4fff472d45c6-xcode.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20261002%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20261002T135548Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=9222324ed7cfa38b7a65eda75817918f442d080b4c72efb7fdf42d3cb9aeb5ed67104e71e78cef22e0b3e7f90a35b57fb4eea4a9d5fa43535e4ad732d009ddcbca5b464e77d90dcb482b44c199d5d42d9e2fe3ae9caffeddf2dc1b9a155876c9104d81db2fdb9a78334ded7eb23d067fda0a6e3c4f55859918a82e8c763fef8819a234985b67edb8bc238f344e00ab1988f77a0805ea2e9def1fe12ed56d9f27f7a111b41be2bf98f1200bc72bfe95b1fa0fc85697b07ed813fd10edb7345e60e71f00cc513cad1866356f2bfb5d0c8f7cdd49dc502f34231949a8718bcbad26380614292e679b9bc6d0d8d0c6817344c3904aa6777979b976aa1a6b22ebe943",
+    "applicationArchiveUrl": "https://expo.dev/artifacts/eas/RIMBQkGw6VnW7L3hZeWUIsfV9m7R8xdNjtugyJqkiHY.ipa"
+  },
+  "fingerprint": {
+    "id": "01a0fcdf-0ad8-7259-a821-6f65d299eec6",
+    "hash": "f9915e222dd5a15f3e6507cdae625d6519bb6299"
+  },
+  "initiatingActor": {
+    "id": "3dedb902-54fb-4141-933d-74d495799a12",
+    "displayName": "p__d"
+  },
+  "logFiles": [
+    "https://storage.googleapis.com/eas-workflows-production/logs/d4c525e1-0a95-4c6a-b1ee-106fa2f03f46/83943bc5-2b6b-4ee1-8754-4fff472d45c6/2026-10-02T13%3A47%3A52Z-2ffb872f-98d9-4f93-be55-9e534ea13b93.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20261002%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20261002T135408Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=5169da53569ddd2b151ebca6c4b861076143c4f6793f3fa1c1f913f16bad1ba7b3c02eb3d18bfd832a29ddaa994db09e286baeec876ddd702e60d07dbfa10494894ac01560d39fb4f75b8270c92f402dad8d2f15a07c6d18b3dc891059398ba891baa292634448e032afe8ca093e6d6f11c983a1a7e34630e76fe6b075253786b7c490a446496fa2f2ae2cccf7b6009d95963d6973614d57b86e012f3725efc2e91d3d2f42976467c96b4d25c2a01a030810d0bae24f04c05ff0367c4cc14b4b187e7ab218abbca1345f00c2385fff2d94c74c5c7b9b0bdae7062b6a753706048b3cbaeeb290f8278c37694bf32816642eca1626587d3f605aa39ce0a3d90509",
+    "https://storage.googleapis.com/eas-workflows-production/logs/d4c525e1-0a95-4c6a-b1ee-106fa2f03f46/83943bc5-2b6b-4ee1-8754-4fff472d45c6/2026-10-02T13%3A47%3A52Z-83943bc5-2b6b-4ee1-8754-4fff472d45c6-xcode.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20261002%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20261002T135548Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=9222324ed7cfa38b7a65eda75817918f442d080b4c72efb7fdf42d3cb9aeb5ed67104e71e78cef22e0b3e7f90a35b57fb4eea4a9d5fa43535e4ad732d009ddcbca5b464e77d90dcb482b44c199d5d42d9e2fe3ae9caffeddf2dc1b9a155876c9104d81db2fdb9a78334ded7eb23d067fda0a6e3c4f55859918a82e8c763fef8819a234985b67edb8bc238f344e00ab1988f77a0805ea2e9def1fe12ed56d9f27f7a111b41be2bf98f1200bc72bfe95b1fa0fc85697b07ed813fd10edb7345e60e71f00cc513cad1866356f2bfb5d0c8f7cdd49dc502f34231949a8718bcbad26380614292e679b9bc6d0d8d0c6817344c3904aa6777979b976aa1a6b22ebe943"
+  ],
+  "project": {
+    "id": "d4c525e1-0a95-4c6a-b1ee-106fa2f03f46",
+    "name": "prompt-wars",
+    "slug": "prompt-wars",
+    "ownerAccount": {
+      "id": "72cb62bc-d38d-4706-a12c-a881967fb6f1",
+      "name": "prompt-wars"
+    }
+  },
+  "distribution": "STORE",
+  "buildProfile": "production",
+  "sdkVersion": "55.0.0",
+  "appVersion": "1.3.3",
+  "appBuildVersion": "15",
+  "gitCommitHash": "d66e621264fb56b6471ecbaa4a7971bb689abaca",
+  "gitCommitMessage": "UX changes",
+  "priority": "NORMAL",
+  "createdAt": "2026-10-02T13:47:50.704Z",
+  "updatedAt": "2026-10-02T13:54:23.613Z",
+  "completedAt": "2026-10-02T13:54:23.305Z",
+  "expirationDate": "2026-11-01T13:47:50.847Z",
+  "isForIosSimulator": false,
+  "metrics": {
+    "buildWaitTime": 825,
+    "buildQueueTime": 21050,
+    "buildDuration": 370726
+  }
+}

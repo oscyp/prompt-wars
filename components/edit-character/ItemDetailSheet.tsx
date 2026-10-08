@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { GameButton } from '@/components/game';
 import { GameText } from '@/components/game';
 
@@ -6,9 +7,10 @@ import EditorItemArt from './EditorItemArt';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { TRAIT_LABELS } from '@/constants/CharacterTraits';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
+import { Spacing } from '@/constants/DesignTokens';
 import type { CatalogSignatureItem } from '@/utils/characters';
 import BottomSheet from '../sheets/BottomSheet';
+import ItemFrame from './ItemFrame';
 
 import { editStyles as s } from './styles';
 
@@ -53,6 +55,8 @@ export default function ItemDetailSheet({
   returnFocusRef,
 }: ItemDetailSheetProps) {
   const colors = useThemedColors();
+  const [artFailed, setArtFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const accessibleText = useAccessibleTextStyle();
   const canChoose = !equipped && !busy && !disabled;
   const canResolveDisabled = disabled && !equipped && Boolean(onDisabledAction);
@@ -76,7 +80,11 @@ export default function ItemDetailSheet({
             disabled={!canChoose && !canResolveDisabled}
             accessibilityRole="button"
             accessibilityLabel={
-              equipped ? undefined : `Use ${item.name} · Free`
+              equipped
+                ? undefined
+                : canResolveDisabled
+                  ? (disabledActionLabel ?? 'Manage battles')
+                  : `Use ${item.name}`
             }
             accessibilityState={{ disabled: !canChoose && !canResolveDisabled }}
             style={[
@@ -89,7 +97,7 @@ export default function ItemDetailSheet({
                 ? 'Selected'
                 : canResolveDisabled
                   ? (disabledActionLabel ?? 'Manage battles')
-                  : 'Use this item · Free'
+                  : 'Use this item'
             }
             busy={busy}
           />
@@ -98,15 +106,26 @@ export default function ItemDetailSheet({
     >
       {item ? (
         <View style={styles.body}>
+          <ItemFrame style={{ marginTop: 40 }}>
+            <EditorItemArt
+              item={item}
+              presentation="plate"
+              retryKey={retryKey}
+              onError={() => setArtFailed(true)}
+              onLoad={() => setArtFailed(false)}
+            />
+          </ItemFrame>
+          {artFailed && (
+            <GameButton
+              label="Retry artwork"
+              chrome="text"
+              onPress={() => {
+                setArtFailed(false);
+                setRetryKey((key) => key + 1);
+              }}
+            />
+          )}
           <View style={styles.header}>
-            <View
-              style={[
-                styles.iconTile,
-                { backgroundColor: colors.backgroundTertiary },
-              ]}
-            >
-              <EditorItemArt item={item} size={64} />
-            </View>
             <View style={s.flex1}>
               <GameText
                 variant="fighter"
@@ -151,15 +170,13 @@ export default function ItemDetailSheet({
           >
             {disabled && !equipped
               ? (disabledReason ?? 'Editing is locked during an active battle.')
-              : 'Select for free, then save your choices. A new drawing brings this item into your artwork.'}
+              : 'Save your choices. A new drawing brings this item into your artwork.'}
           </GameText>
         </View>
       ) : null}
     </BottomSheet>
   );
 }
-
-const ICON_TILE = 64;
 
 const styles = StyleSheet.create({
   body: {
@@ -169,24 +186,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    // Clears the sheet's absolutely positioned 44pt close button.
-    paddingRight: 44,
-  },
-  iconTile: {
-    width: ICON_TILE,
-    height: ICON_TILE,
-    borderRadius: BorderRadius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  icon: {
-    width: 48,
-    height: 48,
-    resizeMode: 'contain',
   },
   name: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.semibold,
+    fontSize: 30,
   },
   centered: {
     textAlign: 'center',

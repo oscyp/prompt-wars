@@ -1,0 +1,858 @@
+yarn run v1.22.22
+warning Skipping preferred cache folder "/Users/patdom/Library/Caches/Yarn" because it is not writable.
+warning Selected the next writable cache folder in the list, will be "/var/folders/s6/mdps3zk93v588msmq1kp3bn00000gn/T/.yarn-cache-501".
+$ jest --runInBand
+warning Cannot find a suitable global folder. Tried these: "/usr/local, /Users/patdom/.yarn"
+PASS __tests__/editorScreenPortraitRecovery.test.tsx
+  ● Console
+
+    console.error
+      An update to CharacterEditor inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      427 |   const notify = useCallback((target: DraftSession) => {
+      428 |     if (target.active && current.current === target)
+    > 429 |       render((revision) => revision + 1);
+          |       ^
+      430 |   }, []);
+      431 |   const isCurrent = useCallback(
+      432 |     (target: DraftSession) => target.active && current.current === target,
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at dispatchSetStateInternal (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6208:13)
+      at dispatchSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6165:7)
+      at render (hooks/useCharacterEditDraft.ts:429:7)
+      at notify (hooks/useCharacterEditDraft.ts:516:7)
+      at Object.update [as setSection] (hooks/useCharacterEditDraft.ts:591:32)
+      at setSection (/Users/patdom/sources/prompt-wars/app/(profile)../../../../edit-character.tsx:310:11)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:15755:20)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at commitHookEffectListMount (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:9530:29)
+      at commitHookPassiveMountEffects (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:9617:11)
+      at commitPassiveMountOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:11205:13)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:11160:11)
+      at commitPassiveMountOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:11197:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:11160:11)
+      at commitPassiveMountOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:11240:11)
+      at flushPendingEffects (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14086:11)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2896:11)
+      at Immediate.performWorkUntilDeadline [as _onImmediate] (node_modules/scheduler/cjs/scheduler.native.development.js:45:48)
+
+    console.error
+      An update to CharacterEditor inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      427 |   const notify = useCallback((target: DraftSession) => {
+      428 |     if (target.active && current.current === target)
+    > 429 |       render((revision) => revision + 1);
+          |       ^
+      430 |   }, []);
+      431 |   const isCurrent = useCallback(
+      432 |     (target: DraftSession) => target.active && current.current === target,
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at dispatchSetStateInternal (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6208:13)
+      at dispatchSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6165:7)
+      at render (hooks/useCharacterEditDraft.ts:429:7)
+      at notify (hooks/useCharacterEditDraft.ts:492:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+    console.error
+      An update to CharacterEditor inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      427 |   const notify = useCallback((target: DraftSession) => {
+      428 |     if (target.active && current.current === target)
+    > 429 |       render((revision) => revision + 1);
+          |       ^
+      430 |   }, []);
+      431 |   const isCurrent = useCallback(
+      432 |     (target: DraftSession) => target.active && current.current === target,
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at dispatchSetStateInternal (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6208:13)
+      at dispatchSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6165:7)
+      at render (hooks/useCharacterEditDraft.ts:429:7)
+      at notify (hooks/useCharacterEditDraft.ts:492:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+    console.error
+      Failed to save character edits {
+        landed: [ 'identity' ],
+        err: Error: offline
+            at Object.<anonymous> (/Users/patdom/sources/prompt-wars/__tests__/editorScreenPortraitRecovery.test.tsx:416:28)
+            at Generator.next (<anonymous>)
+            at asyncGeneratorStep (/Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+            at _next (/Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      }
+
+      911 |     } catch (err) {
+      912 |       if (currentAccount.current !== accountId) return false;
+    > 913 |       console.error('Failed to save character edits', { landed, err });
+          |               ^
+      914 |       await afterEdit();
+      915 |       if (currentAccount.current !== accountId) return false;
+      916 |       if (landed.length > 0) {
+
+      at error (/Users/patdom/sources/prompt-wars/app/(profile)../../../../edit-character.tsx:913:15)
+          at Generator.throw (<anonymous>)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _throw (node_modules/@babel/runtime/helpers/asyncToGenerator.js:20:9)
+
+    console.warn
+      Could not load live edit pricing Error: offline
+          at /Users/patdom/sources/prompt-wars/__tests__/editorScreenPortraitRecovery.test.tsx:104:33
+          at Generator.next (<anonymous>)
+          at asyncGeneratorStep (/Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+          at _next (/Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+          at /Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+          at new Promise (<anonymous>)
+          at /Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12
+          at apply (/Users/patdom/sources/prompt-wars/__tests__/editorScreenPortraitRecovery.test.tsx:103:19)
+          at /Users/patdom/sources/prompt-wars/app/(profile)/edit-character.tsx:480:42
+          at Generator.next (<anonymous>)
+          at asyncGeneratorStep (/Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+          at _next (/Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+          at /Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+          at new Promise (<anonymous>)
+          at /Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12
+          at apply (/Users/patdom/sources/prompt-wars/app/(profile)/edit-character.tsx:492:4)
+          at loadPricing (/Users/patdom/sources/prompt-wars/app/(profile)/edit-character.tsx:495:29)
+          at Object.react_stack_bottom_frame (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:15755:20)
+          at runWithFiberInDEV (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+          at commitHookEffectListMount (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:9530:29)
+          at commitHookPassiveMountEffects (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:9617:11)
+          at commitPassiveMountOnFiber (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:11205:13)
+          at recursivelyTraversePassiveMountEffects (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:11160:11)
+          at commitPassiveMountOnFiber (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:11197:11)
+          at recursivelyTraversePassiveMountEffects (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:11160:11)
+          at commitPassiveMountOnFiber (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:11240:11)
+          at flushPendingEffects (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14086:11)
+          at performSyncWorkOnRoot (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2920:11)
+          at flushSyncWorkAcrossRoots_impl (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2764:21)
+          at flushSpawnedWork (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13966:9)
+          at commitRoot (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13698:9)
+          at commitRootWhenReady (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12444:7)
+          at performWorkOnRoot (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12391:15)
+          at performWorkOnRootViaSchedulerTask (/Users/patdom/sources/prompt-wars/node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2908:7)
+          at Immediate.performWorkUntilDeadline (/Users/patdom/sources/prompt-wars/node_modules/scheduler/cjs/scheduler.native.development.js:45:48)
+          at processImmediate (node:internal/timers:504:21)
+
+      487 |       setPricingVerified(true);
+      488 |     } catch (err) {
+    > 489 |       console.warn('Could not load live edit pricing', err);
+          |               ^
+      490 |       if (characterRef.current?.id === characterId) setPricingVerified(false);
+      491 |     }
+      492 |   }, []);
+
+      at warn (/Users/patdom/sources/prompt-wars/app/(profile)../../../../edit-character.tsx:489:15)
+          at Generator.throw (<anonymous>)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _throw (node_modules/@babel/runtime/helpers/asyncToGenerator.js:20:9)
+
+    console.warn
+      Could not load live edit pricing Error: offline
+          at /Users/patdom/sources/prompt-wars/__tests__/editorScreenPortraitRecovery.test.tsx:104:33
+          at Generator.next (<anonymous>)
+          at asyncGeneratorStep (/Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+          at _next (/Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+          at /Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+          at new Promise (<anonymous>)
+          at /Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12
+          at apply (/Users/patdom/sources/prompt-wars/__tests__/editorScreenPortraitRecovery.test.tsx:103:19)
+          at /Users/patdom/sources/prompt-wars/app/(profile)/edit-character.tsx:480:42
+          at Generator.next (<anonymous>)
+          at asyncGeneratorStep (/Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+          at _next (/Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+          at /Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+          at new Promise (<anonymous>)
+          at /Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12
+          at apply (/Users/patdom/sources/prompt-wars/app/(profile)/edit-character.tsx:492:4)
+          at Object.loadPricing (/Users/patdom/sources/prompt-wars/app/(profile)/edit-character.tsx:628:10)
+          at current (/Users/patdom/sources/prompt-wars/app/(profile)/edit-character.tsx:645:48)
+          at callback (/Users/patdom/sources/prompt-wars/__tests__/editorScreenPortraitRecovery.test.tsx:565:47)
+          at Array.forEach (<anonymous>)
+          at forEach (/Users/patdom/sources/prompt-wars/__tests__/editorScreenPortraitRecovery.test.tsx:565:25)
+          at callback (/Users/patdom/sources/prompt-wars/node_modules/@testing-library/react-native/src/act.ts:31:24)
+          at Object.<anonymous>.process.env.NODE_ENV.exports.act (/Users/patdom/sources/prompt-wars/node_modules/react/cjs/react.development.js:814:22)
+          at actImplementation (/Users/patdom/sources/prompt-wars/node_modules/@testing-library/react-native/src/act.ts:30:25)
+          at Object.<anonymous> (/Users/patdom/sources/prompt-wars/__tests__/editorScreenPortraitRecovery.test.tsx:565:8)
+          at Generator.next (<anonymous>)
+          at asyncGeneratorStep (/Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+          at _next (/Users/patdom/sources/prompt-wars/node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+      487 |       setPricingVerified(true);
+      488 |     } catch (err) {
+    > 489 |       console.warn('Could not load live edit pricing', err);
+          |               ^
+      490 |       if (characterRef.current?.id === characterId) setPricingVerified(false);
+      491 |     }
+      492 |   }, []);
+
+      at warn (/Users/patdom/sources/prompt-wars/app/(profile)../../../../edit-character.tsx:489:15)
+          at Generator.throw (<anonymous>)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _throw (node_modules/@babel/runtime/helpers/asyncToGenerator.js:20:9)
+
+PASS __tests__/rankingsScreen.test.tsx
+PASS __tests__/useCharacterEditDraft.test.tsx
+PASS __tests__/battleWorkspaceLayout.test.tsx
+PASS __tests__/cosmeticShopScreen.test.tsx
+PASS __tests__/battleListPortrait.test.tsx
+PASS __tests__/useBattleDraft.test.tsx
+PASS __tests__/editorPortraitRecovery.test.tsx
+PASS __tests__/homeOfferSettlement.integration.test.tsx
+PASS __tests__/tutorialCoach.test.tsx
+PASS __tests__/usePortraitOperationRecovery.test.tsx
+PASS __tests__/headerFallback.test.tsx
+PASS __tests__/useCredits.test.tsx
+PASS __tests__/gearPanel.test.tsx
+PASS __tests__/revealSequence.test.tsx
+  ● Console
+
+    console.error
+      An update to RevealSequence inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      87 |     AccessibilityInfo.isScreenReaderEnabled()
+      88 |       .then((on) => {
+    > 89 |         if (mounted) setEnabled(on);
+         |                      ^
+      90 |       })
+      91 |       .catch(() => {});
+      92 |     const sub = AccessibilityInfo.addEventListener(
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at dispatchSetStateInternal (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6208:13)
+      at dispatchSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6165:7)
+      at setEnabled (components/reveal/RevealSequence.tsx:89:22)
+
+    console.error
+      An update to RevealSequence inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      87 |     AccessibilityInfo.isScreenReaderEnabled()
+      88 |       .then((on) => {
+    > 89 |         if (mounted) setEnabled(on);
+         |                      ^
+      90 |       })
+      91 |       .catch(() => {});
+      92 |     const sub = AccessibilityInfo.addEventListener(
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at dispatchSetStateInternal (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6208:13)
+      at dispatchSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6165:7)
+      at setEnabled (components/reveal/RevealSequence.tsx:89:22)
+
+    console.error
+      An update to RevealSequence inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      87 |     AccessibilityInfo.isScreenReaderEnabled()
+      88 |       .then((on) => {
+    > 89 |         if (mounted) setEnabled(on);
+         |                      ^
+      90 |       })
+      91 |       .catch(() => {});
+      92 |     const sub = AccessibilityInfo.addEventListener(
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at dispatchSetStateInternal (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6208:13)
+      at dispatchSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6165:7)
+      at setEnabled (components/reveal/RevealSequence.tsx:89:22)
+
+    console.error
+      An update to RevealSequence inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      87 |     AccessibilityInfo.isScreenReaderEnabled()
+      88 |       .then((on) => {
+    > 89 |         if (mounted) setEnabled(on);
+         |                      ^
+      90 |       })
+      91 |       .catch(() => {});
+      92 |     const sub = AccessibilityInfo.addEventListener(
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at dispatchSetStateInternal (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6208:13)
+      at dispatchSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6165:7)
+      at setEnabled (components/reveal/RevealSequence.tsx:89:22)
+
+    console.error
+      An update to RevealSequence inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      87 |     AccessibilityInfo.isScreenReaderEnabled()
+      88 |       .then((on) => {
+    > 89 |         if (mounted) setEnabled(on);
+         |                      ^
+      90 |       })
+      91 |       .catch(() => {});
+      92 |     const sub = AccessibilityInfo.addEventListener(
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at dispatchSetStateInternal (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6208:13)
+      at dispatchSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6165:7)
+      at setEnabled (components/reveal/RevealSequence.tsx:89:22)
+
+    console.error
+      An update to RevealSequence inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      87 |     AccessibilityInfo.isScreenReaderEnabled()
+      88 |       .then((on) => {
+    > 89 |         if (mounted) setEnabled(on);
+         |                      ^
+      90 |       })
+      91 |       .catch(() => {});
+      92 |     const sub = AccessibilityInfo.addEventListener(
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at dispatchSetStateInternal (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6208:13)
+      at dispatchSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6165:7)
+      at setEnabled (components/reveal/RevealSequence.tsx:89:22)
+
+    console.error
+      An update to RevealSequence inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      87 |     AccessibilityInfo.isScreenReaderEnabled()
+      88 |       .then((on) => {
+    > 89 |         if (mounted) setEnabled(on);
+         |                      ^
+      90 |       })
+      91 |       .catch(() => {});
+      92 |     const sub = AccessibilityInfo.addEventListener(
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at dispatchSetStateInternal (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6208:13)
+      at dispatchSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6165:7)
+      at setEnabled (components/reveal/RevealSequence.tsx:89:22)
+
+PASS __tests__/useBattleCharacters.test.tsx
+PASS __tests__/characterHero.test.tsx
+PASS __tests__/stageExpanded.test.tsx
+PASS __tests__/portraitPreview.test.tsx
+PASS __tests__/fighterHero.test.tsx
+PASS __tests__/useBattleAppeal.test.tsx
+PASS __tests__/podiumHeader.test.tsx
+PASS __tests__/moveSting.test.tsx
+PASS __tests__/creatorRecapAdaptive.test.tsx
+PASS __tests__/rivalRow.test.tsx
+PASS __tests__/useBattleExitGuard.expoRouter.test.tsx
+PASS __tests__/revealPayoffBeat.test.tsx
+  ● Console
+
+    console.error
+      An update to Icon inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at Object.enqueueSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16926:13)
+      at Icon.Object.<anonymous>.process.env.NODE_ENV.Component.setState (node_modules/react/cjs/react.development.js:655:20)
+      at Icon.setState (node_modules/@expo/vector-icons/src/createIconSet.tsx:181:31)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+    console.error
+      An update to Icon inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at Object.enqueueSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16926:13)
+      at Icon.Object.<anonymous>.process.env.NODE_ENV.Component.setState (node_modules/react/cjs/react.development.js:655:20)
+      at Icon.setState (node_modules/@expo/vector-icons/src/createIconSet.tsx:181:31)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+    console.error
+      An update to Icon inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at Object.enqueueSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16926:13)
+      at Icon.Object.<anonymous>.process.env.NODE_ENV.Component.setState (node_modules/react/cjs/react.development.js:655:20)
+      at Icon.setState (node_modules/@expo/vector-icons/src/createIconSet.tsx:181:31)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+PASS __tests__/editLookPanels.test.tsx
+PASS __tests__/cosmeticPreview.test.tsx
+PASS __tests__/matchmakingPark.test.tsx
+PASS __tests__/battleMatchupPresentation.test.tsx
+PASS __tests__/identityPanel.test.tsx
+PASS __tests__/editLookChrome.test.tsx
+PASS __tests__/fighterCard.test.tsx
+PASS __tests__/fighterEntrance.test.tsx
+PASS __tests__/customItemSheet.test.tsx
+PASS __tests__/fighterShareExport.test.tsx
+PASS __tests__/useCharacterEditLock.test.tsx
+PASS __tests__/navigationPresentation.test.tsx
+PASS __tests__/fighterHeroFrames.test.tsx
+PASS __tests__/itemDetailSheet.test.tsx
+PASS __tests__/cosmeticFrameSizing.test.tsx
+PASS __tests__/itemGrid.test.tsx
+PASS __tests__/battleLockInControl.test.tsx
+PASS __tests__/reportBlockSheet.test.tsx
+PASS __tests__/accountEntryVisuals.test.tsx
+PASS __tests__/archetypeSheet.test.tsx
+PASS __tests__/battleVisualControls.test.tsx
+PASS __tests__/renderRevealSheet.test.tsx
+  ● Console
+
+    console.error
+      An update to Icon inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at Object.enqueueSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16926:13)
+      at Icon.Object.<anonymous>.process.env.NODE_ENV.Component.setState (node_modules/react/cjs/react.development.js:655:20)
+      at Icon.setState (node_modules/@expo/vector-icons/src/createIconSet.tsx:181:31)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+    console.error
+      An update to Icon inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at Object.enqueueSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16926:13)
+      at Icon.Object.<anonymous>.process.env.NODE_ENV.Component.setState (node_modules/react/cjs/react.development.js:655:20)
+      at Icon.setState (node_modules/@expo/vector-icons/src/createIconSet.tsx:181:31)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+PASS __tests__/sheetReturnFocus.test.tsx
+  ● Console
+
+    console.warn
+      InteractionManager has been deprecated and will be removed in a future release. Please refactor long tasks into smaller ones, and  use 'requestIdleCallback' instead.
+
+      104 |   let afterInteractions: (() => void) | undefined;
+      105 |   const interactions = jest
+    > 106 |     .spyOn(RN.InteractionManager, 'runAfterInteractions')
+          |               ^
+      107 |     .mockImplementation((task) => {
+      108 |       if (typeof task === 'function') afterInteractions = task;
+      109 |       return { cancel: jest.fn(), then: jest.fn(), done: jest.fn() } as never;
+
+      at warn (node_modules/react-native/Libraries/Utilities/warnOnce.js:27:11)
+      at Object.warnOnce [as InteractionManager] (node_modules/react-native/index.js:233:5)
+      at Object.InteractionManager (__tests__/sheetReturnFocus.test.tsx:106:15)
+
+PASS __tests__/roundResultCinematic.test.tsx
+  ● Console
+
+    console.error
+      An update to Icon inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at Object.enqueueSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16926:13)
+      at Icon.Object.<anonymous>.process.env.NODE_ENV.Component.setState (node_modules/react/cjs/react.development.js:655:20)
+      at Icon.setState (node_modules/@expo/vector-icons/src/createIconSet.tsx:181:31)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+PASS __tests__/useBattleAttention.test.tsx
+PASS __tests__/accountCreatorVisuals.test.tsx
+PASS __tests__/rootRouteGate.test.tsx
+PASS __tests__/publicPlayers.test.ts
+PASS __tests__/cosmetics.test.ts
+PASS __tests__/opponentIdentity.test.ts
+PASS __tests__/cosmeticsApi.test.ts
+PASS __tests__/homeFirstTimeOffer.test.tsx
+PASS __tests__/firstTimeOfferModal.test.tsx
+  ● Console
+
+    console.error
+      An update to Icon inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at Object.enqueueSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16926:13)
+      at Icon.Object.<anonymous>.process.env.NODE_ENV.Component.setState (node_modules/react/cjs/react.development.js:655:20)
+      at Icon.setState (node_modules/@expo/vector-icons/src/createIconSet.tsx:181:31)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+PASS __tests__/useBattleExitGuard.navigation.test.tsx
+PASS __tests__/revealMotionRecovery.test.tsx
+PASS __tests__/editorArtStyles.test.tsx
+PASS __tests__/editorItemArt.test.tsx
+PASS __tests__/confirmSheet.test.tsx
+PASS __tests__/resultShareCard.test.tsx
+PASS __tests__/gameDisplayTitle.test.tsx
+PASS __tests__/revenueCatRecovery.test.tsx
+PASS __tests__/useReducedMotion.test.tsx
+PASS __tests__/collapsingStage.test.tsx
+  ● Console
+
+    console.error
+      An update to CollapsingStage inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      34 |       .then((enabled) => {
+      35 |         cachedReduceMotion = enabled;
+    > 36 |         if (mounted) setOsReduceMotion(enabled);
+         |                      ^
+      37 |       })
+      38 |       .catch(() => {
+      39 |         // If the query fails, keep motion enabled (safe visual default).
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at dispatchSetStateInternal (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6208:13)
+      at dispatchSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6165:7)
+      at setOsReduceMotion (hooks/useReducedMotion.ts:36:22)
+
+    console.error
+      An update to CollapsingStage inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      34 |       .then((enabled) => {
+      35 |         cachedReduceMotion = enabled;
+    > 36 |         if (mounted) setOsReduceMotion(enabled);
+         |                      ^
+      37 |       })
+      38 |       .catch(() => {
+      39 |         // If the query fails, keep motion enabled (safe visual default).
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14402:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2315:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14401:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:12086:9)
+      at dispatchSetStateInternal (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6208:13)
+      at dispatchSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6165:7)
+      at setOsReduceMotion (hooks/useReducedMotion.ts:36:22)
+
+PASS __tests__/secondaryPresentation.test.tsx
+PASS __tests__/moveTypeSelector.test.tsx
+PASS __tests__/battleEnvironmentArt.test.ts
+PASS __tests__/streakMeter.test.tsx
+PASS __tests__/moveUsageChips.test.tsx
+PASS __tests__/optionGrid.test.tsx
+PASS __tests__/questRow.test.tsx
+PASS __tests__/progressionStrip.test.tsx
+PASS __tests__/battleOpponentSafety.test.tsx
+PASS __tests__/moveTypeChipRow.test.tsx
+PASS __tests__/useMediaRecovery.test.tsx
+PASS __tests__/gameFoundation.test.tsx
+PASS __tests__/shopCategoryTabs.test.tsx
+PASS __tests__/battleAttention.test.ts
+PASS __tests__/statsInsights.test.ts
+PASS __tests__/colorSwatchGrid.test.tsx
+PASS __tests__/archetypeChip.test.tsx
+PASS __tests__/fighterStatTray.test.tsx
+PASS __tests__/battleLists.test.ts
+PASS __tests__/statAllocator.test.tsx
+PASS __tests__/rubricBars.test.tsx
+PASS __tests__/sparkline.test.tsx
+PASS __tests__/modeCard.test.tsx
+PASS __tests__/gameIcons.test.tsx
+PASS __tests__/battleCopy.test.ts
+PASS __tests__/battleAudioProvider.test.tsx
+PASS __tests__/battleHistoryPagination.test.ts
+PASS __tests__/sectionCard.test.tsx
+PASS __tests__/segmentedCategoryBar.test.tsx
+PASS __tests__/promptPreparationState.test.tsx
+PASS __tests__/battleAudioProviderUnavailable.test.tsx
+PASS __tests__/themedColorsHighContrast.test.tsx
+PASS __tests__/listSkeleton.test.tsx
+PASS __tests__/paidPortraitRecovery.test.ts
+PASS __tests__/arenaTips.test.tsx
+PASS __tests__/arenaPresentation.test.ts
+PASS __tests__/posterGradient.test.tsx
+PASS __tests__/accessibleText.test.tsx
+PASS __tests__/useLeaveBattle.test.tsx
+PASS __tests__/resultView.test.ts
+PASS __tests__/cosmeticShopRecovery.test.tsx
+PASS __tests__/battlePresentationActive.test.tsx
+PASS __tests__/accessibilitySettings.test.ts
+PASS __tests__/useBattleExitGuard.test.tsx
+PASS __tests__/initialPortraitRetry.test.ts
+PASS __tests__/portraitViewer.test.ts
+PASS __tests__/moveSuggestions.test.ts
+  ● Console
+
+    console.error
+      Move suggestions read error: { message: 'network down' }
+
+      508 |
+      509 |   if (error) {
+    > 510 |     console.error('Move suggestions read error:', error);
+          |             ^
+      511 |     throw new Error(error.message || 'Failed to read move suggestions');
+      512 |   }
+      513 |   if (!Array.isArray(data)) return result;
+
+      at error (utils/battles.ts:510:13)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+PASS __tests__/useRevealBeats.test.tsx
+PASS __tests__/battleDrafts.test.ts
+PASS __tests__/editDialogCopy.test.ts
+PASS __tests__/createCharacterSteps.test.ts
+PASS __tests__/characterEditDraft.test.ts
+PASS __tests__/onboardingDraft.test.ts
+PASS __tests__/useRealtimeBattle.test.tsx
+PASS __tests__/traitOptions.test.ts
+PASS __tests__/notificationRouting.test.ts
+PASS __tests__/lookDiff.test.ts
+PASS __tests__/profileData.test.ts
+PASS __tests__/arenaFighter.test.tsx
+PASS __tests__/revealBeats.test.ts
+PASS __tests__/promptCoach.test.ts
+PASS __tests__/matchmakingCopy.test.ts
+PASS __tests__/creditUses.test.ts
+PASS __tests__/playerAvatarCache.test.ts
+PASS __tests__/revealLayout.test.ts
+PASS __tests__/roundCombatSummary.test.ts
+PASS __tests__/editLookLiveData.test.ts
+PASS __tests__/editNotices.test.ts
+PASS __tests__/portraitFallback.test.ts
+PASS __tests__/portraitDescription.test.ts
+PASS __tests__/portraitJobResponse.test.ts
+PASS __tests__/walletRecovery.test.ts
+PASS __tests__/walletCopy.test.ts
+PASS __tests__/rankingsView.test.ts
+PASS __tests__/waitingCopy.test.ts
+PASS __tests__/profileView.test.ts
+PASS __tests__/battleLifecycleActions.test.ts
+PASS __tests__/walletView.test.ts
+PASS __tests__/settingsCopy.test.ts
+PASS __tests__/leaveBattleCopy.test.ts
+PASS __tests__/creditsAndEditErrors.test.ts
+PASS __tests__/statsData.test.ts
+PASS __tests__/authCopy.test.ts
+PASS __tests__/arenaTips.test.ts
+PASS __tests__/stageMath.test.ts
+PASS __tests__/statAllocation.test.ts
+PASS __tests__/matchmakingRequest.test.ts
+PASS __tests__/videoUpgradeRound.test.ts
+PASS __tests__/archetypes.test.ts
+PASS __tests__/promptSelection.test.ts
+PASS __tests__/storePackages.test.ts
+PASS __tests__/heroArtworkLayout.test.ts
+PASS __tests__/asyncWaitNotifications.test.ts
+PASS __tests__/collectionLayout.test.ts
+PASS __tests__/battleExplanation.test.ts
+PASS __tests__/tutorial.test.ts
+PASS __tests__/audioSettings.test.ts
+PASS __tests__/plusEntitlement.test.ts
+
+Test Suites: 168 passed, 168 total
+Tests:       1379 passed, 1379 total
+Snapshots:   0 total
+Time:        26.403 s, estimated 27 s
+Ran all test suites.
+Done in 28.21s.

@@ -9,6 +9,7 @@
 
 import { formatCredits } from '@/utils/credits';
 import { isPlusActive } from '@/utils/revenuecat';
+import type { CinematicCapabilities } from '@/utils/monetization';
 
 // ---------------------------------------------------------------------------
 // Cosmetic shop
@@ -211,8 +212,13 @@ export function subscriptionManageUrl(os: string): string {
 /** One-line auto-renew disclosure the stores require next to a Subscribe button. */
 export function autoRenewDisclosure(
   priceString: string | null | undefined,
+  period: 'month' | 'year' = 'month',
 ): string {
-  const price = priceString ? `${priceString}/month` : 'the monthly price';
+  const price = priceString
+    ? `${priceString}/${period}`
+    : period === 'year'
+      ? 'the annual price'
+      : 'the monthly price';
   return `Renews automatically at ${price} until cancelled in your store account settings.`;
 }
 
@@ -242,6 +248,12 @@ export function restoreOutcomeFor(
 export function allowanceLabel(remaining: number): string {
   if (remaining <= 0) return 'No video reveals left this month';
   return `${remaining} video reveal${remaining === 1 ? '' : 's'} left this month`;
+}
+
+export function longerCinematicBenefit(
+  capabilities: CinematicCapabilities | null,
+): string | null {
+  return capabilities?.enabled ? 'Longer, 20-second cinematics' : null;
 }
 
 // ---------------------------------------------------------------------------

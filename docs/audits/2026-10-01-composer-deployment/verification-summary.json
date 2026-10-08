@@ -1,0 +1,21 @@
+{
+  "app": {
+    "suites_passed": 216,
+    "tests_passed": 1750,
+    "typescript": "passed"
+  },
+  "backend": {
+    "tests_passed": 454,
+    "steps_passed": 56,
+    "failed": 0,
+    "ignored": 7,
+    "remote_integrations": false
+  },
+  "local_sql": "all3 suites passed; rollback preserved contents",
+  "hosted_migrations_applied": 4,
+  "functions_deployed_verified": 19,
+  "auth_smoke_requests": 38,
+  "native_acceptance": "not run",
+  "paid_actual_model_calibration": "not run",
+  "human_pilot": "not run"
+}

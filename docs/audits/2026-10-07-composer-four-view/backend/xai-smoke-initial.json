@@ -1,0 +1,227 @@
+{
+  "started_at": "2026-10-07T12:29:45.974Z",
+  "source": "local source, real xAI and OpenAI moderation",
+  "max_xai_calls": 4,
+  "no_database_mutation": true,
+  "runs": [
+    {
+      "name": "three-type bank",
+      "model": "grok-4.20-0309-non-reasoning",
+      "provider": "xai",
+      "generation_ms": 33657,
+      "estimated_generation_cost_usd": 0.0081075,
+      "moderation_ms": 6650,
+      "total_ms": 40307,
+      "complete_paths": 81,
+      "moderation_units": 243,
+      "approved_units": 226,
+      "rejected_units": 17,
+      "rejections": [
+        {
+          "kind": "triple",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "triple",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "action",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit, illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit",
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "pair",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit, illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit",
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "triple",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit, illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit",
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "triple",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit, illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit",
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "triple",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "pair",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit, illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit",
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "triple",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit, illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit",
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "triple",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit, illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit",
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "triple",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit, illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit",
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "pair",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit, illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit",
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "triple",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit, illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit",
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "triple",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit, illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit",
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "triple",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit, illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit",
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "approach",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit/violent",
+          "provider": "openai",
+          "categories": [
+            "illicit/violent"
+          ]
+        },
+        {
+          "kind": "triple",
+          "status": "flagged_human_review",
+          "reason": "Flagged categories: illicit/violent, violence",
+          "provider": "openai",
+          "categories": [
+            "illicit/violent",
+            "violence"
+          ]
+        }
+      ],
+      "generation_errors": null
+    },
+    {
+      "name": "custom action",
+      "model": "grok-4.20-0309-non-reasoning",
+      "provider": "xai",
+      "generation_ms": 7065,
+      "estimated_generation_cost_usd": 0.00172375,
+      "moderation_ms": 2619,
+      "total_ms": 9684,
+      "complete_paths": 9,
+      "moderation_units": 22,
+      "approved_units": 22,
+      "rejected_units": 0,
+      "rejections": [],
+      "generation_errors": null
+    },
+    {
+      "name": "custom intention",
+      "model": "grok-4.20-0309-non-reasoning",
+      "provider": "xai",
+      "generation_ms": 1860,
+      "estimated_generation_cost_usd": 0.000995,
+      "moderation_ms": 1979,
+      "total_ms": 3840,
+      "complete_paths": 3,
+      "moderation_units": 8,
+      "approved_units": 8,
+      "rejected_units": 0,
+      "rejections": [],
+      "generation_errors": null
+    },
+    {
+      "name": "cached bank upgrade",
+      "total_ms": 34927,
+      "error": "malformed_response"
+    }
+  ],
+  "finished_at": "2026-10-07T12:31:14.741Z",
+  "xai_calls": 4
+}

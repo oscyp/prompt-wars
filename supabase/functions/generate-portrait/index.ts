@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
 
   let userId: string;
   try {
-    userId = await getAuthUserId(req);
+    userId = await getAuthUserId(req, { capability: 'generate' });
   } catch {
     return err('unauthorized', 'authentication required', 401);
   }

@@ -1,0 +1,26 @@
+{
+  "checkedAt": "2026-10-07T14:23:25.488479+00:00",
+  "command": "EAS CLI 23.1.0 submit:status --platform ios --profile production --json --non-interactive",
+  "ascAppIdentifier": "6788787677",
+  "exactBuild": {
+    "appVersion": "1.3.3",
+    "buildNumber": "18",
+    "processingState": "VALID",
+    "internalState": "IN_BETA_TESTING",
+    "externalState": "READY_FOR_BETA_SUBMISSION",
+    "uploadedDate": "2026-10-07T07:17:58-07:00",
+    "expired": false,
+    "easSubmissionId": "bb09da5a-13cd-4e2f-b8ab-79ea3d486a76",
+    "easBuildId": "9301c70c-2276-481c-a0ea-fcd63323bcfc",
+    "fingerprintHash": "b0037e5177bbee980fafcb38af6761be2c8006cd"
+  },
+  "appleAcceptanceEstablished": true,
+  "internalTestingEstablished": true,
+  "groupAssignmentEstablished": false,
+  "requestedInternalGroups": [
+    "Team (Expo)",
+    "testers"
+  ],
+  "groupAssignmentLimitation": "The supported CLI status does not enumerate group assignment; the completed exact submission exposes no worker log files. Requested groups are recorded by the exact submission command, not independent tester access verification.",
+  "publicReleasePerformed": false
+}

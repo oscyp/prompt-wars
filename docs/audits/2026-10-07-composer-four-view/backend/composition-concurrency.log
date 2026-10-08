@@ -1,0 +1,6 @@
+PASS: duplicate context reserves one operation; seven competing contexts cannot exceed six delivered/reserved slots.
+PASS: one reclaim winner; old worker cannot overwrite successor success.
+PASS: deadline is checked after waiting for battle lock, not at transaction start.
+PASS: submit-first blocks new delivery, successful earlier completion stays replayable; no financial side effects.
+PASS: sweeper skips busy parent, concurrent sweepers release one quota reservation and fence old worker.
+PASS: bank and completion generation share the same 30/h budget under concurrent claims.

@@ -1,3 +1,5 @@
+import { TabBalanceProvider } from '@/providers/TabBalanceProvider';
+import { TabScreenHeader } from '@/components/game/ScreenHeaders';
 import { useBattleAttention } from '@/hooks/useBattleAttention';
 import { Tabs } from 'expo-router';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -49,34 +51,44 @@ export default function TabLayout() {
   );
 
   return (
-    <BattleSheetProvider value={sheetApi}>
-      <Tabs tabBar={renderTabBar} screenOptions={{ headerShown: false }}>
-        <Tabs.Screen
-          name="home"
-          options={{ title: 'Arena', tabBarIcon: ArenaIcon }}
-        />
-        <Tabs.Screen
-          name="battles"
-          options={{
-            title: 'Battles',
-            tabBarIcon: BattlesIcon,
-            tabBarBadge: battleBadge,
+    <TabBalanceProvider>
+      <BattleSheetProvider value={sheetApi}>
+        <Tabs
+          tabBar={renderTabBar}
+          screenOptions={{
+            headerShown: true,
+            header: ({ options }) => (
+              <TabScreenHeader title={options.title ?? 'Arena'} />
+            ),
           }}
+        >
+          <Tabs.Screen
+            name="home"
+            options={{ title: 'Arena', tabBarIcon: ArenaIcon }}
+          />
+          <Tabs.Screen
+            name="battles"
+            options={{
+              title: 'Battles',
+              tabBarIcon: BattlesIcon,
+              tabBarBadge: battleBadge,
+            }}
+          />
+          <Tabs.Screen
+            name="rankings"
+            options={{ title: 'Rankings', tabBarIcon: RankingsIcon }}
+          />
+          <Tabs.Screen
+            name="profile"
+            options={{ title: 'Profile', tabBarIcon: ProfileIcon }}
+          />
+        </Tabs>
+        <BattleModeSheet
+          returnFocusRef={battleActionRef}
+          visible={sheetOpen}
+          onClose={() => setSheetOpen(false)}
         />
-        <Tabs.Screen
-          name="rankings"
-          options={{ title: 'Rankings', tabBarIcon: RankingsIcon }}
-        />
-        <Tabs.Screen
-          name="profile"
-          options={{ title: 'Profile', tabBarIcon: ProfileIcon }}
-        />
-      </Tabs>
-      <BattleModeSheet
-        returnFocusRef={battleActionRef}
-        visible={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-      />
-    </BattleSheetProvider>
+      </BattleSheetProvider>
+    </TabBalanceProvider>
   );
 }

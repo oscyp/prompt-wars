@@ -1,5 +1,14 @@
-import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
-import { GameText as Text, GamePanel, GameBevel } from '@/components/game';
+import TransactionRow, {
+  type WalletTransaction,
+} from '@/components/wallet/TransactionRow';
+import { CreditAmount } from '@/components/game/CreditAmount';
+import { GameFeedback } from '@/components/game/GameFeedback';
+import {
+  GameText as Text,
+  GamePanel,
+  GameBevel,
+  GameButton,
+} from '@/components/game';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -12,8 +21,7 @@ import {
   Platform,
   AppState,
 } from 'react-native';
-import { useRouter, useFocusEffect, type Href } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
@@ -27,9 +35,10 @@ import {
 import { Links } from '@/constants/Links';
 import SubscriberBadge from '@/components/SubscriberBadge';
 import Toast from '@/components/Toast';
-import { HEADER_BUTTON_SIZE } from '@/components/HeaderBackButton';
 import {
   getWalletBalanceResult,
+  getCinematicCapabilities,
+  type CinematicCapabilities,
   type WalletBalance,
 } from '@/utils/monetization';
 import { readWalletLedger } from '@/utils/walletRecovery';
@@ -39,7 +48,7 @@ import {
   CREDIT_PACK_CREDITS,
   CREDIT_PACK_META,
   PLUS_ENTITLEMENT_ID,
-  PRODUCT_IDS,
+  plusSubscriptionPeriod,
 } from '@/utils/revenuecat';
 import { formatCredits } from '@/utils/credits';
 import {
@@ -50,24 +59,14 @@ import {
   fetchCreditPrices,
   type CreditUse,
 } from '@/utils/creditUses';
-import { transactionAmountLabel, transactionLabel } from '@/utils/walletCopy';
 import {
   BALANCE_POLL_DELAYS_MS,
   allowanceLabel,
+  longerCinematicBenefit,
   autoRenewDisclosure,
-  shortDate,
   subscriptionManageUrl,
   subscriptionRenewalLabel,
 } from '@/utils/walletView';
-
-interface WalletTransaction {
-  id: string;
-  reason: string | null;
-  amount: number;
-  created_at: string;
-  /** Set when the entry came from a battle (a video, a toll, a refund). */
-  battle_id?: string | null;
-}
 
 type LoadState = 'loading' | 'ready' | 'error';
 
@@ -76,7 +75,6 @@ const TOAST_MS = 2500;
 export default function WalletScreen() {
   const colors = useThemedColors();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const accessibleText = useAccessibleTextStyle();
   const {
     offerings,
@@ -91,9 +89,14 @@ export default function WalletScreen() {
   // Derived from the live offering: only packs the store actually sells are
   // shown, with the store's own localized price string. Unknown product ids are
   // skipped rather than rendered with a guessed credit count.
-  const plusPackage = (offerings?.current?.availablePackages ?? []).find(
-    (pkg) => pkg.product.identifier === PRODUCT_IDS.PLUS_MONTHLY,
-  );
+  const plusPackages = (offerings?.current?.availablePackages ?? [])
+    .flatMap((pkg) => {
+      const period = plusSubscriptionPeriod(pkg.product.identifier);
+      return period ? [{ pkg, period }] : [];
+    })
+    .sort((a, b) =>
+      a.period === b.period ? 0 : a.period === 'month' ? -1 : 1,
+    );
 
   const bestValue = bestValueProductId(
     offerings?.current?.availablePackages ?? [],
@@ -117,6 +120,9 @@ export default function WalletScreen() {
     .sort((a, b) => a.order - b.order);
 
   const [balance, setBalance] = useState<WalletBalance | null>(null);
+  const [cinematicCapabilities, setCinematicCapabilities] =
+    useState<CinematicCapabilities | null>(null);
+  const cinematicBenefit = longerCinematicBenefit(cinematicCapabilities);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   // `null` when the price table could not be read: the card says so rather
   // than listing nothing, and never invents a number.
@@ -159,15 +165,18 @@ export default function WalletScreen() {
 
   const loadWalletData =
     useCallback(async (): Promise<WalletBalance | null> => {
-      const [balanceResult, transactionsData, prices] = await Promise.all([
-        getWalletBalanceResult(),
-        readWalletLedger(20)
-          .then((data) => ({ data, error: false }))
-          .catch(() => ({ data: [], error: true })),
-        fetchCreditPrices(),
-      ]);
+      const [balanceResult, transactionsData, prices, capabilities] =
+        await Promise.all([
+          getWalletBalanceResult(),
+          readWalletLedger(20)
+            .then((data) => ({ data, error: false }))
+            .catch(() => ({ data: [], error: true })),
+          fetchCreditPrices(),
+          getCinematicCapabilities(),
+        ]);
       if (!mounted.current) return null;
       setUses(prices ? creditUses(prices) : null);
+      setCinematicCapabilities(capabilities);
       if (!balanceResult.ok) {
         // A failed read must not render as "0 credits". Keep whatever we last
         // knew and show the error state only when we know nothing.
@@ -308,7 +317,7 @@ export default function WalletScreen() {
   }
 
   const busy = isPurchasing || isRestoring;
-  const topInset = insets.top + HEADER_BUTTON_SIZE;
+  const topInset = Spacing.md;
 
   if (loadState === 'loading' || rcLoading) {
     return (
@@ -318,7 +327,7 @@ export default function WalletScreen() {
           { backgroundColor: colors.background, paddingTop: topInset },
         ]}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
+        <GameFeedback icon="wallet" title="Loading your wallet" busy />
       </View>
     );
   }
@@ -331,35 +340,13 @@ export default function WalletScreen() {
           { backgroundColor: colors.background, paddingTop: topInset },
         ]}
       >
-        <GameSymbol
-          name="wallet-outline"
-          size={32}
-          color={colors.textTertiary}
+        <GameFeedback
+          icon="wallet"
+          title="Couldn’t load your balance"
+          message="Check your connection and try again."
+          tone="error"
+          action={{ label: 'Retry', onPress: retry }}
         />
-        <Text
-          variant="title"
-          accessibilityRole="header"
-          style={[styles.errorTitle, accessibleText, { color: colors.text }]}
-        >
-          Couldn’t load your balance
-        </Text>
-        <Text
-          style={[
-            styles.errorBody,
-            accessibleText,
-            { color: colors.textSecondary },
-          ]}
-        >
-          Check your connection and try again.
-        </Text>
-        <TouchableOpacity
-          onPress={retry}
-          accessibilityRole="button"
-          accessibilityLabel="Retry"
-          style={[styles.retryButton, { backgroundColor: colors.primary }]}
-        >
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -375,13 +362,6 @@ export default function WalletScreen() {
         style={styles.container}
         contentContainerStyle={[styles.content, { paddingTop: topInset }]}
       >
-        <GameDisplayTitle
-          accessibilityRole="header"
-          style={[styles.title, accessibleText]}
-        >
-          Wallet & Subscription
-        </GameDisplayTitle>
-
         {/* Balance Card */}
         <GamePanel style={[styles.card, { backgroundColor: colors.card }]}>
           <Text
@@ -390,19 +370,10 @@ export default function WalletScreen() {
           >
             Current Balance
           </Text>
-          <Text
-            style={[
-              styles.balanceAmount,
-              NumericFontVariant,
-              { color: colors.primary },
-            ]}
-            accessibilityLabel={formatCredits(
-              balance?.credits_balance ?? 0,
-              'sentence',
-            )}
-          >
-            {formatCredits(balance?.credits_balance ?? 0, 'sentence')}
-          </Text>
+          <CreditAmount
+            amount={balance?.credits_balance ?? null}
+            size="large"
+          />
           {awaitingBalance ? (
             <View style={styles.updatingRow} accessibilityLiveRegion="polite">
               <ActivityIndicator size="small" color={colors.textSecondary} />
@@ -425,6 +396,17 @@ export default function WalletScreen() {
               >
                 {allowanceLabel(balance.monthly_video_allowance_remaining)}
               </Text>
+              {cinematicBenefit ? (
+                <Text
+                  style={[
+                    styles.allowanceText,
+                    accessibleText,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {cinematicBenefit}
+                </Text>
+              ) : null}
               {renewalLabel ? (
                 <Text
                   style={[
@@ -497,15 +479,11 @@ export default function WalletScreen() {
                       { backgroundColor: colors.backgroundTertiary },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.priceChipText,
-                        NumericFontVariant,
-                        { color: colors.text },
-                      ]}
-                    >
-                      {formatCredits(use.credits, 'chip')}
-                    </Text>
+                    <CreditAmount
+                      amount={use.credits}
+                      size="small"
+                      accessible={false}
+                    />
                   </View>
                 </View>
               ))}
@@ -533,37 +511,13 @@ export default function WalletScreen() {
         </GamePanel>
 
         {/* Cosmetic shop entry */}
-        <TouchableOpacity
-          style={[
-            styles.shopLink,
-            { backgroundColor: colors.card, borderColor: colors.primary },
-          ]}
-          onPress={() => router.push('/(profile)/shop')}
-          accessibilityRole="button"
+        <GameButton
+          label="Cosmetic Shop"
+          gameIcon="hanger"
+          chrome="utility"
           accessibilityLabel="Open cosmetic shop"
-        >
-          <View style={styles.shopLinkLabel}>
-            <GameSymbol
-              name="color-palette-outline"
-              size={18}
-              color={colors.primary}
-            />
-            <Text
-              style={[
-                styles.shopLinkText,
-                accessibleText,
-                { color: colors.text },
-              ]}
-            >
-              Cosmetic Shop
-            </Text>
-          </View>
-          <GameSymbol
-            name="chevron-forward"
-            size={18}
-            color={colors.textSecondary}
-          />
-        </TouchableOpacity>
+          onPress={() => router.push('/(profile)/shop')}
+        />
 
         {pendingPurchase ? (
           <GamePanel
@@ -657,9 +611,7 @@ export default function WalletScreen() {
                   { color: colors.text },
                 ]}
               >
-                {plusPackage
-                  ? `${plusPackage.product.priceString}/month`
-                  : 'Prompt Wars+'}
+                Prompt Wars+
               </Text>
               <Text
                 style={[
@@ -670,94 +622,117 @@ export default function WalletScreen() {
               >
                 • 30 video reveals per month{'\n'}• Exclusive badge{'\n'}•
                 Cosmetic unlocks
+                {cinematicBenefit ? `\n• ${cinematicBenefit}` : ''}
               </Text>
-              <TouchableOpacity
-                style={[
-                  styles.subscribeButton,
-                  {
-                    backgroundColor: colors.primary,
-                    opacity:
-                      busy || Boolean(pendingPurchase) || !plusPackage
-                        ? 0.5
-                        : 1,
-                  },
-                ]}
-                onPress={() => handlePurchase(PRODUCT_IDS.PLUS_MONTHLY)}
-                disabled={busy || Boolean(pendingPurchase) || !plusPackage}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  plusPackage
-                    ? `Subscribe to Prompt Wars+ for ${plusPackage.product.priceString} a month`
-                    : 'Subscribe to Prompt Wars+, unavailable right now'
-                }
-                accessibilityState={{
-                  disabled: busy || Boolean(pendingPurchase) || !plusPackage,
-                  busy: isPurchasing,
-                }}
-              >
-                <Text style={styles.subscribeButtonText}>
-                  {isPurchasing
-                    ? 'Processing…'
-                    : plusPackage
-                      ? 'Subscribe Now'
-                      : 'Unavailable right now'}
-                </Text>
-              </TouchableOpacity>
-              <Text
-                style={[
-                  styles.disclosure,
-                  accessibleText,
-                  { color: colors.textTertiary },
-                ]}
-              >
-                {autoRenewDisclosure(plusPackage?.product.priceString)}
-              </Text>
+              {plusPackages.length ? (
+                plusPackages.map(({ pkg, period }) => (
+                  <View
+                    key={pkg.product.identifier}
+                    style={styles.subscriptionChoice}
+                  >
+                    <TouchableOpacity
+                      style={[
+                        styles.subscribeButton,
+                        {
+                          backgroundColor: colors.primary,
+                          opacity: busy || pendingPurchase ? 0.5 : 1,
+                        },
+                      ]}
+                      onPress={() => handlePurchase(pkg.product.identifier)}
+                      disabled={busy || Boolean(pendingPurchase)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Subscribe to Prompt Wars+ for ${pkg.product.priceString} a ${period}`}
+                      accessibilityState={{
+                        disabled: busy || Boolean(pendingPurchase),
+                        busy: isPurchasing,
+                      }}
+                    >
+                      <Text style={styles.subscribeButtonText}>
+                        {isPurchasing
+                          ? 'Processing…'
+                          : `${period === 'month' ? 'Monthly' : 'Annual'} · ${pkg.product.priceString}/${period}`}
+                      </Text>
+                    </TouchableOpacity>
+                    <Text
+                      style={[
+                        styles.disclosure,
+                        accessibleText,
+                        { color: colors.textTertiary },
+                      ]}
+                    >
+                      {autoRenewDisclosure(pkg.product.priceString, period)}
+                    </Text>
+                  </View>
+                ))
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.subscribeButton,
+                    { backgroundColor: colors.primary, opacity: 0.5 },
+                  ]}
+                  disabled
+                  accessibilityRole="button"
+                  accessibilityLabel="Subscribe to Prompt Wars+, unavailable right now"
+                  accessibilityState={{ disabled: true }}
+                >
+                  <Text style={styles.subscribeButtonText}>
+                    Unavailable right now
+                  </Text>
+                </TouchableOpacity>
+              )}
             </GamePanel>
           </>
         ) : null}
 
-        {/* Transaction History */}
-        <Text
-          variant="title"
-          accessibilityRole="header"
-          style={[styles.sectionTitle, accessibleText, { color: colors.text }]}
-        >
-          Recent Transactions
-        </Text>
-        {ledgerError ? (
-          <View>
-            <Text accessibilityRole="alert" style={{ color: colors.error }}>
-              Couldn’t load transactions.
-            </Text>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Retry transactions"
-              style={styles.restoreButton}
-              onPress={() => void loadWalletData()}
-            >
-              <Text style={{ color: colors.primary }}>Retry transactions</Text>
-            </TouchableOpacity>
-          </View>
-        ) : transactions.length === 0 ? (
+        <GamePanel style={{ marginTop: 20 }}>
+          {/* Transaction History */}
           <Text
+            variant="title"
+            accessibilityRole="header"
             style={[
-              styles.packsEmpty,
+              styles.sectionTitle,
               accessibleText,
-              { color: colors.textSecondary },
+              { color: colors.text },
             ]}
           >
-            No transactions yet.
+            Recent Transactions
           </Text>
-        ) : (
-          transactions.map((tx) => (
-            <TransactionRow
-              key={tx.id}
-              transaction={tx}
-              onOpenBattle={(route) => router.push(route)}
-              colors={colors}
-            />
-          ))
-        )}
+          {ledgerError ? (
+            <View>
+              <Text accessibilityRole="alert" style={{ color: colors.error }}>
+                Couldn’t load transactions.
+              </Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Retry transactions"
+                style={styles.restoreButton}
+                onPress={() => void loadWalletData()}
+              >
+                <Text style={{ color: colors.primary }}>
+                  Retry transactions
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : transactions.length === 0 ? (
+            <Text
+              style={[
+                styles.packsEmpty,
+                accessibleText,
+                { color: colors.textSecondary },
+              ]}
+            >
+              No transactions yet.
+            </Text>
+          ) : (
+            transactions.map((tx) => (
+              <TransactionRow
+                key={tx.id}
+                transaction={tx}
+                onOpenBattle={(route) => router.push(route)}
+              />
+            ))
+          )}
+        </GamePanel>
 
         {/* Restore Purchases */}
         <TouchableOpacity
@@ -810,84 +785,6 @@ export default function WalletScreen() {
   );
 }
 
-/**
- * One ledger line. Entries tied to a battle open its result -- a toll, a
- * video or a refund is easier to place next to the fight it came from.
- */
-function TransactionRow({
-  transaction: tx,
-  onOpenBattle,
-  colors,
-}: {
-  transaction: WalletTransaction;
-  onOpenBattle: (route: Href) => void;
-  colors: ReturnType<typeof useThemedColors>;
-}) {
-  const accessibleText = useAccessibleTextStyle();
-  const label = transactionLabel(tx.reason);
-  const amount = transactionAmountLabel(tx.amount);
-  const date = shortDate(tx.created_at) ?? '';
-  const route: Href | null = tx.battle_id
-    ? `/(battle)/result?battleId=${tx.battle_id}`
-    : null;
-  const summary = `${label}, ${amount}, ${date}`;
-
-  const body = (
-    <>
-      <View style={styles.transactionText}>
-        <Text
-          style={[
-            styles.transactionReason,
-            accessibleText,
-            { color: colors.text },
-          ]}
-        >
-          {label}
-        </Text>
-        <Text style={[styles.transactionDate, { color: colors.textSecondary }]}>
-          {date}
-        </Text>
-      </View>
-      <Text
-        style={[
-          styles.transactionAmount,
-          NumericFontVariant,
-          { color: tx.amount > 0 ? colors.success : colors.error },
-        ]}
-      >
-        {amount}
-      </Text>
-    </>
-  );
-
-  if (route) {
-    return (
-      <TouchableOpacity
-        onPress={() => onOpenBattle(route)}
-        accessibilityRole="button"
-        accessibilityLabel={`${summary}. Opens the battle result`}
-        style={[styles.transactionRow, { borderBottomColor: colors.border }]}
-      >
-        {body}
-        <GameSymbol
-          name="chevron-forward"
-          size={16}
-          color={colors.textTertiary}
-        />
-      </TouchableOpacity>
-    );
-  }
-  return (
-    <View
-      accessible
-      accessibilityLabel={summary}
-      style={[styles.transactionRow, { borderBottomColor: colors.border }]}
-    >
-      {body}
-    </View>
-  );
-}
-
 function CreditPackButton({
   title,
   credits,
@@ -926,7 +823,11 @@ function CreditPackButton({
       }`}
       accessibilityState={{ disabled }}
     >
-      <GameBevel color={colors.ornamentMuted} fill={colors.card} />
+      <GameBevel
+        color={colors.ornamentMuted}
+        insetColor={colors.ornamentMuted}
+        fill={colors.card}
+      />
       {badge && (
         <View style={[styles.badge, { backgroundColor: colors.primary }]}>
           <Text style={styles.badgeText}>{badge}</Text>
@@ -935,15 +836,7 @@ function CreditPackButton({
       <Text variant="title" style={[styles.packTitle, { color: colors.text }]}>
         {title}
       </Text>
-      <Text
-        style={[
-          styles.packCredits,
-          NumericFontVariant,
-          { color: colors.primary },
-        ]}
-      >
-        {creditsSentence}
-      </Text>
+      <CreditAmount amount={credits} accessible={false} />
       <Text
         style={[
           styles.packPrice,
@@ -1108,9 +1001,7 @@ const styles = StyleSheet.create({
   packCard: {
     width: '100%',
     padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    marginHorizontal: Spacing.xs,
+    marginHorizontal: 0,
     alignItems: 'center',
     position: 'relative',
     minHeight: Layout.inputHeight,
@@ -1152,6 +1043,9 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  subscriptionChoice: {
+    marginBottom: Spacing.md,
   },
   subscribeButtonText: {
     color: '#171225',

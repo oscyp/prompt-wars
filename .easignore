@@ -58,7 +58,15 @@ ios/.xcode.env.local
 /.github/
 /docs/
 /output/
-/supabase/
+# Only these pure shared composer modules are mobile build inputs.
+/supabase/*
+!/supabase/functions
+/supabase/functions/*
+!/supabase/functions/_shared
+/supabase/functions/_shared/*
+!/supabase/functions/_shared/prompt-situations.ts
+!/supabase/functions/_shared/composer-events.ts
+!/supabase/functions/_shared/prompt-affordances.ts
 /landing/
 /__tests__/
 /*.md

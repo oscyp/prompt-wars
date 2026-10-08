@@ -1,0 +1,170 @@
+[
+  {
+    "slug": "expire-battles",
+    "status": "ACTIVE",
+    "version": 32,
+    "updated_at": 1790948381370,
+    "verify_jwt": true
+  },
+  {
+    "slug": "moderate-prompt",
+    "status": "ACTIVE",
+    "version": 28,
+    "updated_at": 1790948389680,
+    "verify_jwt": false
+  },
+  {
+    "slug": "matchmaking",
+    "status": "ACTIVE",
+    "version": 37,
+    "updated_at": 1790948372060,
+    "verify_jwt": false
+  },
+  {
+    "slug": "run-judge-calibration",
+    "status": "ACTIVE",
+    "version": 28,
+    "updated_at": 1790948405806,
+    "verify_jwt": false
+  },
+  {
+    "slug": "process-video-job",
+    "status": "ACTIVE",
+    "version": 36,
+    "updated_at": 1790948396181,
+    "verify_jwt": false
+  },
+  {
+    "slug": "submit-prompt",
+    "status": "ACTIVE",
+    "version": 39,
+    "updated_at": 1790948375086,
+    "verify_jwt": false
+  },
+  {
+    "slug": "appeal-battle",
+    "status": "ACTIVE",
+    "version": 28,
+    "updated_at": 1790948378046,
+    "verify_jwt": false
+  },
+  {
+    "slug": "generate-tier0-reveal",
+    "status": "ACTIVE",
+    "version": 30,
+    "updated_at": 1790948384709,
+    "verify_jwt": true
+  },
+  {
+    "slug": "moderate-video",
+    "status": "ACTIVE",
+    "version": 28,
+    "updated_at": 1790948390819,
+    "verify_jwt": false
+  },
+  {
+    "slug": "request-video-upgrade",
+    "status": "ACTIVE",
+    "version": 33,
+    "updated_at": 1790948399002,
+    "verify_jwt": false
+  },
+  {
+    "slug": "resolve-appeal",
+    "status": "ACTIVE",
+    "version": 28,
+    "updated_at": 1790948401563,
+    "verify_jwt": false
+  },
+  {
+    "slug": "resolve-battle",
+    "status": "ACTIVE",
+    "version": 45,
+    "updated_at": 1790948403811,
+    "verify_jwt": false
+  },
+  {
+    "slug": "create-custom-signature-item",
+    "status": "ACTIVE",
+    "version": 30,
+    "updated_at": 1790948379152,
+    "verify_jwt": false
+  },
+  {
+    "slug": "regenerate-portrait",
+    "status": "ACTIVE",
+    "version": 32,
+    "updated_at": 1790948397754,
+    "verify_jwt": false
+  },
+  {
+    "slug": "generate-portrait",
+    "status": "ACTIVE",
+    "version": 33,
+    "updated_at": 1790948383406,
+    "verify_jwt": false
+  },
+  {
+    "slug": "dev-generate-video",
+    "status": "ACTIVE",
+    "version": 25,
+    "updated_at": 1790948380171,
+    "verify_jwt": false
+  },
+  {
+    "slug": "finalize-character-creation",
+    "status": "ACTIVE",
+    "version": 26,
+    "updated_at": 1790948382483,
+    "verify_jwt": false
+  },
+  {
+    "slug": "leave-battle",
+    "status": "ACTIVE",
+    "version": 23,
+    "updated_at": 1790948387328,
+    "verify_jwt": false
+  },
+  {
+    "slug": "battle-advance",
+    "status": "ACTIVE",
+    "version": 29,
+    "updated_at": 1790948373656,
+    "verify_jwt": false
+  },
+  {
+    "slug": "sign-battle-portraits",
+    "status": "ACTIVE",
+    "version": 27,
+    "updated_at": 1790948407434,
+    "verify_jwt": false
+  },
+  {
+    "slug": "round-resolve",
+    "status": "ACTIVE",
+    "version": 29,
+    "updated_at": 1790948369516,
+    "verify_jwt": false
+  },
+  {
+    "slug": "generate-move-suggestions",
+    "status": "ACTIVE",
+    "version": 20,
+    "updated_at": 1790948366588,
+    "verify_jwt": false
+  },
+  {
+    "slug": "record-funnel-event",
+    "status": "ACTIVE",
+    "version": 14,
+    "updated_at": 1790948376654,
+    "verify_jwt": false
+  },
+  {
+    "slug": "prefetch-move-suggestions",
+    "status": "ACTIVE",
+    "version": 12,
+    "updated_at": 1790948367936,
+    "verify_jwt": false
+  }
+]

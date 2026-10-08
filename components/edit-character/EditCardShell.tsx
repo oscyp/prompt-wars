@@ -1,9 +1,8 @@
-import { GamePanel, GameText } from '@/components/game';
+import { GamePanel, GameText, CreditAmount } from '@/components/game';
 import React from 'react';
 import { View } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
-import { formatCredits } from '@/utils/credits';
 import { formatCooldown } from '@/utils/editCooldowns';
 import { editStyles as s } from './styles';
 
@@ -17,6 +16,8 @@ export interface EditCardShellProps {
   changed?: boolean;
   /** Disables the card for a reason other than cooldown (battle lock, pricing). */
   disabled?: boolean;
+  /** A preview may still open while its own mutation controls are locked. */
+  previewable?: boolean;
   children?: React.ReactNode;
 }
 
@@ -36,6 +37,7 @@ export default function EditCardShell({
   cooldownMs,
   changed = false,
   disabled = false,
+  previewable = false,
   children,
 }: EditCardShellProps) {
   const colors = useThemedColors();
@@ -49,8 +51,17 @@ export default function EditCardShell({
         <View style={s.flex1}>
           <View style={s.titleWrap}>
             <GameText
-              variant="title"
-              style={[s.cardTitle, accessibleText, { color: colors.text }]}
+              variant="fighter"
+              accessibilityRole="header"
+              style={[
+                s.cardTitle,
+                accessibleText,
+                {
+                  color: colors.primary,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.8,
+                },
+              ]}
             >
               {title}
             </GameText>
@@ -75,29 +86,22 @@ export default function EditCardShell({
         </View>
         {(cooling || cost > 0) && (
           <View style={s.badge}>
-            <GameText
-              variant="body"
-              style={[
-                s.badgeText,
-                {
-                  color: cooling
-                    ? colors.warning
-                    : cost === 0
-                      ? colors.success
-                      : colors.primary,
-                },
-              ]}
-            >
-              {cooling
-                ? `Available in ${formatCooldown(cooldownMs)}`
-                : formatCredits(cost)}
-            </GameText>
+            {cooling ? (
+              <GameText
+                variant="body"
+                style={[s.badgeText, { color: colors.warning }]}
+              >
+                {`Available in ${formatCooldown(cooldownMs)}`}
+              </GameText>
+            ) : (
+              <CreditAmount amount={cost} size="small" />
+            )}
           </View>
         )}
       </View>
       <View
-        pointerEvents={inert ? 'none' : 'auto'}
-        accessibilityState={{ disabled: inert }}
+        pointerEvents={inert && !previewable ? 'none' : 'auto'}
+        accessibilityState={{ disabled: inert && !previewable }}
       >
         {children}
       </View>

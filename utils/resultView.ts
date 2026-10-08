@@ -12,7 +12,7 @@
 import type { BattleFormat, BattleRound } from '@/types/battle';
 import type { EntitlementCheck } from '@/utils/monetization';
 import { spendRows, type SpendRow } from '@/utils/editDialogCopy';
-import { insufficientCreditsMessage } from '@/utils/credits';
+import { formatCredits, insufficientCreditsMessage } from '@/utils/credits';
 import {
   moveLabel,
   ratingDeltaLabel,
@@ -147,8 +147,8 @@ export interface RoundMiniView {
 }
 
 /**
- * One round as the viewer reads it. Won/lost come from `round_winner_id`, the
- * server's verdict, never from comparing scores -- a round can be won on
+ * One round as the viewer reads it. Won/lost come from the winner profile or
+ * frozen combat winner side, never from comparing scores -- a round can be won on
  * forfeit with no scores at all, and a draw is a draw whatever the numbers.
  */
 export function roundMiniView(
@@ -176,6 +176,9 @@ export function roundMiniView(
     isDraw: Boolean(round.is_draw),
     roundWinnerId: round.round_winner_id,
     myProfileId: viewer.myProfileId,
+    winnerSide: round.judge_payload?.combat?.winner,
+    viewerSide:
+      viewer.myProfileId && viewer.playerOneId ? (isPlayerOne ? 1 : 2) : null,
   });
 
   const status =
@@ -227,15 +230,39 @@ export interface VideoStatusCopy {
   tone: 'pending' | 'error';
 }
 
+/** Past this, a render is running longer than a normal one. */
+export const VIDEO_SLOW_AFTER_MS = 90_000;
+/** Past this, the job is close to the server's 300s hard timeout. */
+export const VIDEO_NEARLY_OUT_OF_TIME_MS = 240_000;
+
+/** Job metadata is frozen by the server; legacy jobs retain their 8/12 seconds. */
+export function cinematicLabel(job: {
+  target_duration_seconds?: number | null;
+  battle_round_id?: string | null;
+}): string {
+  const duration =
+    job.target_duration_seconds ?? (job.battle_round_id ? 8 : 12);
+  return `${duration}-second cinematic`;
+}
+
 /**
  * The status card for a job that is not yet playable. Null once the video is
  * ready and signed, because the player takes over. Statuses are the DB enum
  * `video_job_status` (queued / submitted / processing / succeeded / failed).
+ *
+ * Loading copy describes progress without a clip length or completion estimate.
+ * Slower attempts still explain their state and point to the ready notification.
+ *
+ * `elapsedMs` is optional so callers without a timestamp still get sane copy.
  */
 export function videoStatusCopy(input: {
   status: string;
   hasUrl: boolean;
+  elapsedMs?: number | null;
 }): VideoStatusCopy | null {
+  const elapsed = input.elapsedMs ?? 0;
+  const title = 'Cinematic';
+
   switch (input.status) {
     case 'failed':
       return {
@@ -246,11 +273,31 @@ export function videoStatusCopy(input: {
     case 'succeeded':
       return input.hasUrl
         ? null
-        : { title: 'Cinematic video', body: 'Finishing up…', tone: 'pending' };
-    default:
+        : { title, body: 'Finishing up…', tone: 'pending' };
+    case 'queued':
       return {
-        title: 'Cinematic video',
-        body: 'Generating your cinematic… usually a few minutes',
+        title,
+        body: 'Starting your cinematic…',
+        tone: 'pending',
+      };
+    default:
+      if (elapsed >= VIDEO_NEARLY_OUT_OF_TIME_MS) {
+        return {
+          title,
+          body: 'Nearly out of time for this attempt.',
+          tone: 'pending',
+        };
+      }
+      if (elapsed >= VIDEO_SLOW_AFTER_MS) {
+        return {
+          title,
+          body: 'Still rendering — longer than usual. We’ll notify you.',
+          tone: 'pending',
+        };
+      }
+      return {
+        title,
+        body: 'Creating your cinematic. You don’t have to wait here.',
         tone: 'pending',
       };
   }
@@ -277,7 +324,9 @@ export function upgradeSheetCopy(
   balance: number | null,
 ): UpgradeSheetCopy {
   const base = {
-    title: 'Cinematic video',
+    title: check?.target_duration_seconds
+      ? cinematicLabel(check)
+      : 'Cinematic video',
     subtitle: 'A short AI-generated clip of this battle.',
     confirmLabel: 'Get the video',
   };
@@ -286,23 +335,42 @@ export function upgradeSheetCopy(
       ? check.credits_balance
       : balance;
 
-  if (check?.method === 'subscription_allowance') {
-    const remaining = Math.max(1, check.allowance_remaining ?? 1);
+  if (
+    ['subscription_allowance', 'subscriber_full', 'subscriber_round'].includes(
+      check?.method ?? '',
+    )
+  ) {
+    const remaining = check?.allowance_remaining;
     return {
       ...base,
-      lines: [`Uses 1 of ${remaining} monthly video reveals`],
+      ...(check?.target_duration_seconds
+        ? { subtitle: 'Included with your allowance.' }
+        : {}),
+      lines: [
+        typeof remaining === 'number' && remaining > 0
+          ? `Uses 1 of ${remaining} monthly video reveals`
+          : 'Uses 1 monthly video reveal',
+      ],
       rows: [],
     };
   }
-  if (check?.method === 'free_grant') {
+  if (check?.method === 'free_grant' || check?.method === 'new_user_grant') {
     return {
       ...base,
+      ...(check?.target_duration_seconds
+        ? { subtitle: 'Included with your welcome grant.' }
+        : {}),
       lines: ['Included with your welcome grant.'],
       rows: spendRows(0, effectiveBalance),
     };
   }
   return {
     ...base,
+    ...(check?.target_duration_seconds
+      ? {
+          subtitle: `${formatCredits(check?.cost_credits ?? 0, 'sentence')} · A clip of this battle.`,
+        }
+      : {}),
     lines: [],
     rows: spendRows(check?.cost_credits ?? 0, effectiveBalance),
   };

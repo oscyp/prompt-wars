@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GamePanel } from '@/components/game';
 import BrandMark from '@/components/game/BrandMark';
 import { GameHeader, GameField, GameButton } from '@/components/game';
@@ -16,6 +17,21 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { supabase } from '@/utils/supabase';
+import {
+  assertAuthOperationCurrent,
+  beginAuthOperation,
+  signInWithPasswordSafely,
+  type AuthOperation,
+} from '@/utils/authSession';
+import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons';
+import {
+  acquireSocialCredential,
+  isSocialAuthCancelled,
+  RegistrationRequiredError,
+  signInWithSocialCredential,
+  SocialAuthError,
+  type SocialProvider,
+} from '@/utils/socialAuth';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -39,7 +55,7 @@ import {
   type AuthErrorKind,
 } from '@/utils/authCopy';
 
-type Busy = 'idle' | 'signIn' | 'reset' | 'resend';
+type Busy = 'idle' | 'signIn' | 'reset' | 'resend' | SocialProvider;
 
 const TOAST_MS = 2500;
 
@@ -52,13 +68,21 @@ export default function SignInScreen() {
   const [formError, setFormError] = useState<AuthErrorCopy | null>(null);
   const [errorKind, setErrorKind] = useState<AuthErrorKind | null>(null);
   const [busy, setBusy] = useState<Busy>('idle');
+  const busyRef = useRef<Busy>('idle');
+  const mounted = useRef(true);
+  const currentOperation = useRef<AuthOperation | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const passwordRef = useRef<TextInput>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const colors = useThemedColors();
+  const insets = useSafeAreaInsets();
   const accessibleText = useAccessibleTextStyle();
-  const { notice } = useLocalSearchParams<{ notice?: string }>();
+  const { notice, switchAccount } = useLocalSearchParams<{
+    notice?: string;
+    switchAccount?: string;
+  }>();
+  const loadingExistingAccount = switchAccount === '1';
 
   const showToast = (text: string) => {
     setToast(text);
@@ -67,7 +91,17 @@ export default function SignInScreen() {
   };
 
   useEffect(() => {
+    mounted.current = true;
     return () => {
+      mounted.current = false;
+      if (currentOperation.current) {
+        try {
+          assertAuthOperationCurrent(currentOperation.current);
+          beginAuthOperation();
+        } catch {
+          /* A newer authentication intent already superseded this screen. */
+        }
+      }
       if (toastTimer.current) clearTimeout(toastTimer.current);
     };
   }, []);
@@ -81,6 +115,10 @@ export default function SignInScreen() {
   }, [notice]);
 
   const isBusy = busy !== 'idle';
+  const updateBusy = (next: Busy) => {
+    busyRef.current = next;
+    if (mounted.current) setBusy(next);
+  };
 
   const fail = (err: unknown) => {
     hapticError();
@@ -89,7 +127,7 @@ export default function SignInScreen() {
   };
 
   const handleSignIn = async () => {
-    if (isBusy) return;
+    if (busyRef.current !== 'idle') return;
     const eErr = validateEmail(email);
     const pErr = validateSignInPassword(password);
     setEmailError(eErr);
@@ -101,24 +139,30 @@ export default function SignInScreen() {
       return;
     }
 
-    setBusy('signIn');
+    updateBusy('signIn');
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
+      const operation = beginAuthOperation();
+      currentOperation.current = operation;
+      const { error } = await signInWithPasswordSafely(
+        {
+          email: email.trim(),
+          password,
+        },
+        operation,
+      );
       if (error) throw error;
       hapticSuccess();
       // Navigation is handled by app/_layout.tsx once the session lands.
     } catch (err) {
-      fail(err);
+      if (mounted.current) fail(err);
     } finally {
-      setBusy('idle');
+      currentOperation.current = null;
+      updateBusy('idle');
     }
   };
 
   const handleForgotPassword = async () => {
-    if (isBusy) return;
+    if (busyRef.current !== 'idle') return;
     const eErr = validateEmail(email);
     if (eErr) {
       hapticError();
@@ -127,7 +171,7 @@ export default function SignInScreen() {
     }
     setEmailError(null);
     setFormError(null);
-    setBusy('reset');
+    updateBusy('reset');
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(
         email.trim(),
@@ -139,13 +183,14 @@ export default function SignInScreen() {
     } catch (err) {
       fail(err);
     } finally {
-      setBusy('idle');
+      currentOperation.current = null;
+      updateBusy('idle');
     }
   };
 
   const handleResendConfirmation = async () => {
-    if (isBusy) return;
-    setBusy('resend');
+    if (busyRef.current !== 'idle') return;
+    updateBusy('resend');
     try {
       const { error } = await supabase.auth.resend({
         type: 'signup',
@@ -159,7 +204,49 @@ export default function SignInScreen() {
     } catch (err) {
       fail(err);
     } finally {
-      setBusy('idle');
+      currentOperation.current = null;
+      updateBusy('idle');
+    }
+  };
+
+  const handleSocialSignIn = async (provider: SocialProvider) => {
+    if (busyRef.current !== 'idle') return;
+    updateBusy(provider);
+    setFormError(null);
+    setErrorKind(null);
+    try {
+      const operation = beginAuthOperation();
+      currentOperation.current = operation;
+      const credential = await acquireSocialCredential(provider, operation);
+      if (!credential || !mounted.current) return;
+      await signInWithSocialCredential(
+        credential,
+        loadingExistingAccount ? { allowAccountSwitch: true } : undefined,
+      );
+      hapticSuccess();
+    } catch (err) {
+      if (!mounted.current || isSocialAuthCancelled(err)) return;
+      if (err instanceof RegistrationRequiredError) {
+        // The registration screen collects eligibility/consent and requests a
+        // fresh provider credential. Never persist a token in navigation.
+        if (loadingExistingAccount) {
+          setFormError({
+            title: 'Account not found',
+            message:
+              'This sign-in method does not have an existing account. Your guest progress is still available.',
+          });
+        } else {
+          router.push('/(auth)/sign-up');
+        }
+      } else if (err instanceof SocialAuthError) {
+        hapticError();
+        setFormError({ title: 'Could not sign in', message: err.message });
+      } else {
+        fail(err);
+      }
+    } finally {
+      currentOperation.current = null;
+      updateBusy('idle');
     }
   };
 
@@ -172,7 +259,14 @@ export default function SignInScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      ]}
     >
       <ScrollView
         contentContainerStyle={styles.content}
@@ -180,13 +274,10 @@ export default function SignInScreen() {
         showsVerticalScrollIndicator={false}
       >
         <BrandMark
-          size={260}
-          style={{ alignSelf: 'center', marginBottom: 24 }}
+          size={168}
+          style={{ alignSelf: 'center', marginBottom: 12 }}
         />
-        <GameHeader
-          title="Welcome to Prompt Wars"
-          style={{ marginBottom: 16 }}
-        />
+        <GameHeader title="Sign in" style={{ marginBottom: 16 }} />
         <GameText
           variant="caption"
           style={[
@@ -195,10 +286,17 @@ export default function SignInScreen() {
             { color: colors.textSecondary },
           ]}
         >
-          Sign in to battle
+          {loadingExistingAccount
+            ? 'Load your existing account. Guest progress stays here until sign-in succeeds.'
+            : 'Sign in to battle'}
         </GameText>
 
-        <GamePanel tone="ornate" style={styles.form}>
+        <GamePanel tone="quiet" style={styles.form}>
+          <SocialAuthButtons
+            onPress={handleSocialSignIn}
+            disabled={isBusy}
+            busyProvider={busy === 'apple' || busy === 'google' ? busy : null}
+          />
           <GameField
             style={[
               inputStyle,
@@ -315,15 +413,33 @@ export default function SignInScreen() {
             }
           />
 
-          <GameButton
-            onPress={() => router.push('/(auth)/sign-up')}
-            disabled={isBusy}
-            accessibilityLabel="Don’t have an account? Sign up"
-            accessibilityRole="button"
-            style={styles.textButton}
-            tone="secondary"
-            label="Don’t have an account? Sign up"
-          />
+          {loadingExistingAccount ? (
+            <GameButton
+              label="Back to guest progress"
+              tone="secondary"
+              onPress={() => {
+                if (currentOperation.current) {
+                  try {
+                    assertAuthOperationCurrent(currentOperation.current);
+                    beginAuthOperation();
+                  } catch {
+                    /* Preserve any newer intent. */
+                  }
+                }
+                router.replace('/(profile)/settings');
+              }}
+            />
+          ) : (
+            <GameButton
+              onPress={() => router.push('/(auth)/sign-up')}
+              disabled={isBusy}
+              accessibilityLabel="Don’t have an account? Sign up"
+              accessibilityRole="button"
+              style={styles.textButton}
+              tone="secondary"
+              label="Don’t have an account? Sign up"
+            />
+          )}
         </GamePanel>
       </ScrollView>
       {toast ? <Toast text={toast} /> : null}

@@ -165,6 +165,7 @@ export interface RevealSide {
 }
 
 export interface RevealModel {
+  judgePolicyVersion?: string | null;
   me: RevealSide;
   them: RevealSide;
   winnerProfileId: string | null;
@@ -234,6 +235,7 @@ export function revealModelFrom(
     isDraw: outcome.is_draw === true,
     isKo: outcome.is_ko === true,
     judgeWhy: str(judge.why) ?? str(root.summary),
+    judgePolicyVersion: str(judge.prompt_version),
     animationPreset: str(spec.animation_preset),
     winnerColor: str(spec.winner_color),
   };

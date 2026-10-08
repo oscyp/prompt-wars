@@ -6,7 +6,6 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import {
-  BorderRadius,
   Motion,
   NumericFontVariant,
   Spacing,
@@ -99,16 +98,17 @@ export default function RevealPayoffBeat({
           accessible
           accessibilityLabel={payoffRowLabel(row)}
         >
-          <GameBevel color={colors.ornamentMuted} />
+          <GameBevel
+            color={colors.ornamentMuted}
+            insetColor={colors.ornamentMuted}
+          />
           <View style={styles.rowText}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
+            <Text
+              variant="label"
+              style={[styles.label, { color: colors.textSecondary }]}
+            >
               {row.label}
             </Text>
-            {row.detail ? (
-              <Text style={[styles.detail, { color: colors.textTertiary }]}>
-                {row.detail}
-              </Text>
-            ) : null}
           </View>
           <View style={styles.valueRow}>
             {row.tone !== 'neutral' ? (
@@ -132,6 +132,10 @@ export default function RevealPayoffBeat({
               <Text
                 style={[
                   styles.value,
+                  !/^[+−–-]?\d/.test(row.value) && {
+                    fontSize: 16,
+                    fontWeight: 'normal',
+                  },
                   NumericFontVariant,
                   { color: toneColor(row.tone) },
                 ]}
@@ -140,6 +144,11 @@ export default function RevealPayoffBeat({
               </Text>
             )}
           </View>
+          {row.detail ? (
+            <Text style={[styles.detail, { color: colors.textTertiary }]}>
+              {row.detail}
+            </Text>
+          ) : null}
         </Animated.View>
       ))}
 
@@ -173,25 +182,18 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   title: {
-    fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.bold,
+    textAlign: 'center',
     marginBottom: Spacing.xs,
   },
   row: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'stretch',
     gap: Spacing.md,
     minHeight: 56,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
   },
   rowText: {
-    flex: 1,
-    gap: 2,
+    gap: 8,
   },
   label: {
     fontSize: Typography.sizes.xs,
@@ -207,12 +209,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.xs,
     flexShrink: 1,
-    maxWidth: '60%',
+    maxWidth: '100%',
   },
   value: {
-    fontSize: Typography.sizes.lg,
+    fontSize: 28,
     fontWeight: Typography.weights.bold,
-    textAlign: 'right',
+    textAlign: 'left',
     flexShrink: 1,
   },
   fallbackRow: {

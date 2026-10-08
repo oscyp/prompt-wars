@@ -1,0 +1,54 @@
+{
+  "recorded_at_utc": "2026-10-01T08:45:05Z",
+  "project_ref": "uoyjhudegdpanrgllfoj",
+  "domain": "promptwars.gg",
+  "verification_source": "Coordinating agent /root inspected and saved Resend and Supabase browser settings; documentation agent did not independently repeat those browser checks.",
+  "resend": {
+    "domain_id": "5ed46585-62ba-4df7-93bd-6627126179d6",
+    "region": "eu-west-1",
+    "sending_dkim": "verified",
+    "sending_mx": "verified",
+    "sending_spf_txt": "verified",
+    "receiving_mx": "pending",
+    "overall_domain_status": "partially_verified",
+    "api_key": {
+      "name": "Prompt Wars Supabase Auth",
+      "id": "2a429c31-fd26-47d1-909d-eb6a35a57a64",
+      "permission": "Sending access",
+      "restricted_domain": "promptwars.gg",
+      "secret_in_evidence": false
+    }
+  },
+  "supabase_smtp": {
+    "enabled": true,
+    "saved_and_reloaded": true,
+    "host": "smtp.resend.com",
+    "port": 465,
+    "minimum_interval_seconds": 60,
+    "sender_name": "Prompt Wars",
+    "sender_email_submitted": "noreply@promptwars.gg",
+    "username_submitted": "resend",
+    "sender_email_and_username_readback": "Browser redacts saved values; not independently value-matched after reload.",
+    "password_readback": "Stored hidden; credential never printed or recorded in repository. Temporary browser memory was cleared after saving.",
+    "enablement_ui_hourly_rate": 30,
+    "separate_rate_limit_page_checked": true,
+    "separate_rate_limit_readback": "Numeric email rate is redacted by the browser tool; no rate limits changed."
+  },
+  "incoming_mail": {
+    "user_authorization": "Move all incoming mail to Resend for app processing.",
+    "root_mx": "9 inbound-smtp.eu-west-1.amazonaws.com.",
+    "removed_root_mx": "10 mail.promptwars.gg.",
+    "authoritative_tcp_nameservers_match": true,
+    "recursive_cache_propagation_complete": false,
+    "sending_dns_unchanged": true,
+    "receiving_webhook_or_app_handler_configured": false,
+    "dns_evidence": "docs/audits/2026-09-30-guest-auth/resend-receiving-mx-2026-10-01.json",
+    "webhooks_dashboard_readback": "No webhooks yet"
+  },
+  "limits": [
+    "No test email was sent; no live SMTP AUTH probe or end-to-end email delivery was tested.",
+    "Receiving verification and recursive DNS propagation remain pending. App processing requires an inbound integration.",
+    "SMTP enablement is not signed-device OTP, recovery or Apple Hide My Email acceptance.",
+    "Combined eligibility release and guest intake remain disabled; reviewed regional policies, required age assurance, KWS integration and other release prerequisites remain incomplete."
+  ]
+}

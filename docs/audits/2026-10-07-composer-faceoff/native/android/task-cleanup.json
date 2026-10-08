@@ -1,0 +1,15 @@
+{
+  "observedAt": "2026-10-07T16:16:38.649026+00:00",
+  "display": "Physical size: 1080x2340",
+  "density": "Physical density: 440",
+  "fontScale": "1.0",
+  "softwareKeyboardOverride": "null",
+  "taskEmulatorKillResponse": "OK: killing emulator, bye bye\r\nOK",
+  "otherEmulatorsStopped": false,
+  "cachedSdkAvdRetained": true,
+  "newAppBuildCreated": false,
+  "realPurchases": 0,
+  "port5038Listening": false,
+  "port5582Listening": false,
+  "port8083Listening": false
+}

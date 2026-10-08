@@ -1,6 +1,10 @@
 require('dotenv').config();
 
 module.exports = ({ config: _config }) => {
+  const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim();
+  const googleIosUrlScheme = googleIosClientId?.endsWith('.apps.googleusercontent.com')
+    ? `com.googleusercontent.apps.${googleIosClientId.replace('.apps.googleusercontent.com', '')}`
+    : undefined;
   const nativeFixtures = process.env.PROMPT_WARS_NATIVE_FIXTURES === '1';
   if (
     nativeFixtures &&
@@ -14,7 +18,7 @@ module.exports = ({ config: _config }) => {
     name: 'Prompt Wars',
     slug: 'prompt-wars',
     owner: 'prompt-wars',
-    version: '1.3.1',
+    version: '1.3.4',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'promptwars',
@@ -27,7 +31,7 @@ module.exports = ({ config: _config }) => {
     ios: {
       supportsTablet: false,
       bundleIdentifier: 'gg.promptwars.app',
-      useAppleSignIn: true,
+      usesAppleSignIn: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
       },
@@ -35,13 +39,14 @@ module.exports = ({ config: _config }) => {
     android: {
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
-        backgroundColor: '#000000',
+        backgroundColor: '#0B0B13',
       },
       package: 'gg.promptwars.app',
     },
     web: {
       bundler: 'metro',
-      output: 'static',
+      // Local component fixtures use browser storage; keep production static export unchanged.
+      output: nativeFixtures ? 'single' : 'static',
       favicon: './assets/images/favicon.png',
     },
     plugins: [
@@ -58,6 +63,9 @@ module.exports = ({ config: _config }) => {
       ],
       'expo-notifications',
       'expo-apple-authentication',
+      ...(googleIosUrlScheme
+        ? [['react-native-nitro-google-signin', { iosUrlScheme: googleIosUrlScheme }]]
+        : []),
       'expo-sharing',
       'expo-video',
       [

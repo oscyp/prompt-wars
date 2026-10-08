@@ -8,12 +8,23 @@ import { supabase, invokeFunctionResult } from './supabase';
  */
 export interface EntitlementCheck {
   can_upgrade: boolean;
-  method: 'subscription_allowance' | 'credits' | 'free_grant' | 'none';
+  method:
+    | 'subscriber_full'
+    | 'subscriber_round'
+    | 'credit'
+    | 'new_user_grant'
+    | 'subscription_allowance'
+    | 'credits'
+    | 'free_grant'
+    | 'none';
   cost_credits?: number;
   allowance_remaining?: number;
   credits_balance?: number;
   free_grants_remaining?: number;
   error?: string;
+  cinematic_profile?: 'standard' | 'plus';
+  target_duration_seconds?: number;
+  duration_policy_version?: string | null;
 }
 
 /**
@@ -22,11 +33,16 @@ export interface EntitlementCheck {
 export interface VideoUpgradeResult {
   success: boolean;
   video_job_id?: string;
+  cinematic_profile?: 'standard' | 'plus' | null;
+  target_duration_seconds?: number | null;
+  duration_policy_version?: string | null;
   status?: string;
   entitlement_source?: string;
   can_upgrade?: boolean;
   entitlement_check?: EntitlementCheck;
   already_requested?: boolean;
+  quote_changed?: boolean;
+  request_in_progress?: boolean;
   message?: string;
   error?: string;
 }
@@ -52,6 +68,7 @@ export async function requestVideoUpgrade(
   battleId: string,
   autoSpend = false,
   roundId?: string,
+  confirmedPreview?: EntitlementCheck,
 ): Promise<VideoUpgradeResult> {
   try {
     const { data, error } = await invokeFunctionResult<
@@ -60,6 +77,27 @@ export async function requestVideoUpgrade(
       battle_id: battleId,
       auto_spend: autoSpend,
       ...(roundId ? { battle_round_id: roundId } : {}),
+      ...(autoSpend && confirmedPreview
+        ? {
+            expected_funding_quote: {
+              method: confirmedPreview.method,
+              cost_credits: confirmedPreview.cost_credits ?? 0,
+            },
+            ...(confirmedPreview.cinematic_profile &&
+            confirmedPreview.target_duration_seconds &&
+            confirmedPreview.duration_policy_version !== undefined
+              ? {
+                  expected_cinematic_policy: {
+                    cinematic_profile: confirmedPreview.cinematic_profile,
+                    target_duration_seconds:
+                      confirmedPreview.target_duration_seconds,
+                    duration_policy_version:
+                      confirmedPreview.duration_policy_version,
+                  },
+                }
+              : {}),
+          }
+        : {}),
     });
 
     if (error) {
@@ -77,12 +115,18 @@ export async function requestVideoUpgrade(
     return {
       success: data.success ?? false,
       video_job_id: data.video_job_id,
+      cinematic_profile: data.cinematic_profile,
+      target_duration_seconds: data.target_duration_seconds,
+      duration_policy_version: data.duration_policy_version,
       status: data.status,
       entitlement_source: data.entitlement_source,
       can_upgrade: data.can_upgrade,
       entitlement_check: data.entitlement_check,
       already_requested: data.already_requested,
+      quote_changed: data.quote_changed,
+      request_in_progress: data.request_in_progress,
       message: data.message,
+      error: data.error,
     };
   } catch (err) {
     console.error('Video upgrade exception:', err);
@@ -90,6 +134,28 @@ export async function requestVideoUpgrade(
       success: false,
       error: err instanceof Error ? err.message : 'Unknown error',
     };
+  }
+}
+
+export interface CinematicCapabilities {
+  enabled: boolean;
+  plus_duration_seconds: 20;
+}
+
+/** Benefit copy follows the server rollout; unavailable capability fails closed. */
+export async function getCinematicCapabilities(): Promise<CinematicCapabilities> {
+  try {
+    const { data, error } = await supabase.rpc('get_cinematic_capabilities');
+    const capability = Array.isArray(data) ? data[0] : data;
+    return {
+      enabled:
+        !error &&
+        capability?.enabled === true &&
+        capability?.plus_duration_seconds === 20,
+      plus_duration_seconds: 20,
+    };
+  } catch {
+    return { enabled: false, plus_duration_seconds: 20 };
   }
 }
 

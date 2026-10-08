@@ -20,7 +20,9 @@ it('keeps the wallet action reachable and its balance free to wrap', () => {
   expect(control).toHaveStyle({ minHeight: 48, minWidth: 48 });
   fireEvent.press(control);
   expect(onPress).toHaveBeenCalledTimes(1);
-  expect(view.getByLabelText('1234567890 credits')).toHaveStyle({
+  expect(
+    view.getByText('1,234,567,890', { includeHiddenElements: true }),
+  ).toHaveStyle({
     flexShrink: 1,
   });
 });

@@ -1,0 +1,33 @@
+Check supabase/functions/_tests/player_avatars_test.ts
+Check supabase/functions/_tests/sign_battle_portraits_test.ts
+running 9 tests from ./supabase/functions/_tests/player_avatars_test.ts
+HTTP authentication runs before validation or service signing ... ok (3ms)
+avatar contract accepts identifiers only, deduplicates and bounds combined batches ... ok (334µs)
+current and frozen avatars share one authorized batch signing call ... ok (435µs)
+unauthorized and legacy battles never sign even in mixed batches ... ok (79µs)
+both directions of blocking suppress current and frozen portraits ... ok (98µs)
+snapshot path cannot bypass current moderation, ownership, kind or removal ... ok (150µs)
+battle keeps approved non-current avatar after a new portrait is selected ... ok (72µs)
+database and signing failure never produce new signing or mutation attempts ... ok (182µs)
+block authorization is bounded even for accounts with more than 1000 relationships ... ok (289µs)
+running 17 tests from ./supabase/functions/_tests/sign_battle_portraits_test.ts
+resolveBattlePortraits — non-participant is forbidden ... ok (328µs)
+resolveBattlePortraits — missing battle is not_found ... ok (35µs)
+resolveBattlePortraits — opponent (player_two) gets BOTH signed portraits ... ok (200µs)
+resolveBattlePortraits — bot side resolves to null portrait + null archetype ... ok (77µs)
+resolveBattlePortraits — bot side carries the persona identity when there is one ... ok (88µs)
+resolveBattlePortraits — human with no current portrait -> null url, archetype kept ... ok (50µs)
+resolveBattlePortraits — rejected portrait -> null url ... ok (40µs)
+resolveBattlePortraits — signing failure on one side does not fail the other ... ok (30µs)
+resolveBattlePortraits — payload carries each side's name and colour ... ok (32µs)
+resolveBattlePortraits — identity survives a portrait signing failure ... ok (38µs)
+resolveBattlePortraits — prefers the avatar render when one exists ... ok (43µs)
+resolveBattlePortraits — falls back to the fighter render when no avatar exists ... ok (26µs)
+resolveBattlePortraits — carries equipped cosmetics to the opponent ... ok (37µs)
+resolveBattlePortraits — a character with no cosmetics reports null ... ok (27µs)
+resolveBattlePortraits — a distinct fighter render is signed separately ... ok (40µs)
+frozen identity and art survive later character edits and missing current portraits ... ok (50µs)
+frozen snapshot never bypasses participant authorization ... ok (25µs)
+
+ok | 26 passed | 0 failed (36ms)
+

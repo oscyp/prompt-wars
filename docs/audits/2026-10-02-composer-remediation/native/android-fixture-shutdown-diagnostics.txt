@@ -1,0 +1,8 @@
+Buffered diagnostics observed when stopping owned Metro session 85107 (exit 130):
+
+ERROR: Can't perform a React state update on a component that hasn't mounted yet. This indicates that you have a side-effect in your render function that asynchronously tries to update the component. Move this work to useEffect instead.
+Stack included url.then$argument_0 (node_modules/expo-router/build/fork/useLinking.native.js:126:47), ContextNavigator (node_modules/expo-router/build/ExpoRoot.js:141:7), ExpoRoot and WithDevTools.
+
+The buffered output has no timestamp identifying which earlier fixture launch or activity recreation emitted this. No visible failure was observed in the completed captured flows. It is not attributed to the composer or claimed fixed. Final signed APK 7 process log contained no ReactNativeJS error.
+
+Owned emulator session 29121 exited 0 after emu kill. Its buffered host diagnostics included SwiftShader invalid ColorBuffer/texture and preempted GL context messages. Completed screenshots rendered correctly; no app crash was observed. These are recorded as emulator-environment diagnostics, not a claim of warning-free execution.

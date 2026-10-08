@@ -1,0 +1,19 @@
+{
+  "bundleSha256": "7834d79b93ceb07bab20da8ed536095dcf909d746fae413fd2fd35f4c3a99928",
+  "bytes": 7947109,
+  "composerMarkers": {
+    "composerStep": true,
+    "Review move": true,
+    "What do you do?": true,
+    "What are you trying to achieve?": true,
+    "Change intention": true,
+    "HOLD TO LOCK IN": true
+  },
+  "privateBackendMarkersAbsent": {
+    "bot_series_seeds": true,
+    "private_bot_round_choices": true,
+    "private_bot_series": true,
+    "bot_private_seed": true
+  },
+  "fixtureRouterExcludedFromSourceArchive": true
+}

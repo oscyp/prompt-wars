@@ -1,0 +1,25 @@
+{
+  "before_count": 65,
+  "after_count": 66,
+  "added": [
+    {
+      "name": "auth_allow_anonymous_sign_ins",
+      "title": "Anonymous Access Policies",
+      "level": "WARN",
+      "facing": "EXTERNAL",
+      "categories": [
+        "SECURITY"
+      ],
+      "description": "Detects row level security (RLS) policies that allow access to anonymous users.",
+      "detail": "https://supabase.com/docs/guides/database/database-advisors?queryGroups=lint&lint=0012_auth_allow_anonymous_sign_ins",
+      "remediation": "Table `public.composer_events` has policies enforced on roles that allow access to anonymous users. Policies include `{composer_events_read_own}`",
+      "metadata": {
+        "name": "composer_events",
+        "schema": "public",
+        "type": "table"
+      },
+      "cache_key": "auth_allow_anonymous_sign_ins_public_composer_events"
+    }
+  ],
+  "assessment": "Expected authenticated-guest owner-only telemetry read. Client writes denied; anonymous API role has no grants. No new unrelated security finding."
+}

@@ -1,0 +1,191 @@
+{
+  "project_ref": "uoyjhudegdpanrgllfoj",
+  "verified_at_utc": "2026-09-30 19:47:55.104861+00",
+  "result": "passed",
+  "execution": "Each existing suite ran sequentially through node_modules/.bin/supabase db query --linked --file in its original BEGIN/ROLLBACK transaction. No database reset or committed fixtures.",
+  "suite_copy_changes": [
+    "Only SET LOCAL lock_timeout='2s' and SET LOCAL statement_timeout='10s' inserted immediately after BEGIN; all assertions, fixtures and final ROLLBACK retained."
+  ],
+  "safety_inspection": {
+    "hosted_trigger_and_event_trigger_definitions_reviewed": true,
+    "no_external_http_or_dblink_calls_in_exercised_routines": true,
+    "auth_direct_insert_does_not_send_email": true,
+    "fixture_email_policy_and_ledger_key_collisions": 0,
+    "existing_registration_sessions_before": 0,
+    "mutable_fixture_uuids": "Generated randomly within each transaction",
+    "global_release_changes": "Visible only inside each transaction and rolled back",
+    "guest_wallet_trigger": "Created and dropped transactionally; lock timeout bounds contention; no trigger remained afterward",
+    "background_workers": "Other sessions cannot observe uncommitted fixtures",
+    "persistent_user_data_readout": "Counts and equality checks only; raw account data, tokens and consent evidence were not exported",
+    "nontransactional_side_effect_review": "No sequence-backed columns on exercised tables; no refresh tokens created. Event-trigger NOTIFY work rolls back with the transaction."
+  },
+  "suites": [
+    {
+      "source": "supabase/tests/apple_authorization.sql",
+      "source_sha256": "b446bd445069d9b346ee47f14e2035bc4110bfda2b39362734d343eba1f3ef62",
+      "executed_copy_sha256": "3c9115142ec2b5d9234c8d9ce7162b3f33e095cd34994a35bfa1b217f0e15c8b",
+      "exit_code": 0,
+      "do_blocks": 2,
+      "explicit_failure_assertion_sites": 27,
+      "intentional_fault_injection_sites": 0,
+      "coverage": [
+        "Encrypted credential persistence and code replay idempotency",
+        "Cross-account code replay rejection",
+        "Durable deletion capture, repeated deletion, missing profile and direct Auth deletion",
+        "Leased retry processing, stale/expired lease fencing and backoff",
+        "Successful revocation removes credential data; late exchange queues revocation",
+        "Apple credential and worker RPC client-role isolation"
+      ]
+    },
+    {
+      "source": "supabase/tests/social_registration.sql",
+      "source_sha256": "4f3be08567ae5923203f6bf9d3c320c116bf0e8877b4eeaeebafea67f5fef498",
+      "executed_copy_sha256": "8a696cf2b827e5b516e8d10b33c719ff6000aaa98a771f86cd99181919883d5e",
+      "exit_code": 0,
+      "do_blocks": 7,
+      "explicit_failure_assertion_sites": 75,
+      "intentional_fault_injection_sites": 0,
+      "coverage": [
+        "Unauthorized signup and under-13 rejection",
+        "Independent consent age, approved-policy references and subdivision selection",
+        "Consent evidence requirements, replay, revocation, binding and terminal states",
+        "Provider-subject and email-bound permits; expiry and replay rejection",
+        "Welcome ledger idempotency, legacy adult compatibility and tightened policy enforcement",
+        "Anti-farm grant/FTUO gates preserve earned progression and gameplay",
+        "Revocation blocks gameplay, new rewards and generation while preserving refunds/account management",
+        "Purchase-policy checks, restricted video enqueue/reservation, retention and deletion helpers",
+        "Authenticated/anon RLS, owner-view and service RPC access controls"
+      ]
+    },
+    {
+      "source": "supabase/tests/guest_registration.sql",
+      "source_sha256": "6ae8c521168684b323cc8fd02a66c34c64492fc4703d702098ab1aa3a7ef13d6",
+      "executed_copy_sha256": "2a7b9ca4bf98bc1574366414457c4bf85eae49b32f9fbe7225d590ce281be00b",
+      "exit_code": 0,
+      "do_blocks": 5,
+      "explicit_failure_assertion_sites": 34,
+      "intentional_fault_injection_sites": 1,
+      "coverage": [
+        "Disabled release/intake gates; intake disablement preserves existing guest capabilities",
+        "256-bit bearer permit shape, five-minute lifetime, hash-only storage and rotation",
+        "Missing/wrong/type-confused/expired/replayed permits rejected by both hook and profile trigger",
+        "Atomic permit/session/profile/eligibility/welcome ledger creation and rollback on injected grant failure",
+        "Full play/generate/purchase/grant parity for eligible guests",
+        "Consent pending/revoked states, approved consent and teen purchase policy",
+        "Registration anti-farm checks deny signup bonuses without blocking gameplay",
+        "Guest ownership RLS and private permit storage/issuance denial"
+      ]
+    }
+  ],
+  "coverage_count_note": "Static failure-assertion sites, not a count of independent test cases. Loops and helper reuse exercise additional runtime paths; guest suite's intentional test_grant_failure exception is excluded from assertion count.",
+  "rollback_verification": {
+    "all_17_table_counts_and_aggregate_content_digests_unchanged": true,
+    "tables": [
+      {
+        "table": "auth.users",
+        "rows": 7,
+        "content_unchanged": true
+      },
+      {
+        "table": "private.account_eligibility",
+        "rows": 0,
+        "content_unchanged": true
+      },
+      {
+        "table": "private.apple_authorizations",
+        "rows": 0,
+        "content_unchanged": true
+      },
+      {
+        "table": "private.apple_revocation_jobs",
+        "rows": 0,
+        "content_unchanged": true
+      },
+      {
+        "table": "private.auth_release",
+        "rows": 1,
+        "content_unchanged": true
+      },
+      {
+        "table": "private.guardian_consent_events",
+        "rows": 0,
+        "content_unchanged": true
+      },
+      {
+        "table": "private.jurisdiction_policies",
+        "rows": 0,
+        "content_unchanged": true
+      },
+      {
+        "table": "private.registration_authorizations",
+        "rows": 0,
+        "content_unchanged": true
+      },
+      {
+        "table": "private.registration_sessions",
+        "rows": 0,
+        "content_unchanged": true
+      },
+      {
+        "table": "public.account_abuse_signals",
+        "rows": 7,
+        "content_unchanged": true
+      },
+      {
+        "table": "public.battles",
+        "rows": 58,
+        "content_unchanged": true
+      },
+      {
+        "table": "public.blocks",
+        "rows": 0,
+        "content_unchanged": true
+      },
+      {
+        "table": "public.characters",
+        "rows": 4,
+        "content_unchanged": true
+      },
+      {
+        "table": "public.profiles",
+        "rows": 7,
+        "content_unchanged": true
+      },
+      {
+        "table": "public.signature_items",
+        "rows": 22,
+        "content_unchanged": true
+      },
+      {
+        "table": "public.video_jobs",
+        "rows": 12,
+        "content_unchanged": true
+      },
+      {
+        "table": "public.wallet_transactions",
+        "rows": 157,
+        "content_unchanged": true
+      }
+    ],
+    "release": {
+      "enabled": false,
+      "guest_signup_enabled": false,
+      "minimum_client_version": "1.4.0",
+      "singleton": true
+    },
+    "anonymous_users": 0,
+    "leftover_test_triggers": 0,
+    "persistent_test_helpers": 0,
+    "committed_accounts_created": 0,
+    "committed_policies_created": 0
+  },
+  "limits": [
+    "No real simultaneous-transaction permit race was executed; hook replay and serial trigger consumption/rollback are covered.",
+    "No successful native Apple/Google token exchange, same-UUID provider linking, email verification or session restoration was exercised.",
+    "No live KWS callback, real guardian approval, regional-policy review or required age-assurance process was exercised.",
+    "No actual Apple token revocation was sent; SQL queue/lease/retry behavior used synthetic encrypted strings.",
+    "No real RevenueCat purchase, restore, webhook, subscription or account-switch transaction was exercised.",
+    "No signed iOS/Android acceptance or complete single/bo3 battle was performed; existing battle rows were unchanged.",
+    "Hosted release and guest intake remain disabled, with zero reviewed policies."
+  ]
+}

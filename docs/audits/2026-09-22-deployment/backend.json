@@ -1,0 +1,410 @@
+{
+  "project_ref": "uoyjhudegdpanrgllfoj",
+  "project_name": "prompt-wars",
+  "region": "eu-west-1",
+  "migration_result": "Remote database is up to date; no migrations applied",
+  "functions": [
+    {
+      "name": "account-farm-guard",
+      "previous_version": 20,
+      "version": 21,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "appeal-battle",
+      "previous_version": 20,
+      "version": 21,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "battle-advance",
+      "previous_version": 21,
+      "version": 22,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "block-profile",
+      "previous_version": 20,
+      "version": 21,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "cosmetics",
+      "previous_version": 15,
+      "version": 16,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "create-custom-signature-item",
+      "previous_version": 23,
+      "version": 24,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "daily-meta",
+      "previous_version": 13,
+      "version": 14,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "delete-account",
+      "previous_version": 12,
+      "version": 13,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "dev-generate-video",
+      "previous_version": 17,
+      "version": 18,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "edit-character",
+      "previous_version": 23,
+      "version": 24,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "expire-battles",
+      "previous_version": 25,
+      "version": 26,
+      "status": "ACTIVE",
+      "verify_jwt": true
+    },
+    {
+      "name": "finalize-character-creation",
+      "previous_version": 19,
+      "version": 20,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "first-time-offer",
+      "previous_version": 13,
+      "version": 14,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "generate-move-suggestions",
+      "previous_version": 12,
+      "version": 13,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "generate-portrait",
+      "previous_version": 26,
+      "version": 27,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "generate-tier0-reveal",
+      "previous_version": 23,
+      "version": 24,
+      "status": "ACTIVE",
+      "verify_jwt": true
+    },
+    {
+      "name": "grant-credits",
+      "previous_version": 20,
+      "version": 21,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "leave-battle",
+      "previous_version": 15,
+      "version": 16,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "list-signature-items-catalog",
+      "previous_version": 18,
+      "version": 19,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "matchmaking",
+      "previous_version": 29,
+      "version": 30,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "moderate-prompt",
+      "previous_version": 21,
+      "version": 22,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "moderate-video",
+      "previous_version": 21,
+      "version": 22,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "moderation-queue",
+      "previous_version": 12,
+      "version": 13,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "prefetch-move-suggestions",
+      "previous_version": 4,
+      "version": 5,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "process-video-job",
+      "previous_version": 28,
+      "version": 29,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "record-funnel-event",
+      "previous_version": 6,
+      "version": 7,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "regenerate-portrait",
+      "previous_version": 25,
+      "version": 26,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "report-intake",
+      "previous_version": 20,
+      "version": 21,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "request-video-upgrade",
+      "previous_version": 24,
+      "version": 25,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "resolve-appeal",
+      "previous_version": 21,
+      "version": 22,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "resolve-battle",
+      "previous_version": 37,
+      "version": 38,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "respec-character",
+      "previous_version": 6,
+      "version": 7,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "restore-portrait",
+      "previous_version": 9,
+      "version": 10,
+      "status": "ACTIVE",
+      "verify_jwt": true
+    },
+    {
+      "name": "revenuecat-webhook",
+      "previous_version": 26,
+      "version": 27,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "round-resolve",
+      "previous_version": 22,
+      "version": 23,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "run-judge-calibration",
+      "previous_version": 21,
+      "version": 22,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "send-push",
+      "previous_version": 13,
+      "version": 14,
+      "status": "ACTIVE",
+      "verify_jwt": true
+    },
+    {
+      "name": "sign-battle-portraits",
+      "previous_version": 19,
+      "version": 20,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "sign-battle-video",
+      "previous_version": 14,
+      "version": 15,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "sign-player-avatars",
+      "previous_version": null,
+      "version": 1,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "starter-fighter",
+      "previous_version": 6,
+      "version": 7,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "submit-prompt",
+      "previous_version": 31,
+      "version": 32,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "tutorial",
+      "previous_version": 6,
+      "version": 7,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    },
+    {
+      "name": "unblock-profile",
+      "previous_version": 20,
+      "version": 21,
+      "status": "ACTIVE",
+      "verify_jwt": false
+    }
+  ],
+  "schema_verification": {
+    "columns": [
+      {
+        "column": "generation_id",
+        "table": "move_prompt_suggestions"
+      },
+      {
+        "column": "source",
+        "table": "move_prompt_suggestions"
+      },
+      {
+        "column": "lease_expires_at",
+        "table": "video_jobs"
+      },
+      {
+        "column": "lease_token",
+        "table": "video_jobs"
+      },
+      {
+        "column": "provider_model",
+        "table": "video_jobs"
+      }
+    ],
+    "portrait_bucket": {
+      "id": "character-portraits",
+      "public": false
+    },
+    "rls": [
+      {
+        "enabled": true,
+        "table": "battles"
+      },
+      {
+        "enabled": true,
+        "table": "character_portraits"
+      },
+      {
+        "enabled": true,
+        "table": "characters"
+      },
+      {
+        "enabled": true,
+        "table": "move_prompt_suggestions"
+      },
+      {
+        "enabled": true,
+        "table": "video_jobs"
+      }
+    ],
+    "worker_rpc_grants": [
+      {
+        "anon": false,
+        "authenticated": false,
+        "name": "check_rate_limit",
+        "service_role": true
+      },
+      {
+        "anon": false,
+        "authenticated": false,
+        "name": "claim_free_suggestion_slots",
+        "service_role": true
+      },
+      {
+        "anon": false,
+        "authenticated": false,
+        "name": "claim_video_jobs",
+        "service_role": true
+      },
+      {
+        "anon": false,
+        "authenticated": false,
+        "name": "release_video_job_lease",
+        "service_role": true
+      },
+      {
+        "anon": false,
+        "authenticated": false,
+        "name": "renew_video_job_lease",
+        "service_role": true
+      }
+    ]
+  },
+  "unauthenticated_smoke_checks": [
+    {
+      "function": "sign-player-avatars",
+      "status": 401,
+      "error": "Unauthorized"
+    },
+    {
+      "function": "prefetch-move-suggestions",
+      "status": 403,
+      "error": "Service role required"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { useNativeHeaderOffset } from '@/hooks/useNativeHeaderOffset';
 import { GamePanel } from '@/components/game';
 import BrandMark from '@/components/game/BrandMark';
 import { GameHeader, GameField, GameButton } from '@/components/game';
@@ -16,7 +17,11 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
-import { supabase } from '@/utils/supabase';
+import {
+  assertAuthOperationCurrent,
+  beginAuthOperation,
+  updatePasswordSafely,
+} from '@/utils/authSession';
 import { useAuth } from '@/providers/AuthProvider';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
@@ -57,14 +62,32 @@ export default function ResetPasswordScreen() {
   );
   const [formError, setFormError] = useState<AuthErrorCopy | null>(null);
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const mounted = useRef(true);
   const confirmationRef = useRef<TextInput>(null);
   const router = useRouter();
+  const nativeHeaderOffset = useNativeHeaderOffset();
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
   const { session, recoveryProcessing, completeRecovery } = useAuth();
 
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setPassword('');
+    setConfirmation('');
+    setFormError(null);
+    setPasswordError(null);
+    setConfirmationError(null);
+  }, [session?.user.id, recoveryProcessing]);
+
   const handleSave = async () => {
-    if (busy) return;
+    if (busyRef.current || recoveryProcessing || !session?.user.id) return;
     const pErr = validateNewPassword(password);
     const cErr = pErr
       ? null
@@ -77,20 +100,35 @@ export default function ResetPasswordScreen() {
       return;
     }
 
+    const operation = beginAuthOperation();
+    const expectedUserId = session.user.id;
+    busyRef.current = true;
     setBusy(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
+      const { error } = await updatePasswordSafely(
+        password,
+        expectedUserId,
+        operation,
+      );
       if (error) throw error;
       hapticSuccess();
-      await completeRecovery();
+      await completeRecovery(operation);
+      assertAuthOperationCurrent(operation);
       router.replace({
         pathname: '/(auth)/sign-in',
         params: { notice: PASSWORD_UPDATED_NOTICE },
       });
     } catch (err) {
-      hapticError();
-      setFormError(describeAuthError(err));
-      setBusy(false);
+      if (
+        mounted.current &&
+        (err as { code?: string })?.code !== 'session_changed'
+      ) {
+        hapticError();
+        setFormError(describeAuthError(err));
+      }
+    } finally {
+      busyRef.current = false;
+      if (mounted.current) setBusy(false);
     }
   };
 
@@ -101,9 +139,9 @@ export default function ResetPasswordScreen() {
   ];
 
   let body: React.ReactNode;
-  if (session) {
+  if (session && !recoveryProcessing) {
     body = (
-      <GamePanel tone="ornate" style={styles.form}>
+      <GamePanel tone="quiet" style={styles.form}>
         <GameHeader title="Set a new password" style={{ marginBottom: 16 }} />
         <GameText
           variant="caption"
@@ -255,6 +293,7 @@ export default function ResetPasswordScreen() {
 
   return (
     <KeyboardAvoidingView
+      keyboardVerticalOffset={nativeHeaderOffset}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={[styles.container, { backgroundColor: colors.background }]}
     >

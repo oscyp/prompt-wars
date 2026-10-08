@@ -1,0 +1,15 @@
+Deployed Functions on project uoyjhudegdpanrgllfoj: leave-battle
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/uoyjhudegdpanrgllfoj/functions
+
+Uploading asset (leave-battle): supabase/functions/leave-battle/index.ts
+Uploading asset (leave-battle): supabase/functions/_shared/resolve-forfeit.ts
+Uploading asset (leave-battle): supabase/functions/_shared/push.ts
+Uploading asset (leave-battle): supabase/functions/_shared/compose-reveal-payload.ts
+Uploading asset (leave-battle): supabase/functions/_shared/types.ts
+Uploading asset (leave-battle): supabase/functions/_shared/providers.ts
+Uploading asset (leave-battle): supabase/functions/_shared/video-constants.ts
+Uploading asset (leave-battle): supabase/functions/_shared/prompt-situations.ts
+Uploading asset (leave-battle): supabase/functions/_shared/judge-policy.ts
+Uploading asset (leave-battle): supabase/functions/_shared/glicko2.ts
+Uploading asset (leave-battle): supabase/functions/_shared/leave-battle.ts
+Uploading asset (leave-battle): supabase/functions/_shared/utils.ts

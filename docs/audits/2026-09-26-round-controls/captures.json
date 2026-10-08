@@ -1,0 +1,240 @@
+{
+  "captured": "2026-09-26 to 2026-09-27",
+  "screenshots": "XcodeBuildMCP optimized JPEGs. Viewport denotes simulator points, not image pixels. User reference PNGs are unchanged.",
+  "items": [
+    {
+      "file": "screenshots/375-arena-default-actual.jpg",
+      "kind": "actual-route",
+      "section": "quests",
+      "title": "Actual Arena \u00b7 no claimable quest",
+      "viewport": "375\u00d7812",
+      "textSize": "large (default)",
+      "note": "Actual signed-in route; ready media was already generated. No Claim, generation or purchase control was pressed."
+    },
+    {
+      "file": "screenshots/375-media-error-large-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "media",
+      "title": "Media recovery",
+      "viewport": "375\u00d7812",
+      "textSize": "accessibility-large",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/375-media-slow-default-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "media",
+      "title": "Delayed cinematic",
+      "viewport": "375\u00d7812",
+      "textSize": "large (default)",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/375-quests-default-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "quests",
+      "title": "Quest Claim",
+      "viewport": "375\u00d7812",
+      "textSize": "large (default)",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/375-quests-large-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "quests",
+      "title": "Quest Claim",
+      "viewport": "375\u00d7812",
+      "textSize": "accessibility-large",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/375-result-ready-actual.jpg",
+      "kind": "actual-route",
+      "section": "media",
+      "title": "Actual ready cinematic",
+      "viewport": "375\u00d7812",
+      "textSize": "large (default)",
+      "note": "Actual signed-in route; ready media was already generated. No Claim, generation or purchase control was pressed."
+    },
+    {
+      "file": "screenshots/375-round-default-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "round",
+      "title": "Round overview",
+      "viewport": "375\u00d7812",
+      "textSize": "large (default)",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/375-round-score-large-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "round",
+      "title": "Large-text round score",
+      "viewport": "375\u00d7812",
+      "textSize": "accessibility-large",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/375-startup-default-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "startup",
+      "title": "Startup alignment",
+      "viewport": "375\u00d7812",
+      "textSize": "large (default)",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/375-startup-large-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "startup",
+      "title": "Startup alignment",
+      "viewport": "375\u00d7812",
+      "textSize": "accessibility-large",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/402-arena-default-actual.jpg",
+      "kind": "actual-route",
+      "section": "quests",
+      "title": "Actual Arena \u00b7 no claimable quest",
+      "viewport": "402\u00d7874",
+      "textSize": "large (default)",
+      "note": "Actual signed-in route; ready media was already generated. No Claim, generation or purchase control was pressed."
+    },
+    {
+      "file": "screenshots/402-media-error-large-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "media",
+      "title": "Media recovery",
+      "viewport": "402\u00d7874",
+      "textSize": "accessibility-large",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/402-media-pending-default-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "media",
+      "title": "Cinematic waiting",
+      "viewport": "402\u00d7874",
+      "textSize": "large (default)",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/402-quests-default-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "quests",
+      "title": "Quest Claim",
+      "viewport": "402\u00d7874",
+      "textSize": "large (default)",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/402-quests-large-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "quests",
+      "title": "Quest Claim",
+      "viewport": "402\u00d7874",
+      "textSize": "accessibility-large",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/402-round-default-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "round",
+      "title": "Round overview",
+      "viewport": "402\u00d7874",
+      "textSize": "large (default)",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/402-round-details-default-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "round",
+      "title": "Visible modifiers and rubric",
+      "viewport": "402\u00d7874",
+      "textSize": "large (default)",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/402-round-judge-default-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "round",
+      "title": "Visible rubric and judge",
+      "viewport": "402\u00d7874",
+      "textSize": "large (default)",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/402-round-large-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "round",
+      "title": "Round overview",
+      "viewport": "402\u00d7874",
+      "textSize": "accessibility-large",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/402-round-score-large-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "round",
+      "title": "Large-text round score",
+      "viewport": "402\u00d7874",
+      "textSize": "accessibility-large",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/402-startup-default-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "startup",
+      "title": "Startup alignment",
+      "viewport": "402\u00d7874",
+      "textSize": "large (default)",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/402-startup-large-fixture.jpg",
+      "kind": "component-fixture",
+      "section": "startup",
+      "title": "Startup alignment",
+      "viewport": "402\u00d7874",
+      "textSize": "accessibility-large",
+      "note": "Native component fixture with synthetic data and local-only actions. It does not establish real account/routing behavior."
+    },
+    {
+      "file": "screenshots/user-before-media.png",
+      "kind": "user-reference",
+      "section": "media",
+      "title": "Before \u00b7 Cinematic waiting",
+      "viewport": null,
+      "textSize": "unknown",
+      "note": "User-supplied screenshot; device size and text scale were not independently verified."
+    },
+    {
+      "file": "screenshots/user-before-quests.png",
+      "kind": "user-reference",
+      "section": "quests",
+      "title": "Before \u00b7 Quest Claim",
+      "viewport": null,
+      "textSize": "unknown",
+      "note": "User-supplied screenshot; device size and text scale were not independently verified."
+    },
+    {
+      "file": "screenshots/user-before-round.png",
+      "kind": "user-reference",
+      "section": "round",
+      "title": "Before \u00b7 Round overview",
+      "viewport": null,
+      "textSize": "unknown",
+      "note": "User-supplied screenshot; device size and text scale were not independently verified."
+    },
+    {
+      "file": "screenshots/user-before-startup.png",
+      "kind": "user-reference",
+      "section": "startup",
+      "title": "Before \u00b7 Startup alignment",
+      "viewport": null,
+      "textSize": "unknown",
+      "note": "User-supplied screenshot; device size and text scale were not independently verified."
+    }
+  ]
+}

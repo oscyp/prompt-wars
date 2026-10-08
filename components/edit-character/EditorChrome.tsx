@@ -1,6 +1,7 @@
-import React, { useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
+  Keyboard,
   ScrollView,
   Pressable,
   StyleSheet,
@@ -12,6 +13,7 @@ import { GameIcon, type GameIconName } from '@/components/game/icons/GameIcon';
 import CosmeticFrame from '@/components/CosmeticFrame';
 import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
 import { ARCHETYPES, type ArchetypeId } from '@/constants/Archetypes';
+import { GameType } from '@/constants/DesignTokens';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import type { DraftSection } from '@/hooks/useCharacterEditDraft';
 import type { EquippedCosmetics } from '@/utils/cosmetics';
@@ -28,6 +30,31 @@ export function EditorTabs({
 }) {
   const colors = useThemedColors();
   const { fontScale } = useWindowDimensions();
+  const rail = useRef<ScrollView>(null);
+  const viewport = useRef(0);
+  const offset = useRef(0);
+  const bounds = useRef<
+    Partial<Record<DraftSection, { x: number; width: number }>>
+  >({});
+  const [textHeight, setTextHeight] = useState({ scale: fontScale, height: 0 });
+  const revealSelected = useCallback(() => {
+    const tab = bounds.current[value];
+    if (!tab || !viewport.current) return;
+    let next = offset.current;
+    if (tab.x < next) next = Math.max(0, tab.x - 16);
+    else if (tab.x + tab.width > next + viewport.current)
+      next = Math.max(0, tab.x + tab.width + 16 - viewport.current);
+    if (next !== offset.current) {
+      offset.current = next;
+      rail.current?.scrollTo({ x: next, animated: false });
+    }
+  }, [value]);
+  useEffect(revealSelected, [revealSelected, fontScale]);
+  const railHeight = Math.max(
+    52,
+    GameType.label.lineHeight * fontScale + 22,
+    (textHeight.scale === fontScale ? textHeight.height : 0) + 22,
+  );
   const items: { key: DraftSection; label: string; icon: GameIconName }[] = [
     { key: 'look', label: 'Look', icon: 'palette' },
     { key: 'identity', label: 'Fighter', icon: 'profile' },
@@ -35,9 +62,25 @@ export function EditorTabs({
   ];
   return (
     <ScrollView
+      ref={rail}
       horizontal
+      onLayout={({ nativeEvent: { layout } }) => {
+        viewport.current = layout.width;
+        revealSelected();
+      }}
+      onContentSizeChange={revealSelected}
+      onScroll={({ nativeEvent }) => {
+        offset.current = nativeEvent.contentOffset.x;
+      }}
+      scrollEventThrottle={16}
       showsHorizontalScrollIndicator={false}
-      style={{ flexGrow: 0, flexShrink: 0 }}
+      style={{
+        flexGrow: 0,
+        flexShrink: 0,
+        height: railHeight,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+      }}
       contentContainerStyle={styles.tabRail}
       accessibilityRole="tablist"
       accessibilityLabel="Editing category"
@@ -45,6 +88,10 @@ export function EditorTabs({
       {items.map((item) => (
         <Pressable
           key={item.key}
+          onLayout={({ nativeEvent: { layout } }) => {
+            bounds.current[item.key] = { x: layout.x, width: layout.width };
+            if (item.key === value) revealSelected();
+          }}
           onPress={() => onChange(item.key)}
           accessibilityRole="tab"
           accessibilityLabel={item.label}
@@ -54,7 +101,7 @@ export function EditorTabs({
             styles.tab,
             {
               flex: fontScale <= 1.3 ? 1 : undefined,
-              minWidth: fontScale > 1.3 ? 130 : 96,
+              minWidth: fontScale > 1.3 ? 96 * fontScale : 96,
               borderBottomColor:
                 item.key === value ? colors.ornament : 'transparent',
             },
@@ -67,6 +114,17 @@ export function EditorTabs({
           />
           <GameText
             variant="label"
+            onTextLayout={({ nativeEvent }) => {
+              const height = nativeEvent.lines.reduce(
+                (sum, line) => sum + line.height,
+                0,
+              );
+              setTextHeight((old) =>
+                old.scale === fontScale && old.height >= height
+                  ? old
+                  : { scale: fontScale, height },
+              );
+            }}
             style={{
               color:
                 item.key === value ? colors.ornament : colors.textSecondary,
@@ -141,17 +199,17 @@ export function EditorPreview({
         />
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-        {!compact && (
+        {!compact && dirty && (
           <GameText
-            variant="caption"
-            style={{ color: colors.textSecondary, fontSize: 12 }}
+            variant="fighter"
+            style={{ color: colors.primary, fontSize: 13, letterSpacing: 0.8 }}
           >
-            Current artwork{dirty ? ' · draft changes' : ''}
+            DRAFT CHANGES
           </GameText>
         )}
         <GameText
           variant="fighter"
-          style={{ fontSize: compact ? 22 : 29, color: colors.ornament }}
+          style={{ fontSize: compact ? 22 : 29, color: colors.text }}
         >
           {name}
         </GameText>
@@ -167,19 +225,20 @@ export function EditorPreview({
             <GameButton
               ref={viewRef}
               label="View card"
-              gameIcon="look"
+              endIcon="chevron-right"
               chrome="text"
               tone="secondary"
-              labelStyle={{ fontSize: 16 }}
+              labelStyle={{ fontSize: 16, textDecorationLine: 'none' }}
               style={styles.link}
               onPress={() => onView(viewRef)}
             />
             <GameButton
               ref={historyRef}
               label="Previous looks"
+              endIcon="chevron-right"
               chrome="text"
               tone="secondary"
-              labelStyle={{ fontSize: 16 }}
+              labelStyle={{ fontSize: 16, textDecorationLine: 'none' }}
               style={styles.link}
               onPress={() => onHistory(historyRef)}
             />
@@ -228,7 +287,7 @@ export function EditorFooter({
 }) {
   const colors = useThemedColors();
   const { width, fontScale } = useWindowDimensions();
-  const stacked = width < 360 || fontScale > 1.3;
+  const stacked = !keyboardVisible && (width < 360 || fontScale > 1.3);
   const save = useRef<View>(null),
     draw = useRef<View>(null);
   return (
@@ -237,13 +296,15 @@ export function EditorFooter({
       onLayout={onLayout}
       style={{ paddingHorizontal: 16, gap: 6 }}
     >
-      <GameText
-        variant="caption"
-        accessibilityLiveRegion="polite"
-        style={{ color: colors.textSecondary }}
-      >
-        {status}
-      </GameText>
+      {!!status && !keyboardVisible && fontScale <= 1.3 && (
+        <GameText
+          variant="caption"
+          accessibilityLiveRegion="polite"
+          style={{ color: colors.textSecondary, flexShrink: 0 }}
+        >
+          {status}
+        </GameText>
+      )}
       <View
         style={{
           flexDirection: stacked ? 'column' : 'row',
@@ -252,25 +313,35 @@ export function EditorFooter({
       >
         <GameButton
           ref={save}
-          label="Save changes · Free"
+          label="Save changes"
           tone={savePrimary ? 'primary' : 'secondary'}
           disabled={saveDisabled}
           busy={saveBusy}
           onPress={() => onSave(save)}
-          style={stacked ? undefined : { flex: 1 }}
+          style={stacked ? undefined : { flex: keyboardVisible ? 2 : 1 }}
           labelStyle={{ fontSize: 18 }}
         />
-        <GameButton
-          ref={draw}
-          label={renderLabel}
-          tone={savePrimary ? 'secondary' : 'primary'}
-          gameIcon="quill"
-          disabled={renderDisabled}
-          busy={renderBusy}
-          onPress={() => onRender(draw)}
-          style={stacked ? undefined : { flex: 1.35 }}
-          labelStyle={{ fontSize: 18 }}
-        />
+        {keyboardVisible ? (
+          <GameButton
+            label="Done"
+            tone="secondary"
+            onPress={() => Keyboard.dismiss()}
+            labelStyle={{ fontSize: 18 }}
+            style={stacked ? undefined : { flex: 1 }}
+          />
+        ) : (
+          <GameButton
+            ref={draw}
+            label={renderLabel}
+            tone={savePrimary ? 'secondary' : 'primary'}
+            gameIcon="quill"
+            disabled={renderDisabled}
+            busy={renderBusy}
+            onPress={() => onRender(draw)}
+            style={stacked ? undefined : { flex: 1.35 }}
+            labelStyle={{ fontSize: 18 }}
+          />
+        )}
       </View>
     </GameFooter>
   );

@@ -1,0 +1,15 @@
+Deployed Functions on project uoyjhudegdpanrgllfoj: resolve-appeal
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/uoyjhudegdpanrgllfoj/functions
+
+Uploading asset (resolve-appeal): supabase/functions/resolve-appeal/index.ts
+Uploading asset (resolve-appeal): supabase/functions/_shared/appeals-service.ts
+Uploading asset (resolve-appeal): supabase/functions/_shared/prompt-situations.ts
+Uploading asset (resolve-appeal): supabase/functions/_shared/judge-policy.ts
+Uploading asset (resolve-appeal): supabase/functions/_shared/types.ts
+Uploading asset (resolve-appeal): supabase/functions/_shared/combat.ts
+Uploading asset (resolve-appeal): supabase/functions/_shared/judge.ts
+Uploading asset (resolve-appeal): supabase/functions/_shared/providers.ts
+Uploading asset (resolve-appeal): supabase/functions/_shared/video-constants.ts
+Uploading asset (resolve-appeal): supabase/functions/_shared/appeals.ts
+Uploading asset (resolve-appeal): supabase/functions/_shared/utils.ts
+Uploading asset (resolve-appeal): supabase/functions/_shared/round-forfeit.ts

@@ -1,0 +1,6 @@
+Battle results now bring your fighters, round statistics and cinematic replay together in a clearer layout.
+
+- See illustrated battle themes and round-by-round stats without expanding details.
+- Open Result info for judging explanations and recorded progress.
+- Enjoy more consistent gold-framed cards, navigation and diamond displays.
+- Explore illustrated trait choices and refined controls in Edit Look.

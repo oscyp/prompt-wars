@@ -1,0 +1,40 @@
+{
+  "generatedAt": "2026-09-22",
+  "generator": "built-in image_gen",
+  "sourcePromptFile": "../../../output/imagegen/2026-09-22-traits/prompts.md",
+  "format": "JPEG",
+  "dimensions": [512, 512],
+  "assets": {
+    "vibe": {
+      "heroic": { "file": "vibe/heroic.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-2669064a-a34a-49cb-b9c9-de0307a505ca.png" },
+      "sinister": { "file": "vibe/sinister.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-07039ba8-b09b-41bd-b89b-a9840721e427.png" },
+      "mischievous": { "file": "vibe/mischievous.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-5e3558d0-159f-4fda-a28e-cf181a6279f4.png" },
+      "stoic": { "file": "vibe/stoic.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-a4ec9ead-6f68-420b-b8e2-15123ae6fedf.png" },
+      "unhinged": { "file": "vibe/unhinged.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-8294d059-5fd9-489d-9f77-46e2cd409c45.png" },
+      "regal": { "file": "vibe/regal.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-228a6880-16ed-410e-9fd3-a95b5868b278.png" }
+    },
+    "silhouette": {
+      "lean_duelist": { "file": "silhouette/lean_duelist.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-ae6bdd5a-47b4-4252-998b-4cee1d334117.png" },
+      "heavy_bruiser": { "file": "silhouette/heavy_bruiser.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-3ea886bf-9f0d-4531-a162-7e967fcfecd7.png" },
+      "slim_trickster": { "file": "silhouette/slim_trickster.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-6f00f17c-c0fd-4a01-bd45-c6048ddf8051.png" },
+      "armored_knight": { "file": "silhouette/armored_knight.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-8d582c3b-3784-4d61-b794-f142ace4c651.png" },
+      "robed_mystic": { "file": "silhouette/robed_mystic.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-3e8e0e0e-ce12-4735-a0a5-3a3db21ce771.png" },
+      "sharp_tactician": { "file": "silhouette/sharp_tactician.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-dfe69da0-a958-433a-aead-be6102d74c1e.png" }
+    },
+    "era": {
+      "ancient": { "file": "era/ancient.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-f516c874-96ff-42be-9b25-6d1667e03970.png" },
+      "industrial": { "file": "era/industrial.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-3ec35a51-e3aa-489e-9d1a-f61dd2a7a454.png" },
+      "modern": { "file": "era/modern.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-74a713b8-e7fd-4e8a-a011-7c658e6c329e.png" },
+      "cyberpunk": { "file": "era/cyberpunk.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-5d939da2-10b1-4452-9cbe-c1fac34dea12.png" },
+      "far_future": { "file": "era/far_future.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-6420c86d-c9d5-4119-9745-79d1d9878de7.png" }
+    },
+    "expression": {
+      "smirk": { "file": "expression/smirk.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-4a6a61f6-ad9b-4694-8475-00edb3b04f17.png" },
+      "glare": { "file": "expression/glare.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-2f0921e3-e437-4af0-804d-fa5ff0c8019f.png" },
+      "calm": { "file": "expression/calm.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-a04bc626-6100-4c6c-9533-98bc36a89df9.png" },
+      "roar": { "file": "expression/roar.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-0f1ad0ad-a24c-4792-b3b2-eafc3fecc729.png" },
+      "smile": { "file": "expression/smile.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-2ddc01de-daf3-49af-b49e-865d5eb0cb7f.png" },
+      "thousand_yard": { "file": "expression/thousand_yard.jpg", "source": "/Users/patdom/.codex/generated_images/01a0ca81-fc18-73d0-b6bd-f4b383c8bf14/exec-3008ab3c-a3d8-4683-97fc-440fb3b7305d.png" }
+    }
+  }
+}

@@ -4,31 +4,16 @@ import {
   View,
   TouchableOpacity,
   StyleSheet,
-  Image,
   useWindowDimensions,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
-import { ItemClass, TRAIT_LABELS } from '@/constants/CharacterTraits';
+import { Spacing } from '@/constants/DesignTokens';
+import { TRAIT_LABELS } from '@/constants/CharacterTraits';
 import { CatalogSignatureItem } from '@/utils/characters';
 import { hapticSelection } from '@/utils/haptics';
-
-/**
- * Designed vector fallback per item class (used when a catalog item has no
- * icon). Exported so the detail sheet shows the same glyph the tile did.
- */
-export const ITEM_CLASS_ICON: Record<
-  ItemClass,
-  React.ComponentProps<typeof MaterialCommunityIcons>['name']
-> = {
-  tool: 'hammer-wrench',
-  symbol: 'star-four-points',
-  weaponized_mundane: 'lightning-bolt',
-  relic: 'diamond-stone',
-  instrument: 'music',
-};
+import EditorItemArt from '@/components/edit-character/EditorItemArt';
+import ItemFrame from '@/components/edit-character/ItemFrame';
 
 export type ItemGridItem = CatalogSignatureItem;
 
@@ -76,52 +61,36 @@ export default function ItemGrid({
                 ? { selected: false, expanded: true }
                 : { selected: equipped }
             }
-            style={[
-              styles.tile,
-              { width: singleColumn ? '100%' : '48%' },
-              {
-                backgroundColor: previewing
-                  ? colors.backgroundTertiary
-                  : colors.card,
-                borderColor:
-                  equipped || previewing ? colors.primary : colors.border,
-              },
-            ]}
+            style={[styles.tile, { width: singleColumn ? '100%' : '48%' }]}
           >
-            {equipped ? (
-              <GameSymbol
-                name="checkmark-circle"
-                size={18}
-                color={colors.primary}
-                style={styles.badge}
-              />
-            ) : null}
-            {item.iconUrl ? (
-              <Image
-                source={{ uri: item.iconUrl }}
-                style={styles.icon}
-                accessibilityLabel=""
-              />
-            ) : (
-              <MaterialCommunityIcons
-                name={ITEM_CLASS_ICON[item.itemClass] ?? 'star-four-points'}
-                size={32}
-                color={colors.primary}
-                style={styles.glyph}
-              />
-            )}
-            <GameText
-              variant="fighter"
-              style={[styles.name, { color: colors.text }]}
+            <ItemFrame
+              selected={equipped || previewing}
+              style={{ width: '100%' }}
             >
-              {item.name}
-            </GameText>
-            <GameText
-              variant="caption"
-              style={[styles.caption, { color: colors.textTertiary }]}
-            >
-              {classLabel}
-            </GameText>
+              <EditorItemArt item={item} presentation="plate" />
+              <View style={styles.captionArea}>
+                <GameText
+                  variant="fighter"
+                  style={[styles.name, { color: colors.text }]}
+                >
+                  {item.name}
+                </GameText>
+                <GameText
+                  variant="caption"
+                  style={{ color: colors.textSecondary }}
+                >
+                  {classLabel}
+                </GameText>
+              </View>
+              {equipped ? (
+                <GameSymbol
+                  name="checkmark-circle"
+                  size={18}
+                  color={colors.primary}
+                  style={styles.badge}
+                />
+              ) : null}
+            </ItemFrame>
           </TouchableOpacity>
         );
       })}
@@ -141,36 +110,15 @@ const styles = StyleSheet.create({
   tile: {
     width: TILE_SIZE,
     minHeight: 128,
-    borderRadius: BorderRadius.md,
-    borderWidth: 2,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing.sm,
-    marginBottom: Spacing.sm,
   },
   badge: {
     position: 'absolute',
     top: Spacing.xs,
     right: Spacing.xs,
   },
-  glyph: {
-    fontSize: 32,
-    marginBottom: Spacing.xs,
-  },
-  icon: {
-    width: 40,
-    height: 40,
-    marginBottom: Spacing.xs,
-    resizeMode: 'contain',
-  },
+  captionArea: { padding: 10, gap: 4 },
   name: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.medium,
-    textAlign: 'center',
-  },
-  caption: {
-    fontSize: Typography.sizes.sm,
-    textAlign: 'center',
-    marginTop: 1,
+    fontSize: 22,
   },
 });

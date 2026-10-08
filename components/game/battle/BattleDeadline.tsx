@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { GameText } from '@/components/game';
 import { GameIcon } from '@/components/game/icons/GameIcon';
-import { exactBattleDeadline, formatRemaining } from '@/utils/battleCopy';
+import { exactBattleDeadline } from '@/utils/battleCopy';
+import { NumericFontVariant } from '@/constants/DesignTokens';
 import { hapticWarning } from '@/utils/haptics';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useBattlePresentationActive } from './useBattlePresentationActive';
@@ -12,13 +13,20 @@ export function BattleDeadline({ deadline }: { deadline: string | null }) {
   const [now, setNow] = useState(Date.now);
   const fired = useRef(false);
   const ms = deadline ? Date.parse(deadline) : NaN;
+  const hasDeadline = Number.isFinite(ms);
   useEffect(() => {
     fired.current = false;
   }, [deadline]);
   useEffect(() => {
     if (!active || !Number.isFinite(ms)) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 1000);
+    const currentTime = Date.now();
+    setNow(currentTime);
+    if (currentTime >= ms) return;
+    const timer = setInterval(() => {
+      const tick = Date.now();
+      setNow(tick);
+      if (tick >= ms) clearInterval(timer);
+    }, 1000);
     return () => clearInterval(timer);
   }, [active, ms]);
   const remaining = ms - now;
@@ -28,28 +36,56 @@ export function BattleDeadline({ deadline }: { deadline: string | null }) {
       fired.current = true;
       hapticWarning();
     }
-  }, [active, critical]);
-  const warning = remaining <= 600000;
+  }, [active, critical, ms]);
+  const expired = hasDeadline && remaining <= 0;
+  const color =
+    critical || expired
+      ? colors.error
+      : remaining <= 600000
+        ? colors.warning
+        : colors.textSecondary;
+  const totalSeconds = hasDeadline
+    ? Math.max(0, Math.ceil(remaining / 1000))
+    : 0;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const clock = [hours, minutes, seconds]
+    .map((value) => value.toString().padStart(2, '0'))
+    .join(':');
+  const spokenTime = [
+    hours ? `${hours} ${hours === 1 ? 'hour' : 'hours'}` : null,
+    minutes ? `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}` : null,
+    seconds ? `${seconds} ${seconds === 1 ? 'second' : 'seconds'}` : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+  const label = !hasDeadline
+    ? exactBattleDeadline(deadline)
+    : expired
+      ? 'Lock-in deadline passed'
+      : `Lock in · ${clock}`;
   return (
-    <View style={{ alignItems: 'center', gap: 4 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-        <GameIcon name="clock" size={20} />
-        <GameText style={{ color: colors.textSecondary, flexShrink: 1 }}>
-          {exactBattleDeadline(deadline)}
-        </GameText>
-      </View>
-      {warning && (
-        <GameText
-          accessibilityLiveRegion="polite"
-          style={{
-            color: critical || remaining <= 0 ? colors.error : colors.warning,
-          }}
-        >
-          {remaining <= 0
-            ? 'Lock-in deadline passed'
-            : `${formatRemaining(remaining)} to lock in`}
-        </GameText>
-      )}
+    <View
+      accessible
+      accessibilityRole="timer"
+      accessibilityLiveRegion={expired ? 'polite' : 'none'}
+      accessibilityLabel={
+        hasDeadline && !expired
+          ? `${spokenTime} remaining to lock in. ${exactBattleDeadline(deadline)}.`
+          : label
+      }
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 7,
+      }}
+    >
+      <GameIcon name="clock" size={20} color={color} />
+      <GameText style={[NumericFontVariant, { color, flexShrink: 1 }]}>
+        {label}
+      </GameText>
     </View>
   );
 }

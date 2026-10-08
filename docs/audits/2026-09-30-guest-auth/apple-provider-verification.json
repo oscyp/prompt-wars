@@ -1,0 +1,70 @@
+{
+  "project_ref": "uoyjhudegdpanrgllfoj",
+  "verified_at": "2026-09-30T20:16:23.540084Z",
+  "apple": {
+    "client_id": "gg.promptwars.app",
+    "team_id": "9665HWDCCA",
+    "key_id": "5NWY9P7M25",
+    "private_key_installed": true,
+    "private_key_was_absent_before_install": true,
+    "remote_secret_digest_matches_local_value": true,
+    "existing_encryption_key_unchanged": true,
+    "local_pkcs8_p256_es256_sign_verify": true,
+    "original_key_file_permissions": "0600",
+    "temporary_dotenv_removed": true
+  },
+  "hosted_worker": {
+    "function": "process-apple-revocations",
+    "invocation": "existing Vault-backed pg_net scheduler authentication",
+    "request_id": 85585,
+    "status_code": 200,
+    "timed_out": false,
+    "body": {
+      "revoked": 0,
+      "retrying": 0
+    },
+    "response_at": "2026-09-30T20:16:23.540084Z",
+    "cron_job_id": 6,
+    "cron_schedule": "*/5 * * * *",
+    "cron_active": true,
+    "stored_authorizations_before_verification": 0,
+    "revocation_jobs_before_verification": 0
+  },
+  "release": {
+    "enabled": false,
+    "guest_signup_enabled": false
+  },
+  "limitations": [
+    "No real Apple authorization exchange or revocation was exercised: there are no stored authorizations or queued jobs. Signed-device sign-in, linking, and deletion acceptance remains required."
+  ],
+  "private_email_relay": {
+    "verified_at_utc": "2026-09-30T21:33:16Z",
+    "registered_domains": [
+      "promptwars.gg",
+      "send.promptwars.gg"
+    ],
+    "registered": true,
+    "spf_checkmarks": {
+      "promptwars.gg": true,
+      "send.promptwars.gg": true
+    },
+    "verified_by_reloaded_source_list": true,
+    "existing_sources_unchanged": true,
+    "existing_source_count_preserved": 4,
+    "delivery_tested": false,
+    "required_next_step": "Complete verified SMTP setup and signed-device Hide My Email delivery acceptance.",
+    "history": [
+      {
+        "attempted_at_utc": "2026-09-30T21:29:36Z",
+        "requested_domains": [
+          "promptwars.gg",
+          "send.promptwars.gg"
+        ],
+        "registered": false,
+        "result": "Apple returned: Your session has expired. Please log in and try again.",
+        "required_next_step": "Renew Apple Developer sign-in and reopen email-source registration.",
+        "existing_sources_unchanged": true
+      }
+    ]
+  }
+}

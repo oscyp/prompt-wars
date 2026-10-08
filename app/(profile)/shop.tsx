@@ -1,3 +1,4 @@
+import HeaderBackButton from '@/components/HeaderBackButton';
 import { useSheetReturnFocus } from '@/hooks/useSheetReturnFocus';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -9,7 +10,6 @@ import {
   ActivityIndicator,
   Alert,
   useWindowDimensions,
-  Pressable,
 } from 'react-native';
 import { GameText as Text, GameHeader } from '@/components/game';
 import { collectionColumns } from '@/utils/collectionLayout';
@@ -34,7 +34,6 @@ import CreditChip from '@/components/CreditChip';
 import Toast from '@/components/Toast';
 import BottomSheet from '@/components/sheets/BottomSheet';
 import ConfirmSheet from '@/components/sheets/ConfirmSheet';
-import { GameMasthead } from '@/components/game/GameMasthead';
 import { ShopCategoryTabs } from '@/components/shop/ShopCategoryTabs';
 import { ShopEquippedSummary } from '@/components/shop/ShopEquippedSummary';
 import { ShopFilterControl } from '@/components/shop/ShopFilterControl';
@@ -177,14 +176,30 @@ export default function CosmeticShopScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: colors.background, paddingTop: insets.top },
+      ]}
+    >
       <Stack.Screen options={{ headerShown: false }} />
+      <GameHeader
+        presentation="secondary"
+        title="Cosmetic Shop"
+        leading={<HeaderBackButton />}
+        trailing={
+          <CreditChip
+            credits={shop.credits ?? 0}
+            unavailable={shop.credits === null}
+          />
+        }
+      />
       <ScrollView
         testID="shop-scroll"
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + 8,
+            paddingTop: 8,
             paddingBottom: insets.bottom + 24,
           },
         ]}
@@ -196,41 +211,18 @@ export default function CosmeticShopScreen() {
           />
         }
       >
-        <GameMasthead
-          centered
-          leading={
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                router.canGoBack() ? 'Go back' : 'Return to Profile'
-              }
-              onPress={() =>
-                router.canGoBack()
-                  ? router.back()
-                  : router.replace('/(tabs)/profile')
-              }
-              style={{ minHeight: 48, minWidth: 48, justifyContent: 'center' }}
-            >
-              <Text variant="label" style={{ color: colors.primary }}>
-                ‹ {router.canGoBack() ? 'Back' : 'Profile'}
-              </Text>
-            </Pressable>
-          }
-          trailing={
-            shop.credits !== null ? <CreditChip credits={shop.credits} /> : null
-          }
-        />
-        <GameHeader
-          title="Cosmetic Shop"
-          subtitle="Make your fighter unmistakable."
-        />
         <ShopEquippedSummary
           category={category}
           items={shop.items}
           equipped={shop.equipped}
           character={shop.character}
           characterStatus={shop.characterStatus}
-          onEdit={() => router.push('/(profile)/edit-character')}
+          onEdit={() =>
+            router.push({
+              pathname: '/(profile)/edit-character',
+              params: { section: 'fighter', focus: 'signature-color' },
+            })
+          }
           onImageError={onImageError}
         />
         {shop.error || shop.artworkError ? (
@@ -298,6 +290,7 @@ export default function CosmeticShopScreen() {
       >
         <View style={styles.sheetContent}>
           <Text
+            variant="title"
             accessibilityRole="header"
             style={[styles.name, accessibleText, { color: colors.text }]}
           >

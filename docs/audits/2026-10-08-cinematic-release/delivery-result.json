@@ -1,0 +1,32 @@
+{
+  "recordedAt": "2026-10-08T11:09:41.585249+00:00",
+  "ios": {
+    "version": "1.3.4",
+    "buildNumber": "19",
+    "buildId": "6ccdf2ab-8a5e-407c-89a8-fc8601c53faa",
+    "buildStatus": "FINISHED",
+    "submissionId": "a1353759-705a-4169-ac41-a6541ccf001e",
+    "submissionStatus": "FINISHED",
+    "appleProcessing": "VALID",
+    "internalBetaState": "IN_BETA_TESTING",
+    "requestedGroups": [
+      "Team (Expo)",
+      "testers"
+    ],
+    "groupAssignmentIndependentlyVerified": false,
+    "testerInstallationVerified": false,
+    "ipaSha256": "10dab8401f7cd8fb386d08e2b1ad43c2492074d3cbef6c36468c518c4beeeae9"
+  },
+  "localObserversRemaining": false,
+  "publicStoreReleasePerformed": false,
+  "androidBuilt": false,
+  "explicitTesterNotificationsSent": false,
+  "newInvitationsSent": false,
+  "testNotesLocalOnly": true,
+  "testNotesLimitation": "Expo What to Test/changelog submission requires Enterprise. Attempt was rejected before scheduling; no account plan change. Successful submission omitted that optional field.",
+  "sourceDriftAfterUpload": [
+    "scripts/test-cinematic-concurrency.py"
+  ],
+  "sourceDriftImpact": "Backend SQL test harness in the source archive, not imported into mobile runtime; exact verified IPA retains uploaded source.",
+  "backendRollout": "Recorded independently by root and cinematic_sql."
+}

@@ -11,6 +11,10 @@ import { useThemedColors } from '@/hooks/useThemedColors';
 
 export interface GameScreenProps {
   children: React.ReactNode;
+  /** Fixed inside the safe area, above the scrolling body. */
+  header?: React.ReactNode;
+  /** Decorative full-screen layer, including the regions behind system bars. */
+  background?: React.ReactNode;
   footer?: React.ReactNode;
   scroll?: boolean;
   contentContainerStyle?: StyleProp<ViewStyle>;
@@ -23,6 +27,8 @@ export interface GameScreenProps {
 /** Disable an edge when a navigator or keyboard-aware parent already owns it. */
 export function GameScreen({
   children,
+  header,
+  background,
   footer,
   scroll = true,
   contentContainerStyle,
@@ -39,28 +45,42 @@ export function GameScreen({
     ...(safeBottom ? ['bottom' as const] : []),
   ];
   return (
-    <SafeAreaView
+    <View
       testID={testID}
-      edges={edges}
       style={[styles.screen, { backgroundColor: colors.background }, style]}
     >
-      {scroll ? (
-        <ScrollView
-          style={styles.body}
-          contentContainerStyle={[styles.content, contentContainerStyle]}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          contentInsetAdjustmentBehavior="never"
+      {background && (
+        <View
+          testID="game-screen-background"
+          pointerEvents="none"
+          accessible={false}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={StyleSheet.absoluteFill}
         >
-          {children}
-        </ScrollView>
-      ) : (
-        <View style={[styles.body, styles.content, contentContainerStyle]}>
-          {children}
+          {background}
         </View>
       )}
-      {footer}
-    </SafeAreaView>
+      <SafeAreaView edges={edges} style={styles.screen}>
+        {header}
+        {scroll ? (
+          <ScrollView
+            style={styles.body}
+            contentContainerStyle={[styles.content, contentContainerStyle]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            contentInsetAdjustmentBehavior="never"
+          >
+            {children}
+          </ScrollView>
+        ) : (
+          <View style={[styles.body, styles.content, contentContainerStyle]}>
+            {children}
+          </View>
+        )}
+        {footer}
+      </SafeAreaView>
+    </View>
   );
 }
 

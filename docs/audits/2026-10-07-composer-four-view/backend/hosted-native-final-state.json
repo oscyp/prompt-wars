@@ -1,0 +1,192 @@
+{
+  "at": "2026-10-07T13:18:29.306823+00:00",
+  "battle_id": "bf0772be-c215-4d00-898e-a690f4eeb59a",
+  "battle_status": "completed",
+  "current_round": 3,
+  "custom_completions": 0,
+  "prompts": [
+    {
+      "authoring_origin": "builder",
+      "characters": 129,
+      "is_locked": true,
+      "moderation_status": "approved",
+      "move_type": "attack",
+      "round_number": 1
+    },
+    {
+      "authoring_origin": "manual",
+      "characters": 145,
+      "is_locked": true,
+      "moderation_status": "approved",
+      "move_type": "attack",
+      "round_number": 2
+    },
+    {
+      "authoring_origin": "manual",
+      "characters": 146,
+      "is_locked": true,
+      "moderation_status": "approved",
+      "move_type": "finisher",
+      "round_number": 3
+    }
+  ],
+  "rounds": [
+    {
+      "combat_winner": 2,
+      "combat_winner_json_type": "number",
+      "explanation_present": true,
+      "is_draw": false,
+      "judge_payload_keys": [
+        "calls",
+        "combat",
+        "aggregation",
+        "explanation",
+        "frozen_inputs",
+        "mock_assisted",
+        "move_type_matchup",
+        "forfeit_profile_id",
+        "player_one_raw_scores",
+        "player_two_raw_scores",
+        "player_one_normalized_scores",
+        "player_two_normalized_scores"
+      ],
+      "round_number": 1,
+      "round_winner_id_present": false,
+      "status": "result_ready"
+    },
+    {
+      "combat_winner": null,
+      "combat_winner_json_type": "null",
+      "explanation_present": true,
+      "is_draw": true,
+      "judge_payload_keys": [
+        "calls",
+        "combat",
+        "aggregation",
+        "explanation",
+        "frozen_inputs",
+        "mock_assisted",
+        "move_type_matchup",
+        "forfeit_profile_id",
+        "player_one_raw_scores",
+        "player_two_raw_scores",
+        "player_one_normalized_scores",
+        "player_two_normalized_scores"
+      ],
+      "round_number": 2,
+      "round_winner_id_present": false,
+      "status": "result_ready"
+    },
+    {
+      "combat_winner": 2,
+      "combat_winner_json_type": "number",
+      "explanation_present": true,
+      "is_draw": false,
+      "judge_payload_keys": [
+        "calls",
+        "combat",
+        "aggregation",
+        "explanation",
+        "frozen_inputs",
+        "mock_assisted",
+        "move_type_matchup",
+        "forfeit_profile_id",
+        "player_one_raw_scores",
+        "player_two_raw_scores",
+        "player_one_normalized_scores",
+        "player_two_normalized_scores"
+      ],
+      "round_number": 3,
+      "round_winner_id_present": false,
+      "status": "result_ready"
+    }
+  ],
+  "series_score": [
+    0,
+    2
+  ],
+  "suggestion_operations": [
+    {
+      "attempts": 1,
+      "composition_version": 3,
+      "credits_spent": 0,
+      "duration_seconds": 45.778,
+      "failure_code": "generation_failed",
+      "move_type": "attack",
+      "refunded": false,
+      "round_number": 1,
+      "status": "failed"
+    },
+    {
+      "attempts": 1,
+      "composition_version": 3,
+      "credits_spent": 0,
+      "duration_seconds": 45.754,
+      "failure_code": "generation_failed",
+      "move_type": "defense",
+      "refunded": false,
+      "round_number": 1,
+      "status": "failed"
+    },
+    {
+      "attempts": 1,
+      "composition_version": 3,
+      "credits_spent": 0,
+      "duration_seconds": 45.608,
+      "failure_code": "generation_failed",
+      "move_type": "finisher",
+      "refunded": false,
+      "round_number": 1,
+      "status": "failed"
+    },
+    {
+      "attempts": 1,
+      "composition_version": 3,
+      "credits_spent": 0,
+      "duration_seconds": 45.528,
+      "failure_code": "generation_failed",
+      "move_type": "attack",
+      "refunded": false,
+      "round_number": 2,
+      "status": "failed"
+    },
+    {
+      "attempts": 1,
+      "composition_version": 3,
+      "credits_spent": 0,
+      "duration_seconds": 45.453,
+      "failure_code": "generation_failed",
+      "move_type": "defense",
+      "refunded": false,
+      "round_number": 2,
+      "status": "failed"
+    },
+    {
+      "attempts": 1,
+      "composition_version": 3,
+      "credits_spent": 0,
+      "duration_seconds": 45.387,
+      "failure_code": "generation_failed",
+      "move_type": "finisher",
+      "refunded": false,
+      "round_number": 2,
+      "status": "failed"
+    }
+  ],
+  "video_jobs": [
+    {
+      "attempt_count": 1,
+      "credits_charged": 0,
+      "error_code": null,
+      "refunded": false,
+      "status": "succeeded"
+    }
+  ],
+  "wallet": {
+    "debit_credits": 0,
+    "debits": 0,
+    "refund_credits": 0,
+    "refunds": 0,
+    "transactions": 0
+  }
+}

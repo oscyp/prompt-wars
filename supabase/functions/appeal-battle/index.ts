@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     const db = createServiceClient();
     const { data: b, error: be } = await db
       .from('battles')
-      .select('player_one_id,player_two_id')
+      .select('player_one_id,player_two_id,judge_policy_version')
       .eq('id', battle_id)
       .single();
     if (be || !b || ![b.player_one_id, b.player_two_id].includes(userId))
@@ -42,6 +42,8 @@ Deno.serve(async (req) => {
     const availability = await reviewerAvailability(
       db,
       await originalModelsFor(db, battle_id),
+      true,
+      b.judge_policy_version ?? undefined,
     );
     const { data: eligible, error: ee } = await db.rpc('can_appeal', {
       p_profile_id: userId,

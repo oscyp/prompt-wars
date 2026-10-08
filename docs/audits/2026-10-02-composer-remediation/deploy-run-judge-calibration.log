@@ -1,0 +1,19 @@
+Deployed Functions on project uoyjhudegdpanrgllfoj: run-judge-calibration
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/uoyjhudegdpanrgllfoj/functions
+
+Uploading asset (run-judge-calibration): supabase/functions/run-judge-calibration/index.ts
+Uploading asset (run-judge-calibration): supabase/functions/_shared/providers.ts
+Uploading asset (run-judge-calibration): supabase/functions/_shared/video-constants.ts
+Uploading asset (run-judge-calibration): supabase/functions/_shared/prompt-situations.ts
+Uploading asset (run-judge-calibration): supabase/functions/_shared/judge-policy.ts
+Uploading asset (run-judge-calibration): supabase/functions/_shared/types.ts
+Uploading asset (run-judge-calibration): supabase/functions/_shared/appeals.ts
+Uploading asset (run-judge-calibration): supabase/functions/_shared/combat.ts
+Uploading asset (run-judge-calibration): supabase/functions/_shared/judge.ts
+Uploading asset (run-judge-calibration): supabase/functions/_shared/appeals-service.ts
+Uploading asset (run-judge-calibration): supabase/functions/_shared/utils.ts
+Uploading asset (run-judge-calibration): supabase/functions/_shared/round-forfeit.ts
+Uploading asset (run-judge-calibration): supabase/functions/_shared/judge-evaluation-runner.ts
+Uploading asset (run-judge-calibration): supabase/functions/_shared/judge-evaluation.ts
+Uploading asset (run-judge-calibration): supabase/functions/_shared/judge-evaluation-corpus.ts
+Uploading asset (run-judge-calibration): supabase/functions/_shared/judge-calibration-evidence.ts

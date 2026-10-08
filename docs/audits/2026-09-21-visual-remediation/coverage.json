@@ -1,0 +1,167 @@
+[
+  {
+    "screen": "Arena",
+    "route": "app/(tabs)/home.tsx",
+    "captures": [
+      "screenshots/01-arena-402.jpg",
+      "screenshots/12-arena-accessibility-402.jpg"
+    ],
+    "note": "Native; urgent practice row observed. Small authenticated and full accessibility matrix pending."
+  },
+  {
+    "screen": "Profile",
+    "route": "app/(tabs)/profile.tsx",
+    "captures": [
+      "screenshots/05-profile-402.jpg",
+      "screenshots/06-profile-rivals-402.jpg"
+    ],
+    "note": "Native; Rivals included. Independent Profile export remains covered by earlier work."
+  },
+  {
+    "screen": "Battles",
+    "route": "app/(tabs)/battles.tsx",
+    "captures": [
+      "screenshots/07-battles-402.jpg"
+    ],
+    "note": "Native bot/legacy rows; human Safety and frozen avatars pending."
+  },
+  {
+    "screen": "Rankings",
+    "route": "app/(tabs)/rankings.tsx",
+    "captures": [
+      "screenshots/28-rankings-season-402.jpg"
+    ],
+    "note": "Native ended season; populated 0–4 player variants automated/source only."
+  },
+  {
+    "screen": "Mode picker",
+    "route": "app/create.tsx",
+    "captures": [],
+    "note": "No fresh native capture; shared header/back and existing mode behavior reviewed."
+  },
+  {
+    "screen": "Matchmaking",
+    "route": "app/(battle)/matchmaking.tsx",
+    "captures": [],
+    "note": "Free practice reached workspace; transient matchmaking not captured."
+  },
+  {
+    "screen": "Battle workspace",
+    "route": "app/(battle)/prompt-entry.tsx",
+    "captures": [
+      "screenshots/09-active-workspace-402.jpg",
+      "screenshots/10-workspace-keyboard-402.jpg",
+      "screenshots/11-workspace-restored-tips-402.jpg"
+    ],
+    "note": "Previously source-only route captured in actual active round, including keyboard and restored draft."
+  },
+  {
+    "screen": "Waiting",
+    "route": "app/(battle)/waiting.tsx",
+    "captures": [],
+    "note": "No test prompt submitted; waiting/judging and offline states not freshly captured."
+  },
+  {
+    "screen": "Round result",
+    "route": "app/(battle)/round-result.tsx",
+    "captures": [],
+    "note": "No new round resolved; updated secondary presentation reviewed in source/tests."
+  },
+  {
+    "screen": "Series result",
+    "route": "app/(battle)/result.tsx",
+    "captures": [
+      "screenshots/08-series-result-402.jpg",
+      "screenshots/15-winner-fixture-402.jpg",
+      "screenshots/16-result-export-fixture-402.jpg",
+      "screenshots/17-no-contest-fixture-402.jpg",
+      "screenshots/23-winner-fixture-375.jpg"
+    ],
+    "note": "Real practice result plus separate component fixtures; live revised human outcome pending."
+  },
+  {
+    "screen": "Sign in",
+    "route": "app/(auth)/sign-in.tsx",
+    "captures": [
+      "screenshots/19-sign-in-375.jpg"
+    ],
+    "note": "Native small-phone default; no authentication submitted."
+  },
+  {
+    "screen": "Sign up",
+    "route": "app/(auth)/sign-up.tsx",
+    "captures": [
+      "screenshots/20-create-account-375.jpg",
+      "screenshots/21-create-account-accessibility-375.jpg"
+    ],
+    "note": "Native default/accessibility; no account created."
+  },
+  {
+    "screen": "Password reset",
+    "route": "app/(auth)/reset-password.tsx",
+    "captures": [],
+    "note": "Source/tests; no reset request or fresh native password-entry state."
+  },
+  {
+    "screen": "Welcome",
+    "route": "app/(onboarding)/welcome.tsx",
+    "captures": [],
+    "note": "Source/behavior tests; signed-in account already has a fighter, small phone is signed out."
+  },
+  {
+    "screen": "Create fighter",
+    "route": "app/(onboarding)/create-character.tsx",
+    "captures": [
+      "screenshots/18-creator-fixture-402.jpg"
+    ],
+    "note": "Shared preset/style fixture only; authenticated progression/grants not exercised."
+  },
+  {
+    "screen": "Edit Look",
+    "route": "app/(profile)/edit-character.tsx",
+    "captures": [
+      "screenshots/04-signature-shortcut-402.jpg"
+    ],
+    "note": "Real explicit Signature colour entry; existing local draft retained. No draw/save."
+  },
+  {
+    "screen": "Cosmetic Shop",
+    "route": "app/(profile)/shop.tsx",
+    "captures": [
+      "screenshots/03-shop-402.jpg",
+      "screenshots/04-signature-shortcut-402.jpg"
+    ],
+    "note": "Native equipment summary and shortcut. Purchase/equip recovery not induced."
+  },
+  {
+    "screen": "Stats",
+    "route": "app/(profile)/stats.tsx",
+    "captures": [],
+    "note": "Source/header checks; no fresh native capture this remediation."
+  },
+  {
+    "screen": "Wallet",
+    "route": "app/(profile)/wallet.tsx",
+    "captures": [
+      "screenshots/02-wallet-402.jpg",
+      "screenshots/29-wallet-packs-402.jpg"
+    ],
+    "note": "Native heading/info/localized packs; pending purchases/provider failures not induced."
+  },
+  {
+    "screen": "Settings",
+    "route": "app/(profile)/settings.tsx",
+    "captures": [
+      "screenshots/13-settings-banner-402.jpg"
+    ],
+    "note": "Actual notification warning with separate action; settings unchanged."
+  },
+  {
+    "screen": "Blocked users",
+    "route": "app/(profile)/blocked.tsx",
+    "captures": [
+      "screenshots/24-feedback-fixture-375.jpg"
+    ],
+    "note": "Shared feedback fixture only; no live block/unblock changes."
+  }
+]

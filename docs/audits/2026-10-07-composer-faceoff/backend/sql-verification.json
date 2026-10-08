@@ -1,0 +1,25 @@
+{
+  "verifiedAt": "2026-10-07T16:21:09.533767+00:00",
+  "migration": "supabase/migrations/20261007154542_paid_composer_step_rerolls.sql",
+  "sha256": "68b454c516ccc4991ae643ef3e9cec1ae3e1c2ee4e248b8509487cdc26573358",
+  "rollbackSuite": "passed",
+  "isolatedClusterSuites": [
+    "composer_step_suggestions.sql",
+    "composer_completions.sql",
+    "composer_suggestions.sql"
+  ],
+  "migrationReapply": "passed",
+  "independentConnectionRaceGroups": 12,
+  "raceResult": "passed",
+  "productionDatabaseModified": true,
+  "existingLocalDatabaseWrites": "transactional tests rolled back; schema dump read only",
+  "temporaryCluster": "stopped and removed by finally",
+  "providerCalls": 0,
+  "buildsCreated": 0,
+  "independentReview": "completed; paid step and legacy action recovery identity/terminal refund regressions fixed; no remaining P1/P2 findings",
+  "productionChanges": [
+    "Authorized migration 20261007154542 applied after local verification"
+  ],
+  "verificationTestsProductionWrites": false,
+  "hostedVerification": "Migration recorded; private-table RLS, service-only RPCs, no Realtime publication, minute sweeper and one-credit price confirmed by read-only SQL."
+}

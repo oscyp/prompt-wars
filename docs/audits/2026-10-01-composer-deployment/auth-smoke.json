@@ -1,0 +1,685 @@
+{
+  "base_url": "https://uoyjhudegdpanrgllfoj.supabase.co",
+  "request_count": 38,
+  "no_retries": true,
+  "concurrency": 4,
+  "counts": {
+    "application_auth_denial": 24,
+    "known_legacy_pre_mutation_rejection_500": 8,
+    "gateway_auth_denial_handler_not_exercised": 4,
+    "dev_endpoint_disabled": 2
+  },
+  "passed": true,
+  "results": [
+    {
+      "function": "generate-move-suggestions",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 401,
+        "body": {
+          "ok": false,
+          "error": {
+            "code": "unauthorized",
+            "message": "authentication required"
+          }
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 401,
+      "body": {
+        "ok": false,
+        "error": {
+          "code": "unauthorized",
+          "message": "authentication required"
+        }
+      }
+    },
+    {
+      "function": "generate-move-suggestions",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 401,
+        "body": {
+          "ok": false,
+          "error": {
+            "code": "unauthorized",
+            "message": "authentication required"
+          }
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 401,
+      "body": {
+        "ok": false,
+        "error": {
+          "code": "unauthorized",
+          "message": "authentication required"
+        }
+      }
+    },
+    {
+      "function": "prefetch-move-suggestions",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 403,
+      "body": {
+        "error": "Service role required"
+      }
+    },
+    {
+      "function": "prefetch-move-suggestions",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 403,
+      "body": {
+        "error": "Service role required"
+      }
+    },
+    {
+      "function": "run-judge-calibration",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 403,
+      "body": {
+        "error": "Service role required"
+      }
+    },
+    {
+      "function": "run-judge-calibration",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 403,
+      "body": {
+        "error": "Service role required"
+      }
+    },
+    {
+      "function": "resolve-appeal",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 403,
+      "body": {
+        "error": "Service role required"
+      }
+    },
+    {
+      "function": "resolve-appeal",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 403,
+      "body": {
+        "error": "Service role required"
+      }
+    },
+    {
+      "function": "appeal-battle",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 500,
+        "body": {
+          "error": "Unauthorized"
+        },
+        "note": "known legacy catch; not clean HTTP auth status"
+      },
+      "ok": true,
+      "classification": "known_legacy_pre_mutation_rejection_500",
+      "status": 500,
+      "body": {
+        "error": "Unauthorized"
+      }
+    },
+    {
+      "function": "appeal-battle",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 500,
+        "body": {
+          "error": "Unauthorized"
+        },
+        "note": "known legacy catch; not clean HTTP auth status"
+      },
+      "ok": true,
+      "classification": "known_legacy_pre_mutation_rejection_500",
+      "status": 500,
+      "body": {
+        "error": "Unauthorized"
+      }
+    },
+    {
+      "function": "round-resolve",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 403,
+      "body": {
+        "error": "Service role required"
+      }
+    },
+    {
+      "function": "round-resolve",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 403,
+      "body": {
+        "error": "Service role required"
+      }
+    },
+    {
+      "function": "resolve-battle",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role or battle participant required"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 403,
+      "body": {
+        "error": "Service role or battle participant required"
+      }
+    },
+    {
+      "function": "resolve-battle",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role or battle participant required"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 403,
+      "body": {
+        "error": "Service role or battle participant required"
+      }
+    },
+    {
+      "function": "process-video-job",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 403,
+      "body": {
+        "error": "Service role required"
+      }
+    },
+    {
+      "function": "process-video-job",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 403,
+      "body": {
+        "error": "Service role required"
+      }
+    },
+    {
+      "function": "generate-tier0-reveal",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "gateway_auth_denial_handler_not_exercised",
+      "status": 401,
+      "body": {
+        "code": "UNAUTHORIZED_NO_AUTH_HEADER",
+        "message": "Missing authorization header"
+      }
+    },
+    {
+      "function": "generate-tier0-reveal",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "gateway_auth_denial_handler_not_exercised",
+      "status": 401,
+      "body": {
+        "code": "UNAUTHORIZED_INVALID_JWT_FORMAT",
+        "message": "Invalid JWT"
+      }
+    },
+    {
+      "function": "dev-generate-video",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 404,
+        "body": {
+          "error": "Not found"
+        },
+        "note": "production dev endpoint disabled"
+      },
+      "ok": true,
+      "classification": "dev_endpoint_disabled",
+      "status": 404,
+      "body": {
+        "error": "Not found"
+      }
+    },
+    {
+      "function": "dev-generate-video",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 404,
+        "body": {
+          "error": "Not found"
+        },
+        "note": "production dev endpoint disabled"
+      },
+      "ok": true,
+      "classification": "dev_endpoint_disabled",
+      "status": 404,
+      "body": {
+        "error": "Not found"
+      }
+    },
+    {
+      "function": "request-video-upgrade",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 500,
+        "body": {
+          "error": "Unauthorized"
+        },
+        "note": "known legacy catch; not clean HTTP auth status"
+      },
+      "ok": true,
+      "classification": "known_legacy_pre_mutation_rejection_500",
+      "status": 500,
+      "body": {
+        "error": "Unauthorized"
+      }
+    },
+    {
+      "function": "request-video-upgrade",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 500,
+        "body": {
+          "error": "Unauthorized"
+        },
+        "note": "known legacy catch; not clean HTTP auth status"
+      },
+      "ok": true,
+      "classification": "known_legacy_pre_mutation_rejection_500",
+      "status": 500,
+      "body": {
+        "error": "Unauthorized"
+      }
+    },
+    {
+      "function": "sign-battle-portraits",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 401,
+        "body": {
+          "error": "Unauthorized"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 401,
+      "body": {
+        "error": "Unauthorized"
+      }
+    },
+    {
+      "function": "sign-battle-portraits",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 401,
+        "body": {
+          "error": "Unauthorized"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 401,
+      "body": {
+        "error": "Unauthorized"
+      }
+    },
+    {
+      "function": "expire-battles",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "gateway_auth_denial_handler_not_exercised",
+      "status": 401,
+      "body": {
+        "code": "UNAUTHORIZED_NO_AUTH_HEADER",
+        "message": "Missing authorization header"
+      }
+    },
+    {
+      "function": "expire-battles",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "gateway_auth_denial_handler_not_exercised",
+      "status": 401,
+      "body": {
+        "code": "UNAUTHORIZED_INVALID_JWT_FORMAT",
+        "message": "Invalid JWT"
+      }
+    },
+    {
+      "function": "leave-battle",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 500,
+        "body": {
+          "error": "Could not leave the battle"
+        },
+        "note": "known legacy catch; not clean HTTP auth status"
+      },
+      "ok": true,
+      "classification": "known_legacy_pre_mutation_rejection_500",
+      "status": 500,
+      "body": {
+        "error": "Could not leave the battle"
+      }
+    },
+    {
+      "function": "leave-battle",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 500,
+        "body": {
+          "error": "Could not leave the battle"
+        },
+        "note": "known legacy catch; not clean HTTP auth status"
+      },
+      "ok": true,
+      "classification": "known_legacy_pre_mutation_rejection_500",
+      "status": 500,
+      "body": {
+        "error": "Could not leave the battle"
+      }
+    },
+    {
+      "function": "battle-advance",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 403,
+      "body": {
+        "error": "Service role required"
+      }
+    },
+    {
+      "function": "battle-advance",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 403,
+        "body": {
+          "error": "Service role required"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 403,
+      "body": {
+        "error": "Service role required"
+      }
+    },
+    {
+      "function": "record-funnel-event",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 401,
+        "body": {
+          "ok": false,
+          "error": {
+            "code": "unauthorized",
+            "message": "authentication required"
+          }
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 401,
+      "body": {
+        "ok": false,
+        "error": {
+          "code": "unauthorized",
+          "message": "authentication required"
+        }
+      }
+    },
+    {
+      "function": "record-funnel-event",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 401,
+        "body": {
+          "ok": false,
+          "error": {
+            "code": "unauthorized",
+            "message": "authentication required"
+          }
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 401,
+      "body": {
+        "ok": false,
+        "error": {
+          "code": "unauthorized",
+          "message": "authentication required"
+        }
+      }
+    },
+    {
+      "function": "submit-prompt",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 500,
+        "body": {
+          "error": "Unauthorized"
+        },
+        "note": "known legacy catch; not clean HTTP auth status"
+      },
+      "ok": true,
+      "classification": "known_legacy_pre_mutation_rejection_500",
+      "status": 500,
+      "body": {
+        "error": "Unauthorized"
+      }
+    },
+    {
+      "function": "submit-prompt",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 500,
+        "body": {
+          "error": "Unauthorized"
+        },
+        "note": "known legacy catch; not clean HTTP auth status"
+      },
+      "ok": true,
+      "classification": "known_legacy_pre_mutation_rejection_500",
+      "status": 500,
+      "body": {
+        "error": "Unauthorized"
+      }
+    },
+    {
+      "function": "matchmaking",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 401,
+        "body": {
+          "error": "Unauthorized"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 401,
+      "body": {
+        "error": "Unauthorized"
+      }
+    },
+    {
+      "function": "matchmaking",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 401,
+        "body": {
+          "error": "Unauthorized"
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 401,
+      "body": {
+        "error": "Unauthorized"
+      }
+    },
+    {
+      "function": "tutorial",
+      "variant": "missing_auth",
+      "expected": {
+        "status": 401,
+        "body": {
+          "ok": false,
+          "error": {
+            "code": "unauthorized",
+            "message": "authentication required"
+          }
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 401,
+      "body": {
+        "ok": false,
+        "error": {
+          "code": "unauthorized",
+          "message": "authentication required"
+        }
+      }
+    },
+    {
+      "function": "tutorial",
+      "variant": "invalid_auth",
+      "expected": {
+        "status": 401,
+        "body": {
+          "ok": false,
+          "error": {
+            "code": "unauthorized",
+            "message": "authentication required"
+          }
+        }
+      },
+      "ok": true,
+      "classification": "application_auth_denial",
+      "status": 401,
+      "body": {
+        "ok": false,
+        "error": {
+          "code": "unauthorized",
+          "message": "authentication required"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,2606 @@
+--- baseline/app/(battle)/prompt-entry.tsx
++++ current/app/(battle)/prompt-entry.tsx
+@@ -31,6 +31,8 @@
+   TouchableOpacity,
+   ActivityIndicator,
+   AccessibilityInfo,
++  BackHandler,
++  findNodeHandle,
+   Alert,
+   KeyboardAvoidingView,
+   Platform,
+@@ -101,8 +103,15 @@
+ import {
+   getFallbackMoveSuggestions,
+   getAllFallbackMoveSuggestions,
+-  getSituationAffordances,
+ } from '@/utils/promptSituations';
++import {
++  type ComposerStep,
++  composerCanAdvanceAction,
++  composerCanReview,
++  restoreComposerStep,
++  normalizeComposerStep,
++  composerBackStep,
++} from '@/utils/promptComposerFlow';
+ import { PromptLockConfirmation } from '@/components/battle/PromptLockConfirmation';
+ import {
+   PromptComposerPanel,
+@@ -208,23 +217,6 @@
+         () => {},
+       );
+   }, []);
+-  const revealComposerAction = useCallback(
+-    (anchor: View | null) => {
+-      const content = workspaceContent.current;
+-      if (anchor && content)
+-        anchor.measureLayout(
+-          content,
+-          (_x, y) => {
+-            workspaceScroll.current?.scrollTo({
+-              y: Math.max(0, y - 8),
+-              animated: !reduceMotion,
+-            });
+-          },
+-          () => {},
+-        );
+-    },
+-    [reduceMotion],
+-  );
+   useEffect(() => {
+     if (editorRef.current?.isFocused())
+       workspaceScroll.current?.scrollTo({
+@@ -317,18 +309,26 @@
+     enabled: composerEnabled,
+   });
+   const composer = usePromptComposer(user?.id, draftScope);
++  const [savedStep, setSavedStep] = useState<ComposerStep>('action');
++  const composerStep = normalizeComposerStep(savedStep, composer.state);
++  const stepHeaderRef = useRef<View>(null);
++  const [aiIdeasOpen, setAiIdeasOpen] = useState(false);
+   const moveType = composer.state.moveType;
+   const composerDispatch = composer.dispatch;
+   const setMoveType = useCallback(
+-    (moveType: MoveType | null) =>
+-      composerDispatch({ type: 'move-type', moveType }),
+-    [composerDispatch],
++    (moveType: MoveType | null) => {
++      if (
++        authoringBlockedRef.current ||
++        authoringScopeRef.current !== draftScope
++      )
++        return;
++      composerDispatch({ type: 'move-type', moveType });
++    },
++    [composerDispatch, draftScope],
+   );
+   const [viewedBank, setViewedBank] = useState<MoveType | null>(null);
+   useEffect(() => setViewedBank(null), [draftScope]);
+   const [ideasRevision, setIdeasRevision] = useState(0);
+-  const [affordanceId, setAffordanceId] = useState<string | null>(null);
+-  useEffect(() => setAffordanceId(null), [draftScope]);
+   const lockFocusRef = useRef<View>(null);
+   const [lockPreview, setLockPreview] = useState<{
+     scope: string;
+@@ -345,22 +345,40 @@
+   const customText = composer.state.finalText;
+   const setCustomText = useCallback(
+     (text: string) => {
++      if (
++        authoringBlockedRef.current ||
++        authoringScopeRef.current !== draftScope
++      )
++        return;
+       editComposer(text);
+       trackComposer('composer_changed');
+       trackComposer('composer_full_edit', 'custom');
+     },
+-    [editComposer, trackComposer],
++    [editComposer, trackComposer, draftScope],
+   );
+   const isCustom = composer.state.mode === 'write';
+   const setIsCustom = useCallback(
+     (value: boolean) => {
++      if (
++        authoringBlockedRef.current ||
++        authoringScopeRef.current !== draftScope
++      )
++        return;
+       if (composerEnabled) {
++        Keyboard.dismiss();
++        setSavedStep(value ? 'write' : 'action');
+         setComposerMode(value ? 'write' : 'build');
+         trackComposer('composer_mode_selected', value ? 'write' : 'builder');
+       } else
+         composerDispatch({ type: 'mode', mode: value ? 'write' : 'build' });
+     },
+-    [composerEnabled, setComposerMode, composerDispatch, trackComposer],
++    [
++      composerEnabled,
++      setComposerMode,
++      composerDispatch,
++      trackComposer,
++      draftScope,
++    ],
+   );
+ 
+   const [acceptedSubmission, setAcceptedSubmission] = useState<{
+@@ -393,7 +411,7 @@
+       : composerEnabled
+         ? (preferredMode ?? 'build')
+         : 'write';
+-    restoreComposer(
++    const snapshot =
+       saved?.composer && composerEnabled
+         ? saved.composer
+         : {
+@@ -405,8 +423,10 @@
+                 ? (moveTypeParam as MoveType)
+                 : null),
+             detached: Boolean(saved?.text),
+-          },
+-    );
++          };
++    restoreComposer(snapshot);
++    setSavedStep(restoreComposerStep(snapshot, saved?.composerStep));
++    setAiIdeasOpen(false);
+   }, [
+     draft.ready,
+     draft.draft,
+@@ -457,6 +477,13 @@
+     composerDispatch,
+   ]);
+ 
++  const authoringRoundClosed = Boolean(
++    rtBattle &&
++    (CLOSED_BATTLE_STATUSES.has(rtBattle.status) ||
++      (isBo3 && roundData && CLOSED_ROUND_STATUSES.has(roundData.status)) ||
++      (rtBattle.current_round ?? 1) > roundNumber),
++  );
++  const internalBackRef = useRef<() => boolean>(() => false);
+   const waitingHref =
+     `/(battle)/waiting?battleId=${battleId}&round=${roundNumber}` as const;
+ 
+@@ -478,9 +505,10 @@
+       rtBattle?.player_two_id || rtBattle?.is_player_two_bot,
+     ),
+     beforeExit: draft.flush,
++    onBack: () => internalBackRef.current(),
+   });
+ 
+-  const { exitTo } = leave;
++  const { exitTo, park } = leave;
+   const isPlayerOne = rtBattle?.player_one_id === user?.id;
+   const myHp = isPlayerOne ? rtBattle?.player_one_hp : rtBattle?.player_two_hp;
+   const myHpMax = isPlayerOne
+@@ -513,7 +541,8 @@
+     [prompts, user?.id, roundNumber],
+   );
+   const alreadyLocked = Boolean(myPrompt?.is_locked);
+-  authoringBlockedRef.current = alreadyLocked || submitAccepted || isSubmitting;
++  authoringBlockedRef.current =
++    alreadyLocked || submitAccepted || isSubmitting || authoringRoundClosed;
+   const lockedMove: MoveType | null =
+     myPrompt?.move_type ??
+     (submitAccepted ? acceptedSubmission.move : moveType);
+@@ -562,6 +591,7 @@
+     enabled:
+       composerEnabled &&
+       Boolean(situation?.id) &&
++      !authoringRoundClosed &&
+       draft.ready &&
+       restoredScope === draftScope &&
+       !alreadyLocked &&
+@@ -653,6 +683,14 @@
+     } else trackChange();
+   };
+ 
++  const undoComposer = () => {
++    if (
++      !authoringBlockedRef.current &&
++      authoringScopeRef.current === draftScope
++    )
++      composerDispatch({ type: 'undo' });
++  };
++
+   const suggestionPurchaseRef = useRef({
+     reroll: moveSuggestions.reroll,
+     price: rerollCredits,
+@@ -753,7 +791,6 @@
+     [suggestions, customText],
+   );
+ 
+-  const [draftSaving, setDraftSaving] = useState(false);
+   useEffect(() => {
+     if (
+       !draft.ready ||
+@@ -762,25 +799,18 @@
+       submitAccepted
+     )
+       return;
+-    let active = true;
+-    setDraftSaving(true);
+     void saveDraft({
+       text: customText,
+       move: moveType,
+       editMode: isCustom,
+       ...(composerEnabled
+-        ? { composer: composerDraftSnapshot(composer.state) }
++        ? { composer: composerDraftSnapshot(composer.state), composerStep }
+         : {}),
+       selectedSuggestion:
+         selectedSuggestion >= 0
+           ? (suggestions[selectedSuggestion]?.body ?? null)
+           : null,
+-    }).finally(() => {
+-      if (active) setDraftSaving(false);
+     });
+-    return () => {
+-      active = false;
+-    };
+   }, [
+     draft.ready,
+     saveDraft,
+@@ -795,6 +825,7 @@
+     submitAccepted,
+     composerEnabled,
+     composer.state,
++    composerStep,
+   ]);
+   useEffect(() => {
+     if (alreadyLocked) void clearDraft();
+@@ -804,6 +835,9 @@
+   // the battle ended, or the server opened a later round. Hand off to waiting,
+   // which owns the "where does this battle go next" routing, once.
+   const redirectedRef = useRef(false);
++  useEffect(() => {
++    redirectedRef.current = false;
++  }, [draftScope]);
+   useEffect(() => {
+     if (!battleId || !rtBattle || redirectedRef.current) return;
+     const battleClosed = CLOSED_BATTLE_STATUSES.has(rtBattle.status);
+@@ -812,7 +846,9 @@
+     const roundMovedOn = (rtBattle.current_round ?? 1) > roundNumber;
+     if (battleClosed || roundClosed || roundMovedOn) {
+       redirectedRef.current = true;
++      const closingScope = draftScope;
+       void clearDraft().then((deleted) => {
++        if (authoringScopeRef.current !== closingScope) return;
+         if (deleted) exitTo(() => router.replace(waitingHref));
+         else redirectedRef.current = false;
+       });
+@@ -827,6 +863,7 @@
+     waitingHref,
+     clearDraft,
+     exitTo,
++    draftScope,
+   ]);
+ 
+   useEffect(() => {
+@@ -1114,7 +1151,7 @@
+     [suggestions, customText, applySuggestion],
+   );
+ 
+-  // V2 uses tap + confirmation; legacy keeps the existing hold ceremony.
++  // The review uses the existing hold ceremony; screen readers confirm a snapshot.
+   const holdProgress = useSharedValue(0);
+   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+@@ -1164,8 +1201,12 @@
+     submitAccepted ||
+     deadlinePassed ||
+     alreadyLocked ||
++    authoringRoundClosed ||
++    !presentationActive ||
++    (composerEnabled && composerStep !== 'review') ||
+     !moveType ||
+     !draft.ready ||
++    restoredScope !== draftScope ||
+     !rtBattle ||
+     Boolean(validatePromptText(customText)) ||
+     (composerEnabled && (!situation || !composerCanSubmit(composer.state)));
+@@ -1176,17 +1217,65 @@
+     setHolding(false);
+     cancelAnimation(holdProgress);
+     holdProgress.value = 0;
+-  }, [customText, moveType, lockDisabled, holdProgress]);
+-
++    setLockPreview(null);
++  }, [
++    customText,
++    moveType,
++    lockDisabled,
++    holdProgress,
++    composerStep,
++    isCustom,
++    draftScope,
++    screenReaderEnabled,
++  ]);
++
++  authoringBlockedRef.current =
++    alreadyLocked ||
++    submitAccepted ||
++    isSubmitting ||
++    authoringRoundClosed ||
++    !presentationActive ||
++    !draft.ready ||
++    restoredScope !== draftScope ||
++    deadlinePassed ||
++    (Number.isFinite(deadlineMs) && Date.now() >= deadlineMs);
++  const currentLockRef = useRef({
++    scope: draftScope,
++    text: customText,
++    moveType,
++    step: composerStep,
++    mode: composer.state.mode,
++    screenReaderEnabled,
++    allowed: !lockDisabled,
++  });
++  currentLockRef.current = {
++    scope: draftScope,
++    text: customText,
++    moveType,
++    step: composerStep,
++    mode: composer.state.mode,
++    screenReaderEnabled,
++    allowed: !lockDisabled,
++  };
+   const lockDisabledRef = useRef(lockDisabled);
+   lockDisabledRef.current = lockDisabled;
+ 
+   const handleSubmit = async () => {
++    const current = currentLockRef.current;
+     if (
+       !battleId ||
+       !moveType ||
++      current.scope !== draftScope ||
++      current.text !== customText ||
++      current.moveType !== moveType ||
++      current.step !== composerStep ||
++      current.mode !== composer.state.mode ||
++      current.screenReaderEnabled !== screenReaderEnabled ||
++      !current.allowed ||
+       authoringScopeRef.current !== draftScope ||
+       lockDisabledRef.current ||
++      authoringBlockedRef.current ||
++      (Number.isFinite(deadlineMs) && Date.now() >= deadlineMs) ||
+       submissionInFlight.current
+     )
+       return;
+@@ -1242,7 +1331,9 @@
+           {
+             text: 'OK',
+             onPress: () => {
++              if (authoringScopeRef.current !== submission.scope) return;
+               void clearDraft().then((deleted) => {
++                if (authoringScopeRef.current !== submission.scope) return;
+                 if (deleted) exitTo(() => router.replace(waitingHref));
+               });
+             },
+@@ -1263,6 +1354,45 @@
+     }
+   };
+ 
++  const submitLatestRef = useRef(handleSubmit);
++  submitLatestRef.current = handleSubmit;
++  const goToStep = useCallback((step: ComposerStep) => {
++    Keyboard.dismiss();
++    setSavedStep(step);
++  }, []);
++  const goInternalBack = () => {
++    if (!composerEnabled || alreadyLocked || submitAccepted) return false;
++    if (keyboardVisible) {
++      Keyboard.dismiss();
++      return true;
++    }
++    const previous = composerBackStep(composerStep, composer.state);
++    if (!previous) return false;
++    if (previous === 'write') setIsCustom(true);
++    else if (previous === 'action' && isCustom) setIsCustom(false);
++    goToStep(previous);
++    return true;
++  };
++  internalBackRef.current = goInternalBack;
++  const goBack = () => {
++    if (!goInternalBack()) park();
++  };
++  useEffect(() => {
++    if (!composerEnabled || !presentationActive) return;
++    const listener = BackHandler.addEventListener('hardwareBackPress', () => {
++      if (!internalBackRef.current()) park();
++      return true;
++    });
++    return () => listener.remove();
++  }, [composerEnabled, presentationActive, park]);
++  useEffect(() => {
++    if (!composerEnabled || restoredScope !== draftScope) return;
++    Keyboard.dismiss();
++    workspaceScroll.current?.scrollTo({ y: 0, animated: false });
++    const node = findNodeHandle(stepHeaderRef.current);
++    if (node) AccessibilityInfo.setAccessibilityFocus(node);
++  }, [composerEnabled, composerStep, restoredScope, draftScope]);
++
+   const flashHoldHint = () => {
+     setHintFlash(true);
+     if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+@@ -1270,7 +1400,9 @@
+   };
+ 
+   const startHold = () => {
+-    if (lockDisabled || holdTimerRef.current) return;
++    const started = currentLockRef.current;
++    if (!started.allowed || started.screenReaderEnabled || holdTimerRef.current)
++      return;
+     if (!validateSelection()) return;
+     setHolding(true);
+     hapticSelection();
+@@ -1287,9 +1419,21 @@
+     }
+     holdTimerRef.current = setTimeout(() => {
+       holdTimerRef.current = null;
++      const current = currentLockRef.current;
++      if (
++        !current.allowed ||
++        current.scope !== started.scope ||
++        current.text !== started.text ||
++        current.moveType !== started.moveType ||
++        current.step !== started.step ||
++        current.mode !== started.mode ||
++        current.screenReaderEnabled !== started.screenReaderEnabled ||
++        (Number.isFinite(deadlineMs) && Date.now() >= deadlineMs)
++      )
++        return;
+       if (reduceMotion) holdProgress.value = 1;
+       hapticImpact(ImpactFeedbackStyle.Heavy);
+-      handleSubmit();
++      void submitLatestRef.current();
+     }, HOLD_DURATION_MS);
+   };
+ 
+@@ -1329,22 +1473,24 @@
+ 
+   const lockReason = submitAccepted
+     ? 'Your prompt is locked in'
+-    : deadlinePassed
+-      ? 'The deadline for this round has passed'
+-      : !draft.ready
+-        ? 'Restore your draft before submitting'
+-        : !rtBattle
+-          ? 'Waiting for battle details'
+-          : !moveType
+-            ? 'Choose a move before locking in'
+-            : composerEnabled && !situation
+-              ? 'Waiting for the shared situation'
+-              : composerEnabled && composer.state.pending
+-                ? 'Complete your action and intention, or undo the changes'
+-                : validatePromptText(customText)?.message;
++    : authoringRoundClosed
++      ? 'This round is closed'
++      : deadlinePassed
++        ? 'The deadline for this round has passed'
++        : !draft.ready
++          ? 'Restore your draft before submitting'
++          : !rtBattle
++            ? 'Waiting for battle details'
++            : !moveType
++              ? 'Choose a move before locking in'
++              : composerEnabled && !situation
++                ? 'Waiting for the shared situation'
++                : composerEnabled && composer.state.pending
++                  ? 'Complete your action and intention, or undo the changes'
++                  : validatePromptText(customText)?.message;
+   const holdHintText =
+     lockReason ??
+-    (hintFlash && !composerEnabled && !screenReaderEnabled
++    (hintFlash && !screenReaderEnabled
+       ? 'Keep holding to lock in'
+       : submitFailed
+         ? 'Couldn’t submit. Your draft is kept; try again.'
+@@ -1399,7 +1545,10 @@
+       {/* Parking preserves the draft; forfeiting remains a separate action. */}
+       <BattleBackdrop theme={battle?.theme} quiet />
+       <BattleHeader
+-        onPark={leave.park}
++        onPark={goBack}
++        parkLabel={
++          composerEnabled && composerStep !== 'action' ? 'Back' : 'Arena'
++        }
+         onLeave={() => leave.confirmLeave()}
+         leaveLabel={leaveLabel}
+         leaveDisabled={leave.isLeaving || !leave.canForfeit}
+@@ -1426,8 +1575,16 @@
+             accessibilityRole="header"
+             style={{
+               textAlign: 'center',
+-              fontSize: keyboardVisible ? 22 : 34,
+-              lineHeight: keyboardVisible ? 28 : 40,
++              fontSize:
++                keyboardVisible ||
++                (composerEnabled && composerStep !== 'action')
++                  ? 22
++                  : 34,
++              lineHeight:
++                keyboardVisible ||
++                (composerEnabled && composerStep !== 'action')
++                  ? 28
++                  : 40,
+             }}
+           >
+             {isBo3
+@@ -1444,7 +1601,9 @@
+           </Text>
+           {/* You-vs-opponent context strip (replaces the old screen title). */}
+           <VersusStrip
+-            compact={keyboardVisible}
++            compact={
++              keyboardVisible || (composerEnabled && composerStep !== 'action')
++            }
+             series={
+               isBo3 &&
+               rtBattle?.player_one_rounds_won != null &&
+@@ -1492,14 +1651,9 @@
+           {composerEnabled ? (
+             <BattleSituation
+               theme={battle?.theme}
+-              compact={keyboardVisible}
++              compact={keyboardVisible || composerStep !== 'action'}
++              collapsible={composerStep !== 'action'}
+               situation={situation}
+-              affordances={getSituationAffordances(situation)}
+-              selectedAffordance={affordanceId}
+-              onSelectAffordance={(id) => {
+-                setAffordanceId(id);
+-                trackComposer('composer_inspiration_selected');
+-              }}
+             />
+           ) : null}
+           <BattleDeadline deadline={myDeadline} />
+@@ -1539,7 +1693,9 @@
+             <TouchableOpacity
+               accessibilityRole="button"
+               onPress={async () => {
++                if (authoringScopeRef.current !== draftScope) return;
+                 if (!(await draft.retry())) return;
++                if (authoringScopeRef.current !== draftScope) return;
+                 const closed =
+                   rtBattle &&
+                   (CLOSED_BATTLE_STATUSES.has(rtBattle.status) ||
+@@ -1614,12 +1770,11 @@
+               composerVersion={composerEnabled ? 2 : 1}
+               stage={
+                 composerEnabled
+-                  ? !composer.state.actionText && !customText
+-                    ? 'theme'
+-                    : composer.state.pending ||
+-                        !composerCanSubmit(composer.state)
+-                      ? 'write'
+-                      : 'lock'
++                  ? composerStep === 'review'
++                    ? 'lock'
++                    : composerStep === 'action'
++                      ? 'theme'
++                      : 'write'
+                   : !moveType
+                     ? 'theme'
+                     : customText.trim().length === 0
+@@ -1639,12 +1794,6 @@
+                   }
+                 }}
+               />
+-            ) : isCustom ? (
+-              <ComposerMoveTypeControl
+-                value={moveType}
+-                disabled={isSubmitting || submitAccepted}
+-                onChange={setMoveType}
+-              />
+             ) : null}
+             {composerEnabled && battleId ? (
+               <OpponentMoveHistory
+@@ -1653,71 +1802,130 @@
+                 isBot={Boolean(rtBattle?.is_player_two_bot)}
+               />
+             ) : null}
+-            {/* One authoring selector, with the same editor kept mounted below. */}
+-            <View
+-              style={[
+-                styles.segmented,
+-                { backgroundColor: colors.card },
+-                largeText && { flexDirection: 'column', alignItems: 'stretch' },
+-              ]}
+-            >
+-              <TouchableOpacity
++            {composerEnabled ? (
++              <View
++                ref={stepHeaderRef}
++                accessible
++                accessibilityRole="header"
++                accessibilityLabel={
++                  composerStep === 'write'
++                    ? 'Write your own move'
++                    : `Step ${composerStep === 'action' ? 1 : composerStep === 'intent' ? 2 : 3} of 3. ${composerStep === 'action' ? 'What do you do?' : composerStep === 'intent' ? 'What are you trying to achieve?' : 'Your move'}`
++                }
++                style={{ marginBottom: 16 }}
++              >
++                {composerStep === 'write' ? (
++                  <Text variant="label">Write your own</Text>
++                ) : (
++                  <View
++                    style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}
++                  >
++                    {(['action', 'intent', 'review'] as const).map(
++                      (step, index) => (
++                        <Text
++                          key={step}
++                          variant="label"
++                          style={{
++                            color:
++                              composerStep === step
++                                ? colors.primary
++                                : colors.textSecondary,
++                          }}
++                        >
++                          {composerStep === step ? '● ' : ''}
++                          {index + 1}.{' '}
++                          {step === 'action'
++                            ? 'Action'
++                            : step === 'intent'
++                              ? 'Intention'
++                              : 'Review'}
++                        </Text>
++                      ),
++                    )}
++                  </View>
++                )}
++              </View>
++            ) : null}
++            {/* Authoring choice on the entry views; the editor remains mounted. */}
++            {(!composerEnabled ||
++              composerStep === 'action' ||
++              composerStep === 'write') && (
++              <View
+                 style={[
+-                  styles.segment,
+-                  !isCustom && { backgroundColor: colors.primary },
++                  styles.segmented,
++                  { backgroundColor: colors.card },
++                  largeText && {
++                    flexDirection: 'column',
++                    alignItems: 'stretch',
++                  },
+                 ]}
+-                onPress={() => {
+-                  hapticSelection();
+-                  setIsCustom(false);
+-                }}
+-                accessibilityLabel={
+-                  composerEnabled ? 'Build move' : 'Use a generated idea'
+-                }
+-                accessibilityRole="button"
+-                accessibilityState={{ selected: !isCustom }}
+               >
+-                <GameSymbol
+-                  name="sparkles"
+-                  size={16}
+-                  color={!isCustom ? primaryInk : colors.textSecondary}
+-                />
+-                <Text
++                <TouchableOpacity
+                   style={[
+-                    styles.segmentText,
+-                    { color: !isCustom ? primaryInk : colors.text },
++                    styles.segment,
++                    !isCustom && { backgroundColor: colors.primary },
+                   ]}
++                  onPress={() => {
++                    hapticSelection();
++                    setIsCustom(false);
++                  }}
++                  accessibilityLabel={
++                    composerEnabled ? 'Build move' : 'Use a generated idea'
++                  }
++                  accessibilityRole="button"
++                  disabled={authoringBlockedRef.current}
++                  accessibilityState={{
++                    selected: !isCustom,
++                    disabled: authoringBlockedRef.current,
++                  }}
+                 >
+-                  {composerEnabled ? 'Build move' : 'Ideas'}
+-                </Text>
+-              </TouchableOpacity>
+-              <TouchableOpacity
+-                style={[
+-                  styles.segment,
+-                  isCustom && { backgroundColor: colors.primary },
+-                ]}
+-                onPress={() => {
+-                  hapticSelection();
+-                  setIsCustom(true);
+-                }}
+-                accessibilityLabel="Write your own prompt"
+-                accessibilityRole="button"
+-                accessibilityState={{ selected: isCustom }}
+-              >
+-                <GameSymbol
+-                  name="create"
+-                  size={16}
+-                  color={isCustom ? primaryInk : colors.textSecondary}
+-                />
+-                <Text
++                  <GameSymbol
++                    name="sparkles"
++                    size={16}
++                    color={!isCustom ? primaryInk : colors.textSecondary}
++                  />
++                  <Text
++                    style={[
++                      styles.segmentText,
++                      { color: !isCustom ? primaryInk : colors.text },
++                    ]}
++                  >
++                    {composerEnabled ? 'Build move' : 'Ideas'}
++                  </Text>
++                </TouchableOpacity>
++                <TouchableOpacity
+                   style={[
+-                    styles.segmentText,
+-                    { color: isCustom ? primaryInk : colors.text },
++                    styles.segment,
++                    isCustom && { backgroundColor: colors.primary },
+                   ]}
++                  onPress={() => {
++                    hapticSelection();
++                    setIsCustom(true);
++                  }}
++                  accessibilityLabel="Write your own prompt"
++                  accessibilityRole="button"
++                  disabled={authoringBlockedRef.current}
++                  accessibilityState={{
++                    selected: isCustom,
++                    disabled: authoringBlockedRef.current,
++                  }}
+                 >
+-                  Write your own
+-                </Text>
+-              </TouchableOpacity>
+-            </View>
++                  <GameSymbol
++                    name="create"
++                    size={16}
++                    color={isCustom ? primaryInk : colors.textSecondary}
++                  />
++                  <Text
++                    style={[
++                      styles.segmentText,
++                      { color: isCustom ? primaryInk : colors.text },
++                    ]}
++                  >
++                    Write your own
++                  </Text>
++                </TouchableOpacity>
++              </View>
++            )}
+ 
+             {/* Suggestions written for THIS fighter and THIS move type — the
+                 only prompt help the arena offers now that the static template
+@@ -2095,154 +2303,263 @@
+               </View>
+             ) : null}
+ 
+-            {composerEnabled && !isCustom ? (
++            {composerEnabled &&
++            (composerStep === 'action' || composerStep === 'intent') ? (
+               <>
+                 <PromptComposerPanel
+                   state={composer.state}
+                   suggestions={suggestionBanks.suggestions}
+-                  affordanceId={affordanceId}
++                  stage={composerStep === 'intent' ? 'intent' : 'action'}
+                   ideasRevision={ideasRevision}
+                   viewedBank={viewedBank}
+                   onViewAll={() => setViewedBank(null)}
+                   paidIds={suggestionBanks.paidIds}
+                   onMoveType={setMoveType}
+-                  disabled={isSubmitting || !draft.ready || submitAccepted}
++                  disabled={authoringBlockedRef.current}
+                   onChange={changeBuilder}
+                   onFieldFocus={revealInput}
+-                  onActionSelected={revealComposerAction}
+-                  onUndo={() => composerDispatch({ type: 'undo' })}
++                  onUndo={undoComposer}
+                 />
+-                <View style={{ gap: 8, marginBottom: 20 }}>
+-                  <Text style={{ color: colors.textSecondary }}>
+-                    The first AI set for each type this round is included. More
+-                    choices do not guarantee a higher score.
+-                  </Text>
+-                  {suggestionBanks.loading ? (
+-                    <Text accessibilityLiveRegion="polite">
+-                      Preparing AI ideas… You can keep building.
+-                    </Text>
+-                  ) : null}
+-                  {suggestionBanks.error ? (
+-                    <>
+-                      <Text accessibilityLiveRegion="polite">
+-                        {suggestionBanks.error}
+-                      </Text>
+-                      <GameButton
+-                        label="Check included AI ideas"
+-                        tone="secondary"
+-                        chrome="text"
+-                        onPress={() => void suggestionBanks.retry()}
+-                      />
+-                    </>
+-                  ) : null}
+-                  {MOVE_TYPES.map((type) => {
+-                    const bank = suggestionBanks.banks[type];
+-                    return (
+-                      <View key={type} style={{ gap: 8 }}>
+-                        {bank.error ? (
++                {composerStep === 'action' ? (
++                  <>
++                    <GameButton
++                      label="AI ideas"
++                      tone="secondary"
++                      chrome="utility"
++                      accessibilityState={{ expanded: aiIdeasOpen }}
++                      onPress={() => setAiIdeasOpen((v) => !v)}
++                    />
++                    {aiIdeasOpen ? (
++                      <View style={{ gap: 8, marginBottom: 20 }}>
++                        <Text style={{ color: colors.textSecondary }}>
++                          The first AI set for each type this round is included.
++                          More choices do not guarantee a higher score.
++                        </Text>
++                        {suggestionBanks.loading ? (
+                           <Text accessibilityLiveRegion="polite">
+-                            {moveLabel(type)}: {bank.error}
++                            Preparing AI ideas… You can keep building.
+                           </Text>
+                         ) : null}
+-                        {!bank.journalReady ? (
++                        {suggestionBanks.error ? (
++                          <>
++                            <Text accessibilityLiveRegion="polite">
++                              {suggestionBanks.error}
++                            </Text>
++                            <GameButton
++                              label="Check included AI ideas"
++                              tone="secondary"
++                              chrome="text"
++                              onPress={() => void suggestionBanks.retry()}
++                            />
++                          </>
++                        ) : null}
++                        {MOVE_TYPES.map((type) => {
++                          const bank = suggestionBanks.banks[type];
++                          return (
++                            <View key={type} style={{ gap: 8 }}>
++                              {bank.error ? (
++                                <Text accessibilityLiveRegion="polite">
++                                  {moveLabel(type)}: {bank.error}
++                                </Text>
++                              ) : null}
++                              {!bank.journalReady ? (
++                                <GameButton
++                                  label={`Retry ${moveLabel(type)} request storage`}
++                                  tone="secondary"
++                                  chrome="text"
++                                  onPress={() => void bank.retryStorage()}
++                                />
++                              ) : null}
++                              {bank.incoming ? (
++                                <GameButton
++                                  label={`Use new ideas · ${moveLabel(type)}${bank.incomingIsPaid ? ' · purchased' : ''}`}
++                                  tone="secondary"
++                                  chrome="utility"
++                                  onPress={() => {
++                                    bank.applyIncoming();
++                                    setViewedBank(type);
++                                    setIdeasRevision((v) => v + 1);
++                                  }}
++                                />
++                              ) : null}
++                              {!bank.incoming &&
++                              suggestionBanks.suggestions.some(
++                                (idea) =>
++                                  idea.source === 'ai' &&
++                                  idea.moveType === type,
++                              ) ? (
++                                <GameButton
++                                  label={`View 3 ${moveLabel(type)} AI ideas${bank.suggestionsIsPaid ? ' · purchased' : ''}`}
++                                  tone="secondary"
++                                  chrome="text"
++                                  onPress={() => {
++                                    setViewedBank(type);
++                                    setIdeasRevision((v) => v + 1);
++                                  }}
++                                />
++                              ) : null}
++                              {bank.purchase ? (
++                                <GameButton
++                                  label={`Check ${moveLabel(type)} request`}
++                                  tone="secondary"
++                                  chrome="utility"
++                                  busy={bank.loading}
++                                  onPress={() => void bank.retryPurchase()}
++                                />
++                              ) : null}
++                            </View>
++                          );
++                        })}
++                        {moveType &&
++                        composer.state.actionText &&
++                        !moveSuggestions.purchase ? (
+                           <GameButton
+-                            label={`Retry ${moveLabel(type)} request storage`}
+-                            tone="secondary"
+-                            chrome="text"
+-                            onPress={() => void bank.retryStorage()}
+-                          />
+-                        ) : null}
+-                        {bank.incoming ? (
+-                          <GameButton
+-                            label={`Show 3 new ${moveLabel(type)} ideas${bank.incomingIsPaid ? ' · purchased' : ''}`}
++                            label={`New ${moveLabel(moveType)} AI ideas`}
+                             tone="secondary"
+                             chrome="utility"
++                            amount={rerollCredits}
++                            busy={moveSuggestions.loading}
++                            disabled={
++                              !moveSuggestions.journalReady ||
++                              rerollCredits === null ||
++                              !!moveSuggestions.incoming
++                            }
+                             onPress={() => {
+-                              bank.applyIncoming();
+-                              setViewedBank(type);
+-                              setIdeasRevision((v) => v + 1);
++                              const requestedType = moveType;
++                              const bank = suggestionBanks.banks[requestedType];
++                              Alert.alert(
++                                `New ${moveLabel(requestedType)} AI ideas`,
++                                rerollCredits === 0
++                                  ? 'Request another included set of three actions?'
++                                  : `Request three new actions for ${rerollSentence}?`,
++                                [
++                                  { text: 'Cancel', style: 'cancel' },
++                                  {
++                                    text:
++                                      rerollCredits === 0
++                                        ? 'Generate'
++                                        : `Spend ${rerollSentence}`,
++                                    onPress: () => {
++                                      if (
++                                        !authoringBlockedRef.current &&
++                                        authoringScopeRef.current === draftScope
++                                      )
++                                        void bank.reroll(rerollCredits);
++                                    },
++                                  },
++                                ],
++                              );
+                             }}
+                           />
+                         ) : null}
+-                        {!bank.incoming &&
+-                        suggestionBanks.suggestions.some(
+-                          (idea) =>
+-                            idea.source === 'ai' && idea.moveType === type,
+-                        ) ? (
+-                          <GameButton
+-                            label={`View 3 ${moveLabel(type)} AI ideas${bank.suggestionsIsPaid ? ' · purchased' : ''}`}
+-                            tone="secondary"
+-                            chrome="text"
+-                            onPress={() => {
+-                              setViewedBank(type);
+-                              setIdeasRevision((v) => v + 1);
+-                            }}
+-                          />
+-                        ) : null}
+-                        {bank.purchase ? (
+-                          <GameButton
+-                            label={`Check ${moveLabel(type)} request`}
+-                            tone="secondary"
+-                            chrome="utility"
+-                            busy={bank.loading}
+-                            onPress={() => void bank.retryPurchase()}
+-                          />
+-                        ) : null}
+                       </View>
+-                    );
+-                  })}
+-                  {moveType &&
+-                  composer.state.actionText &&
+-                  !moveSuggestions.purchase ? (
++                    ) : null}
++                  </>
++                ) : null}
++              </>
++            ) : null}
++            {composerEnabled && composerStep === 'review' ? (
++              <View
++                testID="composer-review"
++                style={{ gap: 12, marginBottom: 20 }}
++              >
++                <Text variant="title" accessibilityRole="header">
++                  Your move
++                </Text>
++                {renderMoveBadge(moveType)}
++                <View
++                  style={{
++                    backgroundColor: colors.card,
++                    padding: 16,
++                    borderRadius: 8,
++                  }}
++                >
++                  <Text
++                    selectable
++                    style={[
++                      { color: colors.text, fontSize: 16 },
++                      accessibleText,
++                    ]}
++                  >
++                    {customText}
++                  </Text>
++                </View>
++                <Text
++                  style={[NumericFontVariant, { color: colors.textSecondary }]}
++                >
++                  {customText.trim().length}/800 characters
++                </Text>
++                {!isCustom && !composer.state.detached ? (
++                  <>
+                     <GameButton
+-                      label={`New ${moveLabel(moveType)} AI ideas`}
++                      label="Change action"
+                       tone="secondary"
+-                      chrome="utility"
+-                      amount={rerollCredits}
+-                      busy={moveSuggestions.loading}
+-                      disabled={
+-                        !moveSuggestions.journalReady ||
+-                        rerollCredits === null ||
+-                        !!moveSuggestions.incoming
+-                      }
+-                      onPress={() => {
+-                        const requestedType = moveType;
+-                        const bank = suggestionBanks.banks[requestedType];
+-                        Alert.alert(
+-                          `New ${moveLabel(requestedType)} AI ideas`,
+-                          rerollCredits === 0
+-                            ? 'Request another included set of three actions?'
+-                            : `Request three new actions for ${rerollSentence}?`,
+-                          [
+-                            { text: 'Cancel', style: 'cancel' },
+-                            {
+-                              text:
+-                                rerollCredits === 0
+-                                  ? 'Generate'
+-                                  : `Spend ${rerollSentence}`,
+-                              onPress: () => {
+-                                if (
+-                                  !authoringBlockedRef.current &&
+-                                  authoringScopeRef.current === draftScope
+-                                )
+-                                  void bank.reroll(rerollCredits);
+-                              },
+-                            },
+-                          ],
+-                        );
+-                      }}
++                      chrome="text"
++                      onPress={() => goToStep('action')}
+                     />
+-                  ) : null}
+-                </View>
+-              </>
++                    <GameButton
++                      label="Change intention"
++                      tone="secondary"
++                      chrome="text"
++                      onPress={() => goToStep('intent')}
++                    />
++                  </>
++                ) : (
++                  <GameButton
++                    label="Build move"
++                    disabled={authoringBlockedRef.current}
++                    tone="secondary"
++                    chrome="text"
++                    onPress={() => setIsCustom(false)}
++                  />
++                )}
++                <GameButton
++                  label="Edit full text"
++                  disabled={authoringBlockedRef.current}
++                  tone="secondary"
++                  chrome="text"
++                  onPress={() => setIsCustom(true)}
++                />
++                {composer.state.undo ? (
++                  <GameButton
++                    label="Undo builder changes"
++                    disabled={authoringBlockedRef.current}
++                    tone="secondary"
++                    chrome="text"
++                    onPress={undoComposer}
++                  />
++                ) : null}
++              </View>
+             ) : null}
+             {/* Canonical full prompt: read-only preview in Build, editable in Write. */}
+             <View
+-              style={styles.section}
++              style={[
++                styles.section,
++                composerEnabled &&
++                  composerStep !== 'write' && { display: 'none' },
++              ]}
++              accessibilityElementsHidden={
++                composerEnabled && composerStep !== 'write'
++              }
++              importantForAccessibility={
++                composerEnabled && composerStep !== 'write'
++                  ? 'no-hide-descendants'
++                  : 'auto'
++              }
++              pointerEvents={
++                composerEnabled && composerStep !== 'write' ? 'none' : 'auto'
++              }
+               onLayout={(event) => {
+                 editorTop.current = event.nativeEvent.layout.y;
+               }}
+             >
++              {composerEnabled && composerStep === 'write' ? (
++                <ComposerMoveTypeControl
++                  value={moveType}
++                  disabled={authoringBlockedRef.current}
++                  onChange={setMoveType}
++                />
++              ) : null}
+               <GameField
+                 testID="battle-prompt-editor"
+                 ref={editorRef}
+@@ -2251,7 +2568,8 @@
+                   draft.ready &&
+                   !isSubmitting &&
+                   !submitAccepted &&
+-                  (!composerEnabled || isCustom)
++                  !authoringBlockedRef.current &&
++                  (!composerEnabled || composerStep === 'write')
+                 }
+                 scrollEnabled
+                 onFocus={() => {
+@@ -2403,52 +2721,6 @@
+                   : 'Write 20–800 characters; 15–80 words is the sweet spot. Make the theme clear and use your fighter’s identity. Ideas are written for this fighter, move and theme. Use one as is or edit it. Every prompt is moderated before judging.'}
+               </Text>
+             )}
+-            <Text
+-              accessibilityLiveRegion={draft.error ? 'polite' : 'none'}
+-              style={{
+-                color: draft.error ? colors.warning : colors.textSecondary,
+-              }}
+-            >
+-              {draft.error
+-                ? 'Draft not saved — retry storage above'
+-                : draftSaving
+-                  ? 'Saving draft on this device…'
+-                  : 'Draft saved on this device'}
+-            </Text>
+-            <TouchableOpacity
+-              accessibilityRole="button"
+-              onPress={() =>
+-                Alert.alert(
+-                  'Discard draft?',
+-                  'This removes the saved text and move on this device.',
+-                  [
+-                    { text: 'Keep draft', style: 'cancel' },
+-                    {
+-                      text: 'Discard',
+-                      style: 'destructive',
+-                      onPress: () => {
+-                        if (
+-                          authoringBlockedRef.current ||
+-                          authoringScopeRef.current !== draftScope
+-                        )
+-                          return;
+-                        void draft.clear(false);
+-                        restoreComposer(
+-                          createComposerState(
+-                            composerEnabled
+-                              ? (preferredMode ?? 'build')
+-                              : 'write',
+-                          ),
+-                        );
+-                      },
+-                    },
+-                  ],
+-                )
+-              }
+-              style={{ minHeight: 48, justifyContent: 'center' }}
+-            >
+-              <Text style={{ color: colors.textSecondary }}>Discard draft</Text>
+-            </TouchableOpacity>
+           </>
+         )}
+         <BattleOpponentSafety
+@@ -2498,6 +2770,27 @@
+               </Text>
+             </View>
+           </TouchableOpacity>
++        ) : composerEnabled && composerStep !== 'review' ? (
++          <GameButton
++            label={composerStep === 'action' ? 'Next' : 'Review move'}
++            disabled={
++              authoringBlockedRef.current ||
++              !draft.ready ||
++              restoredScope !== draftScope ||
++              (composerStep === 'action'
++                ? !composerCanAdvanceAction(composer.state)
++                : !composerCanReview(composer.state))
++            }
++            onPress={() => {
++              if (authoringBlockedRef.current) return;
++              if (
++                composerStep === 'action' &&
++                composerCanAdvanceAction(composer.state)
++              )
++                goToStep('intent');
++              else if (composerCanReview(composer.state)) goToStep('review');
++            }}
++          />
+         ) : (
+           <>
+             {deadlinePassed ? (
+@@ -2527,7 +2820,7 @@
+               reason={lockReason}
+               progress={holdProgress}
+               screenReaderEnabled={screenReaderEnabled}
+-              activation={composerEnabled ? 'confirm' : 'hold'}
++              activation="hold"
+               onStart={startHold}
+               onCancel={cancelHold}
+               onConfirm={confirmLockIn}
+--- baseline/components/battle/PromptComposerPanel.tsx
++++ current/components/battle/PromptComposerPanel.tsx
+@@ -1,10 +1,9 @@
+ import React, { useEffect, useRef, useState } from 'react';
+ import {
+-  AccessibilityInfo,
+-  findNodeHandle,
+   Platform,
+   StyleSheet,
+   TextInput,
++  useWindowDimensions,
+   View,
+ } from 'react-native';
+ import { GameButton, GameField, GameText } from '@/components/game';
+@@ -20,67 +19,60 @@
+   onUndo,
+   onFieldFocus,
+   onMoveType,
+-  affordanceId = null,
+   paidIds = [],
+   ideasRevision = 0,
+   viewedBank = null,
+   onViewAll,
+-  onActionSelected,
++  stage = 'all',
+ }: {
+   state: ComposerState;
+   suggestions: ComposerActionSuggestion[];
+   onMoveType: (move: MoveType) => void;
++  /** Older consumers may pass these metadata props; they no longer filter choices. */
+   affordanceId?: string | null;
+   paidIds?: string[];
+   ideasRevision?: number;
+   viewedBank?: MoveType | null;
+   onViewAll?: () => void;
+   onActionSelected?: (anchor: View | null) => void;
++  stage?: 'action' | 'intent' | 'all';
+   disabled: boolean;
+   onChange: (change: BuilderChange) => void;
+   onUndo: () => void;
+   onFieldFocus?: (field: TextInput | null) => void;
+ }) {
+   const colors = useThemedColors();
+-  const [writeAction, setWriteAction] = useState(false);
++  const { width, fontScale } = useWindowDimensions();
++  const columns = width >= 768 && fontScale <= 1.15;
++  const [writeAction, setWriteAction] = useState<boolean | null>(null);
+   const [writeIntent, setWriteIntent] = useState(false);
+-  const [expanded, setExpanded] = useState(!state.actionText.trim());
+   useEffect(() => {
+-    if (ideasRevision) setExpanded(true);
+-  }, [ideasRevision]);
+-  const actionTextRef = useRef(state.actionText);
+-  actionTextRef.current = state.actionText;
+-  const selectedRef = useRef<View>(null);
+-  const requestedSelection = useRef<string | null>(null);
+-  const [selectionRevision, setSelectionRevision] = useState(0);
+-  const selectionCallback = useRef(onActionSelected);
+-  selectionCallback.current = onActionSelected;
++    setWriteAction(null);
++    setWriteIntent(false);
++  }, [state.contextKey]);
+   useEffect(() => {
+-    if (!state.actionId || requestedSelection.current !== state.actionId)
+-      return;
+-    requestedSelection.current = null;
+-    const frame = requestAnimationFrame(() => {
+-      selectionCallback.current?.(selectedRef.current);
+-      const target = selectedRef.current && findNodeHandle(selectedRef.current);
+-      if (target) AccessibilityInfo.setAccessibilityFocus(target);
+-    });
+-    return () => cancelAnimationFrame(frame);
+-  }, [state.actionId, selectionRevision]);
+-  useEffect(() => {
+-    setExpanded(!actionTextRef.current.trim());
+-  }, [state.actionId, state.contextKey]);
++    if (viewedBank) setWriteAction(false);
++  }, [viewedBank, ideasRevision]);
+   const actionRef = useRef<TextInput>(null);
+   const intentRef = useRef<TextInput>(null);
+   const hints = state.intentHints ?? [];
++  const showOwnAction =
++    !state.detached &&
++    (writeAction ??
++      (!state.actionId &&
++        state.actionOrigin !== 'builder' &&
++        !!state.actionText.trim()));
++  const showAction = stage !== 'intent';
++  const showIntent = stage !== 'action' && !!state.actionText.trim();
+   return (
+     <View style={styles.panel}>
+       {state.detached && state.finalText.trim() ? (
+         <GameText style={{ color: colors.textSecondary }}>
+-          Your edited prompt is kept below. These choices will only replace it
+-          after you confirm.
++          Your edited prompt is kept. Choosing a builder option will ask before
++          replacing it.
+         </GameText>
+       ) : null}
+-      {viewedBank ? (
++      {showAction && viewedBank ? (
+         <View style={styles.section}>
+           <GameText variant="label" accessibilityRole="header">
+             New {LABELS[viewedBank]} ideas
+@@ -90,165 +82,158 @@
+             leaves your move unchanged.
+           </GameText>
+           <GameButton
+-            label="Back to all ideas"
++            label="Back to actions"
+             tone="secondary"
+             chrome="text"
+             disabled={disabled}
+-            onPress={() => {
+-              onViewAll?.();
+-              setExpanded(true);
+-            }}
++            onPress={onViewAll}
+           />
+         </View>
+       ) : null}
+-      <View style={styles.section}>
+-        <GameText variant="label" accessibilityRole="header">
+-          1. What do you do?
+-        </GameText>
+-        <GameText style={{ color: colors.textSecondary }}>
+-          Choose a starting action or write your own.
+-        </GameText>
+-        {writeAction ? (
+-          <GameButton
+-            label="Choose a starting action"
+-            tone="secondary"
+-            chrome="text"
+-            disabled={disabled}
+-            onPress={() => {
+-              setWriteAction(false);
+-              setExpanded(true);
+-            }}
+-          />
+-        ) : !expanded && state.actionText.trim() ? (
+-          <View style={styles.section}>
++      {showAction ? (
++        <View style={styles.section}>
++          <GameText variant="label" accessibilityRole="header">
++            What do you do?
++          </GameText>
++          <GameText style={{ color: colors.textSecondary }}>
++            Choose a starting action or write your own.
++          </GameText>
++          {showOwnAction ? (
++            <GameButton
++              label="Choose a starting action"
++              tone="secondary"
++              chrome="text"
++              disabled={disabled}
++              onPress={() => setWriteAction(false)}
++            />
++          ) : (
++            <>
++              <View style={[styles.groups, columns && styles.columns]}>
++                {TYPES.filter((type) => !viewedBank || viewedBank === type).map(
++                  (moveType) => {
++                    const choices = suggestions.filter(
++                      (suggestion) =>
++                        suggestion.moveType === moveType &&
++                        (viewedBank
++                          ? suggestion.source === 'ai'
++                          : suggestion.source === 'authored'),
++                    );
++                    return (
++                      <View
++                        key={moveType}
++                        style={[styles.section, columns && styles.column]}
++                      >
++                        <GameText variant="label" accessibilityRole="header">
++                          {LABELS[moveType]}
++                        </GameText>
++                        {choices.map((suggestion) => (
++                          <View key={suggestion.id}>
++                            {suggestion.source === 'ai' ? (
++                              <GameText variant="caption">
++                                {paidIds.includes(suggestion.id ?? '')
++                                  ? 'Purchased AI idea'
++                                  : 'AI idea'}
++                              </GameText>
++                            ) : null}
++                            <GameButton
++                              label={suggestion.action ?? suggestion.body}
++                              tone="secondary"
++                              chrome="utility"
++                              labelStyle={styles.choiceLabel}
++                              accessibilityRole="radio"
++                              selected={
++                                !state.detached &&
++                                state.actionId === suggestion.id
++                              }
++                              disabled={disabled}
++                              onPress={() => {
++                                onChange({
++                                  type: 'action',
++                                  text: suggestion.action ?? suggestion.body,
++                                  id: suggestion.id ?? null,
++                                  moveType: suggestion.moveType,
++                                  intentHints: suggestion.intentHints,
++                                });
++                                setWriteAction(false);
++                                setWriteIntent(false);
++                              }}
++                            />
++                          </View>
++                        ))}
++                        {!choices.length ? (
++                          <GameText>
++                            No ideas available for this type. Write your own
++                            action.
++                          </GameText>
++                        ) : null}
++                      </View>
++                    );
++                  },
++                )}
++              </View>
++              <GameButton
++                label="Write an action"
++                tone="secondary"
++                chrome="text"
++                disabled={disabled}
++                onPress={() => {
++                  setWriteAction(true);
++                  if (
++                    state.actionId ||
++                    state.detached ||
++                    state.actionOrigin === 'builder'
++                  ) {
++                    onChange({ type: 'action', text: '', id: null });
++                  }
++                }}
++              />
++            </>
++          )}
++          {showOwnAction ? (
++            <View style={styles.section}>
++              <ComposerMoveTypeControl
++                value={state.moveType}
++                onChange={onMoveType}
++                disabled={disabled}
++              />
++              <GameField
++                ref={actionRef}
++                label="Your action"
++                value={state.actionText}
++                onChangeText={(text) =>
++                  onChange({ type: 'action', text, id: null })
++                }
++                multiline
++                maxLength={800}
++                disabled={disabled}
++                scrollEnabled
++                style={styles.field}
++                onFocus={() => onFieldFocus?.(actionRef.current)}
++                placeholder="Describe an action your fighter takes…"
++              />
++            </View>
++          ) : null}
++        </View>
++      ) : null}
++      {showIntent ? (
++        <View style={styles.section}>
++          {stage === 'intent' ? (
+             <View
+-              ref={selectedRef}
++              style={styles.section}
+               accessible
+-              accessibilityLabel={`${state.moveType ?? 'Choose a type'}: ${state.actionText}`}
++              accessibilityLabel={`${state.moveType ? LABELS[state.moveType] : 'Choose a type'}: ${state.actionText}`}
+             >
+               <GameText variant="label">
+                 {state.moveType ? LABELS[state.moveType] : 'Choose a type'}
+               </GameText>
+               <GameText>{state.actionText}</GameText>
+             </View>
+-            <GameButton
+-              label="Change action"
+-              tone="secondary"
+-              chrome="text"
+-              disabled={disabled}
+-              onPress={() => setExpanded(true)}
+-            />
+-          </View>
+-        ) : (
+-          <>
+-            {TYPES.filter((type) => !viewedBank || viewedBank === type).map(
+-              (moveType) => {
+-                const choices = suggestions.filter(
+-                  (suggestion) =>
+-                    suggestion.moveType === moveType &&
+-                    (viewedBank
+-                      ? suggestion.source === 'ai'
+-                      : suggestion.source === 'authored') &&
+-                    (viewedBank ||
+-                      !affordanceId ||
+-                      suggestion.affordanceIds?.includes(affordanceId) ||
+-                      paidIds.includes(suggestion.id ?? '')),
+-                );
+-                return (
+-                  <View key={moveType} style={styles.section}>
+-                    <GameText variant="label" accessibilityRole="header">
+-                      {LABELS[moveType]}
+-                    </GameText>
+-                    {choices.map((suggestion) => (
+-                      <View key={suggestion.id}>
+-                        {suggestion.source === 'ai' ? (
+-                          <GameText variant="caption">
+-                            {paidIds.includes(suggestion.id ?? '')
+-                              ? 'Purchased AI idea'
+-                              : 'AI idea'}
+-                          </GameText>
+-                        ) : null}
+-                        <GameButton
+-                          label={suggestion.action ?? suggestion.body}
+-                          tone="secondary"
+-                          chrome="utility"
+-                          labelStyle={styles.choiceLabel}
+-                          accessibilityRole="radio"
+-                          selected={
+-                            !state.detached && state.actionId === suggestion.id
+-                          }
+-                          disabled={disabled}
+-                          onPress={() => {
+-                            requestedSelection.current = suggestion.id ?? null;
+-                            setSelectionRevision((v) => v + 1);
+-                            onChange({
+-                              type: 'action',
+-                              text: suggestion.action ?? suggestion.body,
+-                              id: suggestion.id ?? null,
+-                              moveType: suggestion.moveType,
+-                              intentHints: suggestion.intentHints,
+-                            });
+-                            setWriteAction(false);
+-                            setExpanded(false);
+-                          }}
+-                        />
+-                      </View>
+-                    ))}
+-                    {!choices.length ? (
+-                      <GameText>
+-                        No ideas tagged with this inspiration. Try All ideas or
+-                        write your own.
+-                      </GameText>
+-                    ) : null}
+-                  </View>
+-                );
+-              },
+-            )}
+-            <GameButton
+-              label="Write an action"
+-              tone="secondary"
+-              chrome="text"
+-              disabled={disabled}
+-              onPress={() => {
+-                setWriteAction(true);
+-                onChange({ type: 'action', text: '', id: null });
+-              }}
+-            />
+-          </>
+-        )}
+-        {writeAction || (!state.actionId && state.actionText) ? (
+-          <View style={styles.section}>
+-            <ComposerMoveTypeControl
+-              value={state.moveType}
+-              onChange={onMoveType}
+-              disabled={disabled}
+-            />
+-            <GameField
+-              ref={actionRef}
+-              label="Your action"
+-              value={state.actionText}
+-              onChangeText={(text) =>
+-                onChange({ type: 'action', text, id: null })
+-              }
+-              multiline
+-              maxLength={800}
+-              disabled={disabled}
+-              scrollEnabled
+-              style={styles.field}
+-              onFocus={() => onFieldFocus?.(actionRef.current)}
+-              placeholder="Describe an action your fighter takes…"
+-            />
+-          </View>
+-        ) : null}
+-      </View>
+-      {state.actionText.trim() ? (
+-        <View style={styles.section}>
++          ) : null}
+           <GameText variant="label" accessibilityRole="header">
+-            2. What are you trying to achieve?
++            What are you trying to achieve?
+           </GameText>
+           <GameText style={{ color: colors.textSecondary }}>
+-            Choose an intention or add your own. You can try any idea that fits
+-            the shared situation.
++            Choose an intention or write your own.
+           </GameText>
+           {hints.map((hint) => (
+             <GameButton
+@@ -260,9 +245,10 @@
+               accessibilityRole="radio"
+               selected={!state.detached && state.intentId === hint.id}
+               disabled={disabled}
+-              onPress={() =>
+-                onChange({ type: 'intent', text: hint.text, id: hint.id })
+-              }
++              onPress={() => {
++                onChange({ type: 'intent', text: hint.text, id: hint.id });
++                setWriteIntent(false);
++              }}
+             />
+           ))}
+           <GameButton
+@@ -308,7 +294,7 @@
+           tone="secondary"
+           chrome="text"
+           onPress={() => {
+-            setWriteAction(false);
++            setWriteAction(null);
+             setWriteIntent(false);
+             onUndo();
+           }}
+@@ -353,6 +339,9 @@
+ const styles = StyleSheet.create({
+   panel: { gap: 20, marginBottom: 20 },
+   section: { gap: 8 },
++  groups: { gap: 20 },
++  columns: { flexDirection: 'row', alignItems: 'flex-start' },
++  column: { flex: 1, minWidth: 0 },
+   field: { height: 120, minHeight: 80 },
+   choiceLabel: {
+     fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+--- baseline/components/battle/BattleSituation.tsx
++++ current/components/battle/BattleSituation.tsx
+@@ -1,5 +1,5 @@
+-import React from 'react';
+-import { StyleSheet, View } from 'react-native';
++import React, { useEffect, useState } from 'react';
++import { StyleSheet } from 'react-native';
+ import { GameButton, GamePanel, GameText } from '@/components/game';
+ import { BattleThemePlaque } from '@/components/game/battle/BattleThemePlaque';
+ import type { SituationSnapshot } from '@/types/battle';
+@@ -8,43 +8,45 @@
+   situation,
+   theme,
+   compact = false,
+-  affordances = [],
+-  selectedAffordance = null,
+-  onSelectAffordance,
++  collapsible = false,
+ }: {
+   situation: SituationSnapshot | null | undefined;
+   theme?: string | null;
+   compact?: boolean;
++  /** Later composer views keep the complete scene available without taking over the form. */
++  collapsible?: boolean;
++  /** Kept for older callers; inspiration filters are no longer rendered. */
+   affordances?: readonly { id: string; label: string }[];
+   selectedAffordance?: string | null;
+   onSelectAffordance?: (id: string | null) => void;
+ }) {
++  const [expanded, setExpanded] = useState(!collapsible);
++  useEffect(() => {
++    setExpanded(!collapsible);
++  }, [collapsible, situation?.id, situation?.catalogVersion]);
++  const showText = !collapsible || expanded;
+   return (
+-    <GamePanel tone="ornate" style={styles.panel}>
++    <GamePanel tone={compact ? 'quiet' : 'ornate'} style={styles.panel}>
+       {theme ? (
+         <BattleThemePlaque theme={theme} compact={compact} framed={false} />
+       ) : null}
+-      <GameText variant="label" accessibilityRole="header">
+-        SHARED SITUATION
+-      </GameText>
+-      <GameText>{situation?.text ?? 'Loading the shared situation…'}</GameText>
+-      {onSelectAffordance && affordances.length ? (
+-        <View style={{ gap: 8 }}>
+-          <GameText variant="caption">Inspiration · optional</GameText>
+-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+-            {[{ id: null, label: 'All ideas' }, ...affordances].map((item) => (
+-              <GameButton
+-                key={item.id ?? 'all'}
+-                label={item.label}
+-                tone="secondary"
+-                chrome="utility"
+-                accessibilityRole="radio"
+-                selected={selectedAffordance === item.id}
+-                onPress={() => onSelectAffordance(item.id)}
+-              />
+-            ))}
+-          </View>
+-        </View>
++      {collapsible ? (
++        <GameButton
++          label={expanded ? 'Hide shared situation' : 'Show shared situation'}
++          tone="secondary"
++          chrome="text"
++          accessibilityState={{ expanded }}
++          onPress={() => setExpanded((value) => !value)}
++        />
++      ) : (
++        <GameText variant="label" accessibilityRole="header">
++          SHARED SITUATION
++        </GameText>
++      )}
++      {showText ? (
++        <GameText selectable>
++          {situation?.text ?? 'Loading the shared situation…'}
++        </GameText>
+       ) : null}
+     </GamePanel>
+   );
+--- baseline/utils/promptComposer.ts
++++ current/utils/promptComposer.ts
+@@ -143,6 +143,20 @@
+         : {
+             ...state,
+             moveType: event.moveType,
++            // An explicit type cannot keep a card bound to a different type.
++            // Preserve the exact prose and custom composition; only catalogue
++            // bindings detach, and incomplete replacement stays blocked.
++            ...(state.actionId || state.intentId || state.intentHints?.length
++              ? {
++                  actionId: null,
++                  intentId: null,
++                  intentHints: [],
++                  detached: state.pending
++                    ? state.detached
++                    : Boolean(state.finalText.trim()),
++                  replacement: null,
++                }
++              : {}),
+             undo: state.pending
+               ? (state.undo ?? composerSnapshot(state))
+               : composerSnapshot(state),
+--- baseline/utils/battleDrafts.ts
++++ current/utils/battleDrafts.ts
+@@ -4,6 +4,10 @@
+   readComposerSnapshot,
+   type ComposerDraftSnapshot,
+ } from '@/utils/promptComposer';
++import {
++  readComposerStep,
++  type ComposerStep,
++} from '@/utils/promptComposerFlow';
+ 
+ export interface DraftScope {
+   accountId: string;
+@@ -16,6 +20,7 @@
+   editMode: boolean;
+   selectedSuggestion: string | null;
+   composer?: ComposerDraftSnapshot;
++  composerStep?: ComposerStep;
+ }
+ type Storage = Pick<typeof AsyncStorage, 'getItem' | 'setItem' | 'removeItem'>;
+ export function createBattleDraftStore(storage: Storage) {
+@@ -57,6 +62,7 @@
+         value.text,
+         value.move,
+       );
++      const composerStep = readComposerStep(value.composerStep);
+       return {
+         text: value.text,
+         move: value.move,
+@@ -66,12 +72,26 @@
+             ? value.selectedSuggestion
+             : null,
+         ...(composer ? { composer } : {}),
++        ...(composerStep ? { composerStep } : {}),
+       };
+     },
+-    save: (scope: DraftScope, draft: BattleDraft) =>
+-      enqueue(scope, (k) =>
+-        storage.setItem(k, JSON.stringify({ version: 3, ...draft })),
+-      ),
++    save: (scope: DraftScope, draft: BattleDraft) => {
++      const composerStep = readComposerStep(draft.composerStep);
++      return enqueue(scope, (k) =>
++        storage.setItem(
++          k,
++          JSON.stringify({
++            version: 3,
++            text: draft.text,
++            move: draft.move,
++            editMode: draft.editMode,
++            selectedSuggestion: draft.selectedSuggestion,
++            ...(draft.composer ? { composer: draft.composer } : {}),
++            ...(composerStep ? { composerStep } : {}),
++          }),
++        ),
++      );
++    },
+     clear: (scope: DraftScope) =>
+       enqueue(scope, async (k) => {
+         try {
+--- baseline/test-support/fixtures/app/prompt-composer.tsx
++++ current/test-support/fixtures/app/prompt-composer.tsx
+@@ -1,6 +1,17 @@
+-import React, { useEffect, useReducer, useRef, useState } from 'react';
++import React, {
++  useCallback,
++  useEffect,
++  useMemo,
++  useReducer,
++  useRef,
++  useState,
++} from 'react';
+ import {
++  AccessibilityInfo,
+   Alert,
++  AppState,
++  BackHandler,
++  findNodeHandle,
+   Keyboard,
+   KeyboardAvoidingView,
+   Platform,
+@@ -11,7 +22,11 @@
+ import { useLocalSearchParams, useRouter } from 'expo-router';
+ import { useSafeAreaInsets } from 'react-native-safe-area-context';
+ import { useReducedMotion } from '@/hooks/useReducedMotion';
+-import { useSharedValue } from 'react-native-reanimated';
++import {
++  cancelAnimation,
++  useSharedValue,
++  withTiming,
++} from 'react-native-reanimated';
+ import { GameButton, GameField, GameFooter, GameText } from '@/components/game';
+ import BattleBackdrop from '@/components/battle/BattleBackdrop';
+ import BattleHeader from '@/components/battle/BattleHeader';
+@@ -23,15 +38,19 @@
+ } from '@/components/battle/PromptComposerPanel';
+ import { BattleLockInControl } from '@/components/game/battle/BattleLockInControl';
+ import {
+-  composerCanSubmit,
+   composerReducer,
+   createComposerState,
+   type BuilderChange,
+ } from '@/utils/promptComposer';
+ import {
+-  getAllFallbackMoveSuggestions,
+-  getSituationAffordances,
+-} from '@/utils/promptSituations';
++  composerBackStep,
++  composerCanAdvanceAction,
++  composerCanReview,
++  normalizeComposerStep,
++  restoreComposerStep,
++  type ComposerStep,
++} from '@/utils/promptComposerFlow';
++import { getAllFallbackMoveSuggestions } from '@/utils/promptSituations';
+ import type { MoveType } from '@/utils/battles';
+ import type { SituationSnapshot } from '@/types/battle';
+ import { SITUATIONS } from '@/supabase/functions/_shared/prompt-situations';
+@@ -40,6 +59,7 @@
+   (entry) => entry.id === 'storm-1',
+ )!;
+ const situation: SituationSnapshot = publishedSituation;
++const HOLD_MS = 600;
+ 
+ /** Presentation fixture only. No auth, telemetry, suggestion requests or purchases. */
+ export default function PromptComposerFixture() {
+@@ -51,29 +71,31 @@
+   const insets = useSafeAreaInsets();
+   const scroll = useRef<ScrollView>(null);
+   const scrollContent = useRef<View>(null);
+-  const [viewedBank, setViewedBank] = useState<MoveType | null>(
+-    variant === 'paid' ? 'attack' : null,
+-  );
+-  const [filter, setFilter] = useState<string | null>(null);
+-  const [confirming, setConfirming] = useState(false);
+-  const [keyboard, setKeyboard] = useState(false);
+-  const [submitted, setSubmitted] = useState(false);
+-  const options = getAllFallbackMoveSuggestions(situation);
+-  const purchased =
+-    variant === 'paid'
+-      ? options
+-          .filter((item) => item.moveType === 'attack')
+-          .map((item) => ({
+-            ...item,
+-            id: `fixture-paid:${item.id}`,
+-            source: 'ai' as const,
+-            affordanceIds: [],
+-          }))
+-      : [];
++  const heading = useRef<View>(null);
++  const editor = useRef<TextInput>(null);
++  const options = useMemo(() => getAllFallbackMoveSuggestions(situation), []);
++  const purchased = useMemo(
++    () =>
++      variant === 'paid'
++        ? options
++            .filter((item) => item.moveType === 'attack')
++            .map((item) => ({
++              ...item,
++              id: `fixture-paid:${item.id}`,
++              source: 'ai' as const,
++              affordanceIds: [],
++            }))
++        : [],
++    [variant, options],
++  );
+   const [composer, dispatch] = useReducer(composerReducer, undefined, () => {
+-    let initial = createComposerState(variant === 'write' ? 'write' : 'build');
++    let initial = createComposerState(
++      variant === 'write' || variant === 'overflow' ? 'write' : 'build',
++    );
+     if (
+-      ['ready', 'write', 'detached', 'pending', 'overflow'].includes(variant)
++      ['ready', 'intent', 'write', 'detached', 'pending', 'overflow'].includes(
++        variant,
++      )
+     ) {
+       initial = composerReducer(initial, {
+         type: 'change',
+@@ -85,14 +107,15 @@
+           intentHints: options[0].intentHints,
+         },
+       });
+-      initial = composerReducer(initial, {
+-        type: 'change',
+-        change: {
+-          type: 'intent',
+-          id: options[0].intentHints![0].id,
+-          text: options[0].intentHints![0].text,
+-        },
+-      });
++      if (variant !== 'intent')
++        initial = composerReducer(initial, {
++          type: 'change',
++          change: {
++            type: 'intent',
++            id: options[0].intentHints![0].id,
++            text: options[0].intentHints![0].text,
++          },
++        });
+     }
+     if (variant === 'pending')
+       initial = composerReducer(initial, {
+@@ -119,7 +142,41 @@
+       });
+     return initial;
+   });
++  const [step, setStep] = useState<ComposerStep>(() =>
++    restoreComposerStep(
++      composer,
++      variant === 'write' || variant === 'overflow' ? 'write' : undefined,
++    ),
++  );
++  const [viewedBank, setViewedBank] = useState<MoveType | null>(null);
++  const [aiExpanded, setAiExpanded] = useState(false);
++  const [keyboard, setKeyboard] = useState(false);
++  const [submitted, setSubmitted] = useState(false);
++  const [holding, setHolding] = useState(false);
++  const [screenReader, setScreenReader] = useState(false);
++  const [active, setActive] = useState(
++    AppState.currentState !== 'background' &&
++      AppState.currentState !== 'inactive',
++  );
++  const [preview, setPreview] = useState<{
++    text: string;
++    moveType: MoveType | null;
++  } | null>(null);
++  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+   const progress = useSharedValue(0);
++  const latest = useRef({ composer, step, screenReader, active, submitted });
++  latest.current = { composer, step, screenReader, active, submitted };
++  const canLock =
++    active && !submitted && step === 'review' && composerCanReview(composer);
++
++  const cancelHold = useCallback(() => {
++    if (timer.current) clearTimeout(timer.current);
++    timer.current = null;
++    setHolding(false);
++    cancelAnimation(progress);
++    progress.value = 0;
++  }, [progress]);
++
+   useEffect(() => {
+     const show = Keyboard.addListener('keyboardDidShow', () =>
+       setKeyboard(true),
+@@ -127,11 +184,84 @@
+     const hide = Keyboard.addListener('keyboardDidHide', () =>
+       setKeyboard(false),
+     );
++    const app = AppState.addEventListener('change', (state) =>
++      setActive(state === 'active'),
++    );
++    let mounted = true;
++    void AccessibilityInfo.isScreenReaderEnabled().then((enabled) => {
++      if (mounted) setScreenReader(enabled);
++    });
++    const accessibility = AccessibilityInfo.addEventListener(
++      'screenReaderChanged',
++      setScreenReader,
++    );
+     return () => {
++      mounted = false;
+       show.remove();
+       hide.remove();
++      app.remove();
++      accessibility.remove();
+     };
+   }, []);
++
++  useEffect(
++    () => cancelHold(),
++    [
++      composer.finalText,
++      composer.moveType,
++      composer.mode,
++      step,
++      active,
++      submitted,
++      screenReader,
++      cancelHold,
++    ],
++  );
++  useEffect(() => cancelHold, [cancelHold]);
++  useEffect(() => {
++    setStep((current) => normalizeComposerStep(current, composer));
++  }, [composer]);
++  useEffect(() => {
++    const frame = requestAnimationFrame(() => {
++      scroll.current?.scrollTo({ y: 0, animated: !reduceMotion });
++      const node = findNodeHandle(heading.current);
++      if (node) AccessibilityInfo.setAccessibilityFocus(node);
++    });
++    return () => cancelAnimationFrame(frame);
++  }, [step, reduceMotion]);
++
++  const navigate = useCallback(
++    (target: ComposerStep) => {
++      cancelHold();
++      Keyboard.dismiss();
++      setPreview(null);
++      if (target === 'action') dispatch({ type: 'mode', mode: 'build' });
++      if (target === 'write') dispatch({ type: 'mode', mode: 'write' });
++      setStep(target);
++    },
++    [cancelHold],
++  );
++  const back = useCallback(() => {
++    if (keyboard) {
++      Keyboard.dismiss();
++      return;
++    }
++    const target = composerBackStep(step, composer);
++    if (target) navigate(target);
++    else {
++      cancelHold();
++      router.replace('/');
++    }
++  }, [keyboard, step, composer, navigate, cancelHold, router]);
++  useEffect(() => {
++    if (Platform.OS !== 'android') return;
++    const listener = BackHandler.addEventListener('hardwareBackPress', () => {
++      back();
++      return true;
++    });
++    return () => listener.remove();
++  }, [back]);
++
+   const reveal = (field: TextInput | View | null, animated = false) => {
+     const inner = scrollContent.current;
+     if (field && inner)
+@@ -143,6 +273,7 @@
+       );
+   };
+   const change = (value: BuilderChange) => {
++    if (submitted) return;
+     dispatch({ type: 'change', change: value });
+     if (composer.detached && composer.finalText)
+       Alert.alert(
+@@ -158,6 +289,55 @@
+         ],
+       );
+   };
++  const startHold = () => {
++    const snapshot = latest.current;
++    if (
++      timer.current ||
++      snapshot.screenReader ||
++      !snapshot.active ||
++      snapshot.submitted ||
++      snapshot.step !== 'review' ||
++      !composerCanReview(snapshot.composer)
++    )
++      return;
++    setHolding(true);
++    progress.value = reduceMotion ? 0 : withTiming(1, { duration: HOLD_MS });
++    timer.current = setTimeout(() => {
++      timer.current = null;
++      const current = latest.current;
++      if (
++        !current.active ||
++        current.submitted ||
++        current.screenReader ||
++        current.step !== 'review' ||
++        current.composer.mode !== snapshot.composer.mode ||
++        current.composer.finalText !== snapshot.composer.finalText ||
++        current.composer.moveType !== snapshot.composer.moveType ||
++        !composerCanReview(current.composer)
++      ) {
++        cancelHold();
++        return;
++      }
++      progress.value = 1;
++      setHolding(false);
++      setSubmitted(true);
++    }, HOLD_MS);
++  };
++  const title =
++    step === 'action'
++      ? 'What do you do?'
++      : step === 'intent'
++        ? 'What are you trying to achieve?'
++        : step === 'write'
++          ? 'Write your own'
++          : 'Your move';
++  const validPreview = Boolean(
++    preview &&
++    canLock &&
++    preview.text === composer.finalText &&
++    preview.moveType === composer.moveType,
++  );
++
+   return (
+     <KeyboardAvoidingView
+       style={{ flex: 1, backgroundColor: '#0B0B13' }}
+@@ -167,7 +347,7 @@
+       })}
+     >
+       <BattleBackdrop theme="The calm before the storm" quiet />
+-      <BattleHeader onPark={() => router.replace('/')} />
++      <BattleHeader onPark={back} />
+       <ScrollView
+         ref={scroll}
+         innerViewRef={scrollContent as React.RefObject<View>}
+@@ -179,129 +359,223 @@
+         <GameText variant="caption">
+           DEV · local composer fixture · no live actions
+         </GameText>
+-        <GameText variant="display">ROUND 1 OF 3</GameText>
+-        <GameText>Andrew · Mystic · versus Rook · Strategist</GameText>
++        <GameText variant="label">ROUND 1 OF 3 · Andrew versus Rook</GameText>
++        <GameText variant="caption">Lock in within 24 hours</GameText>
+         <BattleSituation
+           theme="The calm before the storm"
+-          compact={keyboard}
++          compact={keyboard || step !== 'action'}
++          collapsible={step !== 'action'}
+           situation={situation}
+-          affordances={getSituationAffordances(situation)}
+-          selectedAffordance={filter}
+-          onSelectAffordance={setFilter}
+         />
+-        {composer.mode === 'write' ? (
+-          <ComposerMoveTypeControl
+-            value={composer.moveType}
+-            onChange={(moveType) => dispatch({ type: 'move-type', moveType })}
+-          />
++        <View
++          ref={heading}
++          collapsable={false}
++          accessible
++          accessibilityRole="header"
++          accessibilityLabel={title}
++        >
++          {step === 'action' || step === 'intent' ? (
++            <GameText variant="caption">
++              {composer.detached ? 'Build move' : 'Action → Intention → Review'}
++            </GameText>
++          ) : (
++            <GameText variant="title">{title}</GameText>
++          )}
++        </View>
++        {step === 'action' ? (
++          <>
++            <GameButton
++              label="Write your own"
++              tone="secondary"
++              onPress={() => navigate('write')}
++              disabled={submitted}
++            />
++            <GameButton
++              label="AI ideas"
++              tone="secondary"
++              chrome="text"
++              accessibilityState={{ expanded: aiExpanded }}
++              onPress={() => setAiExpanded(!aiExpanded)}
++            />
++            {aiExpanded ? (
++              <View style={{ gap: 8 }}>
++                {purchased.length ? (
++                  <GameButton
++                    label="View Attack ideas"
++                    tone="secondary"
++                    onPress={() => setViewedBank('attack')}
++                  />
++                ) : (
++                  <GameText>
++                    {variant === 'loading'
++                      ? 'Preparing AI ideas… You can keep building.'
++                      : variant === 'error'
++                        ? 'Couldn’t load AI ideas. Your free actions are still available.'
++                        : 'AI is unavailable in this local fixture. Your free actions are ready.'}
++                  </GameText>
++                )}
++                {purchased.length ? (
++                  <GameText>
++                    Three Attack ideas · local example, no purchase
++                  </GameText>
++                ) : null}
++              </View>
++            ) : null}
++          </>
+         ) : null}
+-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+-          <GameButton
+-            label="Build move"
+-            selected={composer.mode === 'build'}
+-            tone="secondary"
+-            style={{ flexGrow: 1 }}
+-            onPress={() => dispatch({ type: 'mode', mode: 'build' })}
+-          />
+-          <GameButton
+-            label="Write your own"
+-            selected={composer.mode === 'write'}
+-            tone="secondary"
+-            style={{ flexGrow: 1 }}
+-            onPress={() => dispatch({ type: 'mode', mode: 'write' })}
+-          />
+-        </View>
+-        {composer.mode === 'build' ? (
++        {step === 'action' || step === 'intent' ? (
+           <PromptComposerPanel
++            stage={step}
+             state={composer}
+             suggestions={[...options, ...purchased]}
+-            paidIds={purchased.map((item) => item.id)}
+             viewedBank={viewedBank}
+             onViewAll={() => setViewedBank(null)}
+-            affordanceId={filter}
+             onMoveType={(moveType) => dispatch({ type: 'move-type', moveType })}
+             disabled={submitted}
+             onChange={change}
+             onUndo={() => dispatch({ type: 'undo' })}
+             onFieldFocus={reveal}
+-            onActionSelected={(anchor) => reveal(anchor, !reduceMotion)}
+           />
+         ) : null}
+-        {variant === 'loading' ? (
+-          <GameText>Preparing more starters… You can keep building.</GameText>
++        <View
++          style={step === 'write' ? { gap: 12 } : { display: 'none' }}
++          accessibilityElementsHidden={step !== 'write'}
++          importantForAccessibility={
++            step === 'write' ? 'auto' : 'no-hide-descendants'
++          }
++        >
++          <ComposerMoveTypeControl
++            value={composer.moveType}
++            onChange={(moveType) => dispatch({ type: 'move-type', moveType })}
++            disabled={submitted}
++          />
++          <GameField
++            ref={editor}
++            testID="fixture-prompt-editor"
++            label="Your move"
++            multiline
++            style={{ height: 200 }}
++            scrollEnabled
++            value={composer.finalText}
++            editable={step === 'write' && !submitted}
++            onFocus={() => reveal(editor.current)}
++            onChangeText={(text) => dispatch({ type: 'edit', text })}
++            error={
++              composer.finalText.trim().length > 800
++                ? 'Keep your complete prompt within 800 characters.'
++                : undefined
++            }
++          />
++          <GameText>{composer.finalText.trim().length}/800 characters</GameText>
++          <GameText>
++            Describe one clear action and what you want it to achieve.
++          </GameText>
++        </View>
++        {step === 'review' ? (
++          <View style={{ gap: 16 }}>
++            <GameText variant="label">
++              {composer.moveType === 'attack'
++                ? 'Attack'
++                : composer.moveType === 'defense'
++                  ? 'Defense'
++                  : 'Finisher'}
++            </GameText>
++            <GameText testID="fixture-exact-prompt" selectable>
++              {composer.finalText}
++            </GameText>
++            {composer.mode === 'build' && !composer.detached ? (
++              <>
++                <GameButton
++                  label="Change action"
++                  tone="secondary"
++                  onPress={() => navigate('action')}
++                  disabled={submitted}
++                />
++                <GameButton
++                  label="Change intention"
++                  tone="secondary"
++                  onPress={() => navigate('intent')}
++                  disabled={submitted}
++                />
++              </>
++            ) : (
++              <GameButton
++                label="Build move"
++                tone="secondary"
++                onPress={() => navigate('action')}
++                disabled={submitted}
++              />
++            )}
++            <GameButton
++              label="Edit full text"
++              tone="secondary"
++              onPress={() => navigate('write')}
++              disabled={submitted}
++            />
++            {composer.undo ? (
++              <GameButton
++                label="Undo builder changes"
++                tone="secondary"
++                chrome="text"
++                onPress={() => dispatch({ type: 'undo' })}
++                disabled={submitted}
++              />
++            ) : null}
++          </View>
+         ) : null}
+-        {variant === 'error' ? (
+-          <GameText>
+-            Couldn’t load more starters. Your free choices are still available.
+-          </GameText>
+-        ) : null}
+-        <GameField
+-          label="Your move"
+-          multiline
+-          style={{ height: 160 }}
+-          scrollEnabled
+-          value={composer.finalText}
+-          editable={composer.mode === 'write' && !submitted}
+-          onChangeText={(text) => dispatch({ type: 'edit', text })}
+-          error={
+-            composer.finalText.trim().length > 800
+-              ? 'Keep your complete prompt within 800 characters.'
+-              : undefined
+-          }
+-        />
+-        <GameText>{composer.finalText.trim().length}/800 characters</GameText>
+-        {composer.mode === 'build' ? (
+-          <GameButton
+-            label="Edit full text"
+-            tone="secondary"
+-            chrome="text"
+-            onPress={() => dispatch({ type: 'mode', mode: 'write' })}
+-          />
+-        ) : null}
+-        <GameText>
+-          Clear ideas matter more than ornate wording. Choosing suggestions or
+-          writing yourself receives the same judging rules.
+-        </GameText>
+       </ScrollView>
+       <GameFooter
+         keyboardVisible={keyboard}
+         style={{ paddingBottom: (keyboard ? 0 : insets.bottom) + 8 }}
+       >
+-        <BattleLockInControl
+-          state={
+-            submitted
+-              ? 'submitted'
+-              : composerCanSubmit(composer)
+-                ? 'ready'
+-                : 'unavailable'
+-          }
+-          progress={progress}
+-          screenReaderEnabled={false}
+-          activation="confirm"
+-          onStart={() => {}}
+-          onCancel={() => {}}
+-          onConfirm={() => {
+-            Keyboard.dismiss();
+-            setConfirming(true);
+-          }}
+-          reason={
+-            composer.pending
+-              ? 'Complete your action and intention, or undo the changes'
+-              : undefined
+-          }
+-        />
++        {step === 'review' ? (
++          <BattleLockInControl
++            state={
++              submitted
++                ? 'submitted'
++                : !canLock
++                  ? 'unavailable'
++                  : holding
++                    ? 'holding'
++                    : 'ready'
++            }
++            progress={progress}
++            screenReaderEnabled={screenReader}
++            activation="hold"
++            onStart={startHold}
++            onCancel={cancelHold}
++            onConfirm={() => {
++              if (!canLock) return;
++              Keyboard.dismiss();
++              setPreview({
++                text: composer.finalText,
++                moveType: composer.moveType,
++              });
++            }}
++          />
++        ) : (
++          <GameButton
++            label={step === 'action' ? 'Next' : 'Review move'}
++            disabled={
++              submitted ||
++              (step === 'action'
++                ? !composerCanAdvanceAction(composer)
++                : !composerCanReview(composer))
++            }
++            onPress={() => navigate(step === 'action' ? 'intent' : 'review')}
++          />
++        )}
+       </GameFooter>
+       <PromptLockConfirmation
+-        visible={confirming}
+-        text={composer.finalText}
+-        moveType={composer.moveType}
+-        disabled={
+-          submitted || !composerCanSubmit(composer) || !composer.moveType
+-        }
+-        onClose={() => setConfirming(false)}
++        visible={preview !== null}
++        text={preview?.text ?? ''}
++        moveType={preview?.moveType ?? null}
++        disabled={!validPreview}
++        onClose={() => setPreview(null)}
+         onConfirm={() => {
++          if (!validPreview) return;
+           setSubmitted(true);
+-          setConfirming(false);
++          setPreview(null);
+         }}
+       />
+     </KeyboardAvoidingView>
+--- baseline/docs/DESIGN_LANGUAGE.md
++++ current/docs/DESIGN_LANGUAGE.md
+@@ -109,18 +109,24 @@
+ 
+ Quest Claim uses the shared lavender GameButton with a diamond and signed reward amount. The reward is announced in credits; busy disables repeat presses. The button may wrap below quest text without merging its accessibility focus into the quest description. Signed formatting is opt-in, so existing purchase buttons are unchanged.
+ 
+-## Versioned prompt composer — 1–2 October 2026
++## Versioned prompt composer — 1–6 October 2026
+ 
+ These rules apply to `prompt_experience_version = 2`, the default for all newly assigned series after the 1 October 2026 user decision. Existing legacy battles/queues/invitations retain Ideas / Write your own and their stored version. AI and explicit paid rerolls are available by default; their price, confirmation and recovery states remain mandatory. Use the existing obsidian GamePanel surfaces, restrained gold edges, lavender actions, Barlow labels and system body text at 16 points. Keep 16-point gutters and panel padding, 20-point section gaps, 8–12-point internal gaps and at least 48-point interactive targets. Action and intention text wraps with Dynamic Type; selection has an explicit mark and accessible selected state, never colour alone.
+ 
+-Present the shared situation as readable scene facts beside the theme/context, and the Build move / Write your own selector. Build begins with nine full-width wrapping action rows in three open labelled groups. Action selection sets its type and collapses the entire list to the chosen action and Change action; only then show the matching intentions. Explicit type controls belong to own-action/freestyle editing. Combine the illustrated theme and complete situation on one panel; use 2–3 real affordance chips, one optional active filter, All ideas and the matching count without implying score bonuses. Builder choices describe an action and its contextual intention. Custom fields remain available at each step. Show one canonical full prompt: Build uses a read-only preview; Edit full prompt enables the same mounted field in Write. Switching mode or move must preserve the field instance, caret and prose. Manual full-text edits are visibly detached from the builder; replacing them uses the existing confirmation sheet, and Undo restores the complete prior composition. An unfinished action/intention state stays visibly incomplete and cannot lock an older preview.
++Build move uses three views inside the existing battle route: **What do you do? → What are you trying to achieve? → Your move**. The progress rail identifies the current view. Action begins with nine full-width wrapping rows in three open Attack, Defense and Finisher groups. A row selects one action and its type; every row remains available and selection does not navigate. Next advances only after an action and type are ready. Intention shows the chosen action/type and three compatible hints or a custom field. Review move advances only after a complete valid composition. On tablets the three action groups may share a row; large text returns them to one column. Own action and Write your own have explicit type controls. There are no inspiration filters, All ideas or matching counts.
+ 
+-Keep the editor and lock-in reachable with one keyboard inset owner. Compact artwork and expanded context while a field is focused, with the full situation still accessible. Scroll focused fields and the caret into view; preserve focus/scroll on sheet close. V2 uses tap plus an existing bounded sheet showing the exact prompt and type with pinned reachable controls for every user, including screen-reader users; cancel preserves the draft and duplicate confirmation cannot submit twice. Legacy battles retain their existing hold/accessible-confirmation behavior. All motion respects Reduced Motion. Native keyboard, focus and screen-reader behavior require device evidence and are not certified by a browser fixture.
++Action presents the illustrated theme and complete published situation in one owning panel. Later views keep a compact, expandable context whose Show shared situation control reveals the full text. Keyboard mode hides the decorative artwork while retaining access to all scene facts. Your move shows the exact final prompt, type and Change action / Change intention / Edit full text controls. A detached manual prompt offers Edit full text and Build move without presenting retained builder fields as its current content. The canonical full text remains the trimmed action, one space and the trimmed intention; there is no hidden rewriting or third creative question.
++
++One full editor remains mounted throughout the route and is visible, editable and accessible only in Write your own. Review uses a separate read-only text presentation. Stage, mode and type changes preserve the controlled field, prose and drafts. Manual full-text edits detach the builder; applying a later builder option asks for replacement confirmation. Cancel preserves the complete previous state. Undo restores text, type, fields, identifiers and completeness atomically. An unfinished action/intention change stays incomplete and cannot send an older preview. Optional local composerStep metadata is written in the existing version-3 draft; invalid or missing metadata falls back to the earliest valid view or a complete move's review. Quiet successful autosave continues without Draft saved on this device, Saving draft… or Discard draft controls; genuine storage and recovery failures retain conspicuous Retry actions.
++
++Keep the editor and footer reachable with one keyboard inset owner and preserve the Android conditional-padding fix. Scroll focused fields and the caret into view; stage navigation dismisses the keyboard and focuses its heading. Back first dismisses an open Android keyboard, then returns to the previous view; backing out of Action parks through the existing draft flush. Review alone exposes **HOLD TO LOCK IN**, using the existing 600-millisecond hold. A short release, stage/mode/text/type/scope change, backgrounding, accessibility-mode change, closed/advanced round or expired deadline cancels the hold. Successful ordinary hold submits directly. Screen readers use tap plus the existing bounded confirmation showing the exact prompt and type, with pinned reachable controls; stale snapshots and duplicate confirmation cannot submit. Legacy retains its original authoring flow and hold behavior. All motion respects Reduced Motion. Native keyboard, focus and screen-reader behavior require device evidence and are not certified by a browser fixture.
+ 
+ No predicted score, theme-keyword meter, word-quality meter or decorative writing timer belongs in v2. Immediate feedback explains the current action/intention, exact final text and validation only. The existing server deadline remains factual. A choice set is a writing aid, not a collectible card or a consumed combat resource.
+ 
+-Free authored starters stay visible during pending/offline/error states. AI preparation starts on Build entry only and cannot delay the nine offline actions. A late generated set has an explicit Use new ideas action; loading cannot replace chosen text. Keep purchase price and allowance truthful. Unknown price disables purchase only. Check starter request recovers an uncertain operation without buying again; Retry request storage repairs local journaling. Use shared inline feedback and credit diamonds with spoken credit labels. Never describe fallback text as newly purchased AI success. Purchased results open as three ideas for that type, outside inspiration filtering, without altering the selected prompt. Keep normal saved-draft status quiet and storage errors conspicuous. Tutorial says Tap Lock in and Finisher and progresses on composition completeness rather than an 80-character threshold.
++Free authored actions stay immediately available during pending/offline/error states. The Action view's AI ideas section starts collapsed. Three free banks prepare once on Build entry for the account/battle/round; changing view never restarts the session or generation, and all banks remain mounted. A late generated set has an explicit Use new ideas action; loading cannot replace choices or text. A viewed bank contains three AI ideas of its type and Back to actions returns to the authored catalogue. Browsing leaves the move unchanged. Paid reroll appears only after action/type selection and retains the live price, explicit confirmation and independent per-type purchase journals. Unknown price disables purchase only. Check starter request recovers an uncertain operation without buying again; Retry request storage repairs local journaling. Use shared inline feedback and credit diamonds with spoken credit labels. Never describe fallback text as purchased AI success. Tutorial says Hold to lock in and Finisher and progresses on composition completeness; completed tutorial state is not reset by this presentation update.
+ 
+ Opponent history is a collapsed utility, at most five resolved human moves in chronological order, absent for practice bots or empty history. Review moves on a resolved result reveals the frozen situation and final texts on demand. Rubric labels follow the stored judge policy; the recorded explanation remains readable without a new advice call. Existing paid-video states and the free result remain independent.
+ 
+ The isolated `/prompt-composer` fixture exercises component states with the published catalogue and no live battle/purchase calls. It supports visual and native component interaction checks; it does not establish authenticated production-binary behavior. The [composer release runbook](plans/2026-10-01-composer-release.md) defines the acceptance matrix, and the [2 October delivery record](deployments/2026-10-02-composer-remediation.md) links the actual iOS/Android width, text-size, keyboard, recovery and live-round evidence. Unavailable checks, including complete VoiceOver/TalkBack traversal, remain unverified. Android native QA requires repeated keyboard show/hide cycles: the reachable footer must return to its original position without retained padding, text loss or editor remounting.
++
++The 6 October three-view redesign keeps experience 2, client contract 3, the judge, pricing and server data unchanged. Its [delivery record](deployments/2026-10-06-composer-three-view.md) separates fresh test/native/build evidence from the historical 2 October checks. Old native evidence does not certify the new flow.
+--- baseline/docs/prompt-wars-implementation-concept.md
++++ current/docs/prompt-wars-implementation-concept.md
+@@ -1157,19 +1157,23 @@
+ 
+ The exact snapshot is shared by both players and reused by suggestions, the practice bot, all judge calls, appeals, resolved-move review and video composition. Bot policy is pinned independently on each series. Existing series, queues and invitations retain policy 1. New experience-2 Bo3 assignments use policy 2; legacy-experience and single-format rows retain policy 1. Policy 2 creates a private random 32-byte seed and pins its private catalogue at series creation, including human queues. Each round transaction copies one of 45 versioned scene/type tactics into an immutable private choice before accepting a human prompt. Selection never uses human text; bot fallback and retries read the copied choice. Missing policy-2 choices fail closed for recovery. Private state has RLS, no client grants or Realtime publication, and is excluded from the mobile archive. Current opponent prompts remain hidden. Optional opponent history shows at most five resolved human moves, oldest first, collapsed by default; bots and empty/unavailable history are omitted.
+ 
+-### Authoring and recovery
+-
+-`Build move` is the initial mode for experience 2. The initial chooser shows nine authored actions in open Attack, Defense and Finisher groups, three per type. Selecting an action sets the type and collapses the whole chooser; three matching intentions then appear. Change action expands choices without modifying the move. The versioned offline catalogue contains 135 actions and 405 intentions across 15 published scenes. Single-select inspiration filters use real scene affordances, show matching counts, never change the composition or spend credits, and retain All ideas and Write an action. Own action and freestyle use an explicit compact type control; no text classification guesses the type. Selecting both is sufficient to prepare a move without typing. The canonical full text is exactly the trimmed action, one space, and the trimmed intention. There is no subsequent AI rewriting. `Write your own` supports the same existing 20–800-character submission contract. Validation explains an incomplete or over-limit move; it does not present length, keywords or guessed quality as a score.
+-
+-One full editor remains mounted as a read-only preview in Build and an editable field in Write. Changing modes preserves text. Editing the full prompt detaches it from builder fields; applying a later builder change requires replacement confirmation. Cancel preserves the complete previous state. Undo restores move type, text, fields, identifiers, authoring lineage and validity atomically from one prior snapshot persisted with the draft, including after restart; nested history is not retained. Changing an action clears a suggested intention and preserves a custom intention. Incomplete builder edits block submission even if an older complete preview remains visible. Move/context changes preserve prose while detaching incompatible identifiers; they cannot make incomplete work submittable.
+-
+-Drafts are scoped to account, battle and round. Version-3 serialization retains move type, canonical text, mode, builder fields, choice identifiers, selected hints, authoring lineage and detached/pending state. Versions 1 and 2 migrate without interpreting prose. Existing text-only drafts migrate without fabricated builder selections. Restored drafts override the account's preferred mode. Serialized writes, tombstones and account/round race guards prevent old saves from resurrecting discarded drafts. Missing situation data permits drafting but blocks lock-in until the authoritative context arrives.
++### Authoring and recovery — three-view refinement, 6 October 2026
++
++`Build move` is the initial mode for experience 2. It uses three views in the existing battle route: **What do you do? → What are you trying to achieve? → Your move**. Action presents the full published situation and nine authored actions in open Attack, Defense and Finisher groups, three per type. Selecting one action sets its type without collapsing the list or advancing. Next requires an action and type. Intention presents the chosen action/type, three matching hints and own writing; Review move requires both parts, a type and a valid 20–800-character final prompt. Review shows the exact prompt/type and controls for changing either part or editing the whole text. Later views keep compact expandable access to the complete situation. There is no third creative question, inspiration filter, All ideas control or matching count. The versioned offline catalogue remains 135 actions and 405 intentions across 15 published scenes, and its affordance metadata remains on the wire without UI filtering. A full move can be prepared without typing. The canonical final text is exactly the trimmed action, one space and the trimmed intention, without subsequent AI rewriting.
++
++`Write your own` opens complete editing from Action, with a character count and explicit type control, then Review move leads to the same final view. Own-action editing also has an explicit compact type control; no text classification guesses the type. Builder views show Action → Intention → Review progress; manual writing does not claim to be those three steps. Back from builder Review returns to Intention; manual Review returns to Write; Write returns to Action. Back from Action parks with the existing scoped draft flush. Android Back dismisses an open keyboard first. Validation explains incomplete and out-of-range moves without claiming length, keywords or guessed quality are a score.
++
++The semantic composer reducer remains the sole owner of move type, text, builder fields, identifiers, authoring lineage, pending state, replacement and Undo. One full editor remains mounted, visible/editable/accessible only in Write; Review uses a separate read-only presentation. Stage/mode changes preserve text. Editing the full prompt detaches it from builder fields; a detached review exposes Edit full text and Build move without pretending old fields describe it. Applying a later builder change requires replacement confirmation. Cancel preserves the complete previous state. Undo restores move type, text, fields, identifiers, authoring lineage and validity atomically from one prior snapshot persisted with the draft, including after restart; nested history is not retained. Undo retains the view if still valid, otherwise selects the earliest valid view. Changing an action clears a suggested intention and preserves a custom intention. Incomplete builder edits block review/submission even if an older final text remains in state. Move/context changes preserve prose while detaching incompatible identifiers; they cannot make incomplete work submittable.
++
++Drafts are scoped to account, battle and round. Version-3 serialization retains move type, canonical text, mode, builder fields, choice identifiers, selected hints, authoring lineage and detached/pending state. Optional top-level `composerStep` stores action/intent/write/review presentation metadata without a format-version bump; unknown fields remain ignorable by older clients. A saved view is restored only if valid for the semantic state. Missing/invalid metadata sends a complete valid move to Review, incomplete attached builder action/type to Intention, other manual content/mode to Write and empty Build to Action. Versions 1 and 2 migrate without interpreting prose or inventing builder selections. Restored drafts override the account's preferred mode. Serialized writes, tombstones and account/round race guards prevent old saves from resurrecting submitted drafts. Successful autosave remains active without Draft saved on this device, Saving draft… or Discard draft UI; real storage/recovery failures retain clear Retry actions. Missing situation data permits drafting but blocks lock-in until the authoritative context arrives.
++
++Review alone exposes **HOLD TO LOCK IN**, retaining the existing 600-millisecond hold. Early release, text/type/stage/mode/scope change, backgrounding, accessibility-mode change or loss of the current live round cancels it. Closed battle/round, current-round advancement and the deadline directly participate in authoring and submission guards, including a fresh check at timer completion. A completed ordinary hold submits directly. Screen readers use tap plus the existing bounded exact-prompt/type confirmation. Changed snapshots, duplicate activation, stale scope and in-flight submission cannot submit again. Failed or uncertain submission retains its text and the existing server-accepted-response recovery path. Stage navigation dismisses the keyboard and focuses the current heading; one keyboard/safe-area owner retains the Android conditional-padding fix.
+ 
+ ### Free choices and explicit paid suggestions
+ 
+ Bundled authored actions and intentions are always a free drafting path. AI suggestions and explicit paid rerolls are available by default as optional convenience, subject to provider/moderation availability and existing allowance, price, balance, rate and client-contract checks. Availability never authorizes automatic spending. A late AI set is staged for explicit application and never replaces active choices or text. Loading, offline and provider-error states preserve free drafting. No provider/mock failure is sold as a successful purchased set.
+ 
+-Entering Build move automatically reads/reconciles all three per-type banks; merely opening a v2 round or remaining in Write does not generate. Contract 3 accepts `move_types` with one to three unique types only for `ensure_free`, mutually exclusive with `move_type`, and returns per-type `results`. Claims remain independent, while newly reserved types share one provider call. Cache and pending reads consume no new attempt; three new banks consume three of the existing 30/hour and 90/day limits. Clients cannot request privileged prefetch. Paid reroll is still single-type. Applied paid results have a separate type-specific view unaffected by the inspiration filter.
++Entering Build move automatically reads/reconciles all three per-type banks once for its account/battle/round; merely opening a v2 round or remaining in Write does not generate. All bank hooks and independent per-type journals remain mounted through view changes. The Action view's AI ideas section starts collapsed, while all nine authored actions are immediately available. Late results require explicit Use new ideas. Viewing an AI bank shows its three proposals without changing the move; Back to actions returns to the authored catalogue. Contract 3 accepts `move_types` with one to three unique types only for `ensure_free`, mutually exclusive with `move_type`, and returns per-type `results`. Claims remain independent, while newly reserved types share one provider call. Cache and pending reads consume no new attempt; three new banks consume three of the existing 30/hour and 90/day limits. Clients cannot request privileged prefetch. Paid reroll remains single-type and is offered only after selecting an action and type, with its live price and explicit confirmation. Changing type never loses an earlier purchase, recovery or refund.
+ 
+ `ensure_free` may acquire the existing first-free allowance for each player/battle/round/move and never charges. Omitted legacy operations are also free-only. A paid `reroll` is an explicit action showing a known live credit cost; it includes an idempotency key and the expected price. Unknown prices block only purchase. The client saves a scoped purchase journal before requesting a charge and replays the same operation after a timeout or restart. Uncertain operations must be resolved before another purchase. Storage failure offers a free retry and cannot issue a charge.
+ 
+@@ -1198,8 +1202,10 @@
+ 
+ ### Private measurement and operations
+ 
+-Round-aware composer telemetry records allowed semantic milestones and active foreground/focused duration, excluding prompt text, fragments, names and keystrokes. It covers first change, mode/choice/edit/recovery/submit, inspiration selection, action changes, explicit new-set application, suggestion state, explanation opened and next-battle entry. Accepted prompts may declare authoring_origin builder/manual/mixed/unknown (legacy unknown); its initial value is retry-stable and excluded from judging. Appeal UI distinguishes checking, ready, unavailable and read error; errors disable submission and 409 triggers an authoritative availability refresh. It is nonblocking, deduplicated and readable only under the existing ownership rules; milestone counts are not a raw clickstream.
++Round-aware composer telemetry records allowed semantic milestones and active foreground/focused duration, excluding prompt text, fragments, names and keystrokes. It covers first change, mode/choice/edit/recovery/submit, action changes, explicit new-set application, suggestion state, explanation opened and next-battle entry. Stage changes do not create new measurement sessions. The 6 October client stops emitting inspiration selection because filters are removed; the server allowlist remains compatible with older clients. Accepted prompts may declare authoring_origin builder/manual/mixed/unknown (legacy unknown); its initial value is retry-stable and excluded from judging. Appeal UI distinguishes checking, ready, unavailable and read error; errors disable submission and 409 triggers an authoritative availability refresh. It is nonblocking, deduplicated and readable only under the existing ownership rules; milestone counts are not a raw clickstream.
+ 
+ The authorized deployment enables all composer modes and suggestion availability together. The existing `SUGGESTIONS_AI_DISABLED=true` emergency switch can stop new suggestion generation and new paid reservations; `SUGGESTIONS_PREFETCH_ENABLED=0` stops prefetch only. Exact-operation recovery, refunds and free authored drafting remain available. Removed rollout variables have no effect, and withdrawing new composer assignment requires a compatible code change rather than an obsolete secret. Do not delete snapshots, drafts, purchase operations or ledger evidence, or roll servers back to code that cannot read v2. See the release runbook for deployment checks and actual evidence status.
+ 
+ Implementation evidence for the 2 October remediation is tracked in [the remediation record](plans/2026-10-02-composer-remediation.md). Backend fixes precede the compatible TestFlight client; Android delivery is a test APK only. No public store publication or paid human/model calibration is included.
++
++The 6 October three-view refinement is a client-only delivery using the existing experience 2, contract 3, server snapshots, judge policy and economy. It requires no backend migration/deployment or new calibration gate. Internal TestFlight and an Android test APK are the authorized delivery targets; public store publication, paid model calibration and the human pilot remain separate. Fresh automated, native and build evidence is tracked in [the three-view delivery record](deployments/2026-10-06-composer-three-view.md); historical passing checks are not reused as proof of the new flow.

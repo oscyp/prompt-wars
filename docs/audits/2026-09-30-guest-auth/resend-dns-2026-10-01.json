@@ -1,0 +1,885 @@
+{
+  "checked_at": "2026-10-01T08:28:50Z",
+  "read_only": true,
+  "scope": "Independent public DNS diagnosis after parent observed Resend failed domain verification.",
+  "query_count": 44,
+  "all_queries_succeeded": true,
+  "findings": {
+    "sending_mx": "10 feedback-smtp.eu-west-1.amazonses.com.",
+    "sending_spf": "v=spf1 include:amazonses.com ~all",
+    "sending_mx_and_spf_consistent_across": [
+      "ns1.seohost.pl",
+      "ns2.seohost.pl",
+      "1.1.1.1",
+      "8.8.8.8",
+      "188.210.221.52",
+      "185.200.47.250",
+      "188.210.221.179",
+      "188.210.223.253"
+    ],
+    "dkim": "Public TXT matches on both authoritative nameservers and both recursive resolvers.",
+    "cname_conflict": false,
+    "send_subdomain_delegation": false,
+    "root_mx": "10 mail.promptwars.gg.",
+    "root_mx_note": "Existing inbound mail routing is preserved. A Resend receiving MX is not configured.",
+    "dnssec": "No DS at the .gg parent via both public recursive resolvers; no DNSSEC validation failure observed.",
+    "authoritative_zone_serial": "2026093000",
+    "all_four_authoritative_ipv4_endpoints_consistent": true,
+    "authoritative_ipv6_addresses": [],
+    "amazon_mx_target_resolves": true,
+    "regression_compared_to_previous_audit": "No sending MX, SPF, DKIM, root MX, or nameserver regression observed.",
+    "conclusion": "Current public sending DNS is correct. No DNS change indicated by these checks; provider-side verification remains separate.",
+    "limitations": [
+      "Queries originate from this workstation and do not prove every geographic resolver view.",
+      "Provider verification and SMTP delivery were not inspected by this independent DNS subtask."
+    ]
+  },
+  "records": [
+    {
+      "server": "ns1.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "send.promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "TXT",
+          "value": "\"v=spf1 include:amazonses.com ~all\""
+        }
+      ]
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "MX",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "send.promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "MX",
+          "value": "10 feedback-smtp.eu-west-1.amazonses.com."
+        }
+      ]
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "send.promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "TXT",
+          "value": "\"v=spf1 include:amazonses.com ~all\""
+        }
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "send.promptwars.gg",
+      "type": "MX",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "send.promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "MX",
+          "value": "10 feedback-smtp.eu-west-1.amazonses.com."
+        }
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "send.promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "TXT",
+          "value": "\"v=spf1 include:amazonses.com ~all\""
+        }
+      ]
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "send.promptwars.gg",
+      "type": "MX",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "send.promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "MX",
+          "value": "10 feedback-smtp.eu-west-1.amazonses.com."
+        }
+      ]
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "send.promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "TXT",
+          "value": "\"v=spf1 include:amazonses.com ~all\""
+        }
+      ]
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "CNAME",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": []
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "CNAME",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": []
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "promptwars.gg",
+      "type": "MX",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "MX",
+          "value": "10 mail.promptwars.gg."
+        }
+      ]
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "promptwars.gg",
+      "type": "MX",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "MX",
+          "value": "10 mail.promptwars.gg."
+        }
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "promptwars.gg",
+      "type": "NS",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "NS",
+          "value": "ns1.seohost.pl."
+        },
+        {
+          "name": "promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "NS",
+          "value": "ns2.seohost.pl."
+        }
+      ]
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "promptwars.gg",
+      "type": "NS",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "NS",
+          "value": "ns1.seohost.pl."
+        },
+        {
+          "name": "promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "NS",
+          "value": "ns2.seohost.pl."
+        }
+      ]
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "resend._domainkey.promptwars.gg",
+      "type": "TXT",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "resend._domainkey.promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "TXT",
+          "value": "\"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDN3upj7+8E2s6kgX7qroN/QtvfrclQhJgjGr8eFS9GvUEf+7EI60TceR4gcZaQtfn0nQvYT29EuqPj2lbZ2wD4HO95GMS5bsyBvJfCiLKdVXT\" \"Q2xc1n1vEE5UfBvu5ixrdK2OazAQhBJJajRV2bBbjrCM+MxyPRKKLP6OIUL7LCQIDAQAB\""
+        }
+      ]
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "resend._domainkey.promptwars.gg",
+      "type": "TXT",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "resend._domainkey.promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "TXT",
+          "value": "\"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDN3upj7+8E2s6kgX7qroN/QtvfrclQhJgjGr8eFS9GvUEf+7EI60TceR4gcZaQtfn0nQvYT29EuqPj2lbZ2wD4HO95GMS5bsyBvJfCiLKdVXT\" \"Q2xc1n1vEE5UfBvu5ixrdK2OazAQhBJJajRV2bBbjrCM+MxyPRKKLP6OIUL7LCQIDAQAB\""
+        }
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "resend._domainkey.promptwars.gg",
+      "type": "TXT",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "resend._domainkey.promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "TXT",
+          "value": "\"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDN3upj7+8E2s6kgX7qroN/QtvfrclQhJgjGr8eFS9GvUEf+7EI60TceR4gcZaQtfn0nQvYT29EuqPj2lbZ2wD4HO95GMS5bsyBvJfCiLKdVXT\" \"Q2xc1n1vEE5UfBvu5ixrdK2OazAQhBJJajRV2bBbjrCM+MxyPRKKLP6OIUL7LCQIDAQAB\""
+        }
+      ]
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "resend._domainkey.promptwars.gg",
+      "type": "TXT",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "resend._domainkey.promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "TXT",
+          "value": "\"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDN3upj7+8E2s6kgX7qroN/QtvfrclQhJgjGr8eFS9GvUEf+7EI60TceR4gcZaQtfn0nQvYT29EuqPj2lbZ2wD4HO95GMS5bsyBvJfCiLKdVXT\" \"Q2xc1n1vEE5UfBvu5ixrdK2OazAQhBJJajRV2bBbjrCM+MxyPRKKLP6OIUL7LCQIDAQAB\""
+        }
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "promptwars.gg",
+      "type": "DS",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": []
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "promptwars.gg",
+      "type": "DS",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": []
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "promptwars.gg",
+      "type": "SOA",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "SOA",
+          "value": "ns1.seohost.pl. hostmaster.promptwars.gg. 2026093000 2000 3600 1209600 1800"
+        }
+      ]
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "promptwars.gg",
+      "type": "SOA",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "SOA",
+          "value": "ns1.seohost.pl. hostmaster.promptwars.gg. 2026093000 2000 3600 1209600 1800"
+        }
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "ns1.seohost.pl",
+      "type": "A",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "ns1.seohost.pl.",
+          "ttl_seconds": 906,
+          "type": "A",
+          "value": "188.210.221.52"
+        },
+        {
+          "name": "ns1.seohost.pl.",
+          "ttl_seconds": 906,
+          "type": "A",
+          "value": "185.200.47.250"
+        }
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "ns1.seohost.pl",
+      "type": "AAAA",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": []
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "ns2.seohost.pl",
+      "type": "A",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "ns2.seohost.pl.",
+          "ttl_seconds": 161,
+          "type": "A",
+          "value": "188.210.221.179"
+        },
+        {
+          "name": "ns2.seohost.pl.",
+          "ttl_seconds": 161,
+          "type": "A",
+          "value": "188.210.223.253"
+        }
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "ns2.seohost.pl",
+      "type": "AAAA",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": []
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "NS",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": []
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "NS",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": []
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "A",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": []
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "AAAA",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": []
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "feedback-smtp.eu-west-1.amazonses.com",
+      "type": "A",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "feedback-smtp.eu-west-1.amazonses.com.",
+          "ttl_seconds": 60,
+          "type": "A",
+          "value": "34.243.41.226"
+        },
+        {
+          "name": "feedback-smtp.eu-west-1.amazonses.com.",
+          "ttl_seconds": 60,
+          "type": "A",
+          "value": "34.250.195.198"
+        },
+        {
+          "name": "feedback-smtp.eu-west-1.amazonses.com.",
+          "ttl_seconds": 60,
+          "type": "A",
+          "value": "18.200.42.95"
+        }
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "promptwars.gg",
+      "type": "MX",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "MX",
+          "value": "10 mail.promptwars.gg."
+        }
+      ]
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "promptwars.gg",
+      "type": "MX",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "rd",
+        "ra"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "promptwars.gg.",
+          "ttl_seconds": 1756,
+          "type": "MX",
+          "value": "10 mail.promptwars.gg."
+        }
+      ]
+    },
+    {
+      "server": "188.210.221.52",
+      "name": "send.promptwars.gg",
+      "type": "MX",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "send.promptwars.gg.",
+          "ttl_seconds": 1936,
+          "type": "MX",
+          "value": "10 feedback-smtp.eu-west-1.amazonses.com."
+        }
+      ]
+    },
+    {
+      "server": "188.210.221.52",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "send.promptwars.gg.",
+          "ttl_seconds": 1958,
+          "type": "TXT",
+          "value": "\"v=spf1 include:amazonses.com ~all\""
+        }
+      ]
+    },
+    {
+      "server": "188.210.221.52",
+      "name": "promptwars.gg",
+      "type": "SOA",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "SOA",
+          "value": "ns1.seohost.pl. hostmaster.promptwars.gg. 2026093000 2000 3600 1209600 1800"
+        }
+      ]
+    },
+    {
+      "server": "185.200.47.250",
+      "name": "send.promptwars.gg",
+      "type": "MX",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "send.promptwars.gg.",
+          "ttl_seconds": 1955,
+          "type": "MX",
+          "value": "10 feedback-smtp.eu-west-1.amazonses.com."
+        }
+      ]
+    },
+    {
+      "server": "185.200.47.250",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "send.promptwars.gg.",
+          "ttl_seconds": 1955,
+          "type": "TXT",
+          "value": "\"v=spf1 include:amazonses.com ~all\""
+        }
+      ]
+    },
+    {
+      "server": "185.200.47.250",
+      "name": "promptwars.gg",
+      "type": "SOA",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "promptwars.gg.",
+          "ttl_seconds": 1999,
+          "type": "SOA",
+          "value": "ns1.seohost.pl. hostmaster.promptwars.gg. 2026093000 2000 3600 1209600 1800"
+        }
+      ]
+    },
+    {
+      "server": "188.210.221.179",
+      "name": "send.promptwars.gg",
+      "type": "MX",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "send.promptwars.gg.",
+          "ttl_seconds": 1954,
+          "type": "MX",
+          "value": "10 feedback-smtp.eu-west-1.amazonses.com."
+        }
+      ]
+    },
+    {
+      "server": "188.210.221.179",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "send.promptwars.gg.",
+          "ttl_seconds": 1955,
+          "type": "TXT",
+          "value": "\"v=spf1 include:amazonses.com ~all\""
+        }
+      ]
+    },
+    {
+      "server": "188.210.221.179",
+      "name": "promptwars.gg",
+      "type": "SOA",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "promptwars.gg.",
+          "ttl_seconds": 2000,
+          "type": "SOA",
+          "value": "ns1.seohost.pl. hostmaster.promptwars.gg. 2026093000 2000 3600 1209600 1800"
+        }
+      ]
+    },
+    {
+      "server": "188.210.223.253",
+      "name": "send.promptwars.gg",
+      "type": "MX",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "send.promptwars.gg.",
+          "ttl_seconds": 1936,
+          "type": "MX",
+          "value": "10 feedback-smtp.eu-west-1.amazonses.com."
+        }
+      ]
+    },
+    {
+      "server": "188.210.223.253",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "send.promptwars.gg.",
+          "ttl_seconds": 1956,
+          "type": "TXT",
+          "value": "\"v=spf1 include:amazonses.com ~all\""
+        }
+      ]
+    },
+    {
+      "server": "188.210.223.253",
+      "name": "promptwars.gg",
+      "type": "SOA",
+      "status": "NOERROR",
+      "flags": [
+        "qr",
+        "aa",
+        "rd"
+      ],
+      "exit_code": 0,
+      "answers": [
+        {
+          "name": "promptwars.gg.",
+          "ttl_seconds": 1998,
+          "type": "SOA",
+          "value": "ns1.seohost.pl. hostmaster.promptwars.gg. 2026093000 2000 3600 1209600 1800"
+        }
+      ]
+    }
+  ]
+}

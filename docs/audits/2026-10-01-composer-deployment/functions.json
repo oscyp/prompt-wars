@@ -1,0 +1,173 @@
+[
+  {
+    "function": "generate-move-suggestions",
+    "previous_version": 18,
+    "version": 19,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "2a92b1bb-3fa1-4a86-a8f6-0326f2cc6827",
+    "updated_at": 1790888495458
+  },
+  {
+    "function": "prefetch-move-suggestions",
+    "previous_version": 10,
+    "version": 11,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "b4eae3d1-2d2d-423c-885f-87c692447eca",
+    "updated_at": 1790888497143
+  },
+  {
+    "function": "run-judge-calibration",
+    "previous_version": 26,
+    "version": 27,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "5a2931a4-fe1c-4c4d-9e95-0c6575ec48d4",
+    "updated_at": 1790888498999
+  },
+  {
+    "function": "resolve-appeal",
+    "previous_version": 26,
+    "version": 27,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "18006bc8-e375-4ba4-bb08-3d8db721f5b9",
+    "updated_at": 1790888504436
+  },
+  {
+    "function": "appeal-battle",
+    "previous_version": 26,
+    "version": 27,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "c0597496-a855-430f-8dea-db01a90ef822",
+    "updated_at": 1790888506011
+  },
+  {
+    "function": "round-resolve",
+    "previous_version": 27,
+    "version": 28,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "c6763c7a-f33f-4fd0-b8eb-4493450f6cb6",
+    "updated_at": 1790888508095
+  },
+  {
+    "function": "resolve-battle",
+    "previous_version": 43,
+    "version": 44,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "b5c90aa8-ae3d-43ae-bd8e-55bfd4f1908c",
+    "updated_at": 1790888510046
+  },
+  {
+    "function": "process-video-job",
+    "previous_version": 34,
+    "version": 35,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "f5449aa9-ef82-4c2f-8a1c-b964d1322269",
+    "updated_at": 1790888514020
+  },
+  {
+    "function": "generate-tier0-reveal",
+    "previous_version": 28,
+    "version": 29,
+    "verify_jwt": true,
+    "status": "ACTIVE",
+    "id": "f88a8842-d62b-473c-b530-3dd1b96e042f",
+    "updated_at": 1790888515923
+  },
+  {
+    "function": "dev-generate-video",
+    "previous_version": 23,
+    "version": 24,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "a2ee30fe-8224-4c42-bfa3-70bdb98b5adf",
+    "updated_at": 1790888517528
+  },
+  {
+    "function": "request-video-upgrade",
+    "previous_version": 31,
+    "version": 32,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "f66734a1-7330-4ea9-ae1b-457cdcb346e0",
+    "updated_at": 1790888519004
+  },
+  {
+    "function": "sign-battle-portraits",
+    "previous_version": 25,
+    "version": 26,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "91abe16c-ba4c-4098-8320-01815f21531c",
+    "updated_at": 1790888522111
+  },
+  {
+    "function": "expire-battles",
+    "previous_version": 30,
+    "version": 31,
+    "verify_jwt": true,
+    "status": "ACTIVE",
+    "id": "b9814491-7222-4a95-86c2-bb0e682e9995",
+    "updated_at": 1790888524128
+  },
+  {
+    "function": "leave-battle",
+    "previous_version": 21,
+    "version": 22,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "26bfa14c-493c-4475-91e6-e67143e7fd49",
+    "updated_at": 1790888526091
+  },
+  {
+    "function": "battle-advance",
+    "previous_version": 27,
+    "version": 28,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "bcf49ad2-abd6-46b5-b1e8-3d61b45dd814",
+    "updated_at": 1790888527604
+  },
+  {
+    "function": "record-funnel-event",
+    "previous_version": 12,
+    "version": 13,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "3d713d4a-c6b4-4124-af41-1c6d6eb2a5e6",
+    "updated_at": 1790888528632
+  },
+  {
+    "function": "submit-prompt",
+    "previous_version": 37,
+    "version": 38,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "6e2b2c2e-49dc-4233-acb3-899728b64e6f",
+    "updated_at": 1790888530264
+  },
+  {
+    "function": "matchmaking",
+    "previous_version": 35,
+    "version": 36,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "ee72b078-3562-4d22-bcc8-811b88a6776b",
+    "updated_at": 1790888532452
+  },
+  {
+    "function": "tutorial",
+    "previous_version": 12,
+    "version": 13,
+    "verify_jwt": false,
+    "status": "ACTIVE",
+    "id": "d472bf91-ceda-49ca-9835-b18d367a02fe",
+    "updated_at": 1790888533614
+  }
+]

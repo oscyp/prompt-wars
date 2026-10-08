@@ -1,4 +1,4 @@
-import { GameButton, GameHeader } from '@/components/game';
+import { GameButton } from '@/components/game';
 import { GameText, GamePanel } from '@/components/game';
 import { useCallback, useRef, useState } from 'react';
 import {
@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
@@ -21,7 +20,6 @@ import {
   NumericFontVariant,
   Layout,
 } from '@/constants/DesignTokens';
-import { HEADER_BUTTON_SIZE } from '@/components/HeaderBackButton';
 import Sparkline from '@/components/Sparkline';
 import MoveUsageChips from '@/components/MoveUsageChips';
 import { useAuth } from '@/providers/AuthProvider';
@@ -71,7 +69,6 @@ const INSIGHT_ERROR = {
 export default function StatsScreen() {
   const colors = useThemedColors();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const accessibleText = useAccessibleTextStyle();
   const { user } = useAuth();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
@@ -162,7 +159,7 @@ export default function StatsScreen() {
     loadStats();
   };
 
-  const topInset = insets.top + HEADER_BUTTON_SIZE;
+  const topInset = Spacing.md;
 
   if (loadState === 'loading') {
     return (
@@ -259,8 +256,6 @@ export default function StatsScreen() {
         />
       }
     >
-      <GameHeader title="Your Stats" style={{ marginBottom: 16 }} />
-
       {/* Overall Stats */}
       <GamePanel
         tone="ornate"
@@ -359,7 +354,7 @@ export default function StatsScreen() {
           battle against a human has been played -- the 1500 default is not a
           rating anyone earned. */}
       <GamePanel
-        tone="ornate"
+        tone="quiet"
         style={[styles.card, { backgroundColor: colors.card }]}
       >
         <GameText
@@ -411,7 +406,7 @@ export default function StatsScreen() {
 
       {/* Your moves */}
       <GamePanel
-        tone="ornate"
+        tone="quiet"
         style={[styles.card, { backgroundColor: colors.card }]}
       >
         <GameText
@@ -431,7 +426,7 @@ export default function StatsScreen() {
       {/* Best prompts: the prompt journal, derived from the player's own
           prompts and round scores. Each row opens the battle it came from. */}
       <GamePanel
-        tone="ornate"
+        tone="quiet"
         style={[styles.card, { backgroundColor: colors.card }]}
       >
         <GameText
@@ -532,7 +527,7 @@ export default function StatsScreen() {
       {/* Recent Battles: the last few with mode and date; the full list lives
           on the Battles tab. */}
       <GamePanel
-        tone="ornate"
+        tone="quiet"
         style={[styles.card, { backgroundColor: colors.card }]}
       >
         <GameText

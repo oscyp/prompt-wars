@@ -1,0 +1,1 @@
+No AndroidRuntime:E or ReactNativeJS:E entries observed in the bounded600-entry logcat read after cold launch and keyboard smoke.

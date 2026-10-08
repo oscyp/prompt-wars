@@ -1,0 +1,8 @@
+{
+  "applicationIdentifier": "9665HWDCCA.gg.promptwars.app",
+  "teamIdentifier": "9665HWDCCA",
+  "debuggerAllowed": false,
+  "pushEnvironment": "production",
+  "strictRecursiveSignatureVerified": true,
+  "verificationOutput": "/tmp/prompt-wars-composer-release-20261007/ios-17-unpacked/Payload/PromptWars.app: valid on disk\n/tmp/prompt-wars-composer-release-20261007/ios-17-unpacked/Payload/PromptWars.app: satisfies its Designated Requirement\n"
+}

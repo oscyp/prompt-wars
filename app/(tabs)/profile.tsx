@@ -1,5 +1,9 @@
+import { usePlayerAvatars } from '@/hooks/usePlayerAvatars';
+import FighterShareExport from '@/components/profile/FighterShareExport';
+import type { FighterCardProps } from '@/components/game/FighterCard';
+import { useHeroArtworkBudget } from '@/hooks/useHeroArtworkBudget';
 import PracticeReplayButton from '@/components/PracticeReplayButton';
-import PlayerSafetyActions from '@/components/PlayerSafetyActions';
+import { PlayerSafetyRow } from '@/components/PlayerSafetyActions';
 import React, { useCallback, useRef, useState } from 'react';
 import {
   Alert,
@@ -12,11 +16,9 @@ import {
 import {
   GameText as Text,
   GameButton,
-  GameHeader,
   GamePanel,
   GameNavRow,
 } from '@/components/game';
-import BrandMark from '@/components/game/BrandMark';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { GameIconName } from '@/components/game/icons/GameIcon';
@@ -56,7 +58,6 @@ import {
   ProfileSkeleton,
   ProgressionStrip,
   RivalRow,
-  joinedLabel,
   type ProgressionRoute,
 } from '@/components/profile';
 
@@ -141,10 +142,25 @@ export default function ProfileScreen() {
   const userId = user?.id;
 
   const [data, setData] = useState<ProfileData | null>(null);
+  usePlayerAvatars(
+    userId,
+    (data?.rivals ?? []).map((r) => ({
+      kind: 'players',
+      id: r.summary.rivalProfileId,
+    })),
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
-  const heroRef = useRef<View>(null);
+  const [shareFighter, setShareFighter] = useState<FighterCardProps | null>(
+    null,
+  );
+  const [viewportHeight, setViewportHeight] = useState<number>();
+  const budget = useHeroArtworkBudget(
+    (viewportHeight ? 0 : insets.top) + tabClearance + 32,
+    viewportHeight,
+    0,
+  );
   const lastLoadRef = useRef(0);
   // Each load gets a sequence number so a slow, late-arriving item name from
   // an earlier load cannot overwrite a newer one.
@@ -289,22 +305,28 @@ export default function ProfileScreen() {
   const openShop = () => router.push('/(profile)/shop');
   const navigate = (route: ProgressionRoute) => router.push(route);
 
-  const handleShareCard = async () => {
-    setIsSharing(true);
+  const shareFailed = useCallback(() => {
+    setIsSharing(false);
+    setShareFighter(null);
+    Alert.alert(
+      'Couldn’t share',
+      'The fighter card could not be loaded. Please try again.',
+    );
+  }, []);
+  const shareReady = useCallback(async (ref: React.RefObject<View | null>) => {
     try {
-      const shared = await shareResultCard(heroRef);
-      if (!shared) {
+      if (!(await shareResultCard(ref)))
         Alert.alert(
           'Sharing unavailable',
           'Sharing is not available on this device.',
         );
-      }
     } catch {
       Alert.alert('Couldn’t share', 'The fighter card could not be shared.');
     } finally {
       setIsSharing(false);
+      setShareFighter(null);
     }
-  };
+  }, []);
 
   const content = (() => {
     if (isLoading || !data) return <ProfileSkeleton />;
@@ -326,8 +348,6 @@ export default function ProfileScreen() {
             focus: character.stat_focus,
           }
         : null;
-    const joined = joinedLabel(profile?.created_at);
-
     const rated = data.hasRatedBattle === true;
     const rating = ratingView({
       rating: profile?.rating,
@@ -352,67 +372,73 @@ export default function ProfileScreen() {
       <>
         {heroReady ? (
           <>
-            {/* Plain wrapper with a native view behind it: this is what the
-                share action captures. */}
-            <View
-              ref={heroRef}
-              collapsable={false}
-              style={{ backgroundColor: colors.background, padding: 8 }}
-            >
+            {/* Sharing uses a separate full-size export composition. */}
+            <View style={{ backgroundColor: colors.background }}>
               <FighterHero
                 name={character.name}
                 archetype={character.archetype}
-                battleCry={character.battle_cry}
+                maxArtworkHeight={budget.maxArtworkHeight}
+                onBodyHeight={budget.onCardBodyHeight}
                 itemName={data.itemName}
                 renderUri={data.renderUri}
                 signatureColor={signatureHex}
                 stats={stats}
+                battleCry={character.battle_cry}
                 cosmetics={cosmetics}
                 onPress={openEditCharacter}
               />
             </View>
-            <Text
-              style={[
-                styles.meta,
-                accessibleText,
-                { color: colors.textTertiary },
-              ]}
-            >
-              @{profile.username}
-              {joined ? ` · ${joined}` : ''}
-            </Text>
           </>
         ) : (
           <ProfileErrorCard onRetry={retryAll} />
         )}
 
-        <View style={styles.actions}>
+        <View onLayout={budget.measure('actions')} style={styles.actions}>
           <ActionPill
             gameIcon="hanger"
             label="Edit look"
             onPress={openEditCharacter}
           />
           <ActionPill gameIcon="mask" label="Cosmetics" onPress={openShop} />
+        </View>
+
+        <View style={styles.sectionSpacing}>
           <ActionPill
             gameIcon="share"
             label="Share card"
-            onPress={() => void handleShareCard()}
             busy={isSharing}
             disabled={!heroReady}
+            onPress={() => {
+              if (!character || !heroReady || isSharing) return;
+              setIsSharing(true);
+              setShareFighter({
+                name: character.name,
+                archetype: character.archetype,
+                battleCry: character.battle_cry,
+                itemName: data.itemName,
+                renderUri: data.renderUri,
+                signatureColor: signatureHex,
+                stats,
+                cosmetics,
+              });
+            }}
           />
         </View>
 
-        <ProgressionStrip
-          rating={rating}
-          rows={rows}
-          onNavigate={navigate}
-          error={data.errors.progression}
-          onRetry={retrySection}
-        />
+        <View style={styles.sectionSpacing}>
+          <ProgressionStrip
+            rating={rating}
+            rows={rows}
+            onNavigate={navigate}
+            error={data.errors.progression}
+            onRetry={retrySection}
+          />
+        </View>
 
         {data.errors.rivals ? (
-          <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
+          <GamePanel style={{ marginBottom: Spacing.md, gap: Spacing.sm }}>
             <Text
+              variant="title"
               style={[styles.cardTitle, accessibleText, { color: colors.text }]}
               accessibilityRole="header"
             >
@@ -441,10 +467,11 @@ export default function ProfileScreen() {
                 </Text>
               </Pressable>
             </View>
-          </View>
+          </GamePanel>
         ) : data.rivals.length > 0 ? (
-          <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
+          <GamePanel style={{ marginBottom: Spacing.md, gap: Spacing.sm }}>
             <Text
+              variant="title"
               style={[styles.cardTitle, accessibleText, { color: colors.text }]}
               accessibilityRole="header"
             >
@@ -460,21 +487,23 @@ export default function ProfileScreen() {
               Who you have battled most in the last 30 days
             </Text>
             {data.rivals.map((r) => (
-              <View key={r.summary.rivalProfileId}>
+              <PlayerSafetyRow
+                key={r.summary.rivalProfileId}
+                profileId={r.summary.rivalProfileId}
+                name={r.identity.name ?? r.summary.displayName}
+              >
                 <RivalRow
-                  name={r.identity.name ?? r.summary.displayName}
-                  archetype={r.identity.archetype}
-                  signatureColor={r.identity.signatureColor}
+                  accountId={userId}
+                  profileId={r.summary.rivalProfileId}
+                  name={r.summary.displayName}
+                  archetype={null}
+                  signatureColor={null}
                   record={r.record}
                   battlesCount={r.summary.battlesCount}
                 />
-                <PlayerSafetyActions
-                  profileId={r.summary.rivalProfileId}
-                  name={r.identity.name ?? r.summary.displayName}
-                />
-              </View>
+              </PlayerSafetyRow>
             ))}
-          </View>
+          </GamePanel>
         ) : null}
 
         <GameNavRow
@@ -519,24 +548,37 @@ export default function ProfileScreen() {
   })();
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: insets.top + Spacing.sm, paddingBottom: tabClearance },
-      ]}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={colors.primary}
-        />
-      }
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: colors.background,
+      }}
     >
-      <BrandMark size={168} />
-      <GameHeader title="Your fighter" />
-      {content}
-    </ScrollView>
+      <ScrollView
+        onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: Spacing.sm, paddingBottom: tabClearance },
+        ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {content}
+      </ScrollView>
+      {shareFighter && (
+        <FighterShareExport
+          fighter={shareFighter}
+          onReady={shareReady}
+          onError={shareFailed}
+        />
+      )}
+    </View>
   );
 }
 
@@ -547,9 +589,8 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.lg,
   },
-  meta: {
-    fontSize: Typography.sizes.sm,
-    marginTop: Spacing.sm,
+  sectionSpacing: {
+    marginBottom: Spacing.md,
   },
   actions: {
     flexDirection: 'row',

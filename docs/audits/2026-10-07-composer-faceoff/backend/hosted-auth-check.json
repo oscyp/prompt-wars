@@ -1,0 +1,41 @@
+[
+  {
+    "method": "GET",
+    "case": "unauthenticated request",
+    "status": 405,
+    "body": {
+      "ok": false,
+      "error": {
+        "code": "method_not_allowed",
+        "message": "POST required"
+      }
+    },
+    "expectedStatus": 405
+  },
+  {
+    "method": "POST",
+    "case": "unauthenticated request",
+    "status": 401,
+    "body": {
+      "ok": false,
+      "error": {
+        "code": "unauthorized",
+        "message": "authentication required"
+      }
+    },
+    "expectedStatus": 401
+  },
+  {
+    "method": "POST",
+    "case": "malformed unauthenticated body",
+    "status": 401,
+    "body": {
+      "ok": false,
+      "error": {
+        "code": "unauthorized",
+        "message": "authentication required"
+      }
+    },
+    "expectedStatus": 401
+  }
+]

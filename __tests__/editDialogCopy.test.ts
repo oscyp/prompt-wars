@@ -43,9 +43,9 @@ const CHIP = /\b\d+ cr\b/;
 describe('spendRows', () => {
   it('lists price, balance and the balance after', () => {
     expect(spendRows(3, 7)).toEqual([
-      { label: 'Price', value: '3 credits' },
-      { label: 'Balance', value: '7 credits' },
-      { label: 'After', value: '4 credits' },
+      { label: 'Price', value: '3 credits', amount: 3 },
+      { label: 'Balance', value: '7 credits', amount: 7 },
+      { label: 'After', value: '4 credits', amount: 4 },
     ]);
   });
 
@@ -53,17 +53,18 @@ describe('spendRows', () => {
     expect(spendRows(3, 1)).toContainEqual({
       label: 'After',
       value: '0 credits',
+      amount: 0,
     });
   });
 
   it('shows only the price while the balance is unknown', () => {
     expect(spendRows(3, null)).toEqual([
-      { label: 'Price', value: '3 credits' },
+      { label: 'Price', value: '3 credits', amount: 3 },
     ]);
   });
 
-  it('collapses to Free for a free action', () => {
-    expect(spendRows(0, 7)).toEqual([{ label: 'Price', value: 'Free' }]);
+  it('omits routine price rows for a zero-cost action', () => {
+    expect(spendRows(0, 7)).toEqual([]);
   });
 
   it('spells credits out; the chip form is for buttons', () => {
@@ -110,7 +111,7 @@ describe('saveConfirmCopy', () => {
   it('lists each change and what it locks', () => {
     const copy = saveConfirmCopy({ changes: [NAME, ERA] });
     expect(copy.title).toBe('Save changes?');
-    expect(copy.subtitle).toBe('Free');
+    expect(copy.subtitle).toBeUndefined();
     expect(copy.lines).toEqual(['Name: Golota', 'Era: Cyberpunk']);
     expect(copy.footnote).toBe('Name locks for 7 days.');
     expect(copy.confirmLabel).toBe('Save');
@@ -327,3 +328,12 @@ describe('drawing copy', () => {
     expect(caption).toContain('anime');
   });
 });
+
+test.each([NaN, Infinity, -1, null])(
+  'an invalid price %s remains unavailable, never zero',
+  (price) => {
+    expect(spendRows(price, 7)).toEqual([
+      { label: 'Price', value: 'Unavailable', amount: null },
+    ]);
+  },
+);

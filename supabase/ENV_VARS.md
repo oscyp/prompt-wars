@@ -90,10 +90,12 @@ Notes:
   worker reclaims stale resolving rounds under parent/round locks; exhausted
   attempts terminalize the series as no contest without competitive rewards.
 - Each call records its actual response model ID, prompt version, seed, scores, and fallback status. Aggregation is recorded. A mock-assisted ranked series completes its free result as an unrated exhibition; mock output cannot silently update competitive records or pass calibration.
-- `JUDGE_PROMPT_VERSION` is **not** an env var. It is frozen in code at
-  `_shared/judge.ts` (`JUDGE_PROMPT_VERSION`); bump it there whenever the rubric
-  wording in `buildJudgeSystemPrompt()` changes, or historical `judge_runs` stop
-  being comparable.
+- Judge policy versions are **not** env vars. `_shared/judge-policy.ts` defines
+  legacy `v1.0.0-mvp` and composer `v2.0.0-ideas` (`judge.ts` reexports them).
+  The battle's immutable `judge_policy_version` selects the actual provider
+  template for both primary calls, tiebreak and appeals. Missing legacy values
+  select v1; unknown versions fail. Add a new policy when instructions change;
+  never rewrite a template already assigned to historical battles.
 - Cost: `runJudgePipeline` calls the provider **2-3 times per round** (a double
   run plus a tiebreaker when the two disagree), and every battle is Bo3 -- so up
   to 9 judge calls per completed battle.
@@ -107,13 +109,16 @@ Notes:
 # they fall back to the judge's key and model, which is usually what you want:
 # same provider, same family, and suggestions are a cheaper call than judging.
 SUGGESTIONS_API_KEY=xai-...      # falls back to JUDGE_API_KEY, then XAI_API_KEY
-SUGGESTIONS_MODEL_ID=grok-4.3    # falls back to JUDGE_MODEL_ID, then grok-4.3
+SUGGESTIONS_MODEL_ID=grok-4.20-0309-non-reasoning # independent of the judge model
 ```
 
-There is deliberately NO mock fallback here. With no key configured the
-endpoint returns 503 and the arena falls back to the static `prompt_templates`
-rows, because handing a player three lines of mock text they just paid a credit
-for is worse than showing them the generic templates.
+There is deliberately no mock purchased-success fallback. Generation failure
+preserves free authoring; composer v2 has bundled authored actions/intentions,
+and legacy authoring retains its existing free path. Failed or moderated paid
+operations are refunded once. Automatic `ensure_free` (also the default for an
+omitted operation) never charges. Paid `reroll` requires an explicit idempotency
+key and expected live price. See the independent generation/purchase switches
+under Versioned prompt composer below.
 
 ### Video Generation Provider
 
@@ -128,20 +133,51 @@ XAI_API_BASE_URL=https://api.x.ai/v1   # optional override
 XAI_VIDEO_MODEL=grok-imagine-video     # default when references are off
 XAI_VIDEO_RESOLUTION=720p              # optional, default 720p
 
-# Reference-to-video: hand the provider the two fighters' full-body portraits
-# so the cinematic shows the players' actual characters. DEFAULT OFF.
-#
-# Two things are unverified until this is switched on against the real API:
-#   1. whether xAI's image fetcher accepts a Supabase signed URL's ?token=
-#      query string;
-#   2. what grok-imagine-video-1.5 costs -- a model bump changes unit
-#      economics silently. Watch `daily_provider_costs` after enabling.
-#
-# Only set to "true" once both are checked. When off, or when no portrait
-# resolves, generation is byte-identical to before the feature existed.
+# Legacy reference-to-video flag only. New cinematic-v2/v3 jobs always require
+# reference mode; disabling this flag does not change snapshotted jobs.
 XAI_VIDEO_REFERENCE_ENABLED=false
-XAI_VIDEO_REFERENCE_MODEL=grok-imagine-video-1.5  # used ONLY when references are sent
+XAI_VIDEO_REFERENCE_MODEL=grok-imagine-video-1.5
+# Set a verified rate before rollout; unknown costs stay NULL, never zero.
+VIDEO_COST_USD_PER_SECOND__GROK_IMAGINE_VIDEO_1_5=0.14 # 720p output-only fallback
+VIDEO_COST_USD_PER_SECOND__GROK_IMAGINE_VIDEO=0.07     # 720p output-only fallback
 ```
+
+Cinematic-v3 is controlled by the service-only singleton
+`public.cinematic_generation_config.enabled` (default `false`), not a client
+variable. Its resolver uses derived entitlements and freezes 8s round / 12s
+single / 20s Plus policy on every new job, including automatic jobs. While
+false, jobs follow legacy generation and Plus duration copy remains hidden.
+The flag applies only to new jobs; in-flight v2 and v3 jobs retain their policy
+and required references after rollback.
+
+Plus v3 uses `grok-imagine-video-1.5` for a 15-second reference scene, then
+`grok-imagine-video` to extend its approved private base by 5 seconds. The
+service-only `cinematic-work` bucket holds intermediate media. No intermediate
+video row is exposed to clients. Each stage has 300 seconds; total execution
+has 600 seconds. Durable submission markers prevent duplicate paid calls
+when a response is lost. Either-stage failure refunds the original funding.
+
+Cinematic requests explicitly enable generated audio and ask for synchronized
+ambient/action sounds without dialogue or narration. The worker retains the
+original provider bytes for both base and final media; moderation still gates
+publication. The app keeps previews muted and enables sound only after Play.
+Existing clips saved without audio are not regenerated by this change.
+
+Cost tracking prefers the provider's actual `usage.cost_in_usd_ticks` converted
+with 10^10 ticks per USD and sums both stages. Configured model rates are
+output-only estimates when usage is missing, excluding input fees. Rates above
+were checked against https://docs.x.ai/developers/pricing on 2026-10-08.
+Unknown costs stay NULL, never zero.
+
+Before enabling: apply the four cinematic migrations, deploy the compatible
+Edge Function closure (including `moderate-video`), publish the vetted bundled
+references with `node scripts/publish-cinematic-reference-assets.mjs --execute`,
+and validate a signed-reference 20-second generation and extension. The
+publisher defaults to a local checksum-only dry run. The wider 24-clip visual
+matrix remains follow-up verification; do not describe a bounded smoke as that
+matrix. See `docs/audits/2026-10-08-cinematic-release/` for current release
+status and `docs/audits/2026-10-08-cinematic-fidelity/README.md` for the earlier
+15-second implementation evidence.
 
 The legacy `XAI_VIDEO_BASE_URL` is deliberately **ignored** by
 `_shared/providers.ts` (it pointed at a non-existent `/v1/video` path) and was
@@ -303,7 +339,8 @@ Recorded here because they are commonly mistaken for env vars:
   variable.
 - **App Store Connect / Google Play signing credentials** — held by EAS
   (`eas credentials`), never in this repo.
-- **`JUDGE_PROMPT_VERSION`** — frozen in `_shared/judge.ts`.
+- **Judge policy versions** — defined in `_shared/judge-policy.ts`, frozen per
+  battle and dispatched by the provider adapter; not runtime secrets.
 - **Cosmetics client contract** — `utils/cosmetics.ts` sends version 2. New artwork rows use `cosmetics_catalog.min_client_contract_version = 2`; missing versions default to 1. No secret or runtime image-generation key is needed for these bundled frames. Deploy the additive migration before the cosmetics function, then ship the compatible client. To withdraw a new item, deactivate its catalog row; never delete ownership or wallet history.
 - **Analytics / error-monitoring keys** — no Sentry, PostHog, or Datadog
   integration exists yet. Add the SDK first, then document the key.
@@ -355,3 +392,108 @@ The reviewer uses the existing server-only judge API credentials, but an explici
 Appeal work uses a 15-minute worker lease and per-item retries after 10, 20, 40, 80, 160, then 320 minutes. A failed item does not imply that the provider is down. Actual provider failures create a separate, model-scoped 10-minute cooldown; missing original data must not block unrelated submissions.
 
 The availability/status endpoint must report disabled or temporarily unavailable before an allowance-consuming submit. Rollback sets `APPEALS_ENABLED=false`; durable submitted records and original battle evidence remain auditable. Database correction fixtures and concurrent-worker testing are separate requirements from model calibration.
+
+### Versioned prompt composer
+
+The 1 October 2026 user decision makes composer experience 2 the default for
+all new practice/tutorial, casual/friend and ranked series. AI suggestions and
+explicit paid rerolls are available by default. Existing legacy battles,
+queues, invitations and request replays retain their stored experience. Client
+contract 3 is required for new v2 authoring and explicit purchases.
+
+The six composer rollout variables were removed from runtime. Any old hosted
+values are obsolete and have no effect: `PROMPT_COMPOSER_PRACTICE_ENABLED`,
+`PROMPT_COMPOSER_CASUAL_ENABLED`, `PROMPT_COMPOSER_RANKED_ENABLED`,
+`PROMPT_COMPOSER_RANKED_APPROVED`, `PROMPT_COMPOSER_AI_ENABLED`, and
+`PROMPT_SUGGESTIONS_PAID_ENABLED`. `PROMPT_COMPOSER_CALIBRATION_MAX_AGE_HOURS`
+is also obsolete because primary calibration no longer gates new ranked
+assignment. Do not set these variables as an activation or reversal procedure.
+
+The existing operational switches remain server-only:
+
+```bash
+# Exact true blocks NEW suggestion generation and new paid reservations,
+# including legacy. Default false/unset. Existing operation recovery survives.
+SUGGESTIONS_AI_DISABLED=false
+# Prefetch is on by default; exact 0 disables prefetch only.
+SUGGESTIONS_PREFETCH_ENABLED=1
+```
+
+`_shared/suggestion-service.ts` still requires configured provider/moderation
+credentials. Default availability does not bypass moderation, free allowance,
+current price/balance, rate limits, purchase confirmation or idempotency. Paid
+rerolls remain explicit; automatic `ensure_free` never charges. Existing
+operation recovery runs before new-generation and price checks. Drain old
+unfenced workers when deploying the reservation/lease migration and handlers.
+
+Judge evaluation remains offline by default. A separately authorized live run
+can add `--run-paid --max-calls=N --persist` to save recomputed evidence through
+`createServiceClient`; existing Supabase URL/service-secret settings are used,
+with no new credential variable. `--persist` without `--run-paid` fails before
+work. Partial, unreviewed or failed runs stay failed; enabling the composer does
+not create passing evidence. See the [runbook](../docs/plans/2026-10-01-composer-release.md).
+
+Independent appeals retain their existing enable/configuration and calibration
+requirements. V2 reviews require `multilingual` evidence for the frozen policy,
+regardless of `APPEAL_JUDGE_LOCALE`; legacy reviews retain their configured
+locale. The reviewer must differ from all original models, and
+`APPEAL_CALIBRATION_MAX_AGE_HOURS` still governs appeal evidence. Existing judge
+fallback, exhibition/rating protections, combat and social-auth flags are
+unchanged. Only policy, not the primary model, is frozen on the battle.
+
+## Staged Apple/Google and eligibility release
+
+Keep `private.auth_release.enabled=false` and the client feature flag unset until
+`docs/SOCIAL_AUTH_RELEASE.md` prerequisites and signed-device acceptance pass.
+No countries are approved by default. These values are configured as **Edge
+Function secrets**, never `EXPO_PUBLIC_*`:
+
+| Secret                          | Purpose                                                                                                  |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `GOOGLE_SIGN_IN_CLIENT_IDS`     | Comma-separated allowlist of actual Google ID-token audience client IDs used by the native builds        |
+| `APPLE_SIGN_IN_CLIENT_ID`       | Native Apple bundle ID, `gg.promptwars.app`, matching verified Apple token audience                      |
+| `APPLE_SIGN_IN_TEAM_ID`         | Apple Developer team ID                                                                                  |
+| `APPLE_SIGN_IN_KEY_ID`          | Sign in with Apple key ID                                                                                |
+| `APPLE_SIGN_IN_PRIVATE_KEY`     | PKCS8 `.p8` private key, server-only                                                                     |
+| `APPLE_SIGN_IN_ENCRYPTION_KEY`  | Base64-encoded 32 cryptographically random bytes; stable key for encrypted revocation credentials        |
+| `REGISTRATION_NETWORK_HMAC_KEY` | At least 32 random characters used to hash ingress-verified network addresses for signup velocity limits |
+
+The revocation cron uses existing Vault entries `supabase_url` and
+`service_role_key`; no Apple token belongs in a cron command. Provision the Auth
+Before User Created hook and manual linking separately in the hosted project.
+
+KWS Consent Management is deliberately unavailable until onboarding supplies its
+confirmed protocol. Parent Verification credentials alone do not enable consent.
+Do not invent KWS URLs or mark a PV adult-verification event as approval. See
+`docs/KWS_SETUP.md` for the implementation boundary and required next inputs.
+
+
+### Three-decision composition (composition version 3)
+
+No new provider credential or rollout flag is required. The client requests
+`composition_version: 3` while retaining client contract 3 and suggestion
+`structureVersion: 2`. The new fields are additive; old clients still read the
+same action, intention, title and body. The xAI model remains the explicitly
+configured `SUGGESTIONS_MODEL_ID`, with `grok-4.20-0309-non-reasoning` as the
+independent default (never inherited from `JUDGE_MODEL_ID`).
+
+New bank requests have a 45-second generation deadline and 4096 output tokens
+per reserved type. Typed moderation has its existing shared 60-second budget;
+60-second worker leases renew every 10 seconds throughout both stages.
+`complete-move-suggestion` uses the same provider/moderator configuration and
+user JWT plus shared `generate` eligibility check. It never touches a wallet.
+
+Six delivered custom adaptations are allowed per owner and round; pending
+operations reserve quota, failures release it, and replay does not consume it.
+The 30/hour and 90/day attempt limits are shared with bank generation. Each
+exact custom/upgrade context allows at most three provider attempts. Exact-set
+cache enrichment uses `ensure_free` plus `suggestion_set_id`, preserves every
+purchased field, and has a distinct composition status from purchase delivery.
+
+Deploy the additive SQL migration and both `generate-move-suggestions` and
+`complete-move-suggestion` before releasing the v3 composer client. The existing
+`SUGGESTIONS_AI_DISABLED=true` switch stops new custom adaptations and upgrades
+as well as new bank generation/purchases. Ready/pending operation recovery,
+refunds, authored starters and manual writing remain available. Do not restore
+removed composer/ranked rollout flags. Provider quality and live latency must
+be measured separately; passing mock-transport tests is not live evidence.

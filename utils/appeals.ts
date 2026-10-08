@@ -18,6 +18,38 @@ export interface AppealAvailability {
   available: boolean;
   reason: string | null;
 }
+export function appealPanelState(
+  data: AppealAvailability | null,
+  loading: boolean,
+  error: string | null,
+) {
+  if (error)
+    return { state: 'error', message: error, canSubmit: false } as const;
+  if (loading || !data)
+    return {
+      state: 'checking',
+      message: 'Checking independent review availability…',
+      canSubmit: false,
+    } as const;
+  if (data.appeal)
+    return {
+      state: 'submitted',
+      message: appealStatusCopy(data.appeal.review_status),
+      canSubmit: false,
+    } as const;
+  if (data.available)
+    return {
+      state: 'ready',
+      message: 'Independent review is available for this result.',
+      canSubmit: true,
+    } as const;
+  return {
+    state: 'unavailable',
+    message:
+      data.reason ?? 'Independent review is unavailable for this result.',
+    canSubmit: false,
+  } as const;
+}
 export function readBattleAppeal(
   battleId: string,
   action: 'status' | 'submit' = 'status',
@@ -68,7 +100,12 @@ export function reviewedRounds(
             player_one_damage: r.playerOneDamage,
             player_two_damage: r.playerTwoDamage,
             score_gap: r.scoreGap,
-            judge_payload: r.judge ?? old.judge_payload,
+            judge_payload: r.judge
+              ? {
+                  ...r.judge,
+                  frozen_inputs: old.judge_payload?.frozen_inputs,
+                }
+              : old.judge_payload,
           },
         ]
       : [];

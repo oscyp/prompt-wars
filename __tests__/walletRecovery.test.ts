@@ -67,6 +67,46 @@ it('does not confuse a purchase insert with the matching credit grant', async ()
   expect(await isPurchaseFulfilled(pending)).toBe(true);
 });
 
+it.each([
+  'promptwars_plus_monthly',
+  'promptwars_plus_annual',
+  'promptwars_plus_monthly:monthly',
+  'promptwars_plus_annual:annual',
+])(
+  'settles %s only after server fulfillment using the full product identity',
+  async (productId) => {
+    let fulfilledAt: string | null = null;
+    const purchase: any = {
+      select: () => purchase,
+      eq: jest.fn(() => purchase),
+      maybeSingle: async () => ({
+        data: { id: 'subscription', fulfilled_at: fulfilledAt },
+        error: null,
+      }),
+    };
+    const ledger: any = {
+      select: () => ledger,
+      eq: () => ledger,
+      gt: () => ledger,
+      limit: async () => ({ data: [], error: null }),
+    };
+    (supabase as any).from = (table: string) =>
+      table === 'purchases' ? purchase : ledger;
+    const subscription = { ...pending, productId };
+    await writePendingPurchase(subscription);
+    expect(await settlePendingPurchase(subscription)).toBe(false);
+    expect(await readPendingPurchase('alice')).toEqual(subscription);
+    fulfilledAt = '2026-09-13T10:01:00Z';
+    expect(await settlePendingPurchase(subscription)).toBe(true);
+    expect(await readPendingPurchase('alice')).toBeNull();
+    expect(purchase.eq).toHaveBeenCalledWith('product_id', productId);
+    expect(purchase.eq).toHaveBeenCalledWith(
+      'revenuecat_transaction_id',
+      'store-123',
+    );
+  },
+);
+
 it('waits for the offer ledger even when its purchase row defaults credits_granted to zero', async () => {
   const purchase: any = {
     select: () => purchase,

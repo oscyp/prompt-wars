@@ -1,0 +1,19 @@
+{
+  "requestedAt": "2026-10-02T14:35:07.152468+00:00",
+  "command": [
+    "eas",
+    "build",
+    "--platform",
+    "android",
+    "--profile",
+    "preview",
+    "--non-interactive",
+    "--no-wait",
+    "--json",
+    "--message",
+    "Composer remediation FINAL 2026-10-02 Android QA APK; verified result copy"
+  ],
+  "submissionRequested": false,
+  "replacesIntermediateBuild": "99f1739f-8928-4a3d-b0ce-7c3207e6a571",
+  "ios16SourceMapIdentical": true
+}

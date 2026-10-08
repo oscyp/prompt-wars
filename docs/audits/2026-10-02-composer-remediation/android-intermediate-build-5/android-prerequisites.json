@@ -1,0 +1,40 @@
+{
+  "checkedAt": "2026-10-02T13:41:20.828875+00:00",
+  "projectId": "d4c525e1-0a95-4c6a-b1ee-106fa2f03f46",
+  "owner": "prompt-wars",
+  "profile": "preview",
+  "distribution": "internal",
+  "artifactType": "apk",
+  "buildLaunched": false,
+  "waitingFor": "root source-freeze signal",
+  "easLoginVerified": true,
+  "latestExistingAndroidBuild": {
+    "id": "7ce1f013-da20-4bc7-aa76-4c11cc5b9fc0",
+    "createdAt": "2026-09-22T13:29:41.430Z",
+    "status": "FINISHED",
+    "profile": "production",
+    "artifactType": "aab"
+  },
+  "previewEnvironmentVariableNames": [
+    "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID",
+    "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID"
+  ],
+  "productionEnvironmentHasRequiredPublicKeys": true,
+  "configurationFinding": "Preview profile currently lacks environment=production; preview remote environment lacks required EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY. Root notified before freeze.",
+  "nativeRuntime": {
+    "sdkExists": false,
+    "androidStudioExists": false,
+    "tools": {
+      "adb": null,
+      "emulator": null,
+      "sdkmanager": null,
+      "apkanalyzer": null,
+      "aapt": null,
+      "aapt2": null,
+      "apksigner": null
+    },
+    "javaHomes": [],
+    "status": "unavailable; no SDK/emulator/JDK installed; no remote paid simulator authorized"
+  },
+  "freeBytes": 1060864000000
+}

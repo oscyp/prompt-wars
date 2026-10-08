@@ -1,0 +1,256 @@
+[
+  {
+    "id": "F1",
+    "priority": "P1",
+    "title": "Metallic headings render as two misaligned text layers",
+    "evidence": "Native + source",
+    "screens": [
+      "Wallet",
+      "Sign-in",
+      "Sign-up"
+    ],
+    "images": [
+      "08-wallet",
+      "23-small-sign-in",
+      "25-small-sign-up-large-text"
+    ],
+    "observation": "Long and multiline headings visibly double up. The end of “WALLET & SUBSCRIPTION” and “PROMPT WARS” is especially affected; accessibility text makes the split more obvious.",
+    "cause": "GameDisplayTitle paints native GameText and an independent SVG text layer. The native result proves that their glyph metrics do not always agree; the exact combination of weight, baseline and letter spacing still needs isolation.",
+    "change": "Use one readable glyph rendering path. Keep solid native text as the reliable fallback; retain metallic treatment only when it shares exactly the same geometry. Do not shrink text or disable scaling.",
+    "acceptance": "Single, sharp glyphs for one-line, multiline, long, diacritic and non-Latin headings at default/accessibility sizes, including font loading/failure and live size changes.",
+    "sources": [
+      "components/game/GameDisplayTitle.tsx",
+      "components/game/GameText.tsx"
+    ]
+  },
+  {
+    "id": "F2",
+    "priority": "P1",
+    "title": "Banner buttons squeeze explanatory text",
+    "evidence": "Native + source",
+    "screens": [
+      "Settings",
+      "Shared feedback"
+    ],
+    "images": [
+      "12-settings"
+    ],
+    "observation": "At the standard 402-point width, the notification explanation is compressed into a narrow five-line column beside a button stretched to the full paragraph height.",
+    "cause": "InlineBanner puts flexible text and a full GameButton in one wrapping row; the action also uses alignSelf: stretch.",
+    "change": "Give the explanation the available width and put a compact utility action below it when a message/action pair cannot fit comfortably. Share the fix with editor locks, retries and other banners.",
+    "acceptance": "At 375/402 points and large text, full messages and action labels remain readable, actions keep at least 48-point targets, and buttons do not stretch to paragraph height.",
+    "sources": [
+      "components/InlineBanner.tsx",
+      "app/(profile)/settings.tsx"
+    ]
+  },
+  {
+    "id": "F3",
+    "priority": "P1",
+    "title": "The series headline breaks its score across lines",
+    "evidence": "Native + source",
+    "screens": [
+      "Series result",
+      "Result sharing"
+    ],
+    "images": [
+      "18-series-summary"
+    ],
+    "observation": "A normal 2–1 practice win displays “You won the series 2-” with “1” alone on the next line. The same score already appears between the portraits.",
+    "cause": "ResultShareCard renders a sentence containing the score as a large display heading, in addition to a separate score field.",
+    "change": "Lead with a short outcome label and render the complete series score separately as an unbroken unit. Preserve the precise outcome explanation, KO, reviewed-result revision and legacy single-battle support.",
+    "acceptance": "Win, loss, draw, no-contest and reviewed states have a clear outcome; no score is split mid-number or duplicated unnecessarily in the headline. Verify exported cards too.",
+    "sources": [
+      "components/ResultShareCard.tsx",
+      "utils/resultView.ts",
+      "app/(battle)/result.tsx"
+    ]
+  },
+  {
+    "id": "F4",
+    "priority": "P2",
+    "title": "Scrolling content passes behind the status bar and Back control",
+    "evidence": "Native + source",
+    "screens": [
+      "Arena",
+      "Profile",
+      "Stats",
+      "Wallet",
+      "Authentication"
+    ],
+    "images": [
+      "28-arena-progress",
+      "04-profile-navigation",
+      "07-stats-details",
+      "25-small-sign-up-large-text"
+    ],
+    "observation": "Scrolled labels, numbers and controls remain visible behind system status indicators. At large text the sign-up wordmark also reaches the floating Back area.",
+    "cause": "Several routes add top padding to scrolling content, but leave the status/header area transparent. Authentication uses fixed vertical content padding.",
+    "change": "Give each screen one explicit safe-area/header owner. Use a steady background or scrim above scrolling content and reserve the Back area. Harmonize the visual placement of Back while retaining each route’s existing fallback.",
+    "acceptance": "Content remains legible while scrolling and cannot visually collide with status indicators or Back at default/large text; no double safe-area padding is introduced.",
+    "sources": [
+      "app/(tabs)/home.tsx",
+      "app/(tabs)/profile.tsx",
+      "app/(profile)/stats.tsx",
+      "app/(profile)/wallet.tsx",
+      "app/(auth)/sign-up.tsx",
+      "components/game/GameScreen.tsx"
+    ]
+  },
+  {
+    "id": "F5",
+    "priority": "P2",
+    "title": "Equipped frames disappear on a few identity surfaces",
+    "evidence": "Native + source",
+    "screens": [
+      "Cosmetic Shop",
+      "Series result",
+      "Result sharing"
+    ],
+    "images": [
+      "10-shop",
+      "02-profile",
+      "18-series-summary"
+    ],
+    "observation": "Shop says “Wearing Neon Circuit” but its summary avatar uses only a plain accent ring. Result/share portraits likewise have no equipment renderer. Profile and Edit Look demonstrate the intended equipped treatment.",
+    "cause": "ShopEquippedSummary does not pass frame/aura data to PortraitPreview. ShareCardFighter has no cosmetic fields and renders a raw circular Image.",
+    "change": "Carry the actual equipment into the shared portrait renderer. Use current equipment for the Shop and recorded equipment for battle results; keep legacy and bot fallbacks. Cosmetic borders should replace the default ring treatment rather than accumulate around it.",
+    "acceptance": "The same equipped fighter is recognizable across Profile, Shop, result and export. Frozen results do not acquire equipment purchased later; null legacy snapshots remain valid.",
+    "sources": [
+      "components/shop/ShopEquippedSummary.tsx",
+      "components/ResultShareCard.tsx",
+      "components/PortraitPreview.tsx"
+    ]
+  },
+  {
+    "id": "F6",
+    "priority": "P2",
+    "title": "Secondary panels still mix old and new visual treatments",
+    "evidence": "Native + source",
+    "screens": [
+      "Profile/Rivals",
+      "Shop preview",
+      "Wallet",
+      "Results",
+      "Battle recovery"
+    ],
+    "images": [
+      "04-profile-navigation",
+      "11-shop-preview",
+      "09-wallet-offers",
+      "21-reveal-rewards"
+    ],
+    "observation": "Rivals uses a plain rounded panel/system heading beside beveled navigation rows. Shop preview names are generic body text. Credit packs and result/reward cards combine rounded borders with an angular bevel. The rewards beat’s heading is much smaller than the verdict heading.",
+    "cause": "Shared GameText/GameBevel imports were added while several local font-size, border-radius and border-width rules remained in place.",
+    "change": "Assign explicit title/fighter/body variants and one border treatment per surface. Use quiet panels for information, controlled ornament for fighter/reveal moments, and existing utility buttons for retry/navigation. Give reward numbers prominence and put long explanatory values below their labels. Extend the custom glyph family to remaining product outcome icons; retain familiar system utilities and native controls.",
+    "acceptance": "No rounded outline protrudes behind an angular frame. Heading levels and fighter names are consistent. Prices and longer reward explanations reflow without a narrow value column. Forms do not gain unnecessary ornament.",
+    "sources": [
+      "app/(tabs)/profile.tsx",
+      "app/(profile)/shop.tsx",
+      "components/CosmeticPreview.tsx",
+      "app/(profile)/wallet.tsx",
+      "components/ResultShareCard.tsx",
+      "components/reveal/RevealPayoffBeat.tsx",
+      "components/reveal/RevealJudgeBeat.tsx",
+      "app/(battle)/round-result.tsx"
+    ]
+  },
+  {
+    "id": "F7",
+    "priority": "P2",
+    "title": "Winner artwork pushes its identity below the reveal viewport",
+    "evidence": "Native + source",
+    "screens": [
+      "Free result cinematic"
+    ],
+    "images": [
+      "20-reveal-winner"
+    ],
+    "observation": "The winner beat presents a very tall framed fighter; the name/caption lies below the visible stage at default text size. The view scrolls, but the first impression does not identify the winner beside the artwork.",
+    "cause": "RevealWinnerBeat uses an uncapped width-sized FighterCard inside a scrolling stage.",
+    "change": "Budget the artwork against the reveal stage height, reserving space for the outcome, fighter identity and persistent controls. Reuse the height-aware card capability. Keep full-body art contained, with the full-size viewer/share composition independent.",
+    "acceptance": "At default text on small/standard phones, the winning name and recognizable fighter are visible together. Accessibility text may scroll naturally; replay/skip/footer remain reachable.",
+    "sources": [
+      "components/reveal/RevealWinnerBeat.tsx",
+      "components/game/FighterCard.tsx",
+      "utils/revealLayout.ts"
+    ]
+  },
+  {
+    "id": "F8",
+    "priority": "P2",
+    "title": "The writing workspace has redundant authoring chrome",
+    "evidence": "Source only in this pass",
+    "screens": [
+      "Battle workspace"
+    ],
+    "images": [],
+    "observation": "Above the writing/suggestion content, the source includes a YOUR PROMPT header with Ideas action, another Ideas/Write-your-own selector, explanatory copy, entitlement copy and another ideas heading. Suggestion titles are restricted to one line.",
+    "cause": "Useful controls have accumulated across earlier iterations, consuming vertical space beyond the compact writing hierarchy in the approved mockup.",
+    "change": "Use one authoring-mode control and a concise allowance/next-price row. Move repeat explanations into expandable help, keep exact paid costs visible before commitment, and let suggestion titles wrap. Preserve the controlled editor, draft state, keyboard ownership and hold-to-submit.",
+    "acceptance": "Capture a real active round at 375/402 points with the keyboard. The prompt area appears promptly, every authoring mode remains discoverable, and switching moves/modes does not remount or lose text.",
+    "sources": [
+      "app/(battle)/prompt-entry.tsx"
+    ]
+  },
+  {
+    "id": "F9",
+    "priority": "P2",
+    "title": "Loading and empty states do not match the finished screens",
+    "evidence": "Native empty states + source",
+    "screens": [
+      "Profile loading",
+      "Rankings",
+      "Blocked users",
+      "Startup/recovery"
+    ],
+    "images": [
+      "13-blocked",
+      "14-rankings-ended"
+    ],
+    "observation": "Blocked users and the ended-season view feel unfinished compared with populated screens. Profile’s skeleton still describes the previous tall hero, three action pills and a large progress block.",
+    "cause": "The loaded layouts evolved, while skeleton geometry and some minimal message-only states did not.",
+    "change": "Match Profile skeleton geometry to the measured hero/stat/two-action layout. Give empty/ended/error states a consistent compact custom glyph, functional heading, concise explanation and an existing action only when useful. Preserve distinct loading, confirmed-empty and failure states.",
+    "acceptance": "Loading does not imply a different layout; transitions avoid unnecessary jumps. No invented season dates, reward promises or unavailable actions appear. Retry states retain known content.",
+    "sources": [
+      "components/profile/ProfileSkeleton.tsx",
+      "app/(tabs)/rankings.tsx",
+      "app/(profile)/blocked.tsx",
+      "app/index.tsx",
+      "app/_layout.tsx"
+    ]
+  },
+  {
+    "id": "F10",
+    "priority": "P3",
+    "title": "Entry and routine lists need a quieter visual hierarchy",
+    "evidence": "Native + source; onboarding is source only",
+    "screens": [
+      "Sign-in",
+      "Sign-up",
+      "Welcome",
+      "Create fighter",
+      "Battles",
+      "Rankings/Rivals"
+    ],
+    "images": [
+      "23-small-sign-in",
+      "25-small-sign-up-large-text",
+      "17-battles"
+    ],
+    "observation": "On the small phone, large branded headings consume most of the signup entry viewport at accessibility size. Every history row has a strong gold enclosure. The creator still uses an older art-style picker, and its full archetype catalogue is visually heavy relative to Edit Look.",
+    "cause": "Branding and emphasis are applied uniformly instead of reflecting the current task or row priority.",
+    "change": "Keep compact branding plus a functional auth heading, with scalable text. Make Welcome artwork height-aware so Play practice is encountered early. Reuse appropriate editor style/preset presentation without removing choices. Quiet ordinary finished rows and reserve stronger accents for action-required states. Keep Report and Block independently discoverable in compact row-level safety controls.",
+    "acceptance": "Auth controls become visible earlier without reducing text scale. Onboarding retains every step/allowance. Lists are easier to scan, and safety actions keep 48-point targets and visible labels.",
+    "sources": [
+      "app/(auth)/sign-in.tsx",
+      "app/(auth)/sign-up.tsx",
+      "app/(onboarding)/welcome.tsx",
+      "app/(onboarding)/create-character.tsx",
+      "components/ArtStylePicker.tsx",
+      "app/(tabs)/battles.tsx",
+      "components/profile/RivalRow.tsx",
+      "components/PodiumHeader.tsx"
+    ]
+  }
+]

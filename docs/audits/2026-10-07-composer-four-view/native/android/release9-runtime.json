@@ -1,0 +1,35 @@
+{
+  "observedAt": "2026-10-07T14:26:58.327584+00:00",
+  "buildId": "c177cc6f-084e-4130-981f-ac85f9cabfac",
+  "apkSha256": "b52abf2944adf655674cb3575207291ea1dd1414966eec522d321c6638f326c9",
+  "apkBytes": 139039741,
+  "installResult": "Success",
+  "installedPackage": "gg.promptwars.app",
+  "installedVersionName": "1.3.3",
+  "installedVersionCode": 9,
+  "coldLaunchOutput": "Starting: Intent { cmp=gg.promptwars.app/.MainActivity }\nStatus: ok\nLaunchState: COLD\nActivity: gg.promptwars.app/.MainActivity\nTotalTime: 447\nWaitTime: 449\nComplete\n",
+  "visibleScreen": "SIGN IN",
+  "processPresent": true,
+  "boundedNativeErrorLogEmpty": true,
+  "authCreated": false,
+  "signedIn": false,
+  "purchasePerformed": false,
+  "storeSubmissionPerformed": false,
+  "limits": [
+    "Unauthenticated signed APK smoke only; no live battle or composer interaction in the signed app.",
+    "Composer runtime/layout evidence is the separate Expo Go fixture matrix.",
+    "TalkBack is not installed on this AOSP emulator."
+  ],
+  "device": {
+    "serial": "emulator-5582",
+    "avd": "prompt_wars_composer_20261006",
+    "adbServerPort": 5038,
+    "api": "35",
+    "androidRelease": "15",
+    "abi": "arm64-v8a",
+    "size": "Physical size: 1080x2340",
+    "density": "Physical density: 440",
+    "fontScale": "1"
+  },
+  "screenshotVisuallyInspected": true
+}

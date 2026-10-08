@@ -1,0 +1,94 @@
+{
+  "at": "2026-10-07T13:12:14.377092+00:00",
+  "battle_id": "bf0772be-c215-4d00-898e-a690f4eeb59a",
+  "battle_status": "waiting_for_prompts",
+  "current_round": 3,
+  "rounds": [
+    {
+      "combat_keys": [
+        "isKo",
+        "isDraw",
+        "winner",
+        "scoreGap",
+        "playerOneScore",
+        "playerTwoScore",
+        "playerOneDamage",
+        "playerTwoDamage",
+        "playerOneHpAfter",
+        "playerTwoHpAfter",
+        "playerOneMovePoints",
+        "playerTwoMovePoints",
+        "playerOneStatModifier",
+        "playerTwoStatModifier"
+      ],
+      "combat_winner": "2",
+      "explanation_present": true,
+      "judge_explanation_present": false,
+      "judge_payload_keys": [
+        "calls",
+        "combat",
+        "aggregation",
+        "explanation",
+        "frozen_inputs",
+        "mock_assisted",
+        "move_type_matchup",
+        "forfeit_profile_id",
+        "player_one_raw_scores",
+        "player_two_raw_scores",
+        "player_one_normalized_scores",
+        "player_two_normalized_scores"
+      ],
+      "round_number": 1,
+      "round_winner_id_present": false,
+      "status": "result_ready"
+    },
+    {
+      "combat_keys": [
+        "isKo",
+        "isDraw",
+        "winner",
+        "scoreGap",
+        "playerOneScore",
+        "playerTwoScore",
+        "playerOneDamage",
+        "playerTwoDamage",
+        "playerOneHpAfter",
+        "playerTwoHpAfter",
+        "playerOneMovePoints",
+        "playerTwoMovePoints",
+        "playerOneStatModifier",
+        "playerTwoStatModifier"
+      ],
+      "combat_winner": null,
+      "explanation_present": true,
+      "judge_explanation_present": false,
+      "judge_payload_keys": [
+        "calls",
+        "combat",
+        "aggregation",
+        "explanation",
+        "frozen_inputs",
+        "mock_assisted",
+        "move_type_matchup",
+        "forfeit_profile_id",
+        "player_one_raw_scores",
+        "player_two_raw_scores",
+        "player_one_normalized_scores",
+        "player_two_normalized_scores"
+      ],
+      "round_number": 2,
+      "round_winner_id_present": false,
+      "status": "result_ready"
+    },
+    {
+      "combat_keys": null,
+      "combat_winner": null,
+      "explanation_present": false,
+      "judge_explanation_present": false,
+      "judge_payload_keys": null,
+      "round_number": 3,
+      "round_winner_id_present": false,
+      "status": "waiting_for_prompts"
+    }
+  ]
+}

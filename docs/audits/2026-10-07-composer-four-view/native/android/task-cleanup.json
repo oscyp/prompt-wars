@@ -1,0 +1,11 @@
+{
+  "observedAt": "2026-10-07T14:27:30.398602+00:00",
+  "taskEmulatorKillResponse": "OK: killing emulator, bye bye\nOK",
+  "emulator5582Listening": false,
+  "adb5038Listening": false,
+  "fixtureMetro8083Listening": false,
+  "baselineDisplayFontAnimationsRestored": true,
+  "softwareKeyboardOverrideRestored": true,
+  "otherEmulatorsOrAdbServersStopped": false,
+  "cachedSdkAvdAndApkRetained": true
+}

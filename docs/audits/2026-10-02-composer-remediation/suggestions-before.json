@@ -1,0 +1,12 @@
+{
+  "project": "uoyjhudegdpanrgllfoj",
+  "queriedOn": "2026-10-02",
+  "since": "2026-10-01T00:00:00Z",
+  "transport": "authenticated Supabase CLI 2.98.2 linked Management API, read-only aggregate",
+  "rows": [
+    {"source":"prefetch","operation":"ensure_free","status":"failed","failure_code":"moderation_rejected","n":5,"credits":0,"refunded":0},
+    {"source":"prefetch","operation":"ensure_free","status":"failed","failure_code":"attempts_exhausted","n":2,"credits":0,"refunded":0},
+    {"source":"prefetch","operation":"ensure_free","status":"failed","failure_code":"generation_failed","n":2,"credits":0,"refunded":0},
+    {"source":"player","operation":"reroll","status":"failed","failure_code":"moderation_rejected","n":1,"credits":1,"refunded":1}
+  ]
+}

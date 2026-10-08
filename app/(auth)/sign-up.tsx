@@ -1,5 +1,7 @@
+import { useNativeHeaderOffset } from '@/hooks/useNativeHeaderOffset';
 import { GamePanel } from '@/components/game';
 import BrandMark from '@/components/game/BrandMark';
+import { RegistrationForm } from '@/components/auth/RegistrationForm';
 import { GameHeader, GameButton, GameField } from '@/components/game';
 import { GameText } from '@/components/game';
 import { useEffect, useRef, useState } from 'react';
@@ -14,9 +16,10 @@ import {
   ScrollView,
   AccessibilityInfo,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { supabase } from '@/utils/supabase';
+import { signUpWithPasswordSafely } from '@/utils/authSession';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -45,6 +48,17 @@ type Busy = 'idle' | 'signUp' | 'resend';
 const TOAST_MS = 2500;
 
 export default function SignUpScreen() {
+  const { guest } = useLocalSearchParams<{ guest?: string }>();
+  if (guest === '1' && process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED !== '1')
+    return <Redirect href="/(auth)/sign-in" />;
+  return process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED === '1' ? (
+    <RegistrationForm guest={guest === '1'} />
+  ) : (
+    <LegacySignUpScreen />
+  );
+}
+
+function LegacySignUpScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -58,6 +72,7 @@ export default function SignUpScreen() {
   const passwordRef = useRef<TextInput>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
+  const nativeHeaderOffset = useNativeHeaderOffset();
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
 
@@ -94,7 +109,7 @@ export default function SignUpScreen() {
 
     setBusy('signUp');
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error } = await signUpWithPasswordSafely({
         email: email.trim(),
         password,
         options: {
@@ -156,6 +171,7 @@ export default function SignUpScreen() {
 
   return (
     <KeyboardAvoidingView
+      keyboardVerticalOffset={nativeHeaderOffset}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={[styles.container, { backgroundColor: colors.background }]}
     >
@@ -165,8 +181,8 @@ export default function SignUpScreen() {
         showsVerticalScrollIndicator={false}
       >
         <BrandMark
-          size={260}
-          style={{ alignSelf: 'center', marginBottom: 24 }}
+          size={168}
+          style={{ alignSelf: 'center', marginBottom: 12 }}
         />
         {phase === 'confirm_email' ? (
           <View style={styles.form}>
@@ -253,7 +269,7 @@ export default function SignUpScreen() {
           </View>
         ) : (
           <>
-            <GameHeader title="Join Prompt Wars" style={{ marginBottom: 16 }} />
+            <GameHeader title="Create account" style={{ marginBottom: 16 }} />
             <GameText
               variant="caption"
               style={[
@@ -265,7 +281,7 @@ export default function SignUpScreen() {
               Create your account
             </GameText>
 
-            <GamePanel tone="ornate" style={styles.form}>
+            <GamePanel tone="quiet" style={styles.form}>
               <GameField
                 style={[
                   inputStyle,

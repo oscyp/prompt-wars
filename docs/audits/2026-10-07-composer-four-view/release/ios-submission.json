@@ -1,0 +1,16 @@
+{
+  "id": "bb09da5a-13cd-4e2f-b8ab-79ea3d486a76",
+  "status": "FINISHED",
+  "platform": "IOS",
+  "createdAt": "2026-10-07T13:06:53.691Z",
+  "updatedAt": null,
+  "completedAt": "2026-10-07T14:19:52.632Z",
+  "canRetry": false,
+  "lastObservedAt": "2026-10-07T14:22:13.355227+00:00",
+  "buildId": "9301c70c-2276-481c-a0ea-fcd63323bcfc",
+  "ascAppIdentifier": "6788787677",
+  "requestedInternalGroups": [
+    "Team (Expo)",
+    "testers"
+  ]
+}

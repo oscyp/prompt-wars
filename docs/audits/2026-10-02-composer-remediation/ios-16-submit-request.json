@@ -1,0 +1,17 @@
+{
+  "build_id": "c60b6c40-b019-46d6-bf93-b88e3200fd33",
+  "version": "1.3.3",
+  "build_number": "16",
+  "requested_groups": [
+    "Team (Expo)",
+    "testers"
+  ],
+  "auto_testflight_setup": false,
+  "non_interactive": true,
+  "wait": false,
+  "requested_at": "2026-10-02T14:52:25.193599+00:00",
+  "return_code": 0,
+  "submission_urls": [
+    "https://expo.dev/accounts/prompt-wars/projects/prompt-wars/submissions/d50ee6c3-b4c8-4273-b088-007d281c44e6"
+  ]
+}

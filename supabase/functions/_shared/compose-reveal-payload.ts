@@ -1,3 +1,4 @@
+import type { SituationSnapshot } from './prompt-situations.ts';
 // Shared Tier 0 reveal composition (service-role, SYNCHRONOUS).
 //
 // Single source of truth for the free "wow moment" reveal payload. Both battle
@@ -112,6 +113,7 @@ export interface RevealSpec {
 }
 
 export interface RevealPayloadV1 {
+  situation_snapshot?: SituationSnapshot | null;
   // -- FLAT backward-compat fields (existing client reads; do not remove) -----
   /** Judge "why"/explanation text. Read by app/(battle)/result.tsx L306/L404. */
   summary: string;
@@ -245,11 +247,21 @@ export async function composeRevealPayload(
   }
   const { data: promptsData } = await promptsQuery;
   const prompts = (promptsData ?? []) as Array<Record<string, unknown>>;
-  const p1Prompt =
-    prompts.find((p) => p.profile_id === battle.player_one_id) ?? null;
-  const p2Prompt = isBot
-    ? null
-    : (prompts.find((p) => p.profile_id === battle.player_two_id) ?? null);
+  const frozen = (round?.judge_payload as any)?.frozen_inputs;
+  const p1Prompt = frozen?.player_one
+    ? {
+        custom_prompt_text: frozen.player_one.text,
+        move_type: frozen.player_one.moveType,
+      }
+    : (prompts.find((p) => p.profile_id === battle.player_one_id) ?? null);
+  const p2Prompt = frozen?.player_two
+    ? {
+        custom_prompt_text: frozen.player_two.text,
+        move_type: frozen.player_two.moveType,
+      }
+    : isBot
+      ? null
+      : (prompts.find((p) => p.profile_id === battle.player_two_id) ?? null);
 
   // Outcome: per-round frozen result wins over battle aggregate when present.
   const winnerId: string | null = round
@@ -404,6 +416,9 @@ export async function composeRevealPayload(
     tier: 0,
     battle_id: battleId,
     battle_round_id: battleRoundId,
+    ...(round?.situation_snapshot
+      ? { situation_snapshot: round.situation_snapshot as SituationSnapshot }
+      : {}),
     round_number: effectiveRoundNumber,
     generated_at: new Date().toISOString(),
     outcome: {
@@ -513,6 +528,12 @@ async function loadSignedPortrait(
 
 /** Current, non-rejected portrait storage paths for a character. */
 export interface CurrentPortrait {
+  id?: string | null;
+  appearance_version?: number | null;
+  moderation_status?: string | null;
+  bucket?: string;
+  version?: string;
+  provenance?: 'generated' | 'bundled' | 'legacy_frozen';
   image_path: string;
   thumb_path: string | null;
   seed: number | null;
@@ -553,7 +574,7 @@ export async function resolveCurrentPortrait(
   // identical: the reveal poster stays on the full-body render.
   const { data: rows, error } = await supabase
     .from('character_portraits')
-    .select('image_path, thumb_path, seed, moderation_status')
+    .select('id, image_path, thumb_path, seed, appearance_version, moderation_status')
     .eq('character_id', characterId)
     .eq('kind', kind)
     .eq('is_current', true)
@@ -567,6 +588,12 @@ export async function resolveCurrentPortrait(
   if (portrait.moderation_status === 'rejected') return null;
 
   return {
+    id: (portrait.id as string | undefined) ?? null,
+    appearance_version: numOrNull(portrait.appearance_version),
+    moderation_status: (portrait.moderation_status as string | undefined) ?? null,
+    bucket: PORTRAIT_BUCKET,
+    version: (portrait.id as string | undefined) ?? imagePath,
+    provenance: 'generated',
     image_path: imagePath,
     thumb_path: (portrait.thumb_path as string | undefined) ?? null,
     seed: numOrNull(portrait.seed),

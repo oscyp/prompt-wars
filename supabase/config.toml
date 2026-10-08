@@ -129,6 +129,11 @@ verify_jwt = false
 [functions.battle-advance]
 verify_jwt = false
 
+# Service-role only, called by matchmaking and battle-advance. Its own guard is
+# hasSupabaseSecretAuthorization; it has no player-facing entry point.
+[functions.prefetch-move-suggestions]
+verify_jwt = false
+
 [functions.process-video-job]
 verify_jwt = false
 
@@ -237,6 +242,14 @@ verify_jwt = false
 [functions.generate-move-suggestions]
 verify_jwt = false
 
+# Verifies the user JWT and shared eligibility inside getAuthUserId.
+[functions.complete-move-suggestion]
+verify_jwt = false
+
+# Verifies the user JWT, eligibility and participant ownership before reserving credits.
+[functions.reroll-move-step-suggestions]
+verify_jwt = false
+
 [functions.starter-fighter]
 verify_jwt = false
 
@@ -253,4 +266,41 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.run-judge-calibration]
+verify_jwt = false
+
+# Batched approved avatars; authentication is verified inside the handler.
+[functions.sign-player-avatars]
+verify_jwt = false
+
+# Combined social/eligibility release is disabled in private.auth_release until
+# reviewed policies and provider configuration have been provisioned.
+[auth]
+# Enable only after the permit hook/trigger are deployed. The separate server
+# guest_signup_enabled switch stays false until combined-release acceptance.
+enable_anonymous_sign_ins = false
+enable_manual_linking = true
+
+[auth.email.template.email_change]
+subject = "Confirm your Prompt Wars email"
+content_path = "./supabase/templates/change-email.html"
+
+# Enable in the hosted project after applying the additive migration. The
+# handle_new_user transaction is a second gate even while this hook is staged.
+[auth.hook.before_user_created]
+enabled = false
+uri = "pg-functions://postgres/public/before_user_created_hook"
+
+[functions.registration]
+verify_jwt = false
+
+[functions.eligibility]
+verify_jwt = false
+
+[functions.guardian-consent-callback]
+verify_jwt = false
+
+[functions.apple-authorization]
+verify_jwt = false
+
+[functions.process-apple-revocations]
 verify_jwt = false

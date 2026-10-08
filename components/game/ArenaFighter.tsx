@@ -9,6 +9,9 @@ import FighterCard from './FighterCard';
 import { GameButton, GameHeader, GamePanel, GameText } from './index';
 import { GameMasthead } from './GameMasthead';
 import CosmeticFrame from '@/components/CosmeticFrame';
+import { useHeroArtworkBudget } from '@/hooks/useHeroArtworkBudget';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabClearance } from '@/hooks/useTabClearance';
 import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
 
 export default function ArenaFighter({
@@ -16,11 +19,13 @@ export default function ArenaFighter({
   refreshVersion = 0,
   mastheadTrailing,
   beforeHero,
+  viewportHeight,
 }: {
   account: string | undefined;
   refreshVersion?: number;
   mastheadTrailing?: React.ReactNode;
   beforeHero?: React.ReactNode;
+  viewportHeight?: number;
 }) {
   const { fighter, loading, error, refresh, onArtworkError } =
     useArenaFighter(account);
@@ -37,53 +42,62 @@ export default function ArenaFighter({
     lastRefresh.current = refreshVersion;
     void refresh();
   }, [refreshVersion, refresh]);
+  const insets = useSafeAreaInsets();
+  const clearance = useTabClearance();
+  const budget = useHeroArtworkBudget(
+    (viewportHeight ? 0 : insets.top) + clearance + 48,
+    viewportHeight,
+  );
   const c = fighter?.character;
   return (
-    <View style={{ gap: 16, marginBottom: 24 }}>
-      {mastheadTrailing && (
-        <GameMasthead
-          trailing={mastheadTrailing}
-          avatar={
-            fighter && c ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="View Profile"
-                onPress={() => router.push('/(tabs)/profile')}
-                style={{
-                  minWidth: 48,
-                  minHeight: 48,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <CosmeticFrame
-                  source={
-                    fighter.avatarUri
-                      ? { uri: fighter.avatarUri }
-                      : getArchetypeAvatar(c.archetype)
-                  }
-                  frame={resolveEquippedCosmetics(c.cosmetic_config).frame}
-                  variant="circle"
-                  size={42}
-                  onImageError={onArtworkError}
-                />
-              </Pressable>
-            ) : undefined
-          }
+    <View style={{ gap: 10, marginBottom: 24 }}>
+      <View onLayout={budget.measure('header')}>
+        {mastheadTrailing && (
+          <GameMasthead
+            trailing={mastheadTrailing}
+            avatar={
+              fighter && c ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="View Profile"
+                  onPress={() => router.push('/(tabs)/profile')}
+                  style={{
+                    minWidth: 48,
+                    minHeight: 48,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <CosmeticFrame
+                    source={
+                      fighter.avatarUri
+                        ? { uri: fighter.avatarUri }
+                        : getArchetypeAvatar(c.archetype)
+                    }
+                    frame={resolveEquippedCosmetics(c.cosmetic_config).frame}
+                    variant="circle"
+                    size={42}
+                    onImageError={onArtworkError}
+                  />
+                </Pressable>
+              ) : undefined
+            }
+          />
+        )}
+        <GameHeader
+          style={{ paddingVertical: 4 }}
+          title="Enter the Arena"
+          subtitle="Your words. Your fighter."
         />
-      )}
-      <GameHeader
-        style={{ paddingVertical: 8 }}
-        title="Enter the Arena"
-        subtitle="Your words. Your fighter."
-      />
-      {beforeHero}
+      </View>
+      <View onLayout={budget.measure('urgent')}>{beforeHero}</View>
       {fighter && c ? (
         <FighterCard
           onImageError={onArtworkError}
           name={c.name}
           archetype={c.archetype}
-          battleCry={c.battle_cry}
+          maxArtworkHeight={budget.maxArtworkHeight}
+          onBodyHeight={budget.onCardBodyHeight}
           itemName={fighter.itemName}
           renderUri={fighter.renderUri}
           avatarUri={fighter.avatarUri}
@@ -126,7 +140,10 @@ export default function ArenaFighter({
           />
         </GamePanel>
       )}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+      <View
+        onLayout={budget.measure('actions')}
+        style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}
+      >
         <GameButton
           label="Customize"
           gameIcon="hanger"
@@ -144,6 +161,14 @@ export default function ArenaFighter({
           style={{ flexGrow: 1, flexBasis: 145, paddingHorizontal: 12 }}
         />
       </View>
+      {!!c?.battle_cry && (
+        <GameText
+          variant="caption"
+          style={{ textAlign: 'center', color: colors.textSecondary }}
+        >
+          {c.battle_cry}
+        </GameText>
+      )}
       <GameText
         variant="caption"
         style={{ textAlign: 'center', color: colors.textSecondary }}

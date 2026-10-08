@@ -1,0 +1,457 @@
+{
+  "date": "2026-09-22",
+  "runtime": "Rebuilt Debug simulator app, iOS 26.5, current local Metro JS",
+  "nativeAcceptance": "partial",
+  "captures": [
+    {
+      "file": "captures/01-arena-before-402.png",
+      "title": "Arena · before",
+      "kind": "real",
+      "state": "Before",
+      "note": "Installed development app before this task’s client changes.",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "pixels": [
+        1206,
+        2622
+      ],
+      "sha256": "f90c0106492748def6c1d9806c2f02001e415541282de49f6f70a853765c0bcf",
+      "bytes": 1343288
+    },
+    {
+      "file": "captures/02-arena-after-402.png",
+      "title": "Arena · actionable first",
+      "kind": "real",
+      "state": "After",
+      "note": "Actual signed-in route. Fighter hero and promotional copy removed; existing action and quest content remains.",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "pixels": [
+        1206,
+        2622
+      ],
+      "sha256": "b75a60cd79fe463087baf09cab32da1177daee9fe3ea228e66e938e00f5142b1",
+      "bytes": 684317
+    },
+    {
+      "file": "captures/03-battles-after-402.png",
+      "title": "Battles · shared frame/header",
+      "kind": "real",
+      "state": "After",
+      "note": "Actual existing practice history. Bot rows fill available width; active/history data are unchanged.",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "pixels": [
+        1206,
+        2622
+      ],
+      "sha256": "47018f7d9ad320ee2f267a177908e764c7bcb88bd55f0b9653b5af74e95c8695",
+      "bytes": 416404
+    },
+    {
+      "file": "captures/04-profile-after-402.png",
+      "title": "Profile · fighter identity",
+      "kind": "real",
+      "state": "After",
+      "note": "Actual fighter with equipped Neon Circuit frame. Battle cry is in the card caption; stats/actions remain grouped.",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "pixels": [
+        1206,
+        2622
+      ],
+      "sha256": "fde0301943a262995ee5f1db1b9d43d9fcc0db9359e98a4a504c384658d7639c",
+      "bytes": 1592439
+    },
+    {
+      "file": "captures/05-wallet-after-402.png",
+      "title": "Wallet · balance and costs",
+      "kind": "real",
+      "state": "After",
+      "note": "Actual account balance and live action prices. No purchase made.",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "pixels": [
+        1206,
+        2622
+      ],
+      "sha256": "e3060ba3bc3e84f7b30883af6e9f5ced6541665f7e76b111b3f45161d943cfd4",
+      "bytes": 249617
+    },
+    {
+      "file": "captures/06-wallet-localized-packs-402.png",
+      "title": "Wallet · localized packs",
+      "kind": "real",
+      "state": "After",
+      "note": "Actual store price strings and shared diamond pack quantities.",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "pixels": [
+        1206,
+        2622
+      ],
+      "sha256": "4fc325cfd77635e34f62779a6b79b99bd45878a5160f53b394d88372f86b1ccc",
+      "bytes": 212161
+    },
+    {
+      "file": "captures/07-wallet-ledger-402.png",
+      "title": "Wallet · framed ledger",
+      "kind": "real",
+      "state": "After",
+      "note": "Actual transaction history with signed amounts, dates and one shared outer frame.",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "pixels": [
+        1206,
+        2622
+      ],
+      "sha256": "7be293d68167cb0544a1122a6686f49a80037c5001e02bb2ba83cb3d1c4c959b",
+      "bytes": 255661
+    },
+    {
+      "file": "captures/08-editor-locked-402.png",
+      "title": "Edit Look · locked",
+      "kind": "real",
+      "state": "After",
+      "note": "Actual restored local draft under an existing active-battle lock. Values stay readable and mutation controls disabled.",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "pixels": [
+        1206,
+        2622
+      ],
+      "sha256": "9d0227d1b402018ec438addfaf08e408d25b9ccc2d3f708c97557a09b898532f",
+      "bytes": 720219
+    },
+    {
+      "file": "captures/09-editor-palettes-price-402.png",
+      "title": "Edit Look · shaded palette",
+      "kind": "real",
+      "state": "After",
+      "note": "Actual gradient palette and wrapped live draw amount. Existing staged values were not submitted.",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "pixels": [
+        1206,
+        2622
+      ],
+      "sha256": "21bd7bf7dcccd3b84ef2e56cc2f2b4c966e985dc368024e903c78c4f08463a93",
+      "bytes": 533219
+    },
+    {
+      "file": "captures/10-archetypes-locked-402.png",
+      "title": "Archetypes · larger artwork",
+      "kind": "real",
+      "state": "After",
+      "note": "Actual bounded archetype sheet. Full-width phone art, scrolling choices, fixed Done/Close; locked selections unchanged.",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "pixels": [
+        1206,
+        2622
+      ],
+      "sha256": "024030419c1d48347fb652cbc00e5da20752085f8bc7782b3fedde35c80b3157",
+      "bytes": 784311
+    },
+    {
+      "file": "captures/11-traits-locked-402.png",
+      "title": "Vibe · illustrated choices",
+      "kind": "real",
+      "state": "After",
+      "note": "Actual two-column reference sheet with 512px local images. Selection is read-only during the battle lock.",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "pixels": [
+        1206,
+        2622
+      ],
+      "sha256": "8107aafec13ad51368a1032bfb742ae29baa32ee3cc65bda8a96b1e7afb77e00",
+      "bytes": 1285771
+    },
+    {
+      "file": "captures/12-result-after-402.png",
+      "title": "Result · cinematic first",
+      "kind": "real",
+      "state": "After",
+      "note": "Actual completed practice result and previously generated approved video beneath the verdict. No new media request.",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "pixels": [
+        1206,
+        2622
+      ],
+      "sha256": "25dbf8f6171856383b1cb4e7c8790f293673224c4621ef1183d290df162e94d2",
+      "bytes": 2182371
+    },
+    {
+      "file": "captures/13-result-rewards-402.png",
+      "title": "Result · framed rewards",
+      "kind": "real",
+      "state": "After",
+      "note": "Actual rewards below the cinematic; persistent Battle Again/Arena remain reachable.",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "pixels": [
+        1206,
+        2622
+      ],
+      "sha256": "57a96fc1708b3ec8d4509091d732fc383a2f6b85b7616203702b7b23ebf8c645",
+      "bytes": 1354877
+    },
+    {
+      "file": "captures/14-workspace-expired-402.png",
+      "title": "Battle · full-screen environment",
+      "kind": "real",
+      "state": "After",
+      "note": "Actual expired practice round. Environment extends behind the safe header; input is unavailable in this state.",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "pixels": [
+        1206,
+        2622
+      ],
+      "sha256": "dcb4ea201e5697cafbff14e92e266a536cb48ecbe4300824d7f53fa9e4b58845",
+      "bytes": 1864252
+    },
+    {
+      "file": "captures/15-rankings-season-402.png",
+      "title": "Rankings · shared balance",
+      "kind": "real",
+      "state": "After",
+      "note": "Actual ended-season state with the compact shared tab header. Current human ranking rows were unavailable.",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "pixels": [
+        1206,
+        2622
+      ],
+      "sha256": "0a25e0487b863beef0c9406e82ef0ff088ab318706db63cb4f930ef33b3b83b1",
+      "bytes": 220614
+    },
+    {
+      "file": "captures/16-editor-fighter-fixture-375.png",
+      "title": "Fighter editor · small phone",
+      "kind": "fixture",
+      "state": "After",
+      "note": "Production editor components with local in-memory fixture state. This is not authenticated-route or draft-persistence evidence.",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "pixels": [
+        1080,
+        2340
+      ],
+      "sha256": "10e03d1c305b22c99b1039b5c3b3082c22ec477347d7e438a658cb081e397950",
+      "bytes": 450896
+    },
+    {
+      "file": "captures/17-editor-focus-input-unavailable-fixture-375.png",
+      "title": "Input focus · validation blocked",
+      "kind": "fixture",
+      "state": "Blocked",
+      "note": "Caret/focus appears, but software keyboard/text injection was unavailable. The same typing failure reproduced in plain React Native TextInput; Mac was locked.",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "pixels": [
+        1080,
+        2340
+      ],
+      "sha256": "5a74df192891823b203dc5a29aafbc9123954cc3088b1c1353f7d6ddafa8d273",
+      "bytes": 450740
+    },
+    {
+      "file": "captures/18a-editor-accessibility-before-fix-fixture-375.png",
+      "title": "Large-text editor · issue found",
+      "kind": "fixture",
+      "state": "Before fix",
+      "note": "Accessibility-large text squeezed the form before the native-driven layout correction. Retained only to document the issue.",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "pixels": [
+        1080,
+        2340
+      ],
+      "sha256": "3e6ed55529a0020d2b5f1109a8fda6a471c3bb52be7b71ea558c871e5e44a2c9",
+      "bytes": 387415
+    },
+    {
+      "file": "captures/18-editor-included-accessibility-fixture-375.png",
+      "title": "Large-text editor · scrolling restored",
+      "kind": "fixture",
+      "state": "After",
+      "note": "Accessibility-large (about 214%). Preview/status now scroll; persistent Save and Review actions remain visible.",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "pixels": [
+        1080,
+        2340
+      ],
+      "sha256": "080ce9a8210575c48a4d53260101cd534f1bca9f421cbc10b20c2f4d94323244",
+      "bytes": 413972
+    },
+    {
+      "file": "captures/18b-editor-accessible-controls-fixture-375.png",
+      "title": "Large-text editor · controls reached",
+      "kind": "fixture",
+      "state": "After",
+      "note": "Same large-text session, scrolled to art-style controls. Input instances and local state remain mounted.",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "pixels": [
+        1080,
+        2340
+      ],
+      "sha256": "9ed9db657b22ab5ca58e79b142791bf7ca6d3af2378b313d09276ce08262c4a0",
+      "bytes": 705367
+    },
+    {
+      "file": "captures/19-rows-accessibility-fixture-375.png",
+      "title": "Safety row · Unicode and large text",
+      "kind": "fixture",
+      "state": "After",
+      "note": "Large-text row using Łucja García and 李小龍 fixture text. Safety stays within its frame; this does not close the earlier long-Japanese-heading issue.",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "pixels": [
+        1080,
+        2340
+      ],
+      "sha256": "5dac43dc3975b26f649b6198b2974dd990a69ee02a8cec32fae2eef89047112f",
+      "bytes": 419249
+    },
+    {
+      "file": "captures/20-round-impact-fixture-375.png",
+      "title": "Round impact · HP and damage",
+      "kind": "fixture",
+      "state": "After",
+      "note": "Production impact component with local authoritative-shaped values: You 86/100, −14; opponent 40/100, −60. No client damage calculation.",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "pixels": [
+        1080,
+        2340
+      ],
+      "sha256": "96e019b76f2b8f3ff898bb37ecd09f229e78e87e6a9d8d065bdb690bb5f35291",
+      "bytes": 1855046
+    },
+    {
+      "file": "captures/21-reviewed-no-contest-fixture-375.png",
+      "title": "Reviewed no contest",
+      "kind": "fixture",
+      "state": "After",
+      "note": "Old score/KO suppressed, retained rewards and rating correction explanation visible. Presentation fixture, not a real appeal.",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "pixels": [
+        1080,
+        2340
+      ],
+      "sha256": "240ac99ab12cf719091ea064a51124bfc5c6325ba9171238adccbfb3dddffe05",
+      "bytes": 2276279
+    },
+    {
+      "file": "captures/22-media-recovery-fixture-375.png",
+      "title": "Media retry · unknown reward",
+      "kind": "fixture",
+      "state": "After",
+      "note": "Generated-media loading error appears above rewards. Local retry counter reaches one; fixture has no generation or purchase endpoint.",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "pixels": [
+        1080,
+        2340
+      ],
+      "sha256": "8019c2ab2a2730169b30a7a1ba830dbd3892a889cc20f4b3cbe0fbbb1ee0ecc2",
+      "bytes": 2185206
+    },
+    {
+      "file": "captures/23-independent-safety-fixture-375.png",
+      "title": "Safety · independent sheet",
+      "kind": "fixture",
+      "state": "After",
+      "note": "Opening Safety leaves the row-navigation counter at zero. Existing independent Report/Block controls shown; nothing submitted.",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "pixels": [
+        1080,
+        2340
+      ],
+      "sha256": "e3ed76de3c1674cc6ce4b1aa14218cb2ce170f26efe6540b1428c27873a6d39b",
+      "bytes": 306556
+    },
+    {
+      "file": "captures/24-equal-width-rows-fixture-375.png",
+      "title": "Human and bot · equal width",
+      "kind": "fixture",
+      "state": "After",
+      "note": "After closing Safety, navigation counter remains zero and both frames retain identical width.",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "pixels": [
+        1080,
+        2340
+      ],
+      "sha256": "c342ab63b8522e35fcf332543a3a0898902e86b6e224bc1bca8cfe935086b30d",
+      "bytes": 314431
+    }
+  ],
+  "limits": [
+    "Android blocked: no environment",
+    "Mac locked: direct text entry unavailable",
+    "VoiceOver and full OS Reduced Motion traversal not completed",
+    "Small phone authenticated routes unavailable",
+    "Fixtures do not prove production persistence, purchases, generation, appeal or account integration",
+    "Development native build required temporary local Xcode/RevenueCat workaround; production toolchain not certified"
+  ]
+}

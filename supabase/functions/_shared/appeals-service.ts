@@ -14,6 +14,11 @@ import {
 } from './appeals.ts';
 import type { CombatStats } from './combat.ts';
 import type { MoveType } from './types.ts';
+import {
+  judgePolicyVersion,
+  IDEAS_JUDGE_PROMPT_VERSION,
+} from './judge-policy.ts';
+import type { SituationSnapshot } from './prompt-situations.ts';
 type DB = ReturnType<typeof createServiceClient>;
 export function appealConfig() {
   return {
@@ -39,8 +44,12 @@ export async function reviewerAvailability(
   db: DB,
   originalModels: string[],
   checkCooldown = true,
+  promptVersion = JUDGE_PROMPT_VERSION,
 ) {
+  const version = judgePolicyVersion(promptVersion);
   const c = appealConfig();
+  const calibrationLocale =
+    version === IDEAS_JUDGE_PROMPT_VERSION ? 'multilingual' : c.locale;
   if (!c.enabled || !c.model || !c.hasKey)
     return {
       available: false,
@@ -68,8 +77,8 @@ export async function reviewerAvailability(
     .from('judge_calibration_runs')
     .select('*')
     .eq('judge_model_id', c.model)
-    .eq('judge_prompt_version', JUDGE_PROMPT_VERSION)
-    .eq('locale', c.locale)
+    .eq('judge_prompt_version', version)
+    .eq('locale', calibrationLocale)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -78,8 +87,8 @@ export async function reviewerAvailability(
     !calibrationEligible(
       data,
       c.model,
-      JUDGE_PROMPT_VERSION,
-      c.locale,
+      version,
+      calibrationLocale,
       c.maxAgeHours,
     )
   )
@@ -184,6 +193,8 @@ export async function judgeAppealRound(
   theme: string | null,
   model: string,
   original: string[],
+  promptVersion = JUDGE_PROMPT_VERSION,
+  situationSnapshot?: SituationSnapshot | null,
 ) {
   const judged = await runJudgePipeline(
     provider,
@@ -194,10 +205,11 @@ export async function judgeAppealRound(
     p1.wordCount,
     p2.wordCount,
     theme,
-    JUDGE_PROMPT_VERSION,
+    promptVersion,
+    situationSnapshot,
   );
   try {
-    assertIndependentCalls(judged.calls, model, original, JUDGE_PROMPT_VERSION);
+    assertIndependentCalls(judged.calls, model, original, promptVersion);
   } catch (error) {
     throw new IndependentProviderFailure(
       error instanceof Error ? error.message : 'Invalid reviewer provenance',
@@ -215,11 +227,6 @@ export async function processIndependentAppeal(db: DB, id: string) {
   if (!appeal) return { status: 'not_claimed' };
   try {
     const models = await originalModelsFor(db, appeal.battle_id);
-    const availability = await reviewerAvailability(db, models, false);
-    if (!availability.available)
-      throw new Error(
-        availability.reason ?? 'Independent reviewer unavailable',
-      );
     const { data: live, error: be } = await db
       .from('battles')
       .select('*')
@@ -227,6 +234,14 @@ export async function processIndependentAppeal(db: DB, id: string) {
       .single();
     if (be || !live) throw new Error('Battle unavailable');
     const b = appeal.original_resolution ?? live;
+    const version = judgePolicyVersion(
+      b.judge_policy_version ?? b.judge_prompt_version,
+    );
+    const availability = await reviewerAvailability(db, models, false, version);
+    if (!availability.available)
+      throw new Error(
+        availability.reason ?? 'Independent reviewer unavailable',
+      );
     const { data: played, error: re } = await db
       .from('battle_rounds')
       .select('*')
@@ -264,6 +279,7 @@ export async function processIndependentAppeal(db: DB, id: string) {
             explanation: response.explanation,
             cost_usd: response.costUsd,
             attempt: appeal.attempts,
+            situation_snapshot: request.situationSnapshot ?? null,
           },
         });
         if (error || !saved)
@@ -290,6 +306,11 @@ export async function processIndependentAppeal(db: DB, id: string) {
     for (const r of source) {
       const payload = r.judge_payload ?? {};
       const frozen = payload.frozen_inputs;
+      if (
+        frozen?.judge_policy_version &&
+        frozen.judge_policy_version !== version
+      )
+        throw new Error('Frozen round judge policy differs from battle policy');
       const select = (pid: string): FrozenPrompt | undefined => {
         const p = prompts?.find(
           (p) =>
@@ -332,6 +353,8 @@ export async function processIndependentAppeal(db: DB, id: string) {
         frozen?.theme ?? b.theme,
         config.model,
         models,
+        version,
+        frozen?.situation_snapshot ?? r.situation_snapshot,
       );
       reviews.push({
         roundId: r.id,
@@ -373,7 +396,7 @@ export async function processIndependentAppeal(db: DB, id: string) {
           ...review,
           all_played_reviews: reviews,
           reviewer_model: config.model,
-          reviewer_prompt_version: JUDGE_PROMPT_VERSION,
+          reviewer_prompt_version: version,
           locale: config.locale,
         },
       },

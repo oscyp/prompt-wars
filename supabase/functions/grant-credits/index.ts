@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const userId = await getAuthUserId(req);
+    const userId = await getAuthUserId(req, { capability: 'grant' });
     const { reason, quest_id }: GrantCreditsRequest = await req.json();
 
     if (!reason) {

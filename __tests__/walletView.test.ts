@@ -15,6 +15,7 @@ import {
   earnOrBuyHint,
   lockedHint,
   lockedProgressHint,
+  longerCinematicBenefit,
   rarityLabel,
   restoreOutcomeFor,
   shortDate,
@@ -24,6 +25,16 @@ import {
   winRateLabel,
   type UnlockRule,
 } from '@/utils/walletView';
+
+it('omits the longer cinematic benefit until the server explicitly enables it', () => {
+  expect(longerCinematicBenefit(null)).toBeNull();
+  expect(
+    longerCinematicBenefit({ enabled: false, plus_duration_seconds: 20 }),
+  ).toBeNull();
+  expect(
+    longerCinematicBenefit({ enabled: true, plus_duration_seconds: 20 }),
+  ).toBe('Longer, 20-second cinematics');
+});
 
 describe('unlockHint', () => {
   it('returns the bare condition, never a prefixed sentence', () => {

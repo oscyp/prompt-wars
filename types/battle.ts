@@ -7,6 +7,8 @@
  */
 
 export type BattleFormat = 'single' | 'bo3';
+export type { SituationSnapshot } from '../supabase/functions/_shared/prompt-situations';
+import type { SituationSnapshot } from '../supabase/functions/_shared/prompt-situations';
 
 export type RoundStatus =
   | 'pending'
@@ -34,6 +36,21 @@ export interface RubricScoreSet {
 }
 
 export interface RoundJudgePayload {
+  frozen_inputs?: {
+    player_one: {
+      text: string;
+      moveType: 'attack' | 'defense' | 'finisher';
+      wordCount: number;
+    };
+    player_two: {
+      text: string;
+      moveType: 'attack' | 'defense' | 'finisher';
+      wordCount: number;
+    };
+    theme?: string;
+    judge_policy_version?: string;
+    situation_snapshot?: SituationSnapshot | null;
+  };
   aggregation?: 'mean_agreeing' | 'third_run';
   mock_assisted?: boolean;
   calls?: {
@@ -69,6 +86,7 @@ export interface RoundJudgePayload {
 }
 
 export interface BattleRound {
+  situation_snapshot?: SituationSnapshot | null;
   id: string;
   battle_id: string;
   round_number: number;
@@ -136,6 +154,18 @@ export interface RewardSummary {
 
 export type RewardPayload = Record<string, RewardSummary>;
 
+export interface BattleIdentityPortrait {
+  image_path: string;
+  thumb_path: string | null;
+  seed: number | null;
+  id?: string | null;
+  appearance_version?: number | null;
+  moderation_status?: string | null;
+  bucket?: string;
+  version?: string;
+  provenance?: 'generated' | 'bundled' | 'legacy_frozen';
+}
+
 export interface BattleIdentitySide {
   id: string | null;
   name: string;
@@ -144,22 +174,41 @@ export interface BattleIdentitySide {
   battle_cry: string;
   art_style: string | null;
   cosmetic_config: Record<string, string> | null;
-  avatar: {
-    image_path: string;
-    thumb_path: string | null;
-    seed: number | null;
+  /** Nullable/optional for battles captured before cinematic identity v2. */
+  appearance_version?: number | null;
+  starter_asset_key?: string | null;
+  vibe?: string | null;
+  silhouette?: string | null;
+  era?: string | null;
+  expression?: string | null;
+  palette_key?: string | null;
+  bot_persona_id?: string | null;
+  identity_provenance?: 'matched' | 'legacy_backfill' | 'legacy_frozen';
+  signature_item?: {
+    id: string;
+    name: string;
+    description: string;
+    item_class: string;
+    prompt_fragment: string;
+    moderation_status: 'approved';
+    image_path: string | null;
+    kind: 'catalog' | 'custom';
+    bucket: string | null;
+    version: string | null;
   } | null;
-  fighter: {
-    image_path: string;
-    thumb_path: string | null;
-    seed: number | null;
-  } | null;
+  avatar: BattleIdentityPortrait | null;
+  fighter: BattleIdentityPortrait | null;
+  /** Own-property null means there was no approved matching video reference. */
+  cinematic_fighter?: BattleIdentityPortrait | null;
 }
 export interface BattleIdentitySnapshot {
   player_one: BattleIdentitySide;
   player_two: BattleIdentitySide;
 }
 export interface BattleIntegrityFields {
+  prompt_experience_version?: 1 | 2 | null;
+  judge_policy_version?: string | null;
+  situation_catalog_version?: number | null;
   rules_version?: 1 | 2;
   identity_snapshot?: BattleIdentitySnapshot | null;
   resolution_metadata?: {

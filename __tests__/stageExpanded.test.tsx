@@ -221,7 +221,7 @@ describe('StageExpanded', () => {
     expect(tall.getAllByLabelText('Preview this earlier render')).toHaveLength(
       3,
     );
-    expect(tall.getByText('Previous renders · free to restore')).toBeTruthy();
+    expect(tall.getByText('Previous renders')).toBeTruthy();
 
     const short = render(
       <StageExpanded {...props({ fighterHeight: 160, history: history(3) })} />,
@@ -249,7 +249,7 @@ describe('StageExpanded', () => {
 
   it('hides the history block entirely when there is none', () => {
     const { queryByText } = render(<StageExpanded {...props()} />);
-    expect(queryByText('Previous renders · free to restore')).toBeNull();
+    expect(queryByText('Previous renders')).toBeNull();
   });
 
   it('replaces the actions with the drawing block while rendering', () => {
@@ -332,7 +332,7 @@ test('large-text stage stacks avatar/history and fully discloses the paid action
     '100%',
   );
   expect(
-    view.getByText('Previous renders · free to restore').props.numberOfLines,
+    view.getByText('Previous renders').props.numberOfLines,
   ).toBeUndefined();
   const label = view.getByText(RENDER.label);
   expect(label.props.numberOfLines).toBeUndefined();

@@ -1,0 +1,30 @@
+{
+  "comparison": "Filesystem snapshot taken before this task",
+  "files": [
+    {
+      "file": "utils/revealBeats.ts",
+      "unchanged": true,
+      "sha256": "3a916c1e487cfcdb28567f54243688314ad9fb894136c5437c1c86b3b5d45c18"
+    },
+    {
+      "file": "hooks/useMediaRecovery.ts",
+      "unchanged": true,
+      "sha256": "c6503bebe258f27ad501389cdd42fb2f298057c86cce4ef63135766bc4e04bf1"
+    },
+    {
+      "file": "hooks/useBattleCharacters.ts",
+      "unchanged": true,
+      "sha256": "5a0086f14b418c0ec8394d2fc28c2d2ec8b29e278d7695e089077d6e1a7c1818"
+    },
+    {
+      "file": "components/ResultShareCard.tsx",
+      "unchanged": true,
+      "sha256": "233f0bb4b893880ef050c573b8b16fddc0ac646c4cd3e066cb35c45f1a0ec1ae"
+    },
+    {
+      "file": "components/ResultShareExport.tsx",
+      "unchanged": true,
+      "sha256": "8fefaebf9797c61758913b030529851e2655d59ce138b80bc8e178e18844c68a"
+    }
+  ]
+}

@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const userId = await getAuthUserId(req);
+    const userId = await getAuthUserId(req, { capability: 'account' });
     const {
       reported_type,
       reported_id,

@@ -1,0 +1,122 @@
+[
+  {
+    "function": "generate-move-suggestions",
+    "started_at": "2026-10-02T13:39:25.570466+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "prefetch-move-suggestions",
+    "started_at": "2026-10-02T13:39:27.115023+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "round-resolve",
+    "started_at": "2026-10-02T13:39:28.258496+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "matchmaking",
+    "started_at": "2026-10-02T13:39:29.844819+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "battle-advance",
+    "started_at": "2026-10-02T13:39:32.383585+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "submit-prompt",
+    "started_at": "2026-10-02T13:39:33.979510+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "record-funnel-event",
+    "started_at": "2026-10-02T13:39:35.392907+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "appeal-battle",
+    "started_at": "2026-10-02T13:39:36.969073+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "create-custom-signature-item",
+    "started_at": "2026-10-02T13:39:38.355984+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "dev-generate-video",
+    "started_at": "2026-10-02T13:39:39.479236+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "expire-battles",
+    "started_at": "2026-10-02T13:39:40.481396+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "finalize-character-creation",
+    "started_at": "2026-10-02T13:39:41.677535+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "generate-portrait",
+    "started_at": "2026-10-02T13:39:42.793127+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "generate-tier0-reveal",
+    "started_at": "2026-10-02T13:39:43.730099+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "leave-battle",
+    "started_at": "2026-10-02T13:39:45.072530+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "moderate-prompt",
+    "started_at": "2026-10-02T13:39:47.785735+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "moderate-video",
+    "started_at": "2026-10-02T13:39:50.080608+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "process-video-job",
+    "started_at": "2026-10-02T13:39:55.011633+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "regenerate-portrait",
+    "started_at": "2026-10-02T13:39:56.516960+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "request-video-upgrade",
+    "started_at": "2026-10-02T13:39:58.078347+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "resolve-appeal",
+    "started_at": "2026-10-02T13:39:59.349949+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "resolve-battle",
+    "started_at": "2026-10-02T13:40:02.194347+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "run-judge-calibration",
+    "started_at": "2026-10-02T13:40:04.550951+00:00",
+    "exit_code": 0
+  },
+  {
+    "function": "sign-battle-portraits",
+    "started_at": "2026-10-02T13:40:06.127802+00:00",
+    "exit_code": 0
+  }
+]

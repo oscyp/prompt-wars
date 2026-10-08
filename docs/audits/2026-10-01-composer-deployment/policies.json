@@ -1,0 +1,39 @@
+[
+  {
+    "policy_verification": {
+      "cron_recent": [
+        {
+          "return_message": "1 row",
+          "status": "succeeded"
+        },
+        {
+          "return_message": "1 row",
+          "status": "succeeded"
+        }
+      ],
+      "existing_battle_version_counts": [
+        {
+          "judge_policy_version": "v1.0.0-mvp",
+          "prompt_experience_version": 1,
+          "total": 58
+        }
+      ],
+      "immutable_triggers": [
+        "freeze_prompt_experience",
+        "keep_composer_event_duration",
+        "publish_prompt_situation"
+      ],
+      "situation_validation": true,
+      "telemetry_read_policy": [
+        {
+          "command": "SELECT",
+          "name": "composer_events_read_own",
+          "predicate": "(profile_id = ( SELECT auth.uid() AS uid))",
+          "roles": [
+            "authenticated"
+          ]
+        }
+      ]
+    }
+  }
+]

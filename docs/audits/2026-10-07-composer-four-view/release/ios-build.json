@@ -1,0 +1,19 @@
+{
+  "id": "9301c70c-2276-481c-a0ea-fcd63323bcfc",
+  "status": "FINISHED",
+  "platform": "IOS",
+  "distribution": "STORE",
+  "buildProfile": "production",
+  "appVersion": "1.3.3",
+  "appBuildVersion": "18",
+  "createdAt": "2026-10-07T12:57:59.782Z",
+  "updatedAt": "2026-10-07T13:04:33.760Z",
+  "completedAt": "2026-10-07T13:04:33.312Z",
+  "expirationDate": "2026-11-06T12:57:59.835Z",
+  "priority": "NORMAL",
+  "artifacts": {
+    "buildUrl": "https://expo.dev/artifacts/eas/KVp6Ng9vLM8LohNhFke5dG3vcFus_TRowMVYvWJ3hNs.ipa",
+    "applicationArchiveUrl": "https://expo.dev/artifacts/eas/KVp6Ng9vLM8LohNhFke5dG3vcFus_TRowMVYvWJ3hNs.ipa"
+  },
+  "lastObservedAt": "2026-10-07T13:43:31.610332+00:00"
+}

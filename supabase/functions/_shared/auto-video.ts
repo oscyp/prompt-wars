@@ -72,10 +72,22 @@ async function enqueue(target: AutoVideoTarget): Promise<void> {
   }
   if (!videoJobId) return; // Daily/global cap reached or a job already exists.
 
-  await invokeVideoWorker(videoJobId as string);
+  await kickVideoWorker(videoJobId as string);
 }
 
-async function invokeVideoWorker(videoJobId: string): Promise<void> {
+/**
+ * Best-effort nudge so a freshly queued job starts now rather than on the next
+ * minute-cron tick.
+ *
+ * Exported because request-video-upgrade needs it too: a PAID upgrade used to
+ * have no kick at all, so the one path a player is actively waiting on -- and
+ * has just spent credits on -- was the one that always waited out the full
+ * cron gap.
+ *
+ * Never throws, and the cron remains the durable fallback, so a failed kick
+ * costs latency and nothing else.
+ */
+export async function kickVideoWorker(videoJobId: string): Promise<void> {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const secretKey = getSupabaseSecretKey();
   if (!supabaseUrl || !secretKey) return;

@@ -1,0 +1,29 @@
+{
+  "delivery": "local Expo development client",
+  "local_url": "http://localhost:8081",
+  "lan_url": "http://172.20.10.2:8081",
+  "native_deep_link": "exp+prompt-wars://expo-development-client/?url=http%3A%2F%2F172.20.10.2%3A8081",
+  "ios_bundle": {
+    "http_status": 200,
+    "bytes": 16996861,
+    "modules": 2417
+  },
+  "android_bundle": {
+    "http_status": 200,
+    "bytes": 17113264
+  },
+  "archive_file_count": 497,
+  "shared_modules": [
+    {
+      "path": "supabase/functions/_shared/prompt-situations.ts",
+      "sha256": "d056bce62318ebc132041d5024742843b6643b1794e0c27d508f7d540776a4ab"
+    },
+    {
+      "path": "supabase/functions/_shared/composer-events.ts",
+      "sha256": "b58c9901e23178342b4c34fd1b0895b3f3ca8a8443cbfdf065e3d010a5e1ad94"
+    }
+  ],
+  "native_ui_qa": "not run; no booted simulator",
+  "eas_build": "not started",
+  "store_submission": "not started"
+}

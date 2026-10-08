@@ -1,0 +1,72 @@
+[
+  {
+    "id": "neon-nexus",
+    "format": "backdrop",
+    "prompt": "Create ONE production game environment illustration for Prompt Wars, neon-nexus, backdrop. Elevated obsidian arena overlooking a layered neon city, cyan lights without lettering, violet glass towers and gold structure. Premium painted collectible-card game aesthetic: tangible architecture, strong depth, confident stylized shapes, subtle brushwork, crisp environmental details, cinematic lighting. PORTRAIT 2:3 composition, 1024x1536 or larger. Recognizable architecture and scenery throughout middle and right, lower foreground clear enough for two fighter cards; avoid huge featureless center. Full bleed. No text, lettering, logo, UI, card border, people, fighters, creatures, weapons, watermarks. No giant central energy glyph or generic empty portal.",
+    "source": "/Users/patdom/.codex/generated_images/01a09b93-61f5-73b3-8947-9fd88f1b50c7/exec-9e261328-5dcf-48a3-a4fa-91ce828fdc55.png",
+    "original": "output/imagegen/2026-09-21-environments/neon-nexus-backdrop.png"
+  },
+  {
+    "id": "neon-nexus",
+    "format": "banner",
+    "prompt": "Create ONE production game environment illustration for Prompt Wars, neon-nexus, banner. Elevated obsidian arena overlooking a layered neon city, cyan lights without lettering, violet glass towers and gold structure. Premium painted collectible-card game aesthetic: tangible architecture, strong depth, confident stylized shapes, subtle brushwork, crisp environmental details, cinematic lighting. WIDE LANDSCAPE 3:1 composition, 1536x512 or larger. Purpose-designed scene, not a crop, main architectural landmark and depth RIGHT 40%, quieter dark atmosphere LEFT 60% for native text overlay. Full bleed. No text, lettering, logo, UI, card border, people, fighters, creatures, weapons, watermarks. No giant central energy glyph or generic empty portal.",
+    "source": "/Users/patdom/.codex/generated_images/01a09b93-61f5-73b3-8947-9fd88f1b50c7/exec-5f7a726e-0dca-4dee-853a-f6f99fa940d0.png",
+    "original": "output/imagegen/2026-09-21-environments/neon-nexus-banner.png"
+  },
+  {
+    "id": "storm-citadel",
+    "format": "backdrop",
+    "prompt": "Create ONE production game environment illustration for Prompt Wars, storm-citadel, backdrop. Fortress ramparts and monumental weathered stone towers, distant mountains and gathering lightning, indigo clouds and pale gold lamps. Premium painted collectible-card game aesthetic: tangible architecture, strong depth, confident stylized shapes, subtle brushwork, crisp environmental details, cinematic lighting. PORTRAIT 2:3 composition, 1024x1536 or larger. Recognizable architecture and scenery throughout middle and right, lower foreground clear enough for two fighter cards; avoid huge featureless center. Full bleed. No text, lettering, logo, UI, card border, people, fighters, creatures, weapons, watermarks. No giant central energy glyph or generic empty portal.",
+    "source": "/Users/patdom/.codex/generated_images/01a09b93-61f5-73b3-8947-9fd88f1b50c7/exec-8083477d-50f8-4685-b9b1-f7836af54762.png",
+    "original": "output/imagegen/2026-09-21-environments/storm-citadel-backdrop.png"
+  },
+  {
+    "id": "storm-citadel",
+    "format": "banner",
+    "prompt": "Create ONE production game environment illustration for Prompt Wars, storm-citadel, banner. Fortress ramparts and monumental weathered stone towers, distant mountains and gathering lightning, indigo clouds and pale gold lamps. Premium painted collectible-card game aesthetic: tangible architecture, strong depth, confident stylized shapes, subtle brushwork, crisp environmental details, cinematic lighting. WIDE LANDSCAPE 3:1 composition, 1536x512 or larger. Purpose-designed scene, not a crop, main architectural landmark and depth RIGHT 40%, quieter dark atmosphere LEFT 60% for native text overlay. Full bleed. No text, lettering, logo, UI, card border, people, fighters, creatures, weapons, watermarks. No giant central energy glyph or generic empty portal.",
+    "source": "/Users/patdom/.codex/generated_images/01a09b93-61f5-73b3-8947-9fd88f1b50c7/exec-865dbf43-6fe2-4c4a-9bcd-9a02c09d2f9a.png",
+    "original": "output/imagegen/2026-09-21-environments/storm-citadel-banner.png"
+  },
+  {
+    "id": "ember-forge",
+    "format": "backdrop",
+    "prompt": "Create ONE production game environment illustration for Prompt Wars, ember-forge, backdrop. Monumental forge, molten channels, towering furnaces and industrial depth, amber and obsidian. Premium painted collectible-card game aesthetic: tangible architecture, strong depth, confident stylized shapes, subtle brushwork, crisp environmental details, cinematic lighting. PORTRAIT 2:3 composition, 1024x1536 or larger. Recognizable architecture and scenery throughout middle and right, lower foreground clear enough for two fighter cards; avoid huge featureless center. Full bleed. No text, lettering, logo, UI, card border, people, fighters, creatures, weapons, watermarks. No giant central energy glyph or generic empty portal."
+  },
+  {
+    "id": "ember-forge",
+    "format": "banner",
+    "prompt": "Create ONE production game environment illustration for Prompt Wars, ember-forge, banner. Monumental forge, molten channels, towering furnaces and industrial depth, amber and obsidian. Premium painted collectible-card game aesthetic: tangible architecture, strong depth, confident stylized shapes, subtle brushwork, crisp environmental details, cinematic lighting. WIDE LANDSCAPE 3:1 composition, 1536x512 or larger. Purpose-designed scene, not a crop, main architectural landmark and depth RIGHT 40%, quieter dark atmosphere LEFT 60% for native text overlay. Full bleed. No text, lettering, logo, UI, card border, people, fighters, creatures, weapons, watermarks. No giant central energy glyph or generic empty portal.",
+    "source": "/Users/patdom/.codex/generated_images/01a09b93-61f5-73b3-8947-9fd88f1b50c7/exec-db664030-a258-410e-a283-045eb74f720b.png",
+    "original": "output/imagegen/2026-09-21-environments/ember-forge-banner.png"
+  },
+  {
+    "id": "astral-temple",
+    "format": "backdrop",
+    "prompt": "Create ONE production game environment illustration for Prompt Wars, astral-temple, backdrop. Celestial archive with substantial arches, book galleries and astronomical instruments, luminous detail and violet starlight. Premium painted collectible-card game aesthetic: tangible architecture, strong depth, confident stylized shapes, subtle brushwork, crisp environmental details, cinematic lighting. PORTRAIT 2:3 composition, 1024x1536 or larger. Recognizable architecture and scenery throughout middle and right, lower foreground clear enough for two fighter cards; avoid huge featureless center. Full bleed. No text, lettering, logo, UI, card border, people, fighters, creatures, weapons, watermarks. No giant central energy glyph or generic empty portal."
+  },
+  {
+    "id": "astral-temple",
+    "format": "banner",
+    "prompt": "Create ONE production game environment illustration for Prompt Wars, astral-temple, banner. Celestial archive with substantial arches, book galleries and astronomical instruments, luminous detail and violet starlight. Premium painted collectible-card game aesthetic: tangible architecture, strong depth, confident stylized shapes, subtle brushwork, crisp environmental details, cinematic lighting. WIDE LANDSCAPE 3:1 composition, 1536x512 or larger. Purpose-designed scene, not a crop, main architectural landmark and depth RIGHT 40%, quieter dark atmosphere LEFT 60% for native text overlay. Full bleed. No text, lettering, logo, UI, card border, people, fighters, creatures, weapons, watermarks. No giant central energy glyph or generic empty portal."
+  },
+  {
+    "id": "verdant-reactor",
+    "format": "backdrop",
+    "prompt": "Create ONE production game environment illustration for Prompt Wars, verdant-reactor, backdrop. Overgrown machinery and ancient stone, roots, leaves, emerald energy and golden sunlight. Premium painted collectible-card game aesthetic: tangible architecture, strong depth, confident stylized shapes, subtle brushwork, crisp environmental details, cinematic lighting. PORTRAIT 2:3 composition, 1024x1536 or larger. Recognizable architecture and scenery throughout middle and right, lower foreground clear enough for two fighter cards; avoid huge featureless center. Full bleed. No text, lettering, logo, UI, card border, people, fighters, creatures, weapons, watermarks. No giant central energy glyph or generic empty portal."
+  },
+  {
+    "id": "verdant-reactor",
+    "format": "banner",
+    "prompt": "Create ONE production game environment illustration for Prompt Wars, verdant-reactor, banner. Overgrown machinery and ancient stone, roots, leaves, emerald energy and golden sunlight. Premium painted collectible-card game aesthetic: tangible architecture, strong depth, confident stylized shapes, subtle brushwork, crisp environmental details, cinematic lighting. WIDE LANDSCAPE 3:1 composition, 1536x512 or larger. Purpose-designed scene, not a crop, main architectural landmark and depth RIGHT 40%, quieter dark atmosphere LEFT 60% for native text overlay. Full bleed. No text, lettering, logo, UI, card border, people, fighters, creatures, weapons, watermarks. No giant central energy glyph or generic empty portal."
+  },
+  {
+    "id": "frozen-void",
+    "format": "backdrop",
+    "prompt": "Create ONE production game environment illustration for Prompt Wars, frozen-void, backdrop. Glacier bridge crossing a vast frozen chasm, monumental ice cliffs and cold stars. Premium painted collectible-card game aesthetic: tangible architecture, strong depth, confident stylized shapes, subtle brushwork, crisp environmental details, cinematic lighting. PORTRAIT 2:3 composition, 1024x1536 or larger. Recognizable architecture and scenery throughout middle and right, lower foreground clear enough for two fighter cards; avoid huge featureless center. Full bleed. No text, lettering, logo, UI, card border, people, fighters, creatures, weapons, watermarks. No giant central energy glyph or generic empty portal."
+  },
+  {
+    "id": "frozen-void",
+    "format": "banner",
+    "prompt": "Create ONE production game environment illustration for Prompt Wars, frozen-void, banner. Glacier bridge crossing a vast frozen chasm, monumental ice cliffs and cold stars. Premium painted collectible-card game aesthetic: tangible architecture, strong depth, confident stylized shapes, subtle brushwork, crisp environmental details, cinematic lighting. WIDE LANDSCAPE 3:1 composition, 1536x512 or larger. Purpose-designed scene, not a crop, main architectural landmark and depth RIGHT 40%, quieter dark atmosphere LEFT 60% for native text overlay. Full bleed. No text, lettering, logo, UI, card border, people, fighters, creatures, weapons, watermarks. No giant central energy glyph or generic empty portal."
+  }
+]

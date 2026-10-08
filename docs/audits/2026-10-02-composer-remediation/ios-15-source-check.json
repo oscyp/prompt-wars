@@ -1,0 +1,12 @@
+{
+  "archive": "/tmp/prompt-wars-remediation-ios-final-archive",
+  "files": 503,
+  "drift": [],
+  "forbidden": [],
+  "shared": [
+    "supabase/functions/_shared/composer-events.ts",
+    "supabase/functions/_shared/prompt-affordances.ts",
+    "supabase/functions/_shared/prompt-situations.ts"
+  ],
+  "digest": "3f4065cac73a97ff09f7cdf7e10e734befc62e12d5c5d8b7b134444f5c012277"
+}

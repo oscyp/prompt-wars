@@ -1,0 +1,165 @@
+{
+  "verifiedAt": "2026-09-30T21:22:39.201583+00:00",
+  "project": {
+    "supabase": "uoyjhudegdpanrgllfoj",
+    "eas": "@prompt-wars/prompt-wars",
+    "google": "prompt-wars-509413"
+  },
+  "scope": "Public OAuth IDs, checked-in iOS callback scheme, and registration ID-token audience only. No private Google client secret is included.",
+  "local": {
+    "file": ".env",
+    "gitIgnored": true,
+    "publicAuthSettings": {
+      "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "393460808098-tbk2g30eo0h0t9ugh3dtd5p234h7dv6l.apps.googleusercontent.com",
+      "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "393460808098-95qnrgg0op04jo22h7nq90ameetg28og.apps.googleusercontent.com"
+    },
+    "unrelatedSettingsPreserved": true,
+    "socialAuthBuildFlag": "unset"
+  },
+  "eas": {
+    "publicIds": [
+      {
+        "environment": "development",
+        "name": "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID",
+        "value": "393460808098-tbk2g30eo0h0t9ugh3dtd5p234h7dv6l.apps.googleusercontent.com",
+        "readBackMatches": true
+      },
+      {
+        "environment": "development",
+        "name": "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID",
+        "value": "393460808098-95qnrgg0op04jo22h7nq90ameetg28og.apps.googleusercontent.com",
+        "readBackMatches": true
+      },
+      {
+        "environment": "development",
+        "name": "EXPO_PUBLIC_SOCIAL_AUTH_ENABLED",
+        "status": "unset"
+      },
+      {
+        "environment": "preview",
+        "name": "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID",
+        "value": "393460808098-tbk2g30eo0h0t9ugh3dtd5p234h7dv6l.apps.googleusercontent.com",
+        "readBackMatches": true
+      },
+      {
+        "environment": "preview",
+        "name": "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID",
+        "value": "393460808098-95qnrgg0op04jo22h7nq90ameetg28og.apps.googleusercontent.com",
+        "readBackMatches": true
+      },
+      {
+        "environment": "preview",
+        "name": "EXPO_PUBLIC_SOCIAL_AUTH_ENABLED",
+        "status": "unset"
+      },
+      {
+        "environment": "production",
+        "name": "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID",
+        "value": "393460808098-tbk2g30eo0h0t9ugh3dtd5p234h7dv6l.apps.googleusercontent.com",
+        "readBackMatches": true
+      },
+      {
+        "environment": "production",
+        "name": "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID",
+        "value": "393460808098-95qnrgg0op04jo22h7nq90ameetg28og.apps.googleusercontent.com",
+        "readBackMatches": true
+      },
+      {
+        "environment": "production",
+        "name": "EXPO_PUBLIC_SOCIAL_AUTH_ENABLED",
+        "status": "unset"
+      }
+    ],
+    "accountLevelSocialAuthFlag": [
+      {
+        "environment": "development",
+        "name": "EXPO_PUBLIC_SOCIAL_AUTH_ENABLED",
+        "scope": "account",
+        "status": "unset"
+      },
+      {
+        "environment": "preview",
+        "name": "EXPO_PUBLIC_SOCIAL_AUTH_ENABLED",
+        "scope": "account",
+        "status": "unset"
+      },
+      {
+        "environment": "production",
+        "name": "EXPO_PUBLIC_SOCIAL_AUTH_ENABLED",
+        "scope": "account",
+        "status": "unset"
+      }
+    ],
+    "visibility": "plaintext",
+    "existingValuesBeforeChange": "Both public client IDs were absent in all three project environments."
+  },
+  "supabase": {
+    "name": "GOOGLE_SIGN_IN_CLIENT_IDS",
+    "audience": "393460808098-tbk2g30eo0h0t9ugh3dtd5p234h7dv6l.apps.googleusercontent.com",
+    "digestMatches": true,
+    "otherSecretMetadataUnchanged": true,
+    "otherSecretCount": 32,
+    "updatedAt": "2026-09-30T21:20:20.175Z"
+  },
+  "native": {
+    "expoIntrospection": "passed",
+    "plugin": [
+      "react-native-nitro-google-signin",
+      {
+        "iosUrlScheme": "com.googleusercontent.apps.393460808098-95qnrgg0op04jo22h7nq90ameetg28og"
+      }
+    ],
+    "generatedUrlSchemes": [
+      "promptwars",
+      "gg.promptwars.app",
+      "exp+prompt-wars",
+      "com.googleusercontent.apps.393460808098-95qnrgg0op04jo22h7nq90ameetg28og"
+    ],
+    "checkedInUrlSchemes": [
+      "promptwars",
+      "gg.promptwars.app",
+      "com.googleusercontent.apps.393460808098-95qnrgg0op04jo22h7nq90ameetg28og",
+      "exp+prompt-wars"
+    ],
+    "iosBundleIdentifier": "gg.promptwars.app",
+    "androidPackage": "gg.promptwars.app",
+    "appVersion": "1.3.3",
+    "socialAuthFlagInShell": null,
+    "changedFile": "ios/PromptWars/Info.plist",
+    "existingSchemesPreserved": true,
+    "otherPlistValuesPreserved": true,
+    "prebuildRun": false
+  },
+  "validation": {
+    "jest": {
+      "command": "rtk proxy yarn test --runInBand __tests__/socialAuth.test.ts __tests__/socialAuthButtons.test.tsx __tests__/socialAuthSignIn.test.tsx",
+      "suitesPassed": 3,
+      "testsPassed": 46,
+      "failed": 0
+    },
+    "deno": {
+      "command": "rtk proxy deno test --config supabase/functions/deno.json --allow-all supabase/functions/_tests/provider_identity_test.ts",
+      "testsPassed": 2,
+      "failed": 0
+    },
+    "expoConfigIntrospection": "passed",
+    "plutil": [
+      "ios/PromptWars/Info.plist: OK",
+      "ios/PromptWars/PromptWars.entitlements: OK"
+    ],
+    "scopedDiffWhitespace": "passed"
+  },
+  "rollout": {
+    "serverReleaseFlagsModified": false,
+    "guestIntakeModified": false,
+    "publicBuildFlagSet": false,
+    "currentAppVersion": "1.3.3",
+    "documentedReleaseMinimumVersion": "1.4.0"
+  },
+  "limitations": [
+    "No signed iOS or Android build was produced in this step.",
+    "Device ID-token audience and callback delivery remain acceptance checks.",
+    "Google Console clients and Supabase provider settings are verified separately by the parent task.",
+    "No policies, guardian-consent prerequisites, or store approvals were established by this configuration change."
+  ]
+}

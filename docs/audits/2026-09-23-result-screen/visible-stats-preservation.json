@@ -1,0 +1,10 @@
+{
+  "components/battle/ResultRewards.tsx": {
+    "unchangedFromFollowUpBaseline": true,
+    "sha256": "7a39cb65d2d5eeea0d0361c4838f477968a4e296b8ba2e92fec8f9418812ef40"
+  },
+  "components/game/battle/BattleThemePlaque.tsx": {
+    "unchangedFromFollowUpBaseline": true,
+    "sha256": "f68c696e4309f7396847528707bfc4339e8f92055bd8c3a47270fe7948868468"
+  }
+}

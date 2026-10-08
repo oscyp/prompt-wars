@@ -1,0 +1,917 @@
+BEGIN
+INSERT 0 1
+CREATE FUNCTION
+REVOKE
+GRANT
+COMMENT
+DO
+DO
+ALTER DEFAULT PRIVILEGES
+DO
+COMMENT
+REVOKE
+REVOKE
+ALTER DEFAULT PRIVILEGES
+ALTER DEFAULT PRIVILEGES
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+DROP POLICY
+CREATE POLICY
+COMMENT
+REVOKE
+GRANT
+DROP POLICY
+DROP POLICY
+DROP POLICY
+DROP POLICY
+ALTER VIEW
+ALTER VIEW
+REVOKE
+REVOKE
+GRANT
+GRANT
+CREATE FUNCTION
+COMMENT
+REVOKE
+GRANT
+ALTER TABLE
+COMMENT
+CREATE INDEX
+CREATE FUNCTION
+COMMENT
+REVOKE
+GRANT
+CREATE VIEW
+COMMENT
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+COMMENT
+REVOKE
+GRANT
+ALTER DEFAULT PRIVILEGES
+CREATE FUNCTION
+COMMENT
+DROP EVENT TRIGGER
+CREATE EVENT TRIGGER
+DO
+ALTER TABLE
+ALTER TABLE
+COMMENT
+COMMENT
+COMMENT
+COMMENT
+ALTER TABLE
+COMMENT
+CREATE FUNCTION
+COMMENT
+REVOKE
+GRANT
+ALTER TABLE
+COMMENT
+CREATE INDEX
+CREATE FUNCTION
+COMMENT
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE TABLE
+COMMENT
+CREATE INDEX
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+REVOKE
+GRANT
+CREATE FUNCTION
+COMMENT
+REVOKE
+GRANT
+ALTER TABLE
+COMMENT
+COMMENT
+ALTER TABLE
+COMMENT
+CREATE INDEX
+CREATE INDEX
+CREATE VIEW
+COMMENT
+REVOKE
+GRANT
+CREATE INDEX
+CREATE FUNCTION
+COMMENT
+REVOKE
+GRANT
+CREATE FUNCTION
+COMMENT
+REVOKE
+GRANT
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+INSERT 0 0
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+ALTER TABLE
+COMMENT
+COMMENT
+ALTER TABLE
+DO
+COMMENT
+DROP INDEX
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+CREATE INDEX
+COMMENT
+COMMENT
+ALTER TABLE
+DO
+INSERT 0 2
+DROP POLICY
+CREATE POLICY
+COMMENT
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+COMMENT
+COMMENT
+ALTER TABLE
+DROP POLICY
+CREATE POLICY
+REVOKE
+GRANT
+GRANT
+INSERT 0 1
+CREATE FUNCTION
+COMMENT
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+ALTER TABLE
+COMMENT
+UPDATE 0
+CREATE INDEX
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+UPDATE 2
+COMMENT
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+UPDATE 0
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+COMMENT
+COMMENT
+INSERT 0 2
+UPDATE 3
+UPDATE 1
+CREATE FUNCTION
+UPDATE 0
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+ALTER TABLE
+COMMENT
+ALTER TABLE
+COMMENT
+UPDATE 0
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+DO
+CREATE VIEW
+COMMENT
+REVOKE
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+GRANT
+UPDATE 9
+UPDATE 0
+ALTER FUNCTION
+UPDATE 3
+UPDATE 11
+DROP FUNCTION
+INSERT 0 1
+CREATE FUNCTION
+COMMENT
+REVOKE
+GRANT
+CREATE FUNCTION
+GRANT
+GRANT
+COMMENT
+CREATE FUNCTION
+COMMENT
+REVOKE
+GRANT
+INSERT 0 1
+ALTER FUNCTION
+COMMENT
+ALTER TABLE
+COMMENT
+CREATE FUNCTION
+CREATE VIEW
+GRANT
+COMMENT
+ALTER TABLE
+COMMENT
+UPDATE 0
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+ALTER TABLE
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+ALTER TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE VIEW
+COMMENT
+REVOKE
+GRANT
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+CREATE FUNCTION
+COMMENT
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+UPDATE 0
+CREATE INDEX
+CREATE TABLE
+ALTER TABLE
+REVOKE
+GRANT
+DROP POLICY
+CREATE POLICY
+GRANT
+REVOKE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+REVOKE
+GRANT
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+ALTER TABLE
+CREATE TABLE
+INSERT 0 0
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+DO
+CREATE FUNCTION
+CREATE TRIGGER
+REVOKE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+ALTER TABLE
+UPDATE 0
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+GRANT
+REVOKE
+GRANT
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+DO
+CREATE FUNCTION
+DROP POLICY
+CREATE POLICY
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+REVOKE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+GRANT
+ALTER TABLE
+INSERT 0 4
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+GRANT
+REVOKE
+GRANT
+REVOKE
+GRANT
+REVOKE
+GRANT
+REVOKE
+GRANT
+ALTER TABLE
+COMMENT
+COMMENT
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+GRANT
+REVOKE
+GRANT
+REVOKE
+GRANT
+COMMENT
+COMMENT
+COMMENT
+ALTER TABLE
+DO
+COMMENT
+COMMENT
+CREATE INDEX
+CREATE FUNCTION
+REVOKE
+GRANT
+COMMENT
+CREATE FUNCTION
+REVOKE
+GRANT
+ALTER TABLE
+COMMENT
+CREATE FUNCTION
+REVOKE
+GRANT
+ALTER TABLE
+CREATE SCHEMA
+CREATE FUNCTION
+UPDATE 0
+CREATE FUNCTION
+CREATE INDEX
+CREATE FUNCTION
+COMMENT
+COMMENT
+REVOKE
+GRANT
+REVOKE
+REVOKE
+GRANT
+GRANT
+GRANT
+CREATE FUNCTION
+CREATE FUNCTION
+ALTER FUNCTION
+ALTER FUNCTION
+REVOKE
+REVOKE
+GRANT
+GRANT
+ schedule 
+----------
+      326
+(1 row)
+
+CREATE SCHEMA
+REVOKE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+REVOKE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+GRANT
+ schedule_edge_function 
+------------------------
+ 
+(1 row)
+
+CREATE SCHEMA
+REVOKE
+GRANT
+CREATE TABLE
+INSERT 0 1
+COMMENT
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+REVOKE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+GRANT
+ schedule 
+----------
+      328
+(1 row)
+
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+DROP TRIGGER
+CREATE TRIGGER
+DO
+DROP POLICY
+DO
+DROP POLICY
+CREATE POLICY
+DO
+CREATE VIEW
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+DO
+GRANT
+GRANT
+REVOKE
+ALTER TABLE
+COMMENT
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+GRANT
+GRANT
+CREATE SCHEMA
+CREATE TABLE
+ALTER TABLE
+REVOKE
+GRANT
+CREATE INDEX
+ALTER TABLE
+DROP INDEX
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+GRANT
+ schedule 
+----------
+      329
+(1 row)
+
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+COMMENT
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+ALTER TABLE
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+REVOKE
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+INSERT 0 15
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE TABLE
+ALTER TABLE
+REVOKE
+GRANT
+GRANT
+CREATE POLICY
+CREATE INDEX
+CREATE FUNCTION
+CREATE TRIGGER
+REVOKE
+CREATE TABLE
+ALTER TABLE
+REVOKE
+GRANT
+CREATE INDEX
+INSERT 0 0
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+GRANT
+ALTER TABLE
+CREATE SCHEMA
+REVOKE
+GRANT
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+REVOKE
+GRANT
+INSERT 0 45
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+DROP TRIGGER
+CREATE TRIGGER
+REVOKE
+CREATE FUNCTION
+REVOKE
+GRANT
+ALTER TABLE
+COMMENT
+CREATE FUNCTION
+REVOKE
+GRANT
+ALTER TABLE
+ALTER TABLE
+DO
+ALTER TABLE
+ALTER TABLE
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+REVOKE
+GRANT
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+GRANT
+ schedule 
+----------
+      330
+(1 row)
+
+CREATE TABLE
+ALTER TABLE
+REVOKE
+GRANT
+GRANT
+DROP POLICY
+CREATE POLICY
+CREATE INDEX
+DROP TRIGGER
+CREATE TRIGGER
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+REVOKE
+GRANT
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+REVOKE
+GRANT
+ schedule 
+----------
+      331
+(1 row)
+
+CREATE FUNCTION
+CREATE FUNCTION
+ step_assert 
+-------------
+ 
+(1 row)
+
+CREATE FUNCTION
+DO
+DO
+DO
+ step_assert 
+-------------
+ 
+(1 row)
+
+ step_assert 
+-------------
+ 
+(1 row)
+
+ step_assert 
+-------------
+ 
+(1 row)
+
+ step_assert 
+-------------
+ 
+(1 row)
+
+ step_assert 
+-------------
+ 
+(1 row)
+
+GRANT
+GRANT
+SET
+              set_config              
+--------------------------------------
+ a598f709-073b-42ef-89fa-4aac23001204
+(1 row)
+
+ step_assert 
+-------------
+ 
+(1 row)
+
+ step_assert 
+-------------
+ 
+(1 row)
+
+DO
+RESET
+ step_assert 
+-------------
+ 
+(1 row)
+
+ROLLBACK
+
+NOTICE:  event trigger "trg_revoke_public_execute" does not exist, skipping
+NOTICE:  constraint "battle_rounds_move_mod_p1_bounds" of relation "battle_rounds" does not exist, skipping
+NOTICE:  constraint "battle_rounds_move_mod_p2_bounds" of relation "battle_rounds" does not exist, skipping
+NOTICE:  policy "revenuecat_events_service_only" for relation "public.revenuecat_events" does not exist, skipping
+NOTICE:  trigger "trg_battles_record_opponent_history" for relation "public.battles" does not exist, skipping
+NOTICE:  trigger "trg_profiles_ensure_abuse_signals" for relation "public.profiles" does not exist, skipping
+NOTICE:  policy "move_prompt_suggestions_select_own" for relation "public.move_prompt_suggestions" does not exist, skipping
+NOTICE:  trigger "characters_assign_default_item_trg" for relation "characters" does not exist, skipping
+NOTICE:  policy "initial_portrait_published_read" for relation "public.character_portraits" does not exist, skipping
+NOTICE:  trigger "initial_portrait_publication" for relation "public.character_portraits" does not exist, skipping
+NOTICE:  trigger "initial_portrait_character_pointer" for relation "public.characters" does not exist, skipping
+NOTICE:  schema "internal" already exists, skipping
+NOTICE:  trigger "capture_apple_revocation_before_auth_delete" for relation "auth.users" does not exist, skipping
+NOTICE:  schema "private" already exists, skipping
+NOTICE:  trigger "enforce_credit_purchase_eligibility" for relation "public.wallet_transactions" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.blocks" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.prompt_templates" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.bot_personas" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.bot_prompt_library" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.judge_calibration_sets" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.rivals" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.prompt_journal" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.account_abuse_signals" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.purchases" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.character_edit_prices" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.battle_prompts" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.seasons" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.rankings" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.daily_quests" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.player_daily_quests" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.daily_themes" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.judge_calibration_runs" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.video_captions" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.first_time_offers" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.player_first_time_offers" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.player_cosmetics" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.push_tokens" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.profiles" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.notification_preferences" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.battle_rounds" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.revenuecat_events" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.judge_runs" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.matchmaking_requests" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.appeal_rating_corrections" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.characters" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.character_respecs" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.tutorial_progress" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.funnel_events" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.initial_portrait_requests" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.appeals" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.cosmetics_catalog" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.move_prompt_suggestions" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.video_jobs" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.videos" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.moderation_events" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.notification_sends" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.signature_items_catalog" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.signature_items" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.character_edits" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.portrait_jobs" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.character_portraits" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.wallet_transactions" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.battles" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.subscriptions" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.opponent_history" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.reports" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "public.provider_callbacks" does not exist, skipping
+NOTICE:  policy "account_eligibility_access" for relation "storage.objects" does not exist, skipping
+NOTICE:  constraint "registration_authorizations_guest_secret_check" of relation "registration_authorizations" does not exist, skipping
+NOTICE:  schema "private" already exists, skipping
+NOTICE:  trigger "freeze_prompt_experience" for relation "public.battles" does not exist, skipping
+NOTICE:  trigger "publish_prompt_situation" for relation "public.battle_rounds" does not exist, skipping
+NOTICE:  schema "private" already exists, skipping
+NOTICE:  trigger "freeze_bot_catalog" for relation "private.bot_tactic_catalog" does not exist, skipping
+NOTICE:  trigger "freeze_bot_catalog_truncate" for relation "private.bot_tactic_catalog" does not exist, skipping
+NOTICE:  trigger "freeze_bot_series" for relation "private.bot_series" does not exist, skipping
+NOTICE:  trigger "freeze_bot_choice" for relation "private.bot_round_choices" does not exist, skipping
+NOTICE:  trigger "pin_bot_policy" for relation "public.battles" does not exist, skipping
+NOTICE:  trigger "create_bot_series" for relation "public.battles" does not exist, skipping
+NOTICE:  trigger "prepare_bot_round" for relation "public.battle_rounds" does not exist, skipping
+NOTICE:  trigger "require_bot_choice_before_prompt" for relation "public.battle_prompts" does not exist, skipping
+NOTICE:  policy "composer_event_occurrences_read_own" for relation "public.composer_event_occurrences" does not exist, skipping
+NOTICE:  trigger "keep_composer_occurrence_duration" for relation "public.composer_event_occurrences" does not exist, skipping

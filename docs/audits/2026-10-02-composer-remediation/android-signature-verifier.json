@@ -1,0 +1,11 @@
+{
+  "library": "Google com.android.tools.build:apksig:8.9.3",
+  "downloadUrl": "https://dl.google.com/dl/android/maven2/com/android/tools/build/apksig/8.9.3/apksig-8.9.3.jar",
+  "libraryBytes": 506969,
+  "librarySha256": "c070ed1394629d74641aa0906f60b2ffa1ee77e6366a1f93437f59717b1aeb89",
+  "runtime": "Existing Rider JBR 25.0.4; no Java or SDK installation",
+  "runnerPath": "/tmp/VerifyPromptWarsApk.java",
+  "runnerSha256": "15d3209e3ab29ed4a8f40d9b97558341b4385be7db08b5602007d748199a39f6",
+  "noAndroidSDKInstalled": true,
+  "observedAt": "2026-10-02T14:50:11.723537+00:00"
+}

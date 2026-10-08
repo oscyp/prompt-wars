@@ -1,3 +1,4 @@
+import PlayerSafetyActions from './PlayerSafetyActions';
 import { GamePanel, GameText } from '@/components/game';
 
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
@@ -20,7 +21,7 @@ import {
   rankingPlayerName,
   type RankingRow,
 } from '@/utils/rankingsView';
-import PortraitPreview from './PortraitPreview';
+import PlayerListAvatar from './PlayerListAvatar';
 import CosmeticBadge from './CosmeticBadge';
 
 export interface PodiumHeaderProps {
@@ -100,62 +101,73 @@ export default function PodiumHeader({
                 borderColor: isViewer ? colors.primary : medal,
               },
             ]}
-            accessible
-            accessibilityLabel={podiumLabel(row, isViewer)}
             testID={`podium-${row.rank}`}
           >
-            <View style={styles.place}>
-              <GameSymbol
-                name={medalFor(row.rank) === 'gold' ? 'trophy' : 'medal'}
-                size={14}
-                color={medal}
+            <View
+              accessible
+              accessibilityLabel={podiumLabel(row, isViewer)}
+              style={{ alignItems: 'center', gap: 4 }}
+            >
+              <View style={styles.place}>
+                <GameSymbol
+                  name={medalFor(row.rank) === 'gold' ? 'trophy' : 'medal'}
+                  size={14}
+                  color={medal}
+                />
+                <GameText
+                  variant="label"
+                  style={[styles.rank, NumericFontVariant, { color: medal }]}
+                >
+                  {rankDisplay(row.rank)}
+                </GameText>
+              </View>
+              <PlayerListAvatar
+                accountId={viewerId}
+                reference={{ kind: 'players', id: row.profile_id }}
+                fallbackUri={
+                  archetypeIllustrationUri(player?.archetype ?? null) ?? ''
+                }
+                variant="circle"
+                size={PODIUM_PORTRAIT_SIZE}
+                accentColor={ring}
+                frame={player?.cosmetics.frame ?? null}
+                avatarEffect={player?.cosmetics.avatarEffect ?? null}
+                accessibilityLabel={`${name}'s fighter portrait`}
               />
+              <View style={styles.nameRow}>
+                <GameText
+                  variant="fighter"
+                  style={[styles.name, accessibleText, { color: colors.text }]}
+                >
+                  {name}
+                </GameText>
+                <CosmeticBadge badge={player?.cosmetics.badge} size={12} />
+              </View>
+              {isViewer ? (
+                <GameText
+                  variant="body"
+                  style={[
+                    styles.youTag,
+                    { color: colors.primary, borderColor: colors.primary },
+                  ]}
+                >
+                  You
+                </GameText>
+              ) : null}
               <GameText
                 variant="label"
-                style={[styles.rank, NumericFontVariant, { color: medal }]}
-              >
-                {rankDisplay(row.rank)}
-              </GameText>
-            </View>
-            <PortraitPreview
-              uri={archetypeIllustrationUri(player?.archetype ?? null) ?? ''}
-              variant="circle"
-              size={PODIUM_PORTRAIT_SIZE}
-              accentColor={ring}
-              frame={player?.cosmetics.frame ?? null}
-              avatarEffect={player?.cosmetics.avatarEffect ?? null}
-              accessibilityLabel={`${name}'s archetype`}
-            />
-            <View style={styles.nameRow}>
-              <GameText
-                variant="fighter"
-                style={[styles.name, accessibleText, { color: colors.text }]}
-              >
-                {name}
-              </GameText>
-              <CosmeticBadge badge={player?.cosmetics.badge} size={12} />
-            </View>
-            {isViewer ? (
-              <GameText
-                variant="body"
                 style={[
-                  styles.youTag,
-                  { color: colors.primary, borderColor: colors.primary },
+                  styles.rating,
+                  NumericFontVariant,
+                  { color: colors.primary },
                 ]}
               >
-                You
+                {Math.round(row.rating)}
               </GameText>
-            ) : null}
-            <GameText
-              variant="label"
-              style={[
-                styles.rating,
-                NumericFontVariant,
-                { color: colors.primary },
-              ]}
-            >
-              {Math.round(row.rating)}
-            </GameText>
+            </View>
+            {!isViewer && (
+              <PlayerSafetyActions profileId={row.profile_id} name={name} />
+            )}
           </GamePanel>
         );
       })}
@@ -176,8 +188,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.xs,
-    borderRadius: BorderRadius.sm,
-    borderWidth: 1.5,
+    borderWidth: 0,
   },
   // The winner stands taller: same bottom edge, more headroom.
   firstCard: {

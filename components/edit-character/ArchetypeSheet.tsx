@@ -1,5 +1,6 @@
 import { GameButton } from '@/components/game';
 import { GameText } from '@/components/game';
+import type { SheetFocusRef } from '@/hooks/useSheetReturnFocus';
 
 import { View, StyleSheet } from 'react-native';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
@@ -11,9 +12,8 @@ import {
   formatCooldown,
   type EditPricing,
 } from '@/utils/editCooldowns';
-import { archetypeOptions } from '@/utils/traitOptions';
 import type { ArchetypeId } from '@/constants/Archetypes';
-import OptionGrid from '../OptionGrid';
+import ArchetypeChoices from '@/components/character/ArchetypeChoices';
 import BottomSheet from '../sheets/BottomSheet';
 import { editStyles as s } from './styles';
 
@@ -29,13 +29,14 @@ export interface ArchetypeSheetProps {
   /** Stages the pick; the Save bar commits it like every other change. */
   onStage: (archetype: ArchetypeId) => void;
   onClose: () => void;
+  returnFocusRef?: SheetFocusRef;
 }
 
 /**
- * Choosing the class, from the chip beside the character.
+ * Choosing the identity preset from the compact Fighter row.
  *
- * Staging only: a tap here changes the chip and the Save bar appears behind the
- * sheet, exactly as a tap on the Fighter tab's card would. The lock is stated
+ * Staging only: a tap here updates the row and the Save bar behind the
+ * sheet. The lock is stated
  * before the change, and while the cooldown runs the cards stop taking taps and
  * the countdown says when they start again.
  */
@@ -47,6 +48,7 @@ export default function ArchetypeSheet({
   disabled = false,
   onStage,
   onClose,
+  returnFocusRef,
 }: ArchetypeSheetProps) {
   const colors = useThemedColors();
   const accessibleText = useAccessibleTextStyle();
@@ -71,9 +73,12 @@ export default function ArchetypeSheet({
     <BottomSheet
       visible={visible}
       onClose={onClose}
+      returnFocusRef={returnFocusRef}
       closeAccessibilityLabel="Close archetype"
       title="Archetype"
-      subtitle="A free identity preset for your fighter and portrait. No scoring bonus."
+      fixedHeading
+      showHandle={false}
+      subtitle="Identity preset for your fighter and portrait. No scoring bonus."
       footer={
         <GameButton
           onPress={onClose}
@@ -89,12 +94,12 @@ export default function ArchetypeSheet({
         />
       }
     >
-      <View style={inert ? s.cooledDown : undefined}>
-        <OptionGrid
-          label="Archetype"
-          options={archetypeOptions()}
+      <View>
+        <ArchetypeChoices
           value={value}
-          onChange={(v) => onStage(v as ArchetypeId)}
+          onChange={(v) => {
+            if (!inert) onStage(v as ArchetypeId);
+          }}
           disabled={inert}
           disabledReason={statusLine ?? undefined}
         />

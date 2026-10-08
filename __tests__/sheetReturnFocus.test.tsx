@@ -1,6 +1,7 @@
 import React from 'react';
 import * as RN from 'react-native';
 import { act, render } from '@testing-library/react-native';
+import TraitChoiceSheet from '@/components/edit-character/TraitChoiceSheet';
 import PortraitViewer from '@/components/PortraitViewer';
 import RenderRevealSheet from '@/components/RenderRevealSheet';
 import ConfirmSheet from '@/components/sheets/ConfirmSheet';
@@ -16,6 +17,19 @@ type SharedSheetProps = {
   returnFocusRef: React.RefObject<RN.View | null>;
 };
 const cases = [
+  [
+    'trait choices',
+    (props: SharedSheetProps) => (
+      <TraitChoiceSheet
+        {...props}
+        group="vibe"
+        title="Vibe"
+        value={null}
+        onChoose={noop}
+        onClose={noop}
+      />
+    ),
+  ],
   [
     'portrait',
     (props: SharedSheetProps) => (
@@ -111,7 +125,7 @@ it('restores once on Android even if both the interaction task and native dismis
   const focus = jest
     .spyOn(RN.AccessibilityInfo, 'setAccessibilityFocus')
     .mockImplementation(noop);
-  const sheet = cases[2][1];
+  const sheet = cases.find(([name]) => name === 'confirmation')![1];
   const opener = { current: 73 as unknown as RN.View };
   const view = render(sheet({ visible: true, returnFocusRef: opener }));
   const modal = view.UNSAFE_getByType(RN.Modal);

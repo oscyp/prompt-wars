@@ -1,0 +1,1115 @@
+import type { ComposerActionSuggestion, MoveType } from './battles';
+import { AUTHORED_APPROACHES } from './authoredApproachCatalog';
+
+type Entry = readonly [
+  affordance: string,
+  action: string,
+  first: string,
+  second: string,
+  third: string,
+];
+type SceneActions = Record<MoveType, readonly [Entry, Entry, Entry]>;
+
+/** Versioned authored prose: selection never invents, rewrites or scores a move. */
+const CATALOG: Readonly<Record<string, SceneActions>> = {
+  'frozen-1': {
+    attack: [
+      [
+        'posts',
+        'I swing around the nearest stone post',
+        'to approach outside their guard.',
+        'to draw them into a narrow passage.',
+        'to press forward with cover beside me.',
+      ],
+      [
+        'ice',
+        'I slide one foot along the bridge',
+        'to disguise the distance of my lunge.',
+        'to provoke a step before committing.',
+        'to reach their flank without crossing my feet.',
+      ],
+      [
+        'snow',
+        'I advance with a gust of snow',
+        'to conceal the start of my strike.',
+        'to make them turn into the wind.',
+        'to close distance while their view changes.',
+      ],
+    ],
+    defense: [
+      [
+        'posts',
+        'I retreat behind a low stone post',
+        'to interrupt their direct approach.',
+        'to brace my footing before a counter.',
+        'to make their reach pass beside me.',
+      ],
+      [
+        'ice',
+        'I lower my stance on the smooth ice',
+        'to absorb a shove without overstepping.',
+        'to let their advance carry past me.',
+        'to preserve balance while changing direction.',
+      ],
+      [
+        'snow',
+        'I turn side-on as the snow drifts',
+        'to keep sight of their moving outline.',
+        'to reduce the target while recovering space.',
+        'to let the gust conceal my retreat.',
+      ],
+    ],
+    finisher: [
+      [
+        'posts',
+        'I feint around the post then reverse',
+        'to commit through the shorter opening.',
+        'to catch their turn with a decisive strike.',
+        'to drive them back along the bridge.',
+      ],
+      [
+        'ice',
+        'I plant one foot and sweep low',
+        'to exploit a narrow stance on ice.',
+        'to interrupt their balance before a final thrust.',
+        'to force a high guard into a low exchange.',
+      ],
+      [
+        'snow',
+        'I burst forward as the gust clears',
+        'to strike before they readjust their view.',
+        'to close the gap behind my earlier feint.',
+        'to commit while their attention follows the snow.',
+      ],
+    ],
+  },
+  'frozen-2': {
+    attack: [
+      [
+        'pillars',
+        'I thread my advance between ice pillars',
+        'to threaten from an unexpected angle.',
+        'to separate their guard from their escape route.',
+        'to make them turn before meeting my strike.',
+      ],
+      [
+        'ridge',
+        'I step over the ridge into a lunge',
+        'to change height as I close distance.',
+        'to pressure their footing across the raised ground.',
+        'to bring my strike over a low guard.',
+      ],
+      [
+        'powder',
+        'I kick loose powder during my approach',
+        'to obscure the placement of my next step.',
+        'to draw their attention away from my hand.',
+        'to encourage a retreat toward the pillars.',
+      ],
+    ],
+    defense: [
+      [
+        'pillars',
+        'I pivot behind the nearest ice pillar',
+        'to break their line of attack.',
+        'to gain time to rebuild my stance.',
+        'to make them approach from a visible side.',
+      ],
+      [
+        'ridge',
+        'I set my rear foot against the ridge',
+        'to resist being driven backward.',
+        'to keep my next sidestep controlled.',
+        'to brace a parry before returning pressure.',
+      ],
+      [
+        'powder',
+        'I watch disturbances in the drifting powder',
+        'to track their approach through poor visibility.',
+        'to time a retreat without turning away.',
+        'to spot the direction of a concealed step.',
+      ],
+    ],
+    finisher: [
+      [
+        'pillars',
+        'I circle one pillar then cut inward',
+        'to commit as they turn the longer way.',
+        'to close their straight retreat before striking.',
+        'to reach the opening beside their guard.',
+      ],
+      [
+        'ridge',
+        'I drive across the ridge with a feint',
+        'to draw a stumble before my decisive strike.',
+        'to attack as they adjust their stance.',
+        'to force a hurried step onto uneven ground.',
+      ],
+      [
+        'powder',
+        'I follow a low feint through the powder',
+        'to launch my final strike from above.',
+        'to hide the direction of my committed step.',
+        'to close distance while they search for my feet.',
+      ],
+    ],
+  },
+  'frozen-3': {
+    attack: [
+      [
+        'frost',
+        'I scrape a short arc through the frost',
+        'to invite their step into my striking range.',
+        'to disguise a low sweep as footwork.',
+        'to mark a firm place for my advancing foot.',
+      ],
+      [
+        'shadow',
+        'I advance along the boundary of shadow',
+        'to conceal the hand preparing my strike.',
+        'to pull their attention between light and dark.',
+        'to threaten their flank while staying visible.',
+      ],
+      [
+        'wall',
+        'I angle my attack beside the low wall',
+        'to narrow the space for their sidestep.',
+        'to draw their guard away from the centre.',
+        'to pressure them without losing my own footing.',
+      ],
+    ],
+    defense: [
+      [
+        'frost',
+        'I take short steps across the frosted stone',
+        'to preserve balance during their advance.',
+        'to retreat without an uncontrolled slide.',
+        'to hold my guard steady while circling.',
+      ],
+      [
+        'shadow',
+        'I withdraw into the platform’s deep shadow',
+        'to make the distance to me harder to judge.',
+        'to conceal a change in my defensive stance.',
+        'to recover space while watching their silhouette.',
+      ],
+      [
+        'wall',
+        'I brace a hand against the low wall',
+        'to steady a sidestep around their strike.',
+        'to resist a push without locking my knees.',
+        'to keep an escape along the platform edge.',
+      ],
+    ],
+    finisher: [
+      [
+        'frost',
+        'I feint high then sweep the frosted ground',
+        'to test their balance before committing forward.',
+        'to catch a planted foot beneath their guard.',
+        'to turn their retreat into a difficult step.',
+      ],
+      [
+        'shadow',
+        'I cross out of shadow with a thrust',
+        'to exploit the sudden change in visibility.',
+        'to commit before they locate my striking hand.',
+        'to follow their attention back toward the light.',
+      ],
+      [
+        'wall',
+        'I press forward parallel to the low wall',
+        'to close the side exit before my final strike.',
+        'to force a turn I can follow closely.',
+        'to commit while their retreat path is narrow.',
+      ],
+    ],
+  },
+  'ember-1': {
+    attack: [
+      [
+        'pillars',
+        'I dart between the forge pillars',
+        'to attack from their less guarded side.',
+        'to make their retreat follow a narrow lane.',
+        'to force a turn before they can set their feet.',
+      ],
+      [
+        'trough',
+        'I strike around the empty metal trough',
+        'to reach past cover they might rely on.',
+        'to draw their guard toward the metal rim.',
+        'to pressure the open space beside its end.',
+      ],
+      [
+        'ash',
+        'I brush ash outward with my lead foot',
+        'to disguise the start of a low attack.',
+        'to make them look down before I advance.',
+        'to hide how far my foot has moved.',
+      ],
+    ],
+    defense: [
+      [
+        'pillars',
+        'I keep a forge pillar between us',
+        'to interrupt a straight charge.',
+        'to regain distance without exposing my back.',
+        'to funnel their approach toward my guard.',
+      ],
+      [
+        'trough',
+        'I sidestep along the trough’s outer edge',
+        'to let a direct strike pass into empty space.',
+        'to preserve a barrier while I recover.',
+        'to guide their advance away from the open floor.',
+      ],
+      [
+        'ash',
+        'I watch the ash around their feet',
+        'to read the start of their next step.',
+        'to distinguish an advance from a stationary feint.',
+        'to time a retreat before they close distance.',
+      ],
+    ],
+    finisher: [
+      [
+        'pillars',
+        'I feint behind a pillar then drive outward',
+        'to commit as they turn toward the wrong side.',
+        'to catch their guard during the turn.',
+        'to close the lane before their retreat.',
+      ],
+      [
+        'trough',
+        'I rush past the end of the trough',
+        'to strike where the barrier no longer protects them.',
+        'to cut off the open route behind them.',
+        'to commit from outside their expected line.',
+      ],
+      [
+        'ash',
+        'I sweep ash low then strike high',
+        'to redirect their attention before my final attack.',
+        'to hide my planted foot as I commit.',
+        'to exploit a guard lowered toward the movement.',
+      ],
+    ],
+  },
+  'ember-2': {
+    attack: [
+      [
+        'bench',
+        'I lunge around the workbench’s near corner',
+        'to threaten their side past the obstacle.',
+        'to make them choose between retreating and turning.',
+        'to draw their guard away from the far end.',
+      ],
+      [
+        'chains',
+        'I pull a hanging chain across my approach',
+        'to draw their guard toward its movement.',
+        'to place a swinging obstacle beside my strike.',
+        'to make them give ground before I close in.',
+      ],
+      [
+        'shadows',
+        'I feint in time with the moving shadows',
+        'to hide the moment my hand changes direction.',
+        'to draw an early response to a false opening.',
+        'to make my advancing step harder to read.',
+      ],
+    ],
+    defense: [
+      [
+        'bench',
+        'I retreat along the broad workbench',
+        'to keep a solid obstacle on one side.',
+        'to force their advance around its corner.',
+        'to buy room for a measured counter.',
+      ],
+      [
+        'chains',
+        'I sidestep behind the swaying chains',
+        'to interrupt a direct line toward me.',
+        'to make a long strike difficult to follow.',
+        'to recover my guard while they adjust.',
+      ],
+      [
+        'shadows',
+        'I track their body instead of its shadow',
+        'to avoid reacting to a misleading movement.',
+        'to hold my guard until their real approach.',
+        'to judge distance despite the shifting light.',
+      ],
+    ],
+    finisher: [
+      [
+        'bench',
+        'I switch ends around the workbench suddenly',
+        'to commit before they reverse their guard.',
+        'to meet their attempted shortcut with a strike.',
+        'to close their escape along the far side.',
+      ],
+      [
+        'chains',
+        'I swing one chain aside and follow through',
+        'to strike along the opening its movement creates.',
+        'to draw their guard wide before closing in.',
+        'to catch their step away from the swinging link.',
+      ],
+      [
+        'shadows',
+        'I pause in shadow then launch a thrust',
+        'to break the rhythm of my earlier feints.',
+        'to commit while their eyes follow a false shape.',
+        'to reach their guard before the light shifts again.',
+      ],
+    ],
+  },
+  'ember-3': {
+    attack: [
+      [
+        'channel',
+        'I step diagonally across the floor channel',
+        'to force their guard to follow a changing angle.',
+        'to pressure them toward uneven footing.',
+        'to bring my attack inside their straight approach.',
+      ],
+      [
+        'ledge',
+        'I advance beside the stone ledge',
+        'to limit the space for their sidestep.',
+        'to draw their guard toward the raised edge.',
+        'to keep a stable landmark beside my lunge.',
+      ],
+      [
+        'soot',
+        'I stamp a false step into the soot',
+        'to suggest an approach before changing direction.',
+        'to distract them from my striking hand.',
+        'to invite a counter at the wrong distance.',
+      ],
+    ],
+    defense: [
+      [
+        'channel',
+        'I place the shallow channel between us',
+        'to slow a direct advance toward my guard.',
+        'to give myself a clear distance marker.',
+        'to encourage a step I can evade sideways.',
+      ],
+      [
+        'ledge',
+        'I brace my stance beside the stone ledge',
+        'to resist pressure without losing balance.',
+        'to turn a retreat into a controlled pivot.',
+        'to protect one side while watching the open floor.',
+      ],
+      [
+        'soot',
+        'I read fresh footprints across the soot',
+        'to track a turn hidden by their upper body.',
+        'to spot an approach before committing my guard.',
+        'to choose a retreat away from their leading foot.',
+      ],
+    ],
+    finisher: [
+      [
+        'channel',
+        'I feint across the channel then cut back',
+        'to strike during their uneven step.',
+        'to catch a guard committed to my first direction.',
+        'to press their balance before a decisive thrust.',
+      ],
+      [
+        'ledge',
+        'I drive a low attack along the ledge',
+        'to narrow their escape before committing upward.',
+        'to force a high step I can follow.',
+        'to attack beneath a guard drawn toward the edge.',
+      ],
+      [
+        'soot',
+        'I repeat one footprint then burst sideways',
+        'to break the pattern they have been tracking.',
+        'to commit outside the line of their expected counter.',
+        'to make their next turn arrive too late.',
+      ],
+    ],
+  },
+  'storm-1': {
+    attack: [
+      [
+        'banner',
+        'I advance beside the torn banner',
+        'to disguise my striking hand behind its movement.',
+        'to draw their attention away from my feet.',
+        'to pressure them toward the open terrace.',
+      ],
+      [
+        'pillar',
+        'I cut around the terrace’s stone pillar',
+        'to attack their flank through the shorter route.',
+        'to make their guard turn before meeting me.',
+        'to narrow their retreat beside the stone.',
+      ],
+      [
+        'puddles',
+        'I stamp into a puddle before lunging',
+        'to mask my step with the sudden splash.',
+        'to draw their gaze down before a high strike.',
+        'to make them retreat across the wet ground.',
+      ],
+    ],
+    defense: [
+      [
+        'banner',
+        'I pull the loose banner across my retreat',
+        'to break their view while I regain space.',
+        'to draw a strike away from my body.',
+        'to conceal the direction of my next step.',
+      ],
+      [
+        'pillar',
+        'I pivot close around the stone pillar',
+        'to let it interrupt a straight attack.',
+        'to protect my side while rebuilding distance.',
+        'to meet their pursuit from a balanced stance.',
+      ],
+      [
+        'puddles',
+        'I watch their reflection in the puddles',
+        'to track a low movement outside my direct view.',
+        'to spot a sudden change of direction.',
+        'to time my guard against their approaching silhouette.',
+      ],
+    ],
+    finisher: [
+      [
+        'banner',
+        'I emerge past the banner with a thrust',
+        'to commit as its movement draws their guard aside.',
+        'to close the distance behind a momentary screen.',
+        'to attack from the side they last lost sight of.',
+      ],
+      [
+        'pillar',
+        'I threaten one side of the pillar then reverse',
+        'to catch their committed turn with a final strike.',
+        'to close the route they chose for retreat.',
+        'to reach the open side of their stance.',
+      ],
+      [
+        'puddles',
+        'I plant beside a puddle and sweep low',
+        'to challenge their footing on the wet stone.',
+        'to draw their guard down before committing high.',
+        'to catch their retreating step before it settles.',
+      ],
+    ],
+  },
+  'storm-2': {
+    attack: [
+      [
+        'stairs',
+        'I climb one low step during my advance',
+        'to send my strike over their expected guard.',
+        'to invite them onto a narrower foothold.',
+        'to change the reach of my approach.',
+      ],
+      [
+        'mist',
+        'I follow the mist through the stairway gap',
+        'to hide the angle of my opening strike.',
+        'to close distance while their view is interrupted.',
+        'to make them turn toward the exposed side.',
+      ],
+      [
+        'stone',
+        'I slide a short feint across wet stone',
+        'to suggest a longer attack than I intend.',
+        'to draw a premature counter before advancing.',
+        'to pressure their balance with a low threat.',
+      ],
+    ],
+    defense: [
+      [
+        'stairs',
+        'I retreat up the nearest low stairway',
+        'to make their approach take an extra step.',
+        'to keep my guard above their direct line.',
+        'to regain footing on a defined edge.',
+      ],
+      [
+        'mist',
+        'I hold position until the mist thins',
+        'to avoid chasing a movement I cannot see.',
+        'to meet their approach with a steady guard.',
+        'to identify an open retreat before moving.',
+      ],
+      [
+        'stone',
+        'I shorten my stance on the wet battlement',
+        'to absorb pressure without sliding too far.',
+        'to keep a sidestep available on slick ground.',
+        'to avoid crossing my feet during a parry.',
+      ],
+    ],
+    finisher: [
+      [
+        'stairs',
+        'I step down into a committed diagonal strike',
+        'to change height as they follow my guard.',
+        'to catch their transition between the stairways.',
+        'to close distance before their next foot settles.',
+      ],
+      [
+        'mist',
+        'I feint into the mist then return low',
+        'to strike beneath a guard following my outline.',
+        'to commit from the side of my earlier approach.',
+        'to interrupt their attempt to follow me.',
+      ],
+      [
+        'stone',
+        'I halt my slide and thrust from balance',
+        'to catch them expecting another retreating step.',
+        'to commit before they recover from pursuing me.',
+        'to turn controlled footing into a stable final attack.',
+      ],
+    ],
+  },
+  'storm-3': {
+    attack: [
+      [
+        'parapet',
+        'I advance along the broken parapet',
+        'to narrow the angle of their retreat.',
+        'to draw their guard toward the courtyard opening.',
+        'to pressure their side while keeping stone beside me.',
+      ],
+      [
+        'cloth',
+        'I sweep loose cloth aside while advancing',
+        'to distract them from my following strike.',
+        'to clear a direct view of their stance.',
+        'to make them guard against the moving fabric.',
+      ],
+      [
+        'lightning',
+        'I begin my lunge with a lightning flash',
+        'to time my attack with the change in light.',
+        'to close distance as their eyes readjust.',
+        'to make a sudden movement harder to separate.',
+      ],
+    ],
+    defense: [
+      [
+        'parapet',
+        'I withdraw through the broken parapet opening',
+        'to force their attack into a narrow approach.',
+        'to regain cover inside the sheltered courtyard.',
+        'to keep one side protected while I turn.',
+      ],
+      [
+        'cloth',
+        'I let the fluttering cloth screen my sidestep',
+        'to move away from their last clear aim.',
+        'to conceal the start of my retreat.',
+        'to reset my guard outside their direct view.',
+      ],
+      [
+        'lightning',
+        'I watch their stance during each brief flash',
+        'to judge the direction of their next approach.',
+        'to avoid reacting to shapes in the dimness.',
+        'to locate a clear retreat before moving.',
+      ],
+    ],
+    finisher: [
+      [
+        'parapet',
+        'I reverse through the opening with a strike',
+        'to meet their pursuit before they can widen it.',
+        'to close their space while they pass the stone.',
+        'to commit through the gap beside their guard.',
+      ],
+      [
+        'cloth',
+        'I feint behind the cloth then sweep around',
+        'to strike from outside the line they are watching.',
+        'to catch their attempt to push through the fabric.',
+        'to close distance under its moving edge.',
+      ],
+      [
+        'lightning',
+        'I hold a feint until the light fades',
+        'to launch the decisive strike from a changed angle.',
+        'to catch their guard fixed on my last silhouette.',
+        'to commit as they adjust to darkness again.',
+      ],
+    ],
+  },
+  'verdant-1': {
+    attack: [
+      [
+        'roots',
+        'I step between the roots into a lunge',
+        'to attack while keeping my own footing clear.',
+        'to pressure them toward an uneven retreat.',
+        'to make them lift a foot before responding.',
+      ],
+      [
+        'railing',
+        'I circle toward the low railing',
+        'to reduce the space behind their guard.',
+        'to threaten the route around its corner.',
+        'to make their stance turn toward the pit.',
+      ],
+      [
+        'light',
+        'I advance through alternating patches of pale light',
+        'to make my distance harder to judge.',
+        'to disguise the start of my striking hand.',
+        'to draw their attention upward before closing in.',
+      ],
+    ],
+    defense: [
+      [
+        'roots',
+        'I brace behind the thickest nearby root',
+        'to resist being driven backward.',
+        'to make their pursuit cross uneven ground.',
+        'to hold a stable pivot for my next evasion.',
+      ],
+      [
+        'railing',
+        'I move along the railing with my guard raised',
+        'to keep the pit behind a solid boundary.',
+        'to make their approach follow one visible direction.',
+        'to regain distance without stepping into open space.',
+      ],
+      [
+        'light',
+        'I face their silhouette against the pale light',
+        'to read the outline of their next movement.',
+        'to keep their hands visible while retreating.',
+        'to avoid following distracting leaf shadows.',
+      ],
+    ],
+    finisher: [
+      [
+        'roots',
+        'I feint low across a root then thrust',
+        'to commit as they lift their leading foot.',
+        'to attack a guard drawn toward the ground.',
+        'to catch their balance during an awkward crossing.',
+      ],
+      [
+        'railing',
+        'I reverse direction at the railing’s corner',
+        'to meet their pursuit with a decisive counter.',
+        'to close their route before striking inside.',
+        'to catch their guard turning the longer way.',
+      ],
+      [
+        'light',
+        'I leave the pale light in a sudden rush',
+        'to commit as my outline becomes less distinct.',
+        'to change angle before their eyes readjust.',
+        'to follow a visible feint with a concealed step.',
+      ],
+    ],
+  },
+  'verdant-2': {
+    attack: [
+      [
+        'column',
+        'I attack around the fallen column’s end',
+        'to reach beyond the cover between us.',
+        'to force their retreat onto a narrow strip.',
+        'to draw their guard away from the opposite side.',
+      ],
+      [
+        'vines',
+        'I pull a hanging vine across my advance',
+        'to place moving cover beside my strike.',
+        'to tempt a parry toward the vine.',
+        'to make them shift away from its path.',
+      ],
+      [
+        'path',
+        'I lunge along the narrow clear strip',
+        'to pressure them without crossing the obstacle.',
+        'to make their backward steps follow one line.',
+        'to close distance where my footing is visible.',
+      ],
+    ],
+    defense: [
+      [
+        'column',
+        'I keep the fallen column across their approach',
+        'to interrupt a direct rush.',
+        'to buy space while they move around its end.',
+        'to protect my lower stance during a retreat.',
+      ],
+      [
+        'vines',
+        'I step back behind the hanging vines',
+        'to obscure the direction of my next evasion.',
+        'to encourage a wide strike I can avoid.',
+        'to regain a clear view from the side.',
+      ],
+      [
+        'path',
+        'I retreat heel-first along the clear walkway',
+        'to keep my footing within the narrow strip.',
+        'to draw their pursuit into a predictable line.',
+        'to leave room for a measured counterstep.',
+      ],
+    ],
+    finisher: [
+      [
+        'column',
+        'I feint over the column then rush around',
+        'to strike past a guard raised toward the obstacle.',
+        'to commit as they turn to follow my route.',
+        'to close their space beside the column’s end.',
+      ],
+      [
+        'vines',
+        'I part the vines and follow with a strike',
+        'to attack through the brief opening in the screen.',
+        'to draw their guard aside before closing in.',
+        'to catch a retreat started toward the moving vines.',
+      ],
+      [
+        'path',
+        'I stop retreating and drive down the narrow path',
+        'to meet their pursuit with a committed thrust.',
+        'to deny the straight space they need to reset.',
+        'to catch their next step before it plants.',
+      ],
+    ],
+  },
+  'verdant-3': {
+    attack: [
+      [
+        'moss',
+        'I angle my advance toward the mossy edge',
+        'to pressure them away from firm footing.',
+        'to draw a cautious step before I strike.',
+        'to make their guard turn toward the platform boundary.',
+      ],
+      [
+        'frame',
+        'I strike past one upright of the metal frame',
+        'to approach from beside a visible obstacle.',
+        'to draw their guard toward the wrong opening.',
+        'to threaten their route through the frame.',
+      ],
+      [
+        'leaves',
+        'I brush sliding leaves across my first step',
+        'to hide the placement of my advancing foot.',
+        'to distract them before a direct strike.',
+        'to invite a low guard I can attack above.',
+      ],
+    ],
+    defense: [
+      [
+        'moss',
+        'I circle inward from the moss-covered edge',
+        'to keep my footing on clearer stone.',
+        'to avoid a retreat toward the slippery boundary.',
+        'to make their pressure follow a wider arc.',
+      ],
+      [
+        'frame',
+        'I pivot close to the open metal frame',
+        'to interrupt the angle of a broad attack.',
+        'to protect one side while recovering my stance.',
+        'to guide their approach through a visible opening.',
+      ],
+      [
+        'leaves',
+        'I watch the leaves displaced by their steps',
+        'to read a change in their direction.',
+        'to distinguish a planted feint from an advance.',
+        'to choose my retreat before they close in.',
+      ],
+    ],
+    finisher: [
+      [
+        'moss',
+        'I feint toward moss then drive toward clear stone',
+        'to commit as they shift their guard outward.',
+        'to catch their hesitant step near the edge.',
+        'to keep a firm stance beneath my final strike.',
+      ],
+      [
+        'frame',
+        'I reverse around an upright with a thrust',
+        'to meet their turn through the frame.',
+        'to attack the opening behind their moving guard.',
+        'to close the route they expected me to abandon.',
+      ],
+      [
+        'leaves',
+        'I sweep leaves low and step into a strike',
+        'to draw their eyes down before committing high.',
+        'to mask the distance covered by my final step.',
+        'to catch a guard responding to the ground movement.',
+      ],
+    ],
+  },
+  'neon-1': {
+    attack: [
+      [
+        'cable',
+        'I flick the loose cable across their approach',
+        'to draw their guard aside before striking.',
+        'to make them step into my reach.',
+        'to interrupt the rhythm of their advance.',
+      ],
+      [
+        'supports',
+        'I cut inside the nearest support',
+        'to attack from a shorter angle.',
+        'to narrow the route behind their guard.',
+        'to make them turn before setting their feet.',
+      ],
+      [
+        'water',
+        'I splash the wet floor with my leading foot',
+        'to distract from the hand preparing my strike.',
+        'to draw their attention toward a low threat.',
+        'to pressure their retreat across slick ground.',
+      ],
+    ],
+    defense: [
+      [
+        'cable',
+        'I draw the hanging cable across my retreat',
+        'to obstruct their direct pursuit.',
+        'to create room for rebuilding my guard.',
+        'to make them change direction before reaching me.',
+      ],
+      [
+        'supports',
+        'I pivot behind a platform support',
+        'to break the line of their strike.',
+        'to protect my side while I recover.',
+        'to make a wide attack pass beside me.',
+      ],
+      [
+        'water',
+        'I shorten my steps across the wet patch',
+        'to retain balance while parrying.',
+        'to avoid sliding beyond my defensive reach.',
+        'to let their faster approach pass my position.',
+      ],
+    ],
+    finisher: [
+      [
+        'cable',
+        'I pull the cable tight across their path',
+        'to interrupt their footing before my decisive strike.',
+        'to close their retreat as I commit forward.',
+        'to draw their guard down before attacking above.',
+      ],
+      [
+        'supports',
+        'I feint around the support then thrust inward',
+        'to strike as they turn toward my first direction.',
+        'to reach the gap beside their moving guard.',
+        'to close the shorter route before their escape.',
+      ],
+      [
+        'water',
+        'I plant outside the water and sweep inward',
+        'to challenge their footing on the slick patch.',
+        'to draw a low response before committing high.',
+        'to catch their weight during a retreating step.',
+      ],
+    ],
+  },
+  'neon-2': {
+    attack: [
+      [
+        'panel',
+        'I feint where the reflective panel catches me',
+        'to draw their guard toward the mirrored motion.',
+        'to distract from my actual approaching hand.',
+        'to make them turn before I change angle.',
+      ],
+      [
+        'barriers',
+        'I thrust through the opening between barriers',
+        'to pressure their guard in a narrow lane.',
+        'to force a retreat before I follow through.',
+        'to make them defend the centre rather than circle.',
+      ],
+      [
+        'shadows',
+        'I advance as shadows cross the walkway',
+        'to disguise the start of my next strike.',
+        'to make the distance between us less obvious.',
+        'to draw their attention away from my low step.',
+      ],
+    ],
+    defense: [
+      [
+        'panel',
+        'I watch their approach in the reflective panel',
+        'to track a movement outside my direct view.',
+        'to spot a change of angle before turning.',
+        'to preserve sight of them during my sidestep.',
+      ],
+      [
+        'barriers',
+        'I retreat behind one waist-high barrier',
+        'to interrupt the path of a low attack.',
+        'to make their advance pass through the opening.',
+        'to regain distance with cover at my side.',
+      ],
+      [
+        'shadows',
+        'I keep my guard steady through the shifting light',
+        'to avoid chasing misleading shadows.',
+        'to judge their movement by their actual outline.',
+        'to save my response for a clear approach.',
+      ],
+    ],
+    finisher: [
+      [
+        'panel',
+        'I follow a mirrored feint with a direct thrust',
+        'to commit while their guard follows the reflection.',
+        'to catch their turn back toward my real position.',
+        'to attack the opening left by their diverted attention.',
+      ],
+      [
+        'barriers',
+        'I threaten the gap then sweep around a barrier',
+        'to strike outside the lane they are guarding.',
+        'to close their side exit before committing.',
+        'to catch a turn forced by the obstacle.',
+      ],
+      [
+        'shadows',
+        'I pause in a shadow then burst forward',
+        'to break the timing of their expected response.',
+        'to commit before they judge my new distance.',
+        'to follow a concealed step with a decisive strike.',
+      ],
+    ],
+  },
+  'neon-3': {
+    attack: [
+      [
+        'lines',
+        'I cross the painted lines at a sharp angle',
+        'to disguise the direction of my approach.',
+        'to draw their guard away from my final path.',
+        'to pressure them into turning rather than retreating.',
+      ],
+      [
+        'step',
+        'I step down from the shallow edge into a lunge',
+        'to change height beneath their expected guard.',
+        'to close distance with a sudden level change.',
+        'to make them adjust their footing before responding.',
+      ],
+      [
+        'light',
+        'I move between pools of light while striking',
+        'to conceal the start of my hand movement.',
+        'to make my reach harder to judge.',
+        'to draw their attention toward a brighter false opening.',
+      ],
+    ],
+    defense: [
+      [
+        'lines',
+        'I use a painted crossing as my pivot point',
+        'to keep a clear measure of their approach.',
+        'to circle without drifting toward the edge.',
+        'to hold my retreat within a controlled distance.',
+      ],
+      [
+        'step',
+        'I keep the shallow step behind my rear foot',
+        'to sense the edge before retreating too far.',
+        'to brace a controlled turn under pressure.',
+        'to avoid an unseen drop during my next evasion.',
+      ],
+      [
+        'light',
+        'I retreat to the edge of a light pool',
+        'to keep their approach visible against the brightness.',
+        'to make my exact distance less clear.',
+        'to rebuild my guard without following their shadow.',
+      ],
+    ],
+    finisher: [
+      [
+        'lines',
+        'I repeat a straight advance then cut diagonally',
+        'to break the pattern marked by the painted lines.',
+        'to attack beside a guard expecting the same route.',
+        'to catch their counter aimed at my earlier path.',
+      ],
+      [
+        'step',
+        'I feint toward the step then drive inward',
+        'to commit as they prepare for a level change.',
+        'to catch their guard turning toward the edge.',
+        'to close distance while their footing is divided.',
+      ],
+      [
+        'light',
+        'I launch my final thrust from a dark patch',
+        'to strike as the overhead light changes.',
+        'to exploit the gap left by a brighter feint.',
+        'to commit before my outline becomes clear again.',
+      ],
+    ],
+  },
+};
+
+export function authoredSceneActions(
+  situation?: { id: string; catalogVersion: number } | null,
+): ComposerActionSuggestion[] {
+  if (situation?.catalogVersion !== 1) return [];
+  const scene = CATALOG[situation.id];
+  if (!scene) return [];
+  return (['attack', 'defense', 'finisher'] as const).flatMap((moveType) =>
+    scene[moveType].map(([affordance, action, ...intentions], index) => {
+      const id = `authored-v2:${situation.catalogVersion}:${situation.id}:${moveType}:${index}`;
+      const intentHints = intentions.map((text, i) => ({
+        id: `${id}:intent:${i}`,
+        text,
+        approachHints: AUTHORED_APPROACHES[situation.id][moveType][index].map(
+          (method, methodIndex) => ({
+            id: `${id}:intent:${i}:approach:v1:${methodIndex}`,
+            text: method,
+          }),
+        ),
+      }));
+      return {
+        id,
+        moveType,
+        source: 'authored' as const,
+        structureVersion: 2 as const,
+        compositionVersion: 3 as const,
+        title: action.slice(0, 48),
+        action,
+        intentHints,
+        body: `${action} ${intentHints[0].text}`,
+        affordanceIds: [affordance],
+      };
+    }),
+  );
+}

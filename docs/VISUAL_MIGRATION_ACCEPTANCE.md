@@ -97,3 +97,67 @@ Native build retry: first-launch status now passes, but Xcode 27 rejects old Pod
 ## Edit Look follow-up — 16 September 2026
 
 The compact editor replaces the collapsing stage, uses the approved Edit Look reference, and preserves free saves, live-priced confirmed drawing, account/fighter drafts and paid operation recovery. See [implementation and validation](audits/2026-09-16-edit-look/IMPLEMENTATION.md) for the exact changes, automated results, native screenshots and remaining acceptance work. This follow-up does not authorize a version bump, build, distribution or backend deployment. iOS fixture evidence is separate from production-route evidence; Android remains blocked as instructed.
+
+
+## Screen consistency follow-up — 21 September 2026
+
+See [audit and changes](audits/2026-09-21-screen-consistency/README.md) and [native comparison gallery](audits/2026-09-21-screen-consistency/comparison.html). Look/Fighter controls, creator item artwork, Shop terminology, authentication form chrome and secondary Stats panels received focused adjustments. Native evidence is limited to shared development fixtures at 402 and 375 points, including the 1.79 text-scale style sheet; it does not complete the production-route, VoiceOver, keyboard, payment, performance or Android release matrix. Android remains blocked. No release/build/backend deployment was performed.
+
+
+## Hero, avatar and environment follow-up — 21 September 2026
+
+See [implementation/validation](audits/2026-09-21-hero-avatars-environments/README.md) and the [comparison gallery](audits/2026-09-21-hero-avatars-environments/comparison.html). Implementation includes measured hero sizing, independent full-size sharing, authorized batched avatar signing/cache/list integration and twelve bundled environment compositions.
+
+Automated: TypeScript passed; 168 Jest suites / 1,379 tests passed; 26 focused Deno tests passed; ESLint zero errors with the existing startup require-import warning. Native evidence covers actual standard-iPhone Arena/Profile, complete exported card and Battles fallback browsing, plus small-iPhone battle components. It is partial acceptance: the small simulator is signed out, the new avatar endpoint is intentionally undeployed, and live human avatar, workspace/waiting, VoiceOver/Reduced Motion and offline device-matrix checks remain open. Android is blocked by the user's existing instruction. No version bump, production build, store submission, server deployment or migration is part of this delivery.
+
+The small-phone fixture exposed in-place iOS Dynamic Type clipping in the existing Debug binary. A native-text-only refresh keyed by font scale corrected it; the same live size transition was repeated successfully without restarting and the complete theme/deadline were captured. This supplements the partial native evidence above; it does not replace the remaining live-account/accessibility matrix.
+
+## Complete visual audit remediation — 21 September 2026
+
+The approved F1–F10/C1 changes are implemented. See [findings-to-fixes report](audits/2026-09-21-visual-remediation/README.md) and [native comparison gallery](audits/2026-09-21-visual-remediation/comparison.html) for separate implementation and evidence status. Do not infer full release acceptance from this entry.
+
+Automated verification: 174 Jest suites / 1,393 tests passed, TypeScript passed, ESLint zero errors / one pre-existing startup require-import warning. Coverage includes native-title fallback/re-measurement, persistent shell boundaries, explicit creator selection, workspace editor identity and failed submission, no-contest suppression, frozen equipment, export readiness/failure/revision cancellation and independent Safety navigation.
+
+A rebuilt Debug iOS simulator app includes RNCMaskedView 0.3.2. Local Xcode 27 required a **build-only iOS 16.4 deployment target** and a temporary workaround for the existing RevenueCat PaywallColor initializer; the Pod source was restored afterward. The checked-in app minimum and RevenueCat version are unchanged. This validates the native mask in a development app; it is not a clean production-toolchain or distribution pass.
+
+Native evidence includes real standard-phone routes, the actual practice workspace with keyboard and a restored local draft, small-phone auth/default and accessibility text, plus clearly labelled bundled component fixtures for rare results, export, winner sizing and creator/feedback states. Live VoiceOver traversal, a complete OS Reduced Motion walkthrough, small-phone authenticated routes, provider/payment failures and real revised-human-result sharing remain open. The undeployed avatar endpoint still prevents live human-list avatar acceptance. Android remains **blocked** by the existing instruction. No production build, version bump, migration, backend deployment or submission was performed.
+
+
+Final remediation evidence: 29 native captures (18 real-route and 11 component-fixture captures), with final 174-suite / 1,393-test regression pass. **F1 remains partially open:** Japanese headings can clip at 375pt / fontScale 2.143 in the tested iOS runtime; the same behavior reproduced in plain React Native Text, but the root cause is not established. Experimental fallback changes were removed. Large-text tab labels and inside-word auth heading wrapping also remain observations for the accessibility pass. Do not mark these states accepted. The temporary free practice used for keyboard/draft checks was canceled successfully; the balance remained 129 credits. Both simulator text sizes were restored.
+
+
+## Shared visual system and screen refinement — 22 September 2026
+
+The approved Arena, frames/headers/currency, Profile/list/Wallet, illustrated Edit Look and battle-result changes are implemented. See [changes and evidence checklist](audits/2026-09-22-shared-visual-refinement/README.md), [native gallery](audits/2026-09-22-shared-visual-refinement/comparison.html) and [verification totals](audits/2026-09-22-shared-visual-refinement/verification.json). The gallery labels 15 actual-route and 11 local component-fixture captures. All 23 trait references are bundled at 512px, totalling 1,095,473 bytes.
+
+Final automated checks: **192 Jest suites / 1536 tests passed**, TypeScript passed, ESLint zero errors and the one pre-existing startup require-import warning. Native checks caught and corrected trait image sizing, draw-amount clipping, small archetype art and the large-text editor losing usable form height.
+
+Native acceptance is **partial**. The locked Mac prevented direct typing (also reproduced with a plain React Native TextInput); small-phone authenticated routes, full restart/keyboard/recovery matrix, VoiceOver, complete OS Reduced Motion and same-device performance checks remain open. The earlier large-text Japanese-heading observation is not closed by this work. Android remains **blocked** by the user’s existing instruction. Both simulators were restored to default text size.
+
+The rebuilt local Debug simulator app used the same build-only iOS 16.4/Xcode 27 RevenueCat initializer workaround documented in the previous pass; the Pod source was restored byte-for-byte. No dependency upgrade, production build, version bump, backend/migration deployment, rollout change or store submission was performed in this implementation. Full release acceptance and distribution remain separate.
+
+
+## Battle result refinement — 23 September 2026
+
+Implementation and verification are tracked in [the result-screen report](audits/2026-09-23-result-screen/README.md), [native comparison gallery](audits/2026-09-23-result-screen/comparison.html) and [native check boundaries](audits/2026-09-23-result-screen/native-checks.md). This entry does not supersede unresolved acceptance items from earlier audits.
+
+Branded verdicts use battle-recorded equipped avatars and authoritative HP. No-contest hides original competitive values in the current verdict/export while retaining explicitly labelled played-round records inside details. The compact cinematic uses native fullscreen playback; result-route captions are removed without changing stored records or other media consumers. Compact Rewards/Progress and historical details are implemented. Final automated checks passed: **196 Jest suites / 1,592 tests**, TypeScript and fixture isolation; ESLint has zero errors and one pre-existing startup warning. Native testing fixed fullscreen controls and a released-player exit race. Final review approved the retry-focus repair, with the full suite rerun afterward. The gallery contains 20 captures (14 actual routes, six component fixtures), including actual compact rewards and large text.
+
+Actual iOS evidence uses existing completed battles and already-generated media on 375×812 and 402×874 simulators. Synthetic outcome/recovery fixtures are labelled separately. Live VoiceOver traversal remains unverified; Android validation remains blocked. No production build, version bump, backend change, dependency upgrade, deployment, rollout flag change or submission belongs to this task.
+
+### Visible stats and consistent cards follow-up
+
+The illustrated theme and restrained double-gold Round by round panel are permanently visible. Legacy single results omit rounds; no-contest labels Played rounds as historical. Result info opens a bounded sheet with fixed heading/Close and only nonempty already-loaded explanations. Closing preserves page position; View quests dismisses before Arena navigation. Appeals and safety stay on the page.
+
+Follow-up verification passed **197 Jest suites / 1,605 tests**, TypeScript and fixture isolation. ESLint reports zero errors and one pre-existing startup warning. Thirteen added behavioral cases cover visibility, both perspectives, reviewed/single/no-contest, long/missing themes, empty sections, sheet lifecycle and focus. The task-only code review had no findings. The shared theme renderer and reward details remain byte-identical to this follow-up's baseline.
+
+The [updated gallery](audits/2026-09-23-result-screen/comparison.html) contains **31 captures** (25 actual routes and six historical component-fixture captures), including eleven new actual-route captures on both iPhone sizes at default and accessibility-large text. Sheet scrolling, fixed controls, gold frames, theme wrapping, footer reachability, Close and actual View quests navigation were inspected. Both simulators were restored to default text size. Live VoiceOver remains unverified; Android remains blocked. The unchanged completed-bot-round Pending label and a transient development network warning are recorded separately in the report, not claimed fixed. No release, backend or paid operation was performed.
+
+
+## Loading, round results and Claim controls — 26–27 September 2026
+
+The [implementation report](audits/2026-09-26-round-controls/README.md) and [follow-up gallery](audits/2026-09-26-round-controls/comparison.html) cover inline startup feedback, permanently visible between-round details, framed cinematic feedback and signed-diamond beveled Claim controls. The final result’s Result info sheet is unchanged.
+
+Final checks: **198 Jest suites / 1,613 tests passed**, TypeScript passed, fixture isolation passed, ESLint zero errors / one existing startup require warning. Fresh scoped review found no actionable regression.
+
+Native evidence: 22 new captures (three actual routes, nineteen component fixtures), plus four user references, on 375×812 and 402×874 iPhones at default and accessibility-large text. Actual Arena and ready media were inspected. No claimable quest or ready between-round state was available in the existing account; those states are clearly labelled fixtures. Scrolling, wrapping, frames and pinned controls were inspected in component compositions. Both phones were restored to default text and the ordinary app. Actual between-round/claim integration and live VoiceOver remain unverified; Android remains blocked. This is partial native acceptance; no release or backend operation belongs to this task.

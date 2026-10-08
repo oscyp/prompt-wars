@@ -1,10 +1,18 @@
+import { CreditAmount } from '@/components/game/CreditAmount';
+import { leaveActionLabel, hasOpponent } from '@/utils/battles';
+import BattleHeader from '@/components/battle/BattleHeader';
+import BattleBackdrop from '@/components/battle/BattleBackdrop';
 import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
-import { GameIcon } from '@/components/game/icons/GameIcon';
 import { BattleLockInControl } from '@/components/game/battle/BattleLockInControl';
 import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
 import { BattleThemePlaque } from '@/components/game/battle/BattleThemePlaque';
 import { BattleMovePicker } from '@/components/game/battle/BattleMovePicker';
-import { GameText as Text, GameFooter, GameField } from '@/components/game';
+import {
+  GameText as Text,
+  GameFooter,
+  GameField,
+  GameButton,
+} from '@/components/game';
 import BattleOpponentSafety from '@/components/BattleOpponentSafety';
 import TutorialCoach from '@/components/TutorialCoach';
 import { recordFunnelEvent } from '@/utils/tutorial';
@@ -23,13 +31,15 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   AccessibilityInfo,
+  BackHandler,
+  findNodeHandle,
   Alert,
   KeyboardAvoidingView,
   Platform,
   Keyboard,
   useWindowDimensions,
 } from 'react-native';
-import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { ImpactFeedbackStyle } from 'expo-haptics';
@@ -55,6 +65,7 @@ import {
   generateMoveSuggestions,
   getBattle,
   getMoveSuggestions,
+  type MoveSuggestionRead,
   submitPrompt,
   BattleMode,
   MoveSuggestion,
@@ -79,13 +90,53 @@ import {
 } from '@/hooks/useRealtimeBattle';
 import { useBattleExitGuard } from '@/hooks/useBattleExitGuard';
 import { useBattleDraft } from '@/hooks/useBattleDraft';
+import { useComposerTelemetry } from '@/hooks/useComposerTelemetry';
+import { usePromptComposer } from '@/hooks/usePromptComposer';
+import { useMoveStepSuggestions } from '@/hooks/useMoveStepSuggestions';
+import { useMoveSuggestionBanks } from '@/hooks/useMoveSuggestionBanks';
+import { useMoveSuggestions } from '@/hooks/useMoveSuggestions';
+import {
+  composerCanSubmit,
+  composerDraftSnapshot,
+  composerHintsContext,
+  createComposerState,
+  type BuilderChange,
+} from '@/utils/promptComposer';
+import {
+  getFallbackMoveSuggestions,
+  getAllFallbackMoveSuggestions,
+} from '@/utils/promptSituations';
+import {
+  type ComposerStep,
+  composerNextStep,
+  restoreComposerStep,
+  normalizeComposerStep,
+  composerBackStep,
+} from '@/utils/promptComposerFlow';
+import {
+  composerDraftRecoveries,
+  restoreComposerDraftRecovery,
+} from '@/utils/composerDraftRecovery';
+import { PromptLockConfirmation } from '@/components/battle/PromptLockConfirmation';
+import { ComposerModeSwitch } from '@/components/battle/ComposerModeSwitch';
+import { ComposerMoveReview } from '@/components/battle/ComposerMoveReview';
+import {
+  ComposerProgress,
+  composerProgressLabel,
+} from '@/components/battle/ComposerProgress';
+import { WritingTips } from '@/components/battle/WritingTips';
+import {
+  PromptComposerPanel,
+  ComposerMoveTypeControl,
+} from '@/components/battle/PromptComposerPanel';
+import { BattleSituation } from '@/components/battle/BattleSituation';
+import { OpponentMoveHistory } from '@/components/battle/OpponentMoveHistory';
 import { resolveRoundParam } from '@/utils/prebattleCopy';
 import { BattleDeadline } from '@/components/game/battle/BattleDeadline';
 import { useBattleCharacters } from '@/hooks/useBattleCharacters';
 import { usePortraitViewer } from '@/hooks/usePortraitViewer';
 import VersusStrip from '@/components/VersusStrip';
 import PortraitViewer from '@/components/PortraitViewer';
-import HeaderLeaveButton from '@/components/HeaderLeaveButton';
 import InlineBanner from '@/components/InlineBanner';
 import PromptPreparationState from '@/components/prompt-preparation-state';
 import { useBattleAudio } from '@/providers/BattleAudioProvider';
@@ -102,6 +153,17 @@ const RECONNECT_GRACE_MS = 2000;
 const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
 const MOVE_TYPES: MoveType[] = ['attack', 'defense', 'finisher'];
+
+// A set can be mid-generation when this screen opens -- the server prefetches
+// it, and the row is claimed with a placeholder before the model is called. We
+// wait for that row rather than generating on top of it, because generating on
+// top of a live claim is what CHARGES the player a credit.
+const SUGGESTION_POLL_INTERVAL_MS = 1500;
+// Generation is a ~5-15s call; 25s is comfortably past its tail. Past this we
+// stop and offer a re-read, never an automatic generate.
+const SUGGESTION_POLL_TIMEOUT_MS = 25_000;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Battle- and round-level states in which writing a prompt is pointless: the
 // server has moved on, so the screen must too. Waiting knows where to go next.
@@ -145,26 +207,40 @@ export default function PromptEntryScreen() {
     moveType?: string;
   }>();
 
-  // A legacy deep link may supply the initial move. It is NOT
-  // defaulted: a silent fallback to 'attack' would submit a move the player
-  // never picked, and they would not find out until the reveal.
-  const [moveType, setMoveType] = useState<MoveType | null>(
-    MOVE_TYPES.includes(moveTypeParam as MoveType)
-      ? (moveTypeParam as MoveType)
-      : null,
-  );
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const editorRef = useRef<TextInput>(null);
+  const activeInputRef = useRef<TextInput | null>(null);
   const workspaceScroll = useRef<ScrollView>(null);
+  const workspaceContent = useRef<View>(null);
   const editorTop = useRef(0);
   const [workspaceHeight, setWorkspaceHeight] = useState(360);
+  const revealInput = useCallback((input: TextInput | null) => {
+    activeInputRef.current = input;
+    const content = workspaceContent.current;
+    if (input && content)
+      input.measureLayout(
+        content,
+        (_x, y) => {
+          workspaceScroll.current?.scrollTo({
+            y: Math.max(0, y - 8),
+            animated: false,
+          });
+        },
+        () => {},
+      );
+  }, []);
   useEffect(() => {
     if (editorRef.current?.isFocused())
       workspaceScroll.current?.scrollTo({
         y: Math.max(0, editorTop.current - 8),
         animated: false,
       });
-  }, [workspaceHeight]);
+    if (
+      activeInputRef.current?.isFocused() &&
+      activeInputRef.current !== editorRef.current
+    )
+      revealInput(activeInputRef.current);
+  }, [workspaceHeight, revealInput]);
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', () =>
       setKeyboardVisible(true),
@@ -197,27 +273,28 @@ export default function PromptEntryScreen() {
   >(null);
   // The credit wall gets a way out that is not "run the paid call again".
   const [suggestionPaywall, setSuggestionPaywall] = useState(false);
-  const [customText, setCustomText] = useState('');
-  const [isCustom, setIsCustom] = useState(false);
+  const [writingTips, setWritingTips] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Reroll price, read once. The server bills from its own table; this only
-  // decides what the button and the confirmation say. 1 is the seeded price
-  // and the fallback if the read fails, so the copy never shows a blank.
-  const [rerollCredits, setRerollCredits] = useState(1);
+  // A price must be known before purchase; the server validates it atomically.
+  const [rerollCredits, setRerollCredits] = useState<number | null>(null);
   useEffect(() => {
     let mounted = true;
-    fetchEditPrice('prompt_suggestions_reroll').then((price) => {
-      if (mounted && price) setRerollCredits(price.credits);
-    });
+    fetchEditPrice('prompt_suggestions_reroll')
+      .then((price) => {
+        if (mounted && price) setRerollCredits(price.credits);
+      })
+      .catch(() => {});
     return () => {
       mounted = false;
     };
   }, []);
-  const rerollIsFree = rerollCredits <= 0;
-  const rerollChip = formatCredits(rerollCredits, 'chip');
-  const rerollSentence = formatCredits(rerollCredits, 'sentence');
+  const rerollIsFree = rerollCredits === 0;
+  const rerollSentence =
+    rerollCredits === null
+      ? 'price unavailable'
+      : formatCredits(rerollCredits, 'sentence');
 
   // Realtime Bo3 state (HP, series score, opponent lock status).
   const {
@@ -236,6 +313,114 @@ export default function PromptEntryScreen() {
   const { save: saveDraft, clear: clearDraft } = draft;
   const [restoredScope, setRestoredScope] = useState<string | null>(null);
   const draftScope = `${user?.id}:${battleId}:${roundNumber}`;
+  const composerEnabled = rtBattle?.prompt_experience_version === 2;
+  const { track: trackComposer } = useComposerTelemetry({
+    accountId: user?.id,
+    battleId,
+    roundNumber,
+    enabled: composerEnabled,
+  });
+  const composer = usePromptComposer(user?.id, draftScope);
+  const [savedStep, setSavedStep] = useState<ComposerStep>('faceoff');
+  const composerStep = normalizeComposerStep(savedStep, composer.state);
+  const stepHeaderRef = useRef<View>(null);
+  const moveType = composer.state.moveType;
+  const composerDispatch = composer.dispatch;
+  const setMoveType = useCallback(
+    (moveType: MoveType | null) => {
+      if (
+        authoringBlockedRef.current ||
+        authoringScopeRef.current !== draftScope
+      )
+        return;
+      if (composerEnabled) composerDispatch({ type: 'move-type', moveType });
+      else
+        composerDispatch({
+          type: 'restore',
+          snapshot: { ...composer.state, moveType, pending: false },
+        });
+    },
+    [composerDispatch, draftScope, composerEnabled, composer.state],
+  );
+  const lockFocusRef = useRef<View>(null);
+  const [lockPreview, setLockPreview] = useState<{
+    scope: string;
+    text: string;
+    moveType: MoveType;
+  } | null>(null);
+  const lockPreviewRef = useRef(lockPreview);
+  lockPreviewRef.current = lockPreview;
+  const {
+    restore: restoreComposer,
+    preferredMode,
+    preferenceReady,
+    edit: editComposer,
+    setMode: setComposerMode,
+  } = composer;
+  const customText = composer.state.finalText;
+  const setCustomText = useCallback(
+    (text: string) => {
+      if (
+        authoringBlockedRef.current ||
+        authoringScopeRef.current !== draftScope
+      )
+        return;
+      if (composerEnabled) editComposer(text);
+      else
+        composerDispatch({
+          type: 'restore',
+          snapshot: {
+            ...composer.state,
+            finalText: text,
+            pending: false,
+            detached: true,
+          },
+        });
+      trackComposer('composer_changed');
+      trackComposer('composer_full_edit', 'custom');
+    },
+    [
+      editComposer,
+      trackComposer,
+      draftScope,
+      composerEnabled,
+      composerDispatch,
+      composer.state,
+    ],
+  );
+  const isCustom = composer.state.mode === 'write';
+  const setIsCustom = useCallback(
+    (value: boolean) => {
+      if (
+        authoringBlockedRef.current ||
+        authoringScopeRef.current !== draftScope
+      )
+        return;
+      if (composerEnabled) {
+        Keyboard.dismiss();
+        setSavedStep('faceoff');
+        setComposerMode(value ? 'write' : 'build');
+        trackComposer('composer_mode_selected', value ? 'write' : 'builder');
+      } else
+        composerDispatch({
+          type: 'restore',
+          snapshot: {
+            ...composer.state,
+            mode: value ? 'write' : 'build',
+            pending: false,
+          },
+        });
+    },
+    [
+      composerEnabled,
+      setComposerMode,
+      composer.state,
+      composerDispatch,
+      trackComposer,
+      draftScope,
+    ],
+  );
+
   const [acceptedSubmission, setAcceptedSubmission] = useState<{
     scope: string;
     move: MoveType;
@@ -246,17 +431,50 @@ export default function PromptEntryScreen() {
   authoringScopeRef.current = draftScope;
   const authoringBlockedRef = useRef(false);
   useEffect(() => {
-    if (!draft.ready || restoredScope === draftScope) return;
+    if (
+      !draft.ready ||
+      !rtBattle ||
+      (composerEnabled && !preferenceReady) ||
+      restoredScope === draftScope
+    )
+      return;
     setRestoredScope(draftScope);
-    if (draft.draft && battleId)
+    if (draft.draft && battleId) {
       void recordFunnelEvent('draft_recovered', battleId);
-    setCustomText(draft.draft?.text ?? '');
-    setIsCustom(draft.draft?.editMode ?? true);
-    setMoveType(
-      draft.draft?.move ??
-        (MOVE_TYPES.includes(moveTypeParam as MoveType)
-          ? (moveTypeParam as MoveType)
-          : null),
+      trackComposer('composer_draft_recovered');
+    }
+    const saved = draft.draft;
+    const recoverUnstructuredText = Boolean(
+      composerEnabled && saved?.text && !saved.composer,
+    );
+    const mode = recoverUnstructuredText
+      ? 'write'
+      : saved
+        ? saved.editMode
+          ? 'write'
+          : 'build'
+        : composerEnabled
+          ? (preferredMode ?? 'build')
+          : 'write';
+    const snapshot =
+      saved?.composer && composerEnabled
+        ? saved.composer
+        : {
+            ...createComposerState(mode),
+            finalText: saved?.text ?? '',
+            moveType:
+              saved?.move ??
+              (!composerEnabled &&
+              MOVE_TYPES.includes(moveTypeParam as MoveType)
+                ? (moveTypeParam as MoveType)
+                : null),
+            detached: Boolean(saved?.text),
+          };
+    restoreComposer(snapshot);
+    setSavedStep(
+      recoverUnstructuredText
+        ? 'write'
+        : restoreComposerStep(snapshot, saved?.composerStep),
     );
   }, [
     draft.ready,
@@ -265,6 +483,12 @@ export default function PromptEntryScreen() {
     moveTypeParam,
     restoredScope,
     battleId,
+    rtBattle,
+    composerEnabled,
+    preferenceReady,
+    preferredMode,
+    restoreComposer,
+    trackComposer,
   ]);
 
   // Derive the round from the number THIS SCREEN is showing, not from
@@ -281,11 +505,44 @@ export default function PromptEntryScreen() {
     [rounds, roundNumber],
   );
   const isBo3 = format === 'bo3';
+  const situation = roundData?.situation_snapshot;
+  const composerContext = `${roundNumber}:${situation?.id ?? ''}`;
+  useEffect(() => {
+    if (
+      composerEnabled &&
+      situation?.id &&
+      restoredScope === draftScope &&
+      composer.state.contextKey !== composerContext
+    ) {
+      composerDispatch({ type: 'context', contextKey: composerContext });
+    }
+  }, [
+    composerEnabled,
+    situation?.id,
+    restoredScope,
+    draftScope,
+    composer.state.contextKey,
+    composerContext,
+    composerDispatch,
+  ]);
 
+  const authoringRoundClosed = Boolean(
+    rtBattle &&
+    (CLOSED_BATTLE_STATUSES.has(rtBattle.status) ||
+      (isBo3 && roundData && CLOSED_ROUND_STATUSES.has(roundData.status)) ||
+      (rtBattle.current_round ?? 1) > roundNumber),
+  );
+  const internalBackRef = useRef<() => boolean>(() => false);
   const waitingHref =
     `/(battle)/waiting?battleId=${battleId}&round=${roundNumber}` as const;
 
   // Back parks the battle and flushes the draft; forfeiting is explicit.
+  const leaveLabel = leaveActionLabel({
+    status: rtBattle?.status,
+    mode: (rtBattle?.mode ?? 'ranked') as BattleMode,
+    isBot: Boolean(rtBattle?.is_player_two_bot),
+    hasOpponent: Boolean(rtBattle && hasOpponent(rtBattle)),
+  });
   const leave = useBattleExitGuard(battleId || null, {
     format,
     mode: (rtBattle?.mode ?? 'ranked') as BattleMode,
@@ -297,9 +554,10 @@ export default function PromptEntryScreen() {
       rtBattle?.player_two_id || rtBattle?.is_player_two_bot,
     ),
     beforeExit: draft.flush,
+    onBack: () => internalBackRef.current(),
   });
 
-  const { exitTo } = leave;
+  const { exitTo, park } = leave;
   const isPlayerOne = rtBattle?.player_one_id === user?.id;
   const myHp = isPlayerOne ? rtBattle?.player_one_hp : rtBattle?.player_two_hp;
   const myHpMax = isPlayerOne
@@ -332,13 +590,306 @@ export default function PromptEntryScreen() {
     [prompts, user?.id, roundNumber],
   );
   const alreadyLocked = Boolean(myPrompt?.is_locked);
-  authoringBlockedRef.current = alreadyLocked || submitAccepted || isSubmitting;
+  authoringBlockedRef.current =
+    alreadyLocked || submitAccepted || isSubmitting || authoringRoundClosed;
   const lockedMove: MoveType | null =
     myPrompt?.move_type ??
     (submitAccepted ? acceptedSubmission.move : moveType);
   const lockedText =
     myPrompt?.custom_prompt_text ??
     (submitAccepted ? acceptedSubmission.text : null);
+  const fallbackSuggestions = useMemo(
+    () =>
+      moveType
+        ? getFallbackMoveSuggestions({
+            moveType,
+            situation,
+            fighterName: myChar?.name,
+          })
+        : [],
+    [moveType, situation, myChar?.name],
+  );
+  const legacySuggestions = useMoveSuggestions({
+    accountId: user?.id,
+    battleId,
+    round: roundNumber,
+    moveType,
+    situationId: situation?.id,
+    fallback: fallbackSuggestions,
+    structured: composerEnabled,
+    autoRead: false,
+    onEvent: trackComposer,
+    enabled:
+      !composerEnabled &&
+      draft.ready &&
+      restoredScope === draftScope &&
+      !alreadyLocked &&
+      !submitAccepted &&
+      !isSubmitting,
+  });
+  const allFallbackSuggestions = useMemo(
+    () => getAllFallbackMoveSuggestions(situation),
+    [situation],
+  );
+  const suggestionBanks = useMoveSuggestionBanks({
+    accountId: user?.id,
+    battleId,
+    round: roundNumber,
+    situationId: situation?.id,
+    fallback: allFallbackSuggestions,
+    enabled:
+      composerEnabled &&
+      Boolean(situation?.id) &&
+      !authoringRoundClosed &&
+      draft.ready &&
+      restoredScope === draftScope &&
+      !alreadyLocked &&
+      !submitAccepted &&
+      !isSubmitting,
+    build: !isCustom,
+    onEvent: trackComposer,
+  });
+  const moveSuggestions = composerEnabled
+    ? suggestionBanks.banks[moveType ?? 'attack']
+    : legacySuggestions;
+  const {
+    incoming: incomingSuggestions,
+    applyIncoming: applyIncomingSuggestions,
+  } = moveSuggestions;
+  useEffect(() => {
+    if (!composerEnabled && incomingSuggestions) {
+      setSuggestions(incomingSuggestions);
+      applyIncomingSuggestions();
+    }
+  }, [composerEnabled, incomingSuggestions, applyIncomingSuggestions]);
+  useEffect(() => {
+    if (
+      !['price_changed', 'price_unavailable'].includes(
+        moveSuggestions.errorCode ?? '',
+      )
+    )
+      return;
+    let active = true;
+    setRerollCredits(null);
+    fetchEditPrice('prompt_suggestions_reroll')
+      .then((price) => {
+        if (active && price) setRerollCredits(price.credits);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [moveSuggestions.errorCode]);
+  const stepContext = useMemo(
+    () =>
+      battleId &&
+      moveType &&
+      (composerStep === 'intent' || composerStep === 'approach')
+        ? {
+            battleId,
+            roundNumber,
+            moveType,
+            target: composerStep,
+            actionText: composer.state.actionText,
+            ...(composerStep === 'approach'
+              ? { intentText: composer.state.intentText }
+              : {}),
+          }
+        : null,
+    [
+      battleId,
+      roundNumber,
+      moveType,
+      composerStep,
+      composer.state.actionText,
+      composer.state.intentText,
+    ],
+  );
+  const stepSuggestions = useMoveStepSuggestions({
+    accountId: user?.id,
+    battleId,
+    round: roundNumber,
+    enabled: composerEnabled && draft.ready && restoredScope === draftScope,
+    canPurchase: !authoringBlockedRef.current,
+    context: stepContext,
+  });
+  useEffect(() => {
+    if (
+      !['price_changed', 'price_unavailable'].includes(
+        stepSuggestions.errorCode ?? '',
+      )
+    )
+      return;
+    let active = true;
+    setRerollCredits(null);
+    fetchEditPrice('prompt_suggestions_reroll')
+      .then((price) => {
+        if (active && price) setRerollCredits(price.credits);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [stepSuggestions.errorCode]);
+  const {
+    incoming: incomingStepSuggestions,
+    journalReady: stepJournalReady,
+    applyIncoming: applyStepSuggestions,
+  } = stepSuggestions;
+  useEffect(() => {
+    if (!incomingStepSuggestions || !stepJournalReady) return;
+    // Every step result belongs to an explicitly requested refresh. Persist its
+    // application before showing it; this never changes the selected fragment.
+    void applyStepSuggestions().then((applied) => {
+      if (applied && authoringScopeRef.current === draftScope) {
+        trackComposer(
+          'composer_suggestions_applied',
+          applied.creditsSpent > 0 ? 'paid' : 'free',
+        );
+      }
+    });
+  }, [
+    incomingStepSuggestions,
+    stepJournalReady,
+    applyStepSuggestions,
+    draftScope,
+    trackComposer,
+  ]);
+  const choicePurchaseRef = useRef({
+    scope: draftScope,
+    step: composerStep,
+    revision: composer.state.revision,
+    reroll: stepSuggestions.reroll,
+  });
+  choicePurchaseRef.current = {
+    scope: draftScope,
+    step: composerStep,
+    revision: composer.state.revision,
+    reroll:
+      composerStep === 'action'
+        ? moveSuggestions.reroll
+        : stepSuggestions.reroll,
+  };
+  const confirmChoicePurchase = () => {
+    const captured = choicePurchaseRef.current;
+    if (
+      authoringBlockedRef.current ||
+      (rerollCredits !== 0 && rerollCredits !== 1)
+    )
+      return;
+    const label =
+      composerStep === 'action'
+        ? 'actions'
+        : composerStep === 'intent'
+          ? 'intentions'
+          : 'approaches';
+    Alert.alert(
+      `3 new ${label}`,
+      rerollCredits === 0
+        ? `Generate three new ${label}?`
+        : `Generate three new ${label} for ${rerollSentence}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: rerollCredits === 0 ? 'Generate' : `Spend ${rerollSentence}`,
+          onPress: () => {
+            const latest = choicePurchaseRef.current;
+            if (
+              !authoringBlockedRef.current &&
+              authoringScopeRef.current === captured.scope &&
+              latest.scope === captured.scope &&
+              latest.step === captured.step &&
+              latest.revision === captured.revision
+            ) {
+              trackComposer('composer_suggestions_reroll', 'paid');
+              void latest.reroll(rerollCredits);
+            }
+          },
+        },
+      ],
+    );
+  };
+  const changeBuilder = (change: BuilderChange) => {
+    if (authoringBlockedRef.current || authoringScopeRef.current !== draftScope)
+      return;
+    suggestionBanks.markInteracted();
+    composer.change(change);
+    trackComposer('composer_changed');
+    trackComposer(
+      change.type === 'action'
+        ? composer.state.actionText
+          ? 'composer_action_changed'
+          : 'composer_action_selected'
+        : change.type === 'intent'
+          ? 'composer_intent_selected'
+          : 'composer_approach_selected',
+      change.id ? 'suggestion' : 'custom',
+    );
+  };
+  const applyBankIdeas = (type: MoveType) => {
+    if (authoringBlockedRef.current || authoringScopeRef.current !== draftScope)
+      return;
+    const bank = suggestionBanks.banks[type];
+    const action = bank.incoming?.find(
+      (idea) =>
+        idea.id === composer.state.actionId &&
+        idea.action === composer.state.actionText,
+    );
+    suggestionBanks.markInteracted();
+    bank.applyIncoming();
+    // Exact-bank enrichment adds options only, without changing selected prose.
+    if (composer.state.moveType === type && action?.intentHints) {
+      composer.updateHints(
+        'intent',
+        composerHintsContext(composer.state, 'intent'),
+        action.intentHints,
+      );
+      const intention = action.intentHints.find(
+        (hint) =>
+          hint.id === composer.state.intentId &&
+          hint.text === composer.state.intentText,
+      );
+      if (intention?.approachHints) {
+        composer.updateHints(
+          'approach',
+          composerHintsContext(composer.state, 'approach'),
+          intention.approachHints,
+        );
+      }
+    }
+  };
+  const applyBankIdeasRef = useRef(applyBankIdeas);
+  applyBankIdeasRef.current = applyBankIdeas;
+  const canApplyBankIdeas =
+    composerEnabled &&
+    composer.state.mode === 'build' &&
+    draft.ready &&
+    restoredScope === draftScope &&
+    !alreadyLocked &&
+    !submitAccepted &&
+    !isSubmitting &&
+    !authoringRoundClosed;
+  useEffect(() => {
+    // Ready options appear without a second confirmation. Keep other types and
+    // manual-writing results pending until their matching builder is active.
+    if (canApplyBankIdeas && moveType && incomingSuggestions) {
+      applyBankIdeasRef.current(moveType);
+    }
+  }, [canApplyBankIdeas, moveType, incomingSuggestions]);
+  const needsBankEnrichment =
+    composerStep === 'approach' &&
+    composer.state.actionOrigin === 'builder' &&
+    composer.state.intentSource === 'suggestion' &&
+    !composer.state.approachHints?.length;
+
+  const suggestionPurchaseRef = useRef({
+    reroll: moveSuggestions.reroll,
+    price: rerollCredits,
+  });
+  suggestionPurchaseRef.current = {
+    reroll: moveSuggestions.reroll,
+    price: rerollCredits,
+  };
 
   // Lock-in deadline for the countdown: per-round for Bo3, per-player for single.
   const myDeadline = isBo3
@@ -431,7 +982,6 @@ export default function PromptEntryScreen() {
     [suggestions, customText],
   );
 
-  const [draftSaving, setDraftSaving] = useState(false);
   useEffect(() => {
     if (
       !draft.ready ||
@@ -440,22 +990,18 @@ export default function PromptEntryScreen() {
       submitAccepted
     )
       return;
-    let active = true;
-    setDraftSaving(true);
     void saveDraft({
       text: customText,
       move: moveType,
       editMode: isCustom,
+      ...(composerEnabled
+        ? { composer: composerDraftSnapshot(composer.state), composerStep }
+        : {}),
       selectedSuggestion:
         selectedSuggestion >= 0
           ? (suggestions[selectedSuggestion]?.body ?? null)
           : null,
-    }).finally(() => {
-      if (active) setDraftSaving(false);
     });
-    return () => {
-      active = false;
-    };
   }, [
     draft.ready,
     saveDraft,
@@ -468,6 +1014,9 @@ export default function PromptEntryScreen() {
     suggestions,
     alreadyLocked,
     submitAccepted,
+    composerEnabled,
+    composer.state,
+    composerStep,
   ]);
   useEffect(() => {
     if (alreadyLocked) void clearDraft();
@@ -478,6 +1027,9 @@ export default function PromptEntryScreen() {
   // which owns the "where does this battle go next" routing, once.
   const redirectedRef = useRef(false);
   useEffect(() => {
+    redirectedRef.current = false;
+  }, [draftScope]);
+  useEffect(() => {
     if (!battleId || !rtBattle || redirectedRef.current) return;
     const battleClosed = CLOSED_BATTLE_STATUSES.has(rtBattle.status);
     const roundClosed =
@@ -485,7 +1037,9 @@ export default function PromptEntryScreen() {
     const roundMovedOn = (rtBattle.current_round ?? 1) > roundNumber;
     if (battleClosed || roundClosed || roundMovedOn) {
       redirectedRef.current = true;
+      const closingScope = draftScope;
       void clearDraft().then((deleted) => {
+        if (authoringScopeRef.current !== closingScope) return;
         if (deleted) exitTo(() => router.replace(waitingHref));
         else redirectedRef.current = false;
       });
@@ -500,6 +1054,7 @@ export default function PromptEntryScreen() {
     waitingHref,
     clearDraft,
     exitTo,
+    draftScope,
   ]);
 
   useEffect(() => {
@@ -547,6 +1102,12 @@ export default function PromptEntryScreen() {
         authoringScopeRef.current !== draftScope
       )
         return;
+      if (paid) {
+        await suggestionPurchaseRef.current.reroll(
+          suggestionPurchaseRef.current.price,
+        );
+        return;
+      }
       const run = ++suggestionRunRef.current;
       setSuggestionsLoading(true);
       setSuggestionsGenerating(true);
@@ -630,29 +1191,68 @@ export default function PromptEntryScreen() {
     setSuggestionsError(null);
     setSuggestionRetry(null);
     setSuggestionPaywall(false);
-    try {
-      const existing = await getMoveSuggestions(
-        battleId as string,
-        moveType,
-        roundNumber,
-      );
-      if (isStale()) return;
-      if (existing.length > 0) {
-        setSuggestions(existing);
+    // Read, and keep reading while a set is being generated for us.
+    //
+    // The three read states are not interchangeable:
+    //   ready   -> show it, we are done, nothing was spent
+    //   pending -> someone (the prefetch) already claimed this slot; WAIT.
+    //              Calling generate here would 23505 on the free slot and bill
+    //              the player for a set already on its way.
+    //   none    -> the slot is genuinely unclaimed, so generating is safe.
+    const deadline = Date.now() + SUGGESTION_POLL_TIMEOUT_MS;
+    let sawPending = false;
+    for (;;) {
+      let existing: MoveSuggestionRead;
+      try {
+        existing = await getMoveSuggestions(
+          battleId as string,
+          moveType,
+          roundNumber,
+        );
+      } catch {
+        if (isStale()) return;
         setSuggestionsLoading(false);
+        setSuggestionsGenerating(false);
+        // The read is free, so this is safe to offer again -- but it must go
+        // back through the read, never straight to generate: a failed read
+        // proves nothing about whether a set already exists, and generating on
+        // top of one is a purchase.
+        setSuggestionsError('Couldn’t load your ideas.');
+        setSuggestionRetry('read');
         return;
       }
-    } catch {
       if (isStale()) return;
-      setSuggestionsLoading(false);
-      // The read is free, so this is safe to offer again -- but it must go
-      // back through the read, never straight to generate: a failed read
-      // proves nothing about whether a set already exists, and generating on
-      // top of one is a purchase.
-      setSuggestionsError('Couldn’t load your ideas.');
-      setSuggestionRetry('read');
-      return;
+
+      if (existing.status === 'ready') {
+        setSuggestions(existing.suggestions);
+        setSuggestionsLoading(false);
+        setSuggestionsGenerating(false);
+        return;
+      }
+
+      if (existing.status !== 'pending') break;
+
+      if (!sawPending) {
+        // Something IS being generated, so say so immediately rather than
+        // sitting behind the read-path grace delay.
+        sawPending = true;
+        setSuggestionsGenerating(true);
+      }
+
+      if (Date.now() >= deadline) {
+        setSuggestionsLoading(false);
+        setSuggestionsGenerating(false);
+        // Deliberately a re-read and not a generate: the claim we have been
+        // watching may still land, and generating on top of it is a purchase.
+        setSuggestionsError('Your ideas are taking longer than usual.');
+        setSuggestionRetry('read');
+        return;
+      }
+
+      await sleep(SUGGESTION_POLL_INTERVAL_MS);
+      if (isStale()) return;
     }
+
     if (isStale()) return;
     await loadSuggestions(false);
   }, [battleId, moveType, roundNumber, loadSuggestions, draftScope]);
@@ -661,6 +1261,7 @@ export default function PromptEntryScreen() {
   useEffect(() => {
     // Nothing to read for once the prompt is in; the editor is not shown.
     if (
+      composerEnabled ||
       alreadyLocked ||
       submitAccepted ||
       !draft.ready ||
@@ -674,6 +1275,7 @@ export default function PromptEntryScreen() {
     };
   }, [
     readOrGenerateSuggestions,
+    composerEnabled,
     alreadyLocked,
     submitAccepted,
     draft.ready,
@@ -687,13 +1289,15 @@ export default function PromptEntryScreen() {
   // Tapping a suggestion fills `customText`, so both entry paths validate the
   // same way -- see utils/promptSelection.ts.
   const validateSelection = useCallback((): boolean => {
+    if (composerEnabled && (!situation || !composerCanSubmit(composer.state)))
+      return false;
     const problem = validatePromptText(customText);
     if (problem) {
       Alert.alert(problem.title, problem.message);
       return false;
     }
     return true;
-  }, [customText]);
+  }, [customText, composerEnabled, situation, composer.state]);
 
   // Applying an idea over text the player typed themselves is destructive, so
   // it asks. Text that IS one of the ideas (tapped, not typed) is not a draft.
@@ -709,7 +1313,7 @@ export default function PromptEntryScreen() {
       setCustomText(idea.body);
       if (openEditor) setIsCustom(true);
     },
-    [suggestions, draftScope],
+    [suggestions, draftScope, setCustomText, setIsCustom],
   );
   const handleUseSuggestion = useCallback(
     (index: number, openEditor: boolean) => {
@@ -738,7 +1342,7 @@ export default function PromptEntryScreen() {
     [suggestions, customText, applySuggestion],
   );
 
-  // --- Lock-in ceremony state (press-and-hold) -------------------------------
+  // The review uses the existing hold ceremony; screen readers confirm a snapshot.
   const holdProgress = useSharedValue(0);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -788,10 +1392,15 @@ export default function PromptEntryScreen() {
     submitAccepted ||
     deadlinePassed ||
     alreadyLocked ||
+    authoringRoundClosed ||
+    !presentationActive ||
+    (composerEnabled && composerStep !== 'review') ||
     !moveType ||
     !draft.ready ||
+    restoredScope !== draftScope ||
     !rtBattle ||
-    Boolean(validatePromptText(customText));
+    Boolean(validatePromptText(customText)) ||
+    (composerEnabled && (!situation || !composerCanSubmit(composer.state)));
 
   useEffect(() => {
     if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
@@ -799,17 +1408,70 @@ export default function PromptEntryScreen() {
     setHolding(false);
     cancelAnimation(holdProgress);
     holdProgress.value = 0;
-  }, [customText, moveType, lockDisabled, holdProgress]);
+    lockPreviewRef.current = null;
+    setLockPreview(null);
+  }, [
+    customText,
+    composer.state.revision,
+    moveType,
+    lockDisabled,
+    holdProgress,
+    composerStep,
+    isCustom,
+    draftScope,
+    screenReaderEnabled,
+  ]);
 
+  authoringBlockedRef.current =
+    alreadyLocked ||
+    submitAccepted ||
+    isSubmitting ||
+    authoringRoundClosed ||
+    !presentationActive ||
+    !draft.ready ||
+    restoredScope !== draftScope ||
+    deadlinePassed ||
+    (Number.isFinite(deadlineMs) && Date.now() >= deadlineMs);
+  const currentLockRef = useRef({
+    scope: draftScope,
+    text: customText,
+    moveType,
+    step: composerStep,
+    mode: composer.state.mode,
+    screenReaderEnabled,
+    revision: composer.state.revision,
+    allowed: !lockDisabled,
+  });
+  currentLockRef.current = {
+    scope: draftScope,
+    text: customText,
+    moveType,
+    step: composerStep,
+    mode: composer.state.mode,
+    screenReaderEnabled,
+    revision: composer.state.revision,
+    allowed: !lockDisabled,
+  };
   const lockDisabledRef = useRef(lockDisabled);
   lockDisabledRef.current = lockDisabled;
 
   const handleSubmit = async () => {
+    const current = currentLockRef.current;
     if (
       !battleId ||
       !moveType ||
+      current.scope !== draftScope ||
+      current.text !== customText ||
+      current.moveType !== moveType ||
+      current.step !== composerStep ||
+      current.mode !== composer.state.mode ||
+      current.revision !== composer.state.revision ||
+      current.screenReaderEnabled !== screenReaderEnabled ||
+      !current.allowed ||
       authoringScopeRef.current !== draftScope ||
       lockDisabledRef.current ||
+      authoringBlockedRef.current ||
+      (Number.isFinite(deadlineMs) && Date.now() >= deadlineMs) ||
       submissionInFlight.current
     )
       return;
@@ -829,6 +1491,9 @@ export default function PromptEntryScreen() {
         moveType,
         customText,
         isBo3 ? roundNumber : undefined,
+        ...(composerEnabled
+          ? ([composer.state.authoringOrigin] as const)
+          : ([] as const)),
       );
 
       // This route can be reused for another round while the request settles.
@@ -838,6 +1503,7 @@ export default function PromptEntryScreen() {
       if (result.success) {
         authoringBlockedRef.current = true;
         setAcceptedSubmission(submission);
+        trackComposer('composer_submitted', isCustom ? 'write' : 'builder');
         if (roundNumber === 1)
           void recordFunnelEvent('first_prompt_submitted', battleId);
         // Optimistic transition; no Alert interstitial.
@@ -861,7 +1527,9 @@ export default function PromptEntryScreen() {
           {
             text: 'OK',
             onPress: () => {
+              if (authoringScopeRef.current !== submission.scope) return;
               void clearDraft().then((deleted) => {
+                if (authoringScopeRef.current !== submission.scope) return;
                 if (deleted) exitTo(() => router.replace(waitingHref));
               });
             },
@@ -882,6 +1550,44 @@ export default function PromptEntryScreen() {
     }
   };
 
+  const submitLatestRef = useRef(handleSubmit);
+  submitLatestRef.current = handleSubmit;
+  const goToStep = useCallback((step: ComposerStep) => {
+    Keyboard.dismiss();
+    setSavedStep(step);
+  }, []);
+  const goInternalBack = () => {
+    if (!composerEnabled || alreadyLocked || submitAccepted) return false;
+    if (keyboardVisible) {
+      Keyboard.dismiss();
+      return true;
+    }
+    trackComposer('composer_step_back');
+    const previous = composerBackStep(composerStep, composer.state);
+    if (!previous) return false;
+    goToStep(previous);
+    return true;
+  };
+  internalBackRef.current = goInternalBack;
+  const goBack = () => {
+    if (!goInternalBack()) park();
+  };
+  useEffect(() => {
+    if (!composerEnabled || !presentationActive) return;
+    const listener = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!internalBackRef.current()) park();
+      return true;
+    });
+    return () => listener.remove();
+  }, [composerEnabled, presentationActive, park]);
+  useEffect(() => {
+    if (!composerEnabled || restoredScope !== draftScope) return;
+    Keyboard.dismiss();
+    workspaceScroll.current?.scrollTo({ y: 0, animated: false });
+    const node = findNodeHandle(stepHeaderRef.current);
+    if (node) AccessibilityInfo.setAccessibilityFocus(node);
+  }, [composerEnabled, composerStep, restoredScope, draftScope]);
+
   const flashHoldHint = () => {
     setHintFlash(true);
     if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
@@ -889,7 +1595,9 @@ export default function PromptEntryScreen() {
   };
 
   const startHold = () => {
-    if (lockDisabled || holdTimerRef.current) return;
+    const started = currentLockRef.current;
+    if (!started.allowed || started.screenReaderEnabled || holdTimerRef.current)
+      return;
     if (!validateSelection()) return;
     setHolding(true);
     hapticSelection();
@@ -906,9 +1614,22 @@ export default function PromptEntryScreen() {
     }
     holdTimerRef.current = setTimeout(() => {
       holdTimerRef.current = null;
+      const current = currentLockRef.current;
+      if (
+        !current.allowed ||
+        current.scope !== started.scope ||
+        current.text !== started.text ||
+        current.moveType !== started.moveType ||
+        current.step !== started.step ||
+        current.mode !== started.mode ||
+        current.revision !== started.revision ||
+        current.screenReaderEnabled !== started.screenReaderEnabled ||
+        (Number.isFinite(deadlineMs) && Date.now() >= deadlineMs)
+      )
+        return;
       if (reduceMotion) holdProgress.value = 1;
       hapticImpact(ImpactFeedbackStyle.Heavy);
-      handleSubmit();
+      void submitLatestRef.current();
     }, HOLD_DURATION_MS);
   };
 
@@ -923,37 +1644,55 @@ export default function PromptEntryScreen() {
     flashHoldHint();
   };
 
-  // Screen-reader activation path: plain tap + confirmation Alert.
+  // Confirmation snapshots the exact type and prose the player is about to submit.
   const confirmLockIn = () => {
-    if (lockDisabled || !validateSelection()) return;
-    Alert.alert(
-      'Lock in?',
-      'Lock in your prompt? You can’t change it afterward.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Lock in', onPress: () => handleSubmit() },
-      ],
-    );
+    if (lockDisabled || !moveType || !validateSelection()) return;
+    if (!composerEnabled) {
+      Alert.alert(
+        'Lock in?',
+        'Lock in your prompt? You can’t change it afterward.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Lock in',
+            onPress: () => {
+              void handleSubmit();
+            },
+          },
+        ],
+      );
+      return;
+    }
+    Keyboard.dismiss();
+    const preview = { scope: draftScope, text: customText, moveType };
+    lockPreviewRef.current = preview;
+    setLockPreview(preview);
   };
 
   const lockReason = submitAccepted
     ? 'Your prompt is locked in'
-    : deadlinePassed
-      ? 'The deadline for this round has passed'
-      : !draft.ready
-        ? 'Restore your draft before submitting'
-        : !rtBattle
-          ? 'Waiting for battle details'
-          : !moveType
-            ? 'Choose a move before locking in'
-            : validatePromptText(customText)?.message;
+    : authoringRoundClosed
+      ? 'This round is closed'
+      : deadlinePassed
+        ? 'The deadline for this round has passed'
+        : !draft.ready
+          ? 'Restore your draft before submitting'
+          : !rtBattle
+            ? 'Waiting for battle details'
+            : !moveType
+              ? 'Choose a move before locking in'
+              : composerEnabled && !situation
+                ? 'Waiting for the shared situation'
+                : composerEnabled && composer.state.pending
+                  ? 'Complete your action and intention, or undo the changes'
+                  : validatePromptText(customText)?.message;
   const holdHintText =
     lockReason ??
-    (hintFlash
+    (hintFlash && !screenReaderEnabled
       ? 'Keep holding to lock in'
       : submitFailed
         ? 'Couldn’t submit. Your draft is kept; try again.'
-        : 'Your prompt stays editable until you submit.');
+        : null);
 
   const primaryInk = inkFor(colors.primary);
 
@@ -974,52 +1713,43 @@ export default function PromptEntryScreen() {
     );
   };
 
-  if (isLoading || (!draft.ready && !draft.error)) {
+  if (
+    isLoading ||
+    ((!draft.ready || restoredScope !== draftScope) && !draft.error)
+  ) {
     return (
-      <View
-        style={[
-          styles.container,
-          { backgroundColor: colors.background },
-          styles.centered,
-        ]}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <BattleBackdrop theme={battle?.theme} quiet />
+        <BattleHeader onPark={leave.park} />
+        <View style={[styles.container, styles.centered]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
       </View>
     );
   }
 
   return (
     <KeyboardAvoidingView
+      keyboardVerticalOffset={0}
       style={[
         styles.container,
-        { backgroundColor: colors.background, paddingTop: insets.top + 44 },
+        { backgroundColor: colors.background, paddingTop: 0 },
       ]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.select({
+        ios: 'padding',
+        android: keyboardVisible ? 'padding' : undefined,
+      })}
     >
       {/* Parking preserves the draft; forfeiting remains a separate action. */}
-      <Stack.Screen
-        options={{
-          headerLeft: () => (
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Save draft and return to Arena"
-              onPress={leave.park}
-              style={{
-                minHeight: 48,
-                minWidth: largeText ? 140 : 64,
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ color: colors.text }}>Arena</Text>
-            </TouchableOpacity>
-          ),
-          headerRight: () => (
-            <HeaderLeaveButton
-              onPress={() => leave.confirmLeave()}
-              disabled={leave.isLeaving || !leave.canForfeit}
-            />
-          ),
-        }}
+      <BattleBackdrop theme={battle?.theme} quiet />
+      <BattleHeader
+        onPark={goBack}
+        parkLabel={
+          composerEnabled && composerStep !== 'faceoff' ? 'Back' : 'Arena'
+        }
+        onLeave={() => leave.confirmLeave()}
+        leaveLabel={leaveLabel}
+        leaveDisabled={leave.isLeaving || !leave.canForfeit}
       />
       {/* Only navigator clearance sits above this flexible viewport. Full
           identity/theme/status stay scrollable at every size and while typing;
@@ -1027,6 +1757,7 @@ export default function PromptEntryScreen() {
       <ScrollView
         testID="battle-workspace-scroll"
         ref={workspaceScroll}
+        innerViewRef={workspaceContent as React.RefObject<View>}
         onLayout={(event) =>
           setWorkspaceHeight(event.nativeEvent.layout.height)
         }
@@ -1040,7 +1771,19 @@ export default function PromptEntryScreen() {
         <View testID="battle-workspace-context" style={styles.battleContext}>
           <GameDisplayTitle
             accessibilityRole="header"
-            style={{ textAlign: 'center', fontSize: 34, lineHeight: 40 }}
+            style={{
+              textAlign: 'center',
+              fontSize:
+                keyboardVisible ||
+                (composerEnabled && composerStep !== 'faceoff')
+                  ? 22
+                  : 34,
+              lineHeight:
+                keyboardVisible ||
+                (composerEnabled && composerStep !== 'faceoff')
+                  ? 28
+                  : 40,
+            }}
           >
             {isBo3
               ? `ROUND ${roundNumber} OF ${rtBattle?.best_of ?? 3}`
@@ -1056,7 +1799,9 @@ export default function PromptEntryScreen() {
           </Text>
           {/* You-vs-opponent context strip (replaces the old screen title). */}
           <VersusStrip
-            compact={keyboardVisible}
+            compact={
+              keyboardVisible || (composerEnabled && composerStep !== 'faceoff')
+            }
             series={
               isBo3 &&
               rtBattle?.player_one_rounds_won != null &&
@@ -1098,10 +1843,19 @@ export default function PromptEntryScreen() {
             }}
           />
           {/* The authoritative theme is never replaced with invented scene copy. */}
-          {battle?.theme ? (
+          {!composerEnabled && battle?.theme ? (
             <BattleThemePlaque theme={battle.theme} compact={keyboardVisible} />
           ) : null}
-          <BattleDeadline deadline={myDeadline} />
+          {composerEnabled ? (
+            <BattleSituation
+              theme={battle?.theme}
+              compact={keyboardVisible}
+              situation={situation}
+              footer={<BattleDeadline deadline={myDeadline} />}
+            />
+          ) : (
+            <BattleDeadline deadline={myDeadline} />
+          )}
 
           {/* Opponent lock status only — never their move type or content. */}
           {opponentHasLocked && !alreadyLocked ? (
@@ -1138,7 +1892,9 @@ export default function PromptEntryScreen() {
             <TouchableOpacity
               accessibilityRole="button"
               onPress={async () => {
+                if (authoringScopeRef.current !== draftScope) return;
                 if (!(await draft.retry())) return;
+                if (authoringScopeRef.current !== draftScope) return;
                 const closed =
                   rtBattle &&
                   (CLOSED_BATTLE_STATUSES.has(rtBattle.status) ||
@@ -1210,149 +1966,187 @@ export default function PromptEntryScreen() {
           <>
             <TutorialCoach
               battleId={battleId}
+              composerVersion={composerEnabled ? 2 : 1}
               stage={
-                !moveType
-                  ? 'theme'
-                  : customText.trim().length === 0
-                    ? 'move'
-                    : customText.trim().length < 80
-                      ? 'write'
-                      : 'lock'
+                composerEnabled
+                  ? composerStep === 'review'
+                    ? 'lock'
+                    : composerStep === 'faceoff'
+                      ? 'theme'
+                      : 'write'
+                  : !moveType
+                    ? 'theme'
+                    : customText.trim().length === 0
+                      ? 'move'
+                      : customText.trim().length < 80
+                        ? 'write'
+                        : 'lock'
               }
             />
-            <BattleMovePicker
-              value={moveType}
-              onChange={(move) => {
-                if (authoringBlockedRef.current) return;
-                hapticSelection();
-                setMoveType(move);
-              }}
-            />
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
-              }}
-            >
-              <Text variant="label">YOUR PROMPT</Text>
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityLabel="Open prompt ideas"
-                onPress={() => {
-                  hapticSelection();
-                  setIsCustom(false);
+            {!composerEnabled ? (
+              <BattleMovePicker
+                value={moveType}
+                onChange={(move) => {
+                  if (!authoringBlockedRef.current) {
+                    hapticSelection();
+                    setMoveType(move);
+                  }
                 }}
-                style={{
-                  minHeight: 48,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
+              />
+            ) : null}
+            {composerEnabled && battleId && composerStep === 'faceoff' ? (
+              <OpponentMoveHistory
+                accountId={user?.id}
+                battleId={battleId}
+                isBot={Boolean(rtBattle?.is_player_two_bot)}
+              />
+            ) : null}
+            {composerEnabled ? (
+              <View
+                ref={stepHeaderRef}
+                accessible
+                accessibilityRole="header"
+                accessibilityLabel={
+                  composerStep === 'faceoff'
+                    ? 'Choose how to create your move'
+                    : composerStep === 'write'
+                      ? 'Write your own move'
+                      : composerProgressLabel(composerStep)
+                }
+                style={{ marginBottom: 16 }}
               >
-                <GameIcon name="ideas" size={24} />
-                <Text
-                  style={{
-                    textDecorationLine: 'underline',
-                    color: colors.primary,
+                {composerStep === 'faceoff' ? (
+                  <Text variant="label">How will you create your move?</Text>
+                ) : composerStep === 'write' ? (
+                  <Text variant="label">Write your own</Text>
+                ) : (
+                  <ComposerProgress step={composerStep} />
+                )}
+              </View>
+            ) : null}
+            {/* Authoring choice on the entry views; the editor remains mounted. */}
+            {composerEnabled && composerStep === 'faceoff' ? (
+              <ComposerModeSwitch
+                value={isCustom ? 'write' : 'build'}
+                onChange={(mode) => {
+                  setIsCustom(mode === 'write');
+                }}
+                disabled={authoringBlockedRef.current}
+              />
+            ) : null}
+            {!composerEnabled && (
+              <View
+                style={[
+                  styles.segmented,
+                  { backgroundColor: colors.card },
+                  largeText && {
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                  },
+                ]}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.segment,
+                    !isCustom && { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => {
+                    hapticSelection();
+                    setIsCustom(false);
+                  }}
+                  accessibilityLabel={
+                    composerEnabled ? 'Build move' : 'Use a generated idea'
+                  }
+                  accessibilityRole="button"
+                  disabled={authoringBlockedRef.current}
+                  accessibilityState={{
+                    selected: !isCustom,
+                    disabled: authoringBlockedRef.current,
                   }}
                 >
-                  Ideas
-                </Text>
-              </TouchableOpacity>
-            </View>
-            {/* Ideas / Write-your-own segmented control */}
-            <View
-              style={[
-                styles.segmented,
-                { backgroundColor: colors.card },
-                largeText && { flexDirection: 'column', alignItems: 'stretch' },
-              ]}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.segment,
-                  !isCustom && { backgroundColor: colors.primary },
-                ]}
-                onPress={() => {
-                  hapticSelection();
-                  setIsCustom(false);
-                }}
-                accessibilityLabel="Use a generated idea"
-                accessibilityRole="button"
-                accessibilityState={{ selected: !isCustom }}
-              >
-                <GameSymbol
-                  name="sparkles"
-                  size={16}
-                  color={!isCustom ? primaryInk : colors.textSecondary}
-                />
-                <Text
+                  <GameSymbol
+                    name="sparkles"
+                    size={16}
+                    color={!isCustom ? primaryInk : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      { color: !isCustom ? primaryInk : colors.text },
+                    ]}
+                  >
+                    {composerEnabled ? 'Build move' : 'Ideas'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                   style={[
-                    styles.segmentText,
-                    { color: !isCustom ? primaryInk : colors.text },
+                    styles.segment,
+                    isCustom && { backgroundColor: colors.primary },
                   ]}
+                  onPress={() => {
+                    hapticSelection();
+                    setIsCustom(true);
+                  }}
+                  accessibilityLabel="Write your own prompt"
+                  accessibilityRole="button"
+                  disabled={authoringBlockedRef.current}
+                  accessibilityState={{
+                    selected: isCustom,
+                    disabled: authoringBlockedRef.current,
+                  }}
                 >
-                  Ideas
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.segment,
-                  isCustom && { backgroundColor: colors.primary },
-                ]}
-                onPress={() => {
-                  hapticSelection();
-                  setIsCustom(true);
-                }}
-                accessibilityLabel="Write your own prompt"
-                accessibilityRole="button"
-                accessibilityState={{ selected: isCustom }}
-              >
-                <GameSymbol
-                  name="create"
-                  size={16}
-                  color={isCustom ? primaryInk : colors.textSecondary}
-                />
-                <Text
-                  style={[
-                    styles.segmentText,
-                    { color: isCustom ? primaryInk : colors.text },
-                  ]}
-                >
-                  Write your own
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={[styles.segmentHelp, { color: colors.textTertiary }]}>
-              {isCustom
-                ? 'Write your own prompt (20–800 characters; 15–80 words is the sweet spot). It’s moderated, then judged on clarity, originality and theme fit.'
-                : 'Ideas written for your fighter, this move and this theme. Use one as is, or edit it first.'}
-            </Text>
+                  <GameSymbol
+                    name="create"
+                    size={16}
+                    color={isCustom ? primaryInk : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      { color: isCustom ? primaryInk : colors.text },
+                    ]}
+                  >
+                    Write your own
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Suggestions written for THIS fighter and THIS move type — the
                 only prompt help the arena offers now that the static template
                 library is retired. Rendered unconditionally on this tab: an
                 empty tab has to say why it is empty and offer a way out. */}
-            {!isCustom ? (
+            {!isCustom && !composerEnabled ? (
               <View style={styles.section}>
-                <Text
-                  style={{
-                    color: colors.textSecondary,
-                    marginBottom: Spacing.sm,
-                  }}
-                >
-                  First idea set per move and round is free. Further sets:{' '}
-                  {rerollChip}. Ideas do not guarantee a higher score.
-                </Text>
-
-                <View style={styles.suggestionHeader}>
-                  <GameSymbol name="bulb" size={14} color={colors.primary} />
-                  <Text
-                    style={[styles.suggestionTitle, { color: colors.text }]}
-                  >
-                    Ideas for {myChar?.name ?? 'your fighter'}
+                <View style={{ gap: 4, marginBottom: Spacing.sm }}>
+                  <Text style={{ color: colors.textSecondary }}>
+                    First idea set per move and round is free.
+                  </Text>
+                  {rerollIsFree ? (
+                    <Text style={{ color: colors.textSecondary }}>
+                      Next set included.
+                    </Text>
+                  ) : (
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <Text style={{ color: colors.textSecondary }}>
+                        Next set:
+                      </Text>
+                      <CreditAmount
+                        amount={rerollCredits}
+                        size="small"
+                        color={colors.textSecondary}
+                      />
+                    </View>
+                  )}
+                  <Text style={{ color: colors.textSecondary }}>
+                    Ideas do not guarantee a higher score.
                   </Text>
                 </View>
 
@@ -1496,13 +2290,20 @@ export default function PromptEntryScreen() {
                           },
                         ]}
                       >
-                        <View style={styles.suggestionCardHeader}>
+                        <View
+                          style={[
+                            styles.suggestionCardHeader,
+                            largeText && {
+                              flexDirection: 'column',
+                              alignItems: 'flex-start',
+                            },
+                          ]}
+                        >
                           <Text
                             style={[
                               styles.suggestionCardTitle,
                               { color: colors.text },
                             ]}
-                            numberOfLines={1}
                           >
                             {suggestion.title}
                           </Text>
@@ -1592,12 +2393,51 @@ export default function PromptEntryScreen() {
                     attempt is not a purchase and must not be priced like one.
                     The price is on the button, in the question and on the
                     confirm, so nobody is surprised by a charge. */}
-                {suggestions.length > 0 && !suggestionsLoading ? (
+                {moveSuggestions.error ? (
+                  <Text
+                    accessibilityLiveRegion="polite"
+                    style={{ color: colors.textSecondary }}
+                  >
+                    {moveSuggestions.error}
+                  </Text>
+                ) : null}
+                {!moveSuggestions.journalReady && moveType ? (
+                  <GameButton
+                    label="Retry request storage"
+                    tone="secondary"
+                    chrome="text"
+                    onPress={() => void moveSuggestions.retryStorage()}
+                  />
+                ) : null}
+                {moveSuggestions.purchase ? (
+                  <GameButton
+                    label="Check starter request"
+                    tone="secondary"
+                    chrome="utility"
+                    busy={moveSuggestions.loading}
+                    onPress={() => void moveSuggestions.retryPurchase()}
+                  />
+                ) : null}
+                {suggestions.length > 0 &&
+                !suggestionsLoading &&
+                !moveSuggestions.purchase ? (
                   <TouchableOpacity
                     style={[
                       styles.rerollButton,
                       { borderColor: colors.border },
                     ]}
+                    disabled={
+                      rerollCredits === null ||
+                      moveSuggestions.loading ||
+                      !moveSuggestions.journalReady
+                    }
+                    accessibilityState={{
+                      disabled:
+                        rerollCredits === null ||
+                        moveSuggestions.loading ||
+                        !moveSuggestions.journalReady,
+                      busy: moveSuggestions.loading,
+                    }}
                     onPress={() => {
                       Alert.alert(
                         'New ideas',
@@ -1633,31 +2473,277 @@ export default function PromptEntryScreen() {
                         { color: colors.textSecondary },
                       ]}
                     >
-                      New ideas · {rerollChip}
+                      New ideas
                     </Text>
+                    {!rerollIsFree ? (
+                      <CreditAmount
+                        amount={rerollCredits}
+                        size="small"
+                        color={colors.textSecondary}
+                        accessible={false}
+                      />
+                    ) : null}
                   </TouchableOpacity>
                 ) : null}
               </View>
             ) : null}
 
-            {/* Custom Prompt Input */}
+            {composerEnabled &&
+            (composerStep === 'action' ||
+              composerStep === 'intent' ||
+              composerStep === 'approach') ? (
+              <>
+                <PromptComposerPanel
+                  state={composer.state}
+                  suggestions={suggestionBanks.suggestions}
+                  actionsLoading={
+                    suggestionBanks.loading ||
+                    (moveType
+                      ? suggestionBanks.compositionStatus[moveType] ===
+                        'pending'
+                      : Object.values(
+                          suggestionBanks.compositionStatus,
+                        ).includes('pending'))
+                  }
+                  stage={composerStep}
+                  onMoveType={setMoveType}
+                  disabled={authoringBlockedRef.current}
+                  onChange={changeBuilder}
+                  intentHints={stepSuggestions.hints?.intentHints}
+                  approachHints={stepSuggestions.hints?.approachHints}
+                />
+                {composerStep === 'action' ? (
+                  <View style={{ gap: 8, marginBottom: 20 }}>
+                    {suggestionBanks.error ? (
+                      <>
+                        <Text accessibilityLiveRegion="polite">
+                          {suggestionBanks.error}
+                        </Text>
+                        <GameButton
+                          label="Check ideas"
+                          tone="secondary"
+                          chrome="text"
+                          busy={suggestionBanks.loading}
+                          disabled={authoringBlockedRef.current}
+                          onPress={() => void suggestionBanks.retry()}
+                        />
+                      </>
+                    ) : null}
+                    {moveType ? (
+                      <>
+                        {moveSuggestions.error ? (
+                          <Text accessibilityLiveRegion="polite">
+                            {moveSuggestions.error}
+                          </Text>
+                        ) : null}
+                        {!moveSuggestions.journalReady ? (
+                          <GameButton
+                            label="Retry request storage"
+                            tone="secondary"
+                            chrome="text"
+                            onPress={() => void moveSuggestions.retryStorage()}
+                          />
+                        ) : null}
+                        {moveSuggestions.purchase ? (
+                          <GameButton
+                            label="Check request"
+                            tone="secondary"
+                            chrome="utility"
+                            busy={moveSuggestions.loading}
+                            onPress={() => void moveSuggestions.retryPurchase()}
+                          />
+                        ) : (
+                          <GameButton
+                            label="3 new actions"
+                            labelStyle={{ flex: 1 }}
+                            amount={rerollCredits}
+                            tone="secondary"
+                            chrome="utility"
+                            busy={moveSuggestions.loading}
+                            onPress={confirmChoicePurchase}
+                            disabled={
+                              authoringBlockedRef.current ||
+                              !moveSuggestions.journalReady ||
+                              (rerollCredits !== 0 && rerollCredits !== 1) ||
+                              !!moveSuggestions.incoming
+                            }
+                          />
+                        )}
+                      </>
+                    ) : null}
+                  </View>
+                ) : (
+                  <View style={{ gap: 8, marginBottom: 20 }}>
+                    {stepSuggestions.error ? (
+                      <Text accessibilityLiveRegion="polite">
+                        {stepSuggestions.error}
+                      </Text>
+                    ) : null}
+                    {!stepSuggestions.journalReady ? (
+                      <GameButton
+                        label="Retry request storage"
+                        tone="secondary"
+                        chrome="text"
+                        onPress={() => void stepSuggestions.retryStorage()}
+                      />
+                    ) : null}
+                    {stepSuggestions.purchase ? (
+                      <GameButton
+                        label="Check request"
+                        tone="secondary"
+                        chrome="utility"
+                        busy={stepSuggestions.loading}
+                        onPress={() => void stepSuggestions.retryPurchase()}
+                      />
+                    ) : (
+                      <GameButton
+                        label={
+                          composerStep === 'intent'
+                            ? '3 new intentions'
+                            : '3 new approaches'
+                        }
+                        amount={rerollCredits}
+                        labelStyle={{ flex: 1 }}
+                        tone="secondary"
+                        chrome="utility"
+                        busy={stepSuggestions.loading}
+                        onPress={confirmChoicePurchase}
+                        disabled={
+                          authoringBlockedRef.current ||
+                          !stepSuggestions.journalReady ||
+                          (rerollCredits !== 0 && rerollCredits !== 1) ||
+                          !!stepSuggestions.incoming
+                        }
+                      />
+                    )}
+                    {needsBankEnrichment && moveType ? (
+                      <>
+                        <Text accessibilityLiveRegion="polite">
+                          {suggestionBanks.compositionStatus[moveType] ===
+                          'pending'
+                            ? 'Preparing approaches for this set…'
+                            : 'Approaches are unavailable. Go Back to choose another action or return to Face-off to write your own.'}
+                        </Text>
+                        <GameButton
+                          label="Check approaches"
+                          tone="secondary"
+                          chrome="text"
+                          onPress={() => void suggestionBanks.retry()}
+                        />
+                      </>
+                    ) : null}
+                  </View>
+                )}
+              </>
+            ) : null}
+            {composerEnabled && composerStep === 'review' ? (
+              <View
+                testID="composer-review"
+                style={{ gap: 12, marginBottom: 20 }}
+              >
+                <Text variant="title" accessibilityRole="header">
+                  Your move
+                </Text>
+                <ComposerMoveReview state={composer.state} />
+                <Text
+                  style={[NumericFontVariant, { color: colors.textSecondary }]}
+                >
+                  {customText.trim().length}/800 characters
+                </Text>
+              </View>
+            ) : null}
+            {/* Canonical full prompt: read-only preview in Build, editable in Write. */}
             <View
-              style={styles.section}
+              style={[
+                styles.section,
+                composerEnabled &&
+                  composerStep !== 'write' && { display: 'none' },
+              ]}
+              accessibilityElementsHidden={
+                composerEnabled && composerStep !== 'write'
+              }
+              importantForAccessibility={
+                composerEnabled && composerStep !== 'write'
+                  ? 'no-hide-descendants'
+                  : 'auto'
+              }
+              pointerEvents={
+                composerEnabled && composerStep !== 'write' ? 'none' : 'auto'
+              }
               onLayout={(event) => {
                 editorTop.current = event.nativeEvent.layout.y;
               }}
             >
+              {composerEnabled && composerStep === 'write' ? (
+                <ComposerMoveTypeControl
+                  value={moveType}
+                  disabled={authoringBlockedRef.current}
+                  onChange={setMoveType}
+                />
+              ) : null}
+              {composerEnabled &&
+              composerStep === 'write' &&
+              composerDraftRecoveries(composer.state).length > 0 ? (
+                <View style={{ gap: 12, marginBottom: 16 }}>
+                  <Text variant="label" accessibilityRole="header">
+                    Earlier drafts
+                  </Text>
+                  <Text>
+                    Your current text stays available when you use a saved
+                    version.
+                  </Text>
+                  {composerDraftRecoveries(composer.state).map(
+                    (recovery, index, all) => (
+                      <View key={recovery.key} style={{ gap: 8 }}>
+                        {renderMoveBadge(recovery.moveType)}
+                        <Text>{recovery.text}</Text>
+                        <GameButton
+                          label={
+                            all.length > 1
+                              ? `Use saved text ${index + 1}`
+                              : 'Use saved text'
+                          }
+                          tone="secondary"
+                          chrome="utility"
+                          disabled={authoringBlockedRef.current}
+                          onPress={() => {
+                            if (
+                              authoringBlockedRef.current ||
+                              authoringScopeRef.current !== draftScope
+                            )
+                              return;
+                            restoreComposer(
+                              restoreComposerDraftRecovery(
+                                composer.state,
+                                recovery.key,
+                              ),
+                            );
+                          }}
+                        />
+                      </View>
+                    ),
+                  )}
+                </View>
+              ) : null}
               <GameField
                 testID="battle-prompt-editor"
                 ref={editorRef}
-                editable={draft.ready && !isSubmitting && !submitAccepted}
+                label={composerEnabled ? 'Your move' : undefined}
+                editable={
+                  draft.ready &&
+                  !isSubmitting &&
+                  !submitAccepted &&
+                  !authoringBlockedRef.current &&
+                  (!composerEnabled || composerStep === 'write')
+                }
                 scrollEnabled
-                onFocus={() =>
+                onFocus={() => {
+                  activeInputRef.current = editorRef.current;
                   workspaceScroll.current?.scrollTo({
                     y: Math.max(0, editorTop.current - 8),
                     animated: false,
-                  })
-                }
+                  });
+                }}
                 style={[
                   styles.customInput,
                   {
@@ -1673,52 +2759,93 @@ export default function PromptEntryScreen() {
                 value={customText}
                 onChangeText={setCustomText}
                 multiline
-                maxLength={CUSTOM_PROMPT_MAX_LENGTH}
-                accessibilityLabel="Your prompt"
-                accessibilityHint="20 to 800 characters"
+                maxLength={
+                  composerEnabled ? undefined : CUSTOM_PROMPT_MAX_LENGTH
+                }
+                error={
+                  composerEnabled &&
+                  customText.trim().length > CUSTOM_PROMPT_MAX_LENGTH
+                    ? 'Keep your complete prompt within 800 characters.'
+                    : undefined
+                }
+                accessibilityLabel={
+                  composerEnabled ? 'Your move' : 'Your prompt'
+                }
+                accessibilityHint={
+                  composerEnabled && !isCustom
+                    ? 'Preview, 20 to 800 characters. Choose Edit full text to change the wording.'
+                    : '20 to 800 characters'
+                }
               />
-              <View
-                style={[
-                  styles.qualityRow,
-                  largeText && {
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                    gap: 8,
-                  },
-                ]}
-              >
-                <View
-                  style={styles.qualityItem}
-                  accessible
-                  accessibilityRole="text"
-                  accessibilityLiveRegion="polite"
-                  accessibilityLabel={coach.label}
-                >
-                  <GameSymbol
-                    name={coach.icon}
-                    size={13}
-                    color={toneColor[coach.tone]}
-                  />
+              {composerEnabled ? (
+                <View style={{ gap: 8, marginTop: 8 }}>
                   <Text
                     style={[
-                      styles.qualityText,
-                      { color: toneColor[coach.tone] },
+                      NumericFontVariant,
+                      { color: colors.textSecondary },
                     ]}
                   >
-                    {coach.label}
+                    {customText.trim().length}/800 characters
                   </Text>
+                  {!isCustom ? (
+                    <GameButton
+                      label="Edit full text"
+                      tone="secondary"
+                      chrome="text"
+                      onPress={() => setIsCustom(true)}
+                    />
+                  ) : null}
+                  {composer.state.pending && isCustom ? (
+                    <Text>
+                      Builder changes are incomplete. Edit this text to
+                      continue, or return to Build move and finish your choices.
+                    </Text>
+                  ) : null}
                 </View>
-                <Text
+              ) : (
+                <View
                   style={[
-                    styles.charCount,
-                    NumericFontVariant,
-                    { color: colors.textTertiary },
+                    styles.qualityRow,
+                    largeText && {
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      gap: 8,
+                    },
                   ]}
                 >
-                  {coach.counter}
-                </Text>
-              </View>
-              {battle?.theme && coach.words > 0 ? (
+                  <View
+                    style={styles.qualityItem}
+                    accessible
+                    accessibilityRole="text"
+                    accessibilityLiveRegion="polite"
+                    accessibilityLabel={coach.label}
+                  >
+                    <GameSymbol
+                      name={coach.icon}
+                      size={13}
+                      color={toneColor[coach.tone]}
+                    />
+                    <Text
+                      style={[
+                        styles.qualityText,
+                        { color: toneColor[coach.tone] },
+                      ]}
+                    >
+                      {coach.label}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.charCount,
+                      NumericFontVariant,
+                      { color: colors.textTertiary },
+                    ]}
+                  >
+                    {coach.counter}
+                  </Text>
+                </View>
+              )}
+              {!composerEnabled && battle?.theme && coach.words > 0 ? (
                 <View style={styles.qualityItem}>
                   <GameSymbol
                     name={referencesTheme ? 'checkmark-circle' : 'bulb-outline'}
@@ -1744,47 +2871,18 @@ export default function PromptEntryScreen() {
                 </View>
               ) : null}
             </View>
-            <Text
-              accessibilityLiveRegion="polite"
-              style={{
-                color: draft.error ? colors.warning : colors.textSecondary,
-              }}
-            >
-              {draft.error
-                ? 'Draft not saved — retry storage above'
-                : draftSaving
-                  ? 'Saving draft on this device…'
-                  : 'Draft saved on this device'}
-            </Text>
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() =>
-                Alert.alert(
-                  'Discard draft?',
-                  'This removes the saved text and move on this device.',
-                  [
-                    { text: 'Keep draft', style: 'cancel' },
-                    {
-                      text: 'Discard',
-                      style: 'destructive',
-                      onPress: () => {
-                        if (
-                          authoringBlockedRef.current ||
-                          authoringScopeRef.current !== draftScope
-                        )
-                          return;
-                        void draft.clear(false);
-                        setCustomText('');
-                        setMoveType(null);
-                      },
-                    },
-                  ],
-                )
-              }
-              style={{ minHeight: 48, justifyContent: 'center' }}
-            >
-              <Text style={{ color: colors.textSecondary }}>Discard draft</Text>
-            </TouchableOpacity>
+            {(!composerEnabled || composerStep !== 'faceoff') && (
+              <WritingTips
+                expanded={writingTips}
+                onToggle={() => setWritingTips((value) => !value)}
+              >
+                <Text style={{ color: colors.textSecondary }}>
+                  {composerEnabled
+                    ? 'Describe what your fighter does and what you want it to achieve. Clear ideas matter more than ornate wording. You can invent freely within the shared situation; you do not need to mention every detail. Choosing suggestions or writing yourself receives the same judging rules. Keep the final prompt between 20 and 800 characters. Every prompt is moderated before judging.'
+                    : 'Write 20–800 characters; 15–80 words is the sweet spot. Make the theme clear and use your fighter’s identity. Ideas are written for this fighter, move and theme. Use one as is or edit it. Every prompt is moderated before judging.'}
+                </Text>
+              </WritingTips>
+            )}
           </>
         )}
         <BattleOpponentSafety
@@ -1834,6 +2932,24 @@ export default function PromptEntryScreen() {
               </Text>
             </View>
           </TouchableOpacity>
+        ) : composerEnabled && composerStep !== 'review' ? (
+          <GameButton
+            label="Next"
+            disabled={
+              authoringBlockedRef.current ||
+              !draft.ready ||
+              restoredScope !== draftScope ||
+              !composerNextStep(composerStep, composer.state)
+            }
+            onPress={() => {
+              if (authoringBlockedRef.current) return;
+              const next = composerNextStep(composerStep, composer.state);
+              if (next) {
+                goToStep(next);
+                trackComposer('composer_step_next');
+              }
+            }}
+          />
         ) : (
           <>
             {deadlinePassed ? (
@@ -1846,6 +2962,7 @@ export default function PromptEntryScreen() {
               </View>
             ) : null}
             <BattleLockInControl
+              controlRef={lockFocusRef}
               state={
                 submitAccepted
                   ? 'submitted'
@@ -1862,12 +2979,12 @@ export default function PromptEntryScreen() {
               reason={lockReason}
               progress={holdProgress}
               screenReaderEnabled={screenReaderEnabled}
+              activation="hold"
               onStart={startHold}
               onCancel={cancelHold}
               onConfirm={confirmLockIn}
             />
-            {/* Reserved height: the hint changes words, never the footer's size. */}
-            {!largeText && (
+            {!largeText && holdHintText ? (
               <Text
                 style={[
                   styles.holdHint,
@@ -1877,32 +2994,39 @@ export default function PromptEntryScreen() {
               >
                 {holdHintText}
               </Text>
-            )}
-            {!keyboardVisible && (
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityState={{ disabled: lockDisabled }}
-                onPress={confirmLockIn}
-                disabled={lockDisabled}
-                style={{
-                  minHeight: 48,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text
-                  style={{
-                    textDecorationLine: 'underline',
-                    color: lockDisabled ? colors.textTertiary : colors.primary,
-                  }}
-                >
-                  Use confirmation instead
-                </Text>
-              </TouchableOpacity>
-            )}
+            ) : null}
           </>
         )}
       </GameFooter>
+      <PromptLockConfirmation
+        visible={lockPreview?.scope === draftScope}
+        text={lockPreview?.text ?? ''}
+        moveType={lockPreview?.moveType ?? null}
+        disabled={
+          lockDisabled ||
+          lockPreview?.text !== customText ||
+          lockPreview?.moveType !== moveType
+        }
+        onClose={() => {
+          lockPreviewRef.current = null;
+          setLockPreview(null);
+        }}
+        returnFocusRef={lockFocusRef}
+        onConfirm={() => {
+          if (
+            !lockPreview ||
+            lockPreviewRef.current !== lockPreview ||
+            lockPreview.scope !== draftScope ||
+            lockPreview.text !== customText ||
+            lockPreview.moveType !== moveType ||
+            lockDisabled
+          )
+            return;
+          lockPreviewRef.current = null;
+          setLockPreview(null);
+          void handleSubmit();
+        }}
+      />
       <PortraitViewer
         returnFocusRef={portraitViewer.returnFocusRef}
         visible={portraitViewer.visible}
@@ -2216,7 +3340,6 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
   },
   holdHint: {
-    // Reserved so the footer keeps its height whether or not a hint shows.
     minHeight: 20,
     fontSize: Typography.sizes.sm,
     lineHeight: 20,

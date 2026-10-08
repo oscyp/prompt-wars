@@ -12,7 +12,8 @@ import {
 } from '../_shared/utils.ts';
 import {
   isBelowQualityFloor,
-  JUDGE_PROMPT_VERSION,
+  judgePolicyVersion,
+  IDEAS_JUDGE_PROMPT_VERSION,
   runJudgePipeline,
 } from '../_shared/judge.ts';
 import { createJudgeProvider } from '../_shared/providers.ts';
@@ -221,6 +222,19 @@ Deno.serve(async (req) => {
     }
 
     // Create judge provider and run pipeline
+    const judgeVersion = judgePolicyVersion(battle.judge_policy_version);
+    let situationSnapshot;
+    if (judgeVersion === IDEAS_JUDGE_PROMPT_VERSION) {
+      const { data: roundContext, error: contextError } = await supabase
+        .from('battle_rounds')
+        .select('situation_snapshot')
+        .eq('battle_id', battle_id)
+        .eq('round_number', battle.current_round ?? 1)
+        .single();
+      if (contextError || !roundContext?.situation_snapshot)
+        return errorResponse('Frozen situation unavailable', 409);
+      situationSnapshot = roundContext.situation_snapshot;
+    }
     const judgeProvider = createJudgeProvider();
     const judgeResult = await runJudgePipeline(
       judgeProvider,
@@ -231,7 +245,8 @@ Deno.serve(async (req) => {
       p1Prompt.word_count || p1Text.split(/\s+/).length,
       p2Prompt.word_count || p2Text.split(/\s+/).length,
       battle.theme,
-      JUDGE_PROMPT_VERSION,
+      judgeVersion,
+      situationSnapshot,
     );
 
     // Determine winner
@@ -289,6 +304,21 @@ Deno.serve(async (req) => {
 
     // Build score payload
     const scorePayload = {
+      frozen_inputs: {
+        player_one: {
+          text: p1Text,
+          moveType: p1Prompt.move_type,
+          wordCount: p1Prompt.word_count || p1Text.split(/\s+/).length,
+        },
+        player_two: {
+          text: p2Text,
+          moveType: p2Prompt.move_type,
+          wordCount: p2Prompt.word_count || p2Text.split(/\s+/).length,
+        },
+        theme: battle.theme,
+        judge_policy_version: judgeVersion,
+        situation_snapshot: situationSnapshot ?? null,
+      },
       calls: judgeResult.calls,
       aggregation: judgeResult.aggregation,
       mock_assisted: judgeResult.mock_assisted,
@@ -314,7 +344,7 @@ Deno.serve(async (req) => {
     // Insert judge run
     const { error: judgeRunError } = await supabase.from('judge_runs').insert({
       battle_id,
-      judge_prompt_version: JUDGE_PROMPT_VERSION,
+      judge_prompt_version: judgeVersion,
       model_id: judgeModelId,
       seed: judgeResult.calls[0]?.seed ?? 0,
       player_one_raw_scores: judgeResult.player_one_raw_scores,
@@ -341,7 +371,7 @@ Deno.serve(async (req) => {
       p_is_draw: judgeResult.is_draw,
       p_score_payload: scorePayload,
       p_rating_delta_payload: ratingDeltaPayload,
-      p_judge_prompt_version: JUDGE_PROMPT_VERSION,
+      p_judge_prompt_version: judgeVersion,
       p_judge_model_id: judgeModelId,
       p_judge_seed: judgeResult.calls[0]?.seed ?? 0,
     });

@@ -72,6 +72,26 @@ beforeEach(() => {
 });
 
 describe('useBattleExitGuard', () => {
+  it('lets an internal composer Back consume removal without flushing or parking', async () => {
+    const beforeExit = jest.fn(async () => {});
+    const onBack = jest.fn(() => true);
+    renderHook(() =>
+      useBattleExitGuard('battle-1', {
+        format: 'bo3',
+        mode: 'bot',
+        isBot: true,
+        myProfileId: 'me',
+        beforeExit,
+        onBack,
+      }),
+    );
+    await act(async () =>
+      mockCapturedCallback?.({ data: { action: { type: 'POP' } } }),
+    );
+    expect(onBack).toHaveBeenCalledTimes(1);
+    expect(beforeExit).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
   it('arms the guard while the battle is loaded', () => {
     setup();
     expect(mockPreventFlags.at(-1)).toBe(true);

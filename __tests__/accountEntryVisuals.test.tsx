@@ -3,9 +3,18 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import SignInScreen from '@/app/(auth)/sign-in';
 import SignUpScreen from '@/app/(auth)/sign-up';
 import WelcomeScreen from '@/app/(onboarding)/welcome';
-import { supabase } from '@/utils/supabase';
 import { startTutorial } from '@/utils/tutorial';
 import { checkAccountEligibility } from '@/utils/safety';
+import { GameFooter } from '@/components/game';
+
+const mockExchange = {
+  signInWithPassword: jest.fn(),
+  signUp: jest.fn(),
+  stopAutoRefresh: jest.fn(),
+};
+jest.mock('@supabase/supabase-js', () => ({
+  createClient: jest.fn(() => ({ auth: mockExchange })),
+}));
 
 const mockRouter = { push: jest.fn(), replace: jest.fn() };
 jest.mock('expo-router', () => ({
@@ -25,6 +34,7 @@ jest.mock('@/utils/haptics', () => ({
 }));
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: 'SafeAreaView',
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 jest.mock('@/providers/AuthProvider', () => ({
   useAuth: () => ({ signOut: jest.fn() }),
@@ -41,13 +51,22 @@ jest.mock('@/utils/safety', () => ({
 describe('account entry after visual migration', () => {
   beforeEach(() => jest.clearAllMocks());
 
+  it('keeps welcome actions outside the scroll body without raw native View text', () => {
+    const view = render(<WelcomeScreen />);
+    const footer = view.UNSAFE_getByType(GameFooter);
+    expect(
+      React.Children.toArray(footer.props.children).some(
+        (child) => typeof child === 'string',
+      ),
+    ).toBe(false);
+    expect(view.getByLabelText('Play practice')).toBeTruthy();
+  });
+
   it('submits the same credentials through scalable native fields', async () => {
-    jest
-      .mocked(supabase.auth.signInWithPassword)
-      .mockResolvedValue({
-        data: { user: null, session: null },
-        error: null,
-      } as never);
+    jest.mocked(mockExchange.signInWithPassword).mockResolvedValue({
+      data: { user: null, session: null },
+      error: null,
+    } as never);
     const { getByLabelText } = render(<SignInScreen />);
     const email = getByLabelText('Email');
     const password = getByLabelText('Password');
@@ -57,7 +76,7 @@ describe('account entry after visual migration', () => {
     fireEvent.changeText(password, 'my-password');
     fireEvent.press(getByLabelText('Sign in'));
     await waitFor(() =>
-      expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
+      expect(mockExchange.signInWithPassword).toHaveBeenCalledWith({
         email: 'fighter@example.com',
         password: 'my-password',
       }),
@@ -65,24 +84,22 @@ describe('account entry after visual migration', () => {
   });
 
   it('keeps the age gate required and sends its server metadata', async () => {
-    jest
-      .mocked(supabase.auth.signUp)
-      .mockResolvedValue({
-        data: {
-          user: { id: 'fighter', identities: [{ id: 'identity' }] },
-          session: {},
-        },
-        error: null,
-      } as never);
+    jest.mocked(mockExchange.signUp).mockResolvedValue({
+      data: {
+        user: { id: 'fighter', identities: [{ id: 'identity' }] },
+        session: null,
+      },
+      error: null,
+    } as never);
     const { getByLabelText } = render(<SignUpScreen />);
     fireEvent.changeText(getByLabelText('Email'), 'fighter@example.com');
     fireEvent.changeText(getByLabelText('Password'), 'my-password');
     fireEvent.press(getByLabelText('Sign up'));
-    expect(supabase.auth.signUp).not.toHaveBeenCalled();
+    expect(mockExchange.signUp).not.toHaveBeenCalled();
     fireEvent.press(getByLabelText('I confirm I am 18 years of age or older'));
     fireEvent.press(getByLabelText('Sign up'));
     await waitFor(() =>
-      expect(supabase.auth.signUp).toHaveBeenCalledWith({
+      expect(mockExchange.signUp).toHaveBeenCalledWith({
         email: 'fighter@example.com',
         password: 'my-password',
         options: { data: { age_confirmed: true } },

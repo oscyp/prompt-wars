@@ -1,0 +1,75 @@
+{
+  "fixture": "synthetic-bundled-smoke",
+  "requestedDuration": 20,
+  "referenceTransport": "supabase-signed-https",
+  "inputHash": "c278fcc1f77150563cd2c4dbaa2b665c9f0effae2e0f8abe4d2a70df30c5fc2a",
+  "referenceCount": 4,
+  "status": "verified_existing_provider_output",
+  "visualGate": "bounded_synthetic_sample_only",
+  "model": "grok-imagine-video-1.5",
+  "providerJobId": "3234f6b9-e48a-93e2-a599-e50f4359c203",
+  "submittedDuration": 15,
+  "latencySeconds": 201.902,
+  "actualDuration": 20.041666666666668,
+  "providerModerationApproved": true,
+  "privateBasePath": "evaluation/aa085dd6-3aea-4188-ba8a-3b52e4ed6da3/base.mp4",
+  "baseDuration": 15,
+  "baseCostUsd": 2.14,
+  "baseLatencySeconds": 107.439,
+  "extensionProviderJobId": "0ebfd2a1-b975-999e-92fc-8f846e1bd6c4",
+  "extensionModel": "grok-imagine-video",
+  "extensionSubmittedDuration": 5,
+  "privateBaseRemoved": true,
+  "providerReportedDuration": 5,
+  "baseMeasuredDuration": 15.041666666666666,
+  "finalRequestCostUsd": 0.5,
+  "totalCostUsd": 2.64,
+  "playableAudioTracks": 0,
+  "clip": "/tmp/prompt-wars-cinematic20-live/extension-silent.mp4",
+  "sha256": "34633cd2d905dc7b7ebb038b4f3bb6f228181bada00ff568dc290fa906e3aeed",
+  "validation": "AVFoundation and production MP4 duration reader agree; original request reused for inspection, no paid regeneration",
+  "limitations": [
+    "Full 24-clip matrix not run",
+    "Provider passed original base including audio into extension in this smoke; production strips base audio first, same validated video metadata and bytes retained",
+    "Mask/face appearance and compass color shift in final generated frames; no ownership swap observed",
+    "Move concepts blended into a shared glowing path; this sample does not prove literal choreography fidelity"
+  ],
+  "remuxFrameComparisons": [
+    {
+      "second": 0.2,
+      "unchanged": true
+    },
+    {
+      "second": 3.0,
+      "unchanged": true
+    },
+    {
+      "second": 6.0,
+      "unchanged": true
+    },
+    {
+      "second": 9.0,
+      "unchanged": true
+    },
+    {
+      "second": 12.0,
+      "unchanged": true
+    },
+    {
+      "second": 14.5,
+      "unchanged": true
+    },
+    {
+      "second": 16.0,
+      "unchanged": true
+    },
+    {
+      "second": 18.0,
+      "unchanged": true
+    },
+    {
+      "second": 19.5,
+      "unchanged": true
+    }
+  ]
+}

@@ -35,7 +35,6 @@ import {
   type RevealOutcome,
 } from '@/utils/revealBeats';
 import {
-  REVEAL_HEADER_OFFSET,
   REVEAL_TOP_BAR_HEIGHT,
   REVEAL_BOTTOM_BAR_HEIGHT,
   judgeBeatLabel,
@@ -259,12 +258,7 @@ export default function RevealSequence({
       style={[styles.root, { backgroundColor: colors.background }]}
       testID="reveal-sequence"
     >
-      <View
-        style={[
-          styles.flowTopBar,
-          { paddingTop: safe.top + REVEAL_HEADER_OFFSET },
-        ]}
-      >
+      <View style={[styles.flowTopBar, { paddingTop: safe.top }]}>
         <View
           style={styles.dots}
           accessible

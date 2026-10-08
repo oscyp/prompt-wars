@@ -56,3 +56,16 @@ test('art failure keeps identity readable and a new URL can recover', () => {
       .props.source,
   ).toEqual({ uri: 'renewed' });
 });
+
+test('height-capped hero preserves full-body framing and separate stats', () => {
+  const view = render(<FighterCard {...fighter} maxArtworkHeight={240} />);
+  const frame = view.getByTestId('fighter-default-frame', {
+    includeHiddenElements: true,
+  });
+  expect(StyleSheet.flatten(frame.props.style)).toMatchObject({
+    width: 160,
+    height: 240,
+  });
+  expect(view.getByLabelText('Strength 5 of 10')).toBeTruthy();
+  expect(view.getByText(fighter.name).props.numberOfLines).toBeUndefined();
+});

@@ -14,7 +14,8 @@ The authoritative product scope, age policy, and moderation expectations live in
 - Specify the blurred-until-cleared preview behavior for any UGC-derived video before client-visible reveal.
 - Define anti-collusion rules: rate limits, shadow rating, quality floor for rating gain, opponent-diversity, same-network guard, win-trade detection signals.
 - Define the account-farm guard at signup (device fingerprint, IP velocity, attestation where supported) used to gate the FTUO and onboarding credit grants.
-- Define the 18+ age gate, no-minor signup policy, and any region-specific compliance hooks.
+- Apply the approved 13+ eligibility policy with country-specific guardian consent. Keep the combined social-auth/eligibility release disabled until its documented prerequisites are complete; preserve the current 18+ flow only for legacy compatibility during rollout. Missing regional policy, required assurance, or verified consent fails closed. KWS adult verification alone is not consent; the product minimum does not determine the store content rating.
+- Apply the same eligibility, moderation, anti-abuse and purchase policy to guests and linked players. Guest status alone never restricts capabilities. Keep guest intake disabled until the combined release is ready; switching intake off preserves existing guests. No automatic guest cleanup, account merging or purchase transfers.
 - Define the report and block flow, takedown SLA, repeat-offender escalation, and appeal-of-moderation surface.
 - Define safety telemetry: moderation_event schema, false-positive review queue, and reviewer feedback loop.
 - Coordinate with the backend executor on data model and Edge Function placement; with the AI video executor on provider-side moderation; with the QA executor on negative-path test cases.

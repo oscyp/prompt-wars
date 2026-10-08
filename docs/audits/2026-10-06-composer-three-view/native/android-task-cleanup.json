@@ -1,0 +1,27 @@
+{
+  "observedAt": "2026-10-07T00:30:14.766366+00:00",
+  "restoredEmulatorSettings": {
+    "display": "wm reset",
+    "fontScale": 1.0,
+    "transitionAnimationScale": 1,
+    "showImeWithHardwareKeyboard": 0
+  },
+  "removedReversePort": 8083,
+  "stoppedMetro": {
+    "pid": 29086,
+    "verifiedCommand": "node ./node_modules/.bin/expo start --go --port 8083 --host localhost --clear"
+  },
+  "stoppedEmulator": {
+    "serial": "emulator-5582",
+    "verifiedAvd": "prompt_wars_composer_20261006"
+  },
+  "stoppedAdbServerPort": 5038,
+  "portsNoLongerListening": [
+    8083,
+    5038,
+    5582
+  ],
+  "sharedRootMetro8082Touched": false,
+  "globalSdkChanged": false,
+  "evidenceAndApkPreserved": true
+}

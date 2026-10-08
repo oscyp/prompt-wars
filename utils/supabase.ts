@@ -16,16 +16,6 @@ if (!supabaseUrl || !supabasePublishableKey) {
 
 const supabaseFunctionKey = supabasePublishableKey;
 
-function describeAccessToken(token: string): Record<string, unknown> {
-  const parts = token.split('.');
-  return {
-    present: Boolean(token),
-    length: token.length,
-    looksLikeJwt: parts.length === 3,
-    prefix: token.slice(0, 16),
-  };
-}
-
 // Create a factory function for initializing Supabase
 const createSupabaseClient = (): SupabaseClient => {
   const client = createClient(supabaseUrl, supabasePublishableKey, {
@@ -110,7 +100,9 @@ function getFunctionErrorMessage(
   return fallback || `Function ${functionName} failed`;
 }
 
-async function getFunctionAccessToken(): Promise<string> {
+async function getFunctionAccessToken(
+  expectedAccountId?: string,
+): Promise<string> {
   const {
     data: { session },
     error: sessionError,
@@ -123,6 +115,9 @@ async function getFunctionAccessToken(): Promise<string> {
   if (!session?.access_token) {
     throw new Error('You must be signed in to continue.');
   }
+
+  if (expectedAccountId && session.user?.id !== expectedAccountId)
+    throw new Error('Your signed-in account changed.');
 
   const expiresAtMs = session.expires_at ? session.expires_at * 1000 : 0;
 
@@ -137,6 +132,8 @@ async function getFunctionAccessToken(): Promise<string> {
     }
 
     if (refreshedSession?.access_token) {
+      if (expectedAccountId && refreshedSession.user?.id !== expectedAccountId)
+        throw new Error('Your signed-in account changed.');
       return refreshedSession.access_token;
     }
   }
@@ -147,13 +144,13 @@ async function getFunctionAccessToken(): Promise<string> {
 async function fetchAuthenticatedFunction(
   functionName: string,
   body: Record<string, unknown>,
-  accessToken: string,
+  accessToken: string | null,
 ): Promise<Response> {
   return fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
     method: 'POST',
     headers: {
       apikey: supabaseFunctionKey,
-      Authorization: `Bearer ${accessToken}`,
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
@@ -163,22 +160,45 @@ async function fetchAuthenticatedFunction(
 export async function invokeAuthenticatedFunction<T>(
   functionName: string,
   body: Record<string, unknown>,
+  options?: { auth?: 'registration'; expectedAccountId?: string },
 ): Promise<T> {
-  let accessToken = await getFunctionAccessToken();
-  const functionUrl = `${supabaseUrl}/functions/v1/${functionName}`;
+  const preAuth = options?.auth === 'registration';
+  if (
+    preAuth &&
+    (functionName !== 'registration' || options?.expectedAccountId)
+  ) {
+    throw new Error('Pre-auth calls are restricted to registration.');
+  }
+  let accessToken = preAuth
+    ? null
+    : await getFunctionAccessToken(options?.expectedAccountId);
   let response = await fetchAuthenticatedFunction(
     functionName,
     body,
     accessToken,
   );
 
-  if (response.status === 401) {
+  if (response.status === 401 && !preAuth) {
+    if (options?.expectedAccountId) {
+      const { data: current, error: currentError } =
+        await supabase.auth.getSession();
+      if (
+        currentError ||
+        current.session?.user.id !== options.expectedAccountId
+      )
+        throw new Error('Your signed-in account changed.');
+    }
     const {
       data: { session: refreshedSession },
       error: refreshError,
     } = await supabase.auth.refreshSession();
 
     if (!refreshError && refreshedSession?.access_token) {
+      if (
+        options?.expectedAccountId &&
+        refreshedSession.user?.id !== options.expectedAccountId
+      )
+        throw new Error('Your signed-in account changed.');
       accessToken = refreshedSession.access_token;
       response = await fetchAuthenticatedFunction(
         functionName,
@@ -200,16 +220,11 @@ export async function invokeAuthenticatedFunction<T>(
   }
 
   if (!response.ok) {
+    // Registration and Apple requests carry sensitive one-time credentials.
+    // Never log request bodies, response bodies, or any portion of a token.
     console.error('Supabase function invoke failed', {
       functionName,
-      functionUrl,
       status: response.status,
-      statusText: response.statusText,
-      requestBody: body,
-      responseText,
-      responseData: data,
-      supabaseUrl,
-      accessToken: describeAccessToken(accessToken),
     });
     throw new FunctionInvokeError(
       getFunctionErrorMessage(functionName, data, responseText),

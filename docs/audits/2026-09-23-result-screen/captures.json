@@ -1,0 +1,440 @@
+{
+  "runtime": "Existing Debug iOS 26.5 development app; current Metro JS on port 8081",
+  "captures": [
+    {
+      "file": "screenshots/402-visible-stats-actual.jpg",
+      "title": "Visible stats · theme and gold-framed rounds",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "fontSizeCategory": "large",
+      "phase": "after",
+      "stage": "visible-stats",
+      "note": "Existing completed practice defeat. Illustrated theme and round statistics are directly visible; no expansion. Standard-phone Close returned to this scroll position. The existing bot-round Pending label is documented in the report."
+    },
+    {
+      "file": "screenshots/375-visible-stats-actual.jpg",
+      "title": "Visible stats · small-phone theme and rounds",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "large",
+      "phase": "after",
+      "stage": "visible-stats",
+      "note": "Actual result with 20-point section gaps, matching gold frames, illustrated wrapping theme, Result info and reachable footer. No generation or purchase."
+    },
+    {
+      "file": "screenshots/402-visible-stats-info-actual.jpg",
+      "title": "Visible stats · Result info sheet",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "fontSizeCategory": "large",
+      "phase": "after",
+      "stage": "visible-stats",
+      "note": "Actual recorded progress and deciding explanation use the already-loaded model. Fixed heading/Close; View quests was verified to dismiss then reach Arena."
+    },
+    {
+      "file": "screenshots/375-visible-stats-info-actual.jpg",
+      "title": "Visible stats · small-phone Result info",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "large",
+      "phase": "after",
+      "stage": "visible-stats",
+      "note": "Actual result sheet opens fully usable without dragging. The theme explanation is absent from the main plaque and available here. Close preserves the result page."
+    },
+    {
+      "file": "screenshots/375-visible-theme-accessibility-actual.jpg",
+      "title": "Visible stats · small-phone theme at accessibility text",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "accessibility-large",
+      "phase": "after",
+      "stage": "visible-stats",
+      "note": "Real OS text sizing. Theme grows and wraps over existing mapped art; page scrolls and footer remains reachable. No invented title or values."
+    },
+    {
+      "file": "screenshots/375-visible-rounds-accessibility-actual.jpg",
+      "title": "Visible stats · small-phone rounds at accessibility text",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "accessibility-large",
+      "phase": "after",
+      "stage": "visible-stats",
+      "note": "Actual scores/HP and Result info remain readable through scrolling. Footer labels wrap naturally. Existing bot-round Pending behavior is unchanged."
+    },
+    {
+      "file": "screenshots/375-visible-stats-info-accessibility-actual.jpg",
+      "title": "Visible stats · small-phone sheet at accessibility text",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "accessibility-large",
+      "phase": "after",
+      "stage": "visible-stats",
+      "note": "Actual open sheet survives live OS text-size change; fixed title/Close remain reachable while recorded progress grows."
+    },
+    {
+      "file": "screenshots/375-visible-stats-info-scrolled-accessibility-actual.jpg",
+      "title": "Visible stats · sheet body scrolls beneath fixed heading",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "accessibility-large",
+      "phase": "after",
+      "stage": "visible-stats",
+      "note": "Actual sheet scrolled to quest navigation and deciding section; fixed title/Close remain stationary. The complete deciding paragraph was inspected on further scroll."
+    },
+    {
+      "file": "screenshots/402-visible-theme-accessibility-actual.jpg",
+      "title": "Visible stats · standard-phone theme at accessibility text",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "fontSizeCategory": "accessibility-large",
+      "phase": "after",
+      "stage": "visible-stats",
+      "note": "Actual result, wrapping gold title and mapped banner with natural panel growth; footer remains reachable."
+    },
+    {
+      "file": "screenshots/402-visible-rounds-accessibility-actual.jpg",
+      "title": "Visible stats · standard-phone rounds at accessibility text",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "fontSizeCategory": "accessibility-large",
+      "phase": "after",
+      "stage": "visible-stats",
+      "note": "Actual complete round panel at large OS text size. Scores/HP, Result info and safety remain readable; the known Pending label is unchanged."
+    },
+    {
+      "file": "screenshots/402-visible-stats-info-accessibility-actual.jpg",
+      "title": "Visible stats · standard-phone sheet at accessibility text",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "fontSizeCategory": "accessibility-large",
+      "phase": "after",
+      "stage": "visible-stats",
+      "note": "Actual Result info with fixed heading and Close. Content grows naturally and scrolls; no additional requests are initiated by opening the sheet."
+    },
+    {
+      "file": "screenshots/375-before-top.jpg",
+      "title": "Before · verdict and cinematic",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "large",
+      "phase": "before",
+      "note": "Existing AndrewTwo vs Nova result; no generation or purchase performed.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/375-before-rewards.jpg",
+      "title": "Before · rewards and sharing",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "large",
+      "phase": "before",
+      "note": "Existing AndrewTwo vs Nova result; no generation or purchase performed.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/402-before-top.jpg",
+      "title": "Before · verdict and cinematic",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "fontSizeCategory": "large",
+      "phase": "before",
+      "note": "Existing AndrewTwo vs Nova result; no generation or purchase performed.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/402-before-rewards.jpg",
+      "title": "Before · rewards and sharing",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "fontSizeCategory": "large",
+      "phase": "before",
+      "note": "Existing battle viewed from Battles; no media generation or purchase.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/375-after-no-contest-unicode-fixture.jpg",
+      "title": "After · no contest and Unicode names",
+      "kind": "component-fixture",
+      "route": "/result-screen?state=no_contest&long=1&rewards=granted",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "large",
+      "phase": "after",
+      "note": "Final synthetic no-contest fixture: long Unicode identity, no original score/HP/KO/winner. A known original +22 ranked contribution supports the reversal wording. No live review or award occurred.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/375-after-large-unicode-top-fixture.jpg",
+      "title": "After · accessibility text and Unicode",
+      "kind": "component-fixture",
+      "route": "/result-screen?state=won&long=1",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "accessibility-large",
+      "phase": "after",
+      "note": "Actual OS accessibility text category. Fighters stack and grow naturally; persistent fixture footer remains reachable. Bundled artwork and synthetic result.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/375-after-large-unicode-score-fixture.jpg",
+      "title": "After · accessibility score and opponent",
+      "kind": "component-fixture",
+      "route": "/result-screen?state=won&long=1",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "accessibility-large",
+      "phase": "after",
+      "note": "Same component fixture scrolled: unbroken score/KO, complete long opponent name and known HP; footer remains pinned.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/375-after-defeat-signing-error-fixture.jpg",
+      "title": "After · defeat, long name and media recovery",
+      "kind": "component-fixture",
+      "route": "/result-screen?state=lost&media=error&long=2",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "large",
+      "phase": "after",
+      "note": "Synthetic defeat and signing failure, bundled equipment. Unbroken long name wraps; retry is a local counter and cannot generate or purchase.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/402-after-fullscreen-actual.jpg",
+      "title": "After · native full-screen controls",
+      "note": "Actual approved existing Round 2 video at completion; native transport/Close/mute exposed. OS Reduce Motion on. No media generation or purchase.",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "fontSizeCategory": "large",
+      "phase": "after",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/402-after-return-actual.jpg",
+      "title": "After · return from cinematic",
+      "note": "Actual result after native Close; same scroll position, paused contained preview and persistent footer. OS Reduce Motion on.",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "fontSizeCategory": "large",
+      "phase": "after",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/402-after-reveal-reduced-motion-actual.jpg",
+      "title": "After · free reveal with Reduced Motion",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "fontSizeCategory": "large",
+      "phase": "after",
+      "note": "OS Reduce Motion enabled. Existing free reveal remains manually paced with Next and Skip. No new battle or media generation.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/375-after-top-actual.jpg",
+      "title": "After · small iPhone verdict and cinematic entry",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "large",
+      "phase": "after",
+      "note": "Actual existing practice result with frozen equipment and actual Round 2 cinematic. Default OS text size. No purchase or generation.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/375-after-large-verdict-actual.jpg",
+      "title": "After · actual verdict at accessibility text",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "accessibility-large",
+      "phase": "after",
+      "note": "Actual result after live OS text-size change; content reflows and scrolls with footer actions visible. No purchase/generation.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/375-after-large-media-actual.jpg",
+      "title": "After · actual cinematic at accessibility text",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "accessibility-large",
+      "phase": "after",
+      "note": "Actual result after live OS text-size change; content reflows and scrolls with footer actions visible. No purchase/generation.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/375-after-reviewed-rewards-fixture.jpg",
+      "title": "After · reviewed rewards, retained diamonds",
+      "kind": "component-fixture",
+      "route": "/result-screen?state=no_contest&long=1&rewards=granted",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "large",
+      "phase": "after",
+      "note": "Synthetic no-contest state: original rating/streak suppressed; four retained diamonds and two completed quests remain separate. Details forced open only by the fixture. Historical fixture capture; the current fixture uses visible rounds and Result info.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/375-after-unavailable-rewards-fixture.jpg",
+      "title": "After · unavailable rewards and pending media",
+      "kind": "component-fixture",
+      "route": "/result-screen?state=exhibition&rewards=unavailable&media=pending",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "large",
+      "phase": "after",
+      "note": "Synthetic unrated result. Missing reward summary is explicitly unavailable, distinct from pending cinematic generation and from zero awards.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/402-after-rewards-actual.jpg",
+      "title": "After · cinematic, sharing and compact rewards",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "fontSizeCategory": "large",
+      "phase": "after",
+      "note": "Actual existing practice series. Two completed quests and recorded streak remain compact; no invented diamonds or claim promise. Shared buttons and footer remain reachable.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/402-after-details-actual.jpg",
+      "title": "Prior layout · expanded historical reward details",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        402,
+        874
+      ],
+      "fontSizeCategory": "large",
+      "phase": "after",
+      "note": "Historical pre-follow-up evidence. This expansion has been replaced by visible theme/rounds and Result info. The earlier exit fix remains covered separately.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/375-after-rewards-actual.jpg",
+      "title": "After · small-phone sharing and rewards",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "large",
+      "phase": "after",
+      "note": "Actual practice result: share actions and compact reward cells stack at 375 points. Battle details and persistent Arena/Battle Again remain reachable.",
+      "stage": "initial-refinement"
+    },
+    {
+      "file": "screenshots/375-after-rewards-accessibility-actual.jpg",
+      "title": "After · actual rewards with accessibility text",
+      "kind": "actual-route",
+      "route": "/(battle)/result",
+      "viewportPoints": [
+        375,
+        812
+      ],
+      "fontSizeCategory": "accessibility-large",
+      "phase": "after",
+      "note": "Real OS text-size change on the existing result. Labels and values remain visible, details scroll naturally, and both footer actions remain reachable.",
+      "stage": "initial-refinement"
+    }
+  ],
+  "followUp": "Visible Stats and Consistent Cards; new captures are actual routes. Earlier evidence is retained with its original state and stage."
+}

@@ -97,6 +97,37 @@ describe('useCredits', () => {
   });
 });
 
+it('clears account-scoped balance immediately and rejects another account’s delayed read', async () => {
+  let finishOld: (value: ReturnType<typeof balance>) => void = () => {};
+  mockedGetWalletBalance.mockReset();
+  mockedGetWalletBalance.mockResolvedValueOnce(balance(7));
+  const { result, rerender } = renderHook(
+    ({ account }: { account: string | null }) => useCredits(account),
+    { initialProps: { account: 'first' as string | null } },
+  );
+  await waitFor(() => expect(result.current.credits).toBe(7));
+  mockedGetWalletBalance.mockReturnValueOnce(
+    new Promise((r) => {
+      finishOld = r;
+    }),
+  );
+  act(() => {
+    void result.current.refresh();
+  });
+  mockedGetWalletBalance.mockResolvedValueOnce(balance(2));
+  rerender({ account: 'second' });
+  expect(result.current.loading).toBe(true);
+  expect(result.current.credits).toBe(0);
+  await waitFor(() => expect(result.current.credits).toBe(2));
+  await act(async () => {
+    finishOld(balance(100));
+  });
+  expect(result.current.credits).toBe(2);
+  rerender({ account: null });
+  expect(result.current.credits).toBe(0);
+  expect(result.current.error).toBe(true);
+});
+
 it('refreshes after foregrounding and preserves known balance on failure', async () => {
   let foreground: (state: AppStateStatus) => void = () => {};
   const listener = jest

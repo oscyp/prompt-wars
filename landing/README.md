@@ -19,6 +19,8 @@ landing/
 ├── index.html          # The page (semantic HTML + SEO + JSON-LD)
 ├── privacy-policy.html # Static privacy policy for the landing/app legal links
 ├── terms-and-conditions.html # Static terms of service / AI content policy
+├── account-deletion.html # Public in-app/email deletion instructions and retained-data disclosure
+├── release-social-auth/ # Non-effective legal drafts; exclude from public deployments
 ├── styles.css          # Design system (dark canvas, purple brand, move-type accents)
 ├── script.js           # Progressive enhancement (nav, scroll-reveal, FAQ, waitlist)
 ├── site.webmanifest    # PWA manifest
@@ -67,6 +69,11 @@ python3 -m http.server 8080
 
 ## Deploy
 
-Upload the `landing/` folder to any static host (Netlify, Vercel, Cloudflare
+Upload the `landing/` folder, **excluding `release-social-auth/`**, to any static host (Netlify, Vercel, Cloudflare
 Pages, GitHub Pages, S3 + CloudFront). No build command; output directory is the
 folder itself.
+
+The staged social-authentication/13+ notices must not replace the current adult-only
+public policies until the combined release is activated. Follow
+[`release-social-auth/README.md`](release-social-auth/README.md) for that coordinated
+publication. The general account-deletion page can ship independently.

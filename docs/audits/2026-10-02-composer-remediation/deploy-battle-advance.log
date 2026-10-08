@@ -1,0 +1,18 @@
+Deployed Functions on project uoyjhudegdpanrgllfoj: battle-advance
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/uoyjhudegdpanrgllfoj/functions
+
+Uploading asset (battle-advance): supabase/functions/battle-advance/index.ts
+Uploading asset (battle-advance): supabase/functions/_shared/suggestion-service.ts
+Uploading asset (battle-advance): supabase/functions/_shared/prompt-situations.ts
+Uploading asset (battle-advance): supabase/functions/_shared/utils.ts
+Uploading asset (battle-advance): supabase/functions/_shared/moderation.ts
+Uploading asset (battle-advance): supabase/functions/_shared/types.ts
+Uploading asset (battle-advance): supabase/functions/_shared/move-suggestions.ts
+Uploading asset (battle-advance): supabase/functions/_shared/auto-video.ts
+Uploading asset (battle-advance): supabase/functions/_shared/push.ts
+Uploading asset (battle-advance): supabase/functions/_shared/judge.ts
+Uploading asset (battle-advance): supabase/functions/_shared/judge-policy.ts
+Uploading asset (battle-advance): supabase/functions/_shared/providers.ts
+Uploading asset (battle-advance): supabase/functions/_shared/video-constants.ts
+Uploading asset (battle-advance): supabase/functions/_shared/glicko2.ts
+Uploading asset (battle-advance): supabase/functions/_shared/combat.ts

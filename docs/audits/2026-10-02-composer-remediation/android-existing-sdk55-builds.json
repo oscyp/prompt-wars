@@ -1,0 +1,96 @@
+{
+  "checkedAt": "2026-10-02T15:18:05.285897+00:00",
+  "readOnlyCommand": [
+    "eas",
+    "build:list",
+    "--platform",
+    "android",
+    "--status",
+    "finished",
+    "--sdk-version",
+    "55.0.0",
+    "--limit",
+    "50",
+    "--json",
+    "--non-interactive"
+  ],
+  "builds": [
+    {
+      "id": "99f1739f-8928-4a3d-b0ce-7c3207e6a571",
+      "status": "FINISHED",
+      "buildProfile": "preview",
+      "distribution": "INTERNAL",
+      "sdkVersion": "55.0.0",
+      "appVersion": "1.3.3",
+      "appBuildVersion": "5",
+      "fingerprint": {
+        "id": "01a0fcdf-0949-7ecd-ae94-a35e6abfa05a",
+        "hash": "ac48e203a9a8dfedd66e3c9d61003a92e0184e92"
+      },
+      "artifacts": {
+        "buildUrl": "https://expo.dev/artifacts/eas/2k1oMoDkfvUn4XCA7_ry8x3LA8S-zQeKz2-dwqqsm24.apk",
+        "applicationArchiveUrl": "https://expo.dev/artifacts/eas/2k1oMoDkfvUn4XCA7_ry8x3LA8S-zQeKz2-dwqqsm24.apk"
+      },
+      "createdAt": "2026-10-02T13:47:50.382Z",
+      "completedAt": "2026-10-02T14:41:51.685Z"
+    },
+    {
+      "id": "7ce1f013-da20-4bc7-aa76-4c11cc5b9fc0",
+      "status": "FINISHED",
+      "buildProfile": "production",
+      "distribution": "STORE",
+      "sdkVersion": "55.0.0",
+      "appVersion": "1.3.2",
+      "appBuildVersion": "5",
+      "fingerprint": {
+        "id": "01a0c94e-d381-70f7-8320-b5da87f8ab96",
+        "hash": "e685678f7d93277a89ae2e24421a8607e092d6b8"
+      },
+      "artifacts": {
+        "buildUrl": "https://expo.dev/artifacts/eas/eag9xsE7v7eJdrdW94tVwr9__xpiuxr0Dvgkt8djq8M.aab",
+        "applicationArchiveUrl": "https://expo.dev/artifacts/eas/eag9xsE7v7eJdrdW94tVwr9__xpiuxr0Dvgkt8djq8M.aab"
+      },
+      "createdAt": "2026-09-22T13:29:41.430Z",
+      "completedAt": "2026-09-22T14:25:31.043Z"
+    },
+    {
+      "id": "95a0a5d2-b175-4a26-ac91-7b1ea46f4fcb",
+      "status": "FINISHED",
+      "buildProfile": "production",
+      "distribution": "STORE",
+      "sdkVersion": "55.0.0",
+      "appVersion": "1.0.0",
+      "appBuildVersion": "3",
+      "fingerprint": {
+        "id": "019f6133-f9f5-7f23-b427-b066d123c78e",
+        "hash": "c95a3d52956df3ea579d4caa1bed5357deaa61b9"
+      },
+      "artifacts": {
+        "buildUrl": "https://expo.dev/artifacts/eas/UpuCp11T5S6TXjGTQdtUftLznkRs9vm57Axu0AXx9dg.aab",
+        "applicationArchiveUrl": "https://expo.dev/artifacts/eas/UpuCp11T5S6TXjGTQdtUftLznkRs9vm57Axu0AXx9dg.aab"
+      },
+      "createdAt": "2026-07-14T15:17:04.023Z",
+      "completedAt": "2026-07-14T17:09:04.210Z"
+    },
+    {
+      "id": "119ee2fb-0b06-4710-a403-608adce9b2f7",
+      "status": "FINISHED",
+      "buildProfile": "production",
+      "distribution": "STORE",
+      "sdkVersion": "55.0.0",
+      "appVersion": "1.0.0",
+      "appBuildVersion": "2",
+      "fingerprint": {
+        "id": "019f4245-f550-779a-bae9-69db802697cc",
+        "hash": "14b1683a76448370709857c9de5d1914c3558b1a"
+      },
+      "artifacts": {
+        "buildUrl": "https://expo.dev/artifacts/eas/9oS-7vhjHnTZDnn9PvHvNSQTwFM6YTdCZlcU-M73Qzk.aab",
+        "applicationArchiveUrl": "https://expo.dev/artifacts/eas/9oS-7vhjHnTZDnn9PvHvNSQTwFM6YTdCZlcU-M73Qzk.aab"
+      },
+      "createdAt": "2026-07-08T15:08:28.834Z",
+      "completedAt": "2026-07-08T17:02:51.036Z"
+    }
+  ],
+  "truncatedAt50": false
+}

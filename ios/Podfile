@@ -25,6 +25,11 @@ prepare_react_native_project!
 target 'PromptWars' do
   use_expo_modules!
 
+  # GoogleSignIn's Swift dependencies need module maps with static CocoaPods.
+  pod 'AppCheckCore', :modular_headers => true
+  pod 'GoogleUtilities', :modular_headers => true
+  pod 'RecaptchaInterop', :modular_headers => true
+
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
     config_command = ['node', '-e', "process.argv=['', '', 'config'];require('@react-native-community/cli').run()"];
   else

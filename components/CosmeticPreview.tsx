@@ -98,7 +98,10 @@ export default function CosmeticPreview({
       />
       <View style={styles.meta}>
         <View style={styles.nameRow}>
-          <Text style={[styles.name, accessibleText, { color: colors.text }]}>
+          <Text
+            variant="fighter"
+            style={[styles.name, accessibleText, { color: colors.text }]}
+          >
             {characterName}
           </Text>
           <CosmeticBadge badge={badge} size={16} />
@@ -149,7 +152,7 @@ const styles = StyleSheet.create({
     padding: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 4,
   },
   meta: { gap: Spacing.xs },
   nameRow: {
@@ -159,8 +162,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   name: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.bold,
+    fontSize: 24,
   },
   note: {
     fontSize: Typography.sizes.xs,

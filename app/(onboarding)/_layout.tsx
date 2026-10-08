@@ -1,13 +1,16 @@
 import { Stack } from 'expo-router';
 import React from 'react';
+import { useThemedColors } from '@/hooks/useThemedColors';
 import HeaderBackButton from '@/components/HeaderBackButton';
 
 export default function OnboardingLayout() {
+  const colors = useThemedColors();
   return (
     <Stack
       screenOptions={{
         headerShown: true,
-        headerTransparent: true,
+        headerTransparent: false,
+        headerStyle: { backgroundColor: colors.background },
         headerTitle: '',
         headerShadowVisible: false,
         headerBackTitle: '',

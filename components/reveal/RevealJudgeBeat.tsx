@@ -24,7 +24,7 @@ import {
   Typography,
 } from '@/constants/DesignTokens';
 import { MOVE_META } from '@/constants/MoveTypes';
-import { RUBRIC_LABELS } from '@/components/RubricBars';
+import { RUBRIC_LABELS, rubricLabels } from '@/components/RubricBars';
 import { moveLabel } from '@/utils/battleCopy';
 import type { MoveType } from '@/utils/battles';
 import type { RubricScoreSet } from '@/types/battle';
@@ -64,8 +64,8 @@ export default function RevealJudgeBeat({
   insets,
 }: RevealJudgeBeatProps) {
   const colors = useThemedColors();
-  const { width } = useWindowDimensions();
-  const stacked = judgeCardsStacked(width);
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = judgeCardsStacked(width) || fontScale > 1.15;
   const hasRubric = Boolean(model.me.rubric || model.them.rubric);
 
   return (
@@ -104,6 +104,7 @@ export default function RevealJudgeBeat({
 
       {hasRubric ? (
         <RacingRubricBars
+          policyVersion={model.judgePolicyVersion}
           scores={model.me.rubric ?? {}}
           opponentScores={model.them.rubric ?? undefined}
           reduceMotion={reduceMotion}
@@ -140,8 +141,6 @@ function PromptCard({
         styles.card,
         {
           backgroundColor: colors.card,
-          borderColor: isWinner ? winnerColor : colors.border,
-          borderWidth: isWinner ? 2 : StyleSheet.hairlineWidth,
         },
       ]}
       entering={
@@ -150,7 +149,10 @@ function PromptCard({
           : FadeInDown.duration(Motion.durations.base).delay(delay)
       }
     >
-      <GameBevel color={colors.ornamentMuted} />
+      <GameBevel
+        color={isWinner ? winnerColor : colors.border}
+        strokeWidth={isWinner ? 2 : 1}
+      />
       <View style={styles.cardHead}>
         <Text
           style={[styles.cardName, { color: colors.text }]}
@@ -195,17 +197,20 @@ function PromptCard({
  * animated, so the two stay interchangeable.
  */
 function RacingRubricBars({
+  policyVersion,
   scores,
   opponentScores,
   reduceMotion,
   max = 10,
 }: {
+  policyVersion?: string | null;
   scores: Partial<RubricScoreSet>;
   opponentScores?: Partial<RubricScoreSet>;
   reduceMotion: boolean;
   max?: number;
 }) {
   const colors = useThemedColors();
+  const labels = rubricLabels(policyVersion);
   const keys = Object.keys(RUBRIC_LABELS) as (keyof RubricScoreSet)[];
   const safeMax = Math.max(1, max);
   const hasOpponent = Boolean(opponentScores);
@@ -254,13 +259,13 @@ function RacingRubricBars({
             accessibilityRole="progressbar"
             accessibilityLabel={
               opp != null
-                ? `${RUBRIC_LABELS[k]}: you ${me.toFixed(1)} out of ${safeMax}, opponent ${opp.toFixed(1)}`
-                : `${RUBRIC_LABELS[k]}: ${me.toFixed(1)} out of ${safeMax}`
+                ? `${labels[k]}: you ${me.toFixed(1)} out of ${safeMax}, opponent ${opp.toFixed(1)}`
+                : `${labels[k]}: ${me.toFixed(1)} out of ${safeMax}`
             }
             accessibilityValue={{ min: 0, max: safeMax, now: me }}
           >
             <Text style={[styles.barLabel, { color: colors.text }]}>
-              {RUBRIC_LABELS[k]}
+              {labels[k]}
             </Text>
             <View
               style={[
@@ -358,10 +363,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     gap: Spacing.md,
   },
-  title: {
-    fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.bold,
-  },
+  title: { textAlign: 'center' },
   cards: {
     flexDirection: 'row',
     gap: Spacing.sm,
@@ -372,7 +374,6 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
     gap: Spacing.xs,
   },
   cardHead: {
@@ -382,8 +383,7 @@ const styles = StyleSheet.create({
   },
   cardName: {
     flexShrink: 1,
-    fontSize: Typography.sizes.base,
-    fontWeight: Typography.weights.semibold,
+    fontSize: 24,
   },
   moveRow: {
     flexDirection: 'row',

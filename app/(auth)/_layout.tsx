@@ -1,13 +1,16 @@
 import { Stack } from 'expo-router';
 import React from 'react';
+import { useThemedColors } from '@/hooks/useThemedColors';
 import HeaderBackButton from '@/components/HeaderBackButton';
 
 export default function AuthLayout() {
+  const colors = useThemedColors();
   return (
     <Stack
       screenOptions={{
         headerShown: true,
-        headerTransparent: true,
+        headerTransparent: false,
+        headerStyle: { backgroundColor: colors.background },
         headerTitle: '',
         headerShadowVisible: false,
         headerBackTitle: '',
@@ -15,6 +18,7 @@ export default function AuthLayout() {
         animation: 'slide_from_right',
       }}
     >
+      <Stack.Screen name="entry" options={{ headerShown: false }} />
       <Stack.Screen name="sign-in" options={{ headerShown: false }} />
       <Stack.Screen name="sign-up" />
       {/* Reached from a recovery deep link, so usually with no back stack; the

@@ -1,0 +1,16 @@
+PASS: additive migration applies twice without changing the contract.
+PASS: composer_step_suggestions.sql
+PASS: composer_completions.sql
+PASS: composer_suggestions.sql
+PASS: eight blocked expired action retries retain one charged operation without another debit or attempt.
+PASS: action recovery after deadline parent-lock wait refunds once and fences the expired worker.
+PASS: action recovery after submit parent-lock wait refunds once and fences the expired worker.
+PASS: action recovery, sweeper and old worker race without deadlock and produce one terminal refund.
+PASS: eight duplicate purchases reserve/generate/debit once; lost-response replay succeeds after closure and price change.
+PASS: exactly one reclaim wins; stale heartbeat/failure cannot overwrite or refund successor success, no second debit.
+PASS: deadline checked after battle-lock wait; concurrent failed-finalization retries produce one refund.
+PASS: submit-first prevents publication and refunds once; failed purchase remains replayable.
+PASS: delivery-first stays successful after submit, no refund for a delivered purchase.
+PASS: sweeper skips busy parents; concurrent sweepers refund once and fence abandoned worker.
+PASS: nine competing bank/free-completion/paid-step requests consume only the final 30/h unit.
+PASS: bank/free-completion/paid-step attempts also share the final 90/day unit.

@@ -1,0 +1,947 @@
+Check supabase/functions/_tests/account_eligibility_test.ts
+Check supabase/functions/_tests/account_guard_test.ts
+Check supabase/functions/_tests/appeals_calibration_test.ts
+Check supabase/functions/_tests/appeals_provenance_test.ts
+Check supabase/functions/_tests/apple_account_handlers_test.ts
+Check supabase/functions/_tests/apple_auth_test.ts
+Check supabase/functions/_tests/auth-signup-local.test.ts
+Check supabase/functions/_tests/auto_resolution_test.ts
+Check supabase/functions/_tests/bo3_math_test.ts
+Check supabase/functions/_tests/bot_battle_test.ts
+Check supabase/functions/_tests/character-functions-remote.test.ts
+Check supabase/functions/_tests/character_creation_test.ts
+Check supabase/functions/_tests/character_stats_test.ts
+Check supabase/functions/_tests/combat_recovery_test.ts
+Check supabase/functions/_tests/combat_v2_test.ts
+Check supabase/functions/_tests/completion_endpoint_test.ts
+Check supabase/functions/_tests/compose_reveal_payload_test.ts
+Check supabase/functions/_tests/composer_calibration_endpoint_test.ts
+Check supabase/functions/_tests/composer_client_gates_test.ts
+Check supabase/functions/_tests/composer_telemetry_test.ts
+Check supabase/functions/_tests/composer_video_test.ts
+Check supabase/functions/_tests/composition_v3_test.ts
+Check supabase/functions/_tests/cosmetics-policy.test.ts
+Check supabase/functions/_tests/cosmetics_payload_test.ts
+Check supabase/functions/_tests/credits_shortfall_test.ts
+Check supabase/functions/_tests/dev_gate_test.ts
+Check supabase/functions/_tests/eligibility_handlers_test.ts
+Check supabase/functions/_tests/glicko2_test.ts
+Check supabase/functions/_tests/guardian_consent_test.ts
+Check supabase/functions/_tests/identity_edit_test.ts
+Check supabase/functions/_tests/initial_portrait_recovery_test.ts
+Check supabase/functions/_tests/judge_enhanced_test.ts
+Check supabase/functions/_tests/judge_evaluation_runner_test.ts
+Check supabase/functions/_tests/judge_evaluation_test.ts
+Check supabase/functions/_tests/judge_ideas_test.ts
+Check supabase/functions/_tests/judge_provider_test.ts
+Check supabase/functions/_tests/judge_test.ts
+Check supabase/functions/_tests/leave-battle-remote.test.ts
+Check supabase/functions/_tests/leave_battle_eligibility_test.ts
+Check supabase/functions/_tests/leave_battle_test.ts
+Check supabase/functions/_tests/lock_signal_templates_test.ts
+Check supabase/functions/_tests/look_edit_test.ts
+Check supabase/functions/_tests/matchmaking-reliability-remote.test.ts
+Check supabase/functions/_tests/moderation_fail_closed_test.ts
+Check supabase/functions/_tests/moderation_openai_policy_test.ts
+Check supabase/functions/_tests/moderation_personal_info_test.ts
+Check supabase/functions/_tests/moderation_test.ts
+Check supabase/functions/_tests/move_suggestions_test.ts
+Check supabase/functions/_tests/player_avatars_test.ts
+Check supabase/functions/_tests/portrait-prompt-resolver.test.ts
+Check supabase/functions/_tests/portrait_pairing_test.ts
+Check supabase/functions/_tests/private_bot_resolver_test.ts
+Check supabase/functions/_tests/prompt_situations_test.ts
+Check supabase/functions/_tests/provider_identity_test.ts
+Check supabase/functions/_tests/providers_test.ts
+Check supabase/functions/_tests/registration_policy_test.ts
+Check supabase/functions/_tests/registration_service_test.ts
+Check supabase/functions/_tests/render_look_modes_test.ts
+Check supabase/functions/_tests/request_video_upgrade_test.ts
+Check supabase/functions/_tests/revenuecat_events_test.ts
+Check supabase/functions/_tests/revenuecat_signature_test.ts
+Check supabase/functions/_tests/revenuecat_webhook_test.ts
+Check supabase/functions/_tests/sign_battle_portraits_test.ts
+Check supabase/functions/_tests/starter_rules_test.ts
+Check supabase/functions/_tests/structured_suggestions_test.ts
+Check supabase/functions/_tests/subscription_allowance_test.ts
+Check supabase/functions/_tests/suggestion_cache_enrichment_endpoint_test.ts
+Check supabase/functions/_tests/suggestion_completion_service_test.ts
+Check supabase/functions/_tests/suggestion_completion_test.ts
+Check supabase/functions/_tests/suggestion_endpoint_test.ts
+Check supabase/functions/_tests/suggestion_moderation_units_test.ts
+Check supabase/functions/_tests/suggestion_prefetch_test.ts
+Check supabase/functions/_tests/suggestion_service_test.ts
+Check supabase/functions/_tests/suggestion_step_endpoint_test.ts
+Check supabase/functions/_tests/suggestion_step_service_test.ts
+Check supabase/functions/_tests/video_constants_test.ts
+Check supabase/functions/_tests/video_cost_test.ts
+Check supabase/functions/_tests/video_lease_test.ts
+running 2 tests from ./supabase/functions/_tests/account_eligibility_test.ts
+authenticated gameplay fails closed on revocation or lookup failure; account management remains available ... ok (7ms)
+background generation requires current permission for both players and ignores a bot slot ... ok (326µs)
+running 3 tests from ./supabase/functions/_tests/account_guard_test.ts
+Account guard - IP velocity thresholds ... ok (212µs)
+Account guard - device velocity thresholds ... ok (43µs)
+Account guard - combined signals ... ok (91µs)
+running 10 tests from ./supabase/functions/_tests/appeals_calibration_test.ts
+two played rounds requiring unplayed third becomes no contest ... ok (584µs)
+two round sweep upheld and changed winner overturned ... ok (101µs)
+three round reconstruction and earlier terminal retains forensic input count ... ok (90µs)
+legacy single uses judge outcome without Bo3 stat bonus; timeout preserved ... ok (53µs)
+independent calls reject original actual model, mock fallback and unexpected alias ... ok (259µs)
+calibration requires actual successful independent evidence ... ok (219µs)
+provider failure propagates from real review path without mock appeal ... ok (520µs)
+incomplete and stale calibration evidence never enables submissions ... ok (79µs)
+independent provider requires actual returned model, primary constructor unchanged ... ok (3ms)
+ideas review cannot be enabled by authored candidates or legacy-only accuracy evidence ... ok (46µs)
+running 10 tests from ./supabase/functions/_tests/appeals_provenance_test.ts
+legacy scalar model alone disables same-model review without submitting allowance ... ok (576µs)
+one missing judged round identity fails closed despite another known model ... ok (60µs)
+round audit sequence recovers identity and ignores aggregate sentinels ... ok (79µs)
+call provenance retains every model, timeout and unplayed rounds need no judge identity ... ok (65µs)
+legacy one-sided timeout remains reviewable without inventing unknown judge provenance ... ok (98µs)
+an unrelated item under long retry backoff does not disable a calibrated reviewer ... ok (294µs)
+actual provider cooldown disables only its exact model and stays separate from item retries ... ok (99µs)
+new inferred timeout payload passes provenance and retains its winner in replay ... ok (601µs)
+legacy frozen one-sided prompts prove timeout only with matching recorded winner ... ok (39µs)
+worker classifies missing data separately from an actual provider outage ... ok (980µs)
+running 6 tests from ./supabase/functions/_tests/apple_account_handlers_test.ts
+account deletion captures durable work before deleting an identity with no profile ... ok (2ms)
+scrub or durable capture failure keeps auth identity available for retry ...
+------- post-test output -------
+Account deletion preparation failed
+----- post-test output end -----
+scrub or durable capture failure keeps auth identity available for retry ... ok (229µs)
+auth deletion failure is retryable after durable capture and scrub ...
+------- post-test output -------
+Auth identity deletion failed after profile scrub
+----- post-test output end -----
+auth deletion failure is retryable after durable capture and scrub ... ok (175µs)
+Apple configuration or network failure never blocks completed account deletion ...
+------- post-test output -------
+Apple revocation deferred to worker
+----- post-test output end -----
+Apple configuration or network failure never blocks completed account deletion ... ok (139µs)
+worker rejects user tokens and accepts only configured service authorization ... ok (321µs)
+Apple revocation reports retry and safely retries a successful external call after storage failure ... ok (22ms)
+running 5 tests from ./supabase/functions/_tests/apple_auth_test.ts
+Apple ownership uses server identity data, never editable metadata ... ok (316µs)
+Apple token must have a valid signature, issuer, audience, expiry, nonce, and caller subject ... ok (162ms)
+Apple refresh credential encryption rejects tampering and cross-user substitution ... ok (440µs)
+retention encrypts a verified credential and replay never consumes the code twice ... ok (3ms)
+consumed code and foreign Apple subject cannot overwrite a good credential ... ok (2ms)
+running 1 test from ./supabase/functions/_tests/auth-signup-local.test.ts
+local signup enforces age and creates onboarding prerequisites ...
+------- post-test output -------
+Skipping local Auth integration; set PROMPT_WARS_LOCAL_AUTH_TESTS=1.
+----- post-test output end -----
+local signup enforces age and creates onboarding prerequisites ... ok (263µs)
+running 1 test from ./supabase/functions/_tests/auto_resolution_test.ts
+Auto-Resolution: lock_prompt sets status to resolving when both prompts submitted ... ignored (0ms)
+running 12 tests from ./supabase/functions/_tests/bo3_math_test.ts
+moveTypePoints - rock-paper-scissors wiring ... ok (211µs)
+move-type alone cannot win a round against an equal prompt ... ok (34µs)
+a clear quality lead survives an unfavourable counter-pick ... ok (32µs)
+a narrow quality lead can be pulled back to a draw ... ok (19µs)
+applyMoveTypeModifier floors at zero ... ok (33µs)
+damage varies with the score gap instead of pinning to a clamp ... ok (59µs)
+strength shifts damage but does not dominate it ... ok (23µs)
+damage is clamped at both ends ... ok (18µs)
+KO is reachable on a blowout but not on an even series ... ok (30µs)
+stamina buys real KO resistance ... ok (22µs)
+HP tiebreaker can discriminate after a 1-1 series ... ok (19µs)
+forfeit walkover damage stays below an instant KO ... ok (16µs)
+running 3 tests from ./supabase/functions/_tests/bot_battle_test.ts
+Bot Battle: create_bot_battle creates battle with bot opponent ... ignored (0ms)
+Bot Battle: lock_prompt sets status to resolving for bot battles ... ignored (0ms)
+Bot Battle: bot_prompt_library has prompts for bot personas ... ignored (0ms)
+running 16 tests from ./supabase/functions/_tests/character-functions-remote.test.ts
+remote edit-character updates signature color and writes audit row ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote edit-character updates signature color and writes audit row ... ok (304µs)
+remote edit-character blocks edits while character is in an active battle ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote edit-character blocks edits while character is in an active battle ... ok (47µs)
+remote edit-character spends credits for a trait swap ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote edit-character spends credits for a trait swap ... ok (42µs)
+remote list-signature-items-catalog returns item contract ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote list-signature-items-catalog returns item contract ... ok (58µs)
+remote finalize-character-creation accepts catalog signature item id ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote finalize-character-creation accepts catalog signature item id ... ok (62µs)
+remote finalize-character-creation rejects a stat allocation that does not spend the pool ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote finalize-character-creation rejects a stat allocation that does not spend the pool ... ok (62µs)
+remote create-custom-signature-item creates text-only item and spends credits ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote create-custom-signature-item creates text-only item and spends credits ... ok (41µs)
+remote create-custom-signature-item creates generated icon item with real provider ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote create-custom-signature-item creates generated icon item with real provider ... ok (30µs)
+remote generate-portrait and regenerate-portrait create current portraits ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote generate-portrait and regenerate-portrait create current portraits ... ok (66µs)
+remote regenerate-portrait avatar_only is free and refuses once the avatar is current ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote regenerate-portrait avatar_only is free and refuses once the avatar is current ... ok (71µs)
+remote restore-portrait brings the paired avatar back with a fighter ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote restore-portrait brings the paired avatar back with a fighter ... ok (61µs)
+remote regenerate-portrait 402 carries the shortfall ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote regenerate-portrait 402 carries the shortfall ... ok (37µs)
+remote regenerate-portrait replays the same idempotency key without charging twice ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote regenerate-portrait replays the same idempotency key without charging twice ... ok (58µs)
+remote regenerate-portrait without seed returns conflict ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote regenerate-portrait without seed returns conflict ... ok (27µs)
+remote required functions are deployed ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote required functions are deployed ... ok (35µs)
+onboarding: an authenticated client can insert its draft character and receives a default item ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+onboarding: an authenticated client can insert its draft character and receives a default item ... ok (31µs)
+running 2 tests from ./supabase/functions/_tests/character_creation_test.ts
+randomPortraitSeed returns a 32-bit unsigned integer ... ok (224µs)
+randomPortraitSeed produces distinct values across calls ... ok (39µs)
+running 4 tests from ./supabase/functions/_tests/character_stats_test.ts
+validateStatAllocation accepts a full pool of integers in range ... ok (262µs)
+validateStatAllocation rejects the pool being under- or over-spent ... ok (36µs)
+validateStatAllocation rejects out-of-range, fractional and missing stats ... ok (36µs)
+validateStatAllocation rejects non-objects ... ok (18µs)
+running 4 tests from ./supabase/functions/_tests/combat_recovery_test.ts
+stale timeout cannot trigger follow-up resolution or notification ... ok (214µs)
+timeout dispatch re-reads prompts rather than sending stale forfeit identity ... ok (59µs)
+atomic timeout failure does not dispatch a resolver ... ok (80µs)
+Tier1 preserves frozen bot finisher despite absent prompt row ... ok (188µs)
+running 9 tests from ./supabase/functions/_tests/combat_v2_test.ts
+v2 stat increments, symmetric cap and legacy formula ... ok (221µs)
+v2 agility reduces incoming damage before one rounding and respects bounds ... ok (43µs)
+round preserves draw threshold, damage and KO ... ok (82µs)
+series plays third round after a win and draw; exhausts by wins then HP percentage then scores ... ok (73µs)
+all new human round clocks 24h; bot 2h; legacy first/later preserved ... ok (66µs)
+agreeing judges average each normalized rubric and record real per-call provenance ... ok (295µs)
+disagreement retains third-run policy while all three calls remain auditable ... ok (4ms)
+combat v2 every legal stat pair stays within modifier/damage bounds ... ok (408µs)
+rollout off is legacy; versioned queue resumes survive rollback; old clients cannot enter v2 ... ok (34µs)
+running 1 test from ./supabase/functions/_tests/completion_endpoint_test.ts
+completion endpoint binds identity and context, protects leases and replays ready operations ... ok (36ms)
+running 2 tests from ./supabase/functions/_tests/compose_reveal_payload_test.ts
+composeRevealPayload — human battle populates flat compat fields + signs winner portrait ... ok (676µs)
+composeRevealPayload — Bo3 round reads per-round outcome; bot opponent gets gradient fallback ... ok (106µs)
+running 1 test from ./supabase/functions/_tests/composer_calibration_endpoint_test.ts
+composer calibration rejects a weakened threshold before any provider or database request ... ok (33ms)
+running 2 tests from ./supabase/functions/_tests/composer_client_gates_test.ts
+submission gates the actual experience before moderation and preserves legacy submissions ...
+  v2 rejects unsupported contract undefined before any write or moderation ... ok (3ms)
+  v2 rejects unsupported contract 2 before any write or moderation ... ok (0ms)
+  v2 rejects unsupported contract 3 before any write or moderation ... ok (1ms)
+  v2 rejects unsupported contract 2.9 before any write or moderation ... ok (0ms)
+  v2 rejects unsupported contract null before any write or moderation ... ok (0ms)
+  compatible eligible guest locks a v2 prompt ... ok (1ms)
+  declared origin reaches only the atomic prompt write; invalid origin makes no write ... ok (0ms)
+  legacy single accepts missing contract ...
+------- post-test output -------
+Battle resolution triggered for: 00000000-0000-4000-8000-000000000003
+----- post-test output end -----
+  legacy single accepts missing contract ... ok (1ms)
+  legacy bo3 accepts missing contract ... ok (0ms)
+  outsider cannot trigger submission work ... ok (0ms)
+submission gates the actual experience before moderation and preserves legacy submissions ... ok (37ms)
+matchmaking protects stored replays and propagates SQL upgrade races ...
+  resume checks stored v2 ...
+------- post-test output -------
+{"event":"matchmaking.resume_terminal_or_matched","profile_id":"00000000-0000-4000-8000-000000000001","request_id":"c5636393-c3dc-4321-a9b1-0703198a1d3d","battle_id":"00000000-0000-4000-8000-000000000003","status":"matched"}
+----- post-test output end -----
+  resume checks stored v2 ... ok (0ms)
+  request checks stored v2 ...
+------- post-test output -------
+{"event":"matchmaking.request_replayed","profile_id":"00000000-0000-4000-8000-000000000001","request_id":"00000000-0000-4000-8000-000000000004","battle_id":"00000000-0000-4000-8000-000000000003","status":"matched"}
+----- post-test output end -----
+  request checks stored v2 ... ok (1ms)
+  invite checks stored v2 ... ok (0ms)
+  compatible accepted invite repairs interrupted face-off ... ok (1ms)
+  old client can replay legacy match ...
+------- post-test output -------
+{"event":"matchmaking.resume_terminal_or_matched","profile_id":"00000000-0000-4000-8000-000000000001","request_id":"06f2a829-b4a9-4de6-b61d-011c5dd24c77","battle_id":"00000000-0000-4000-8000-000000000003","status":"matched"}
+----- post-test output end -----
+  old client can replay legacy match ... ok (0ms)
+  bot-race SQL update requirement stays HTTP426 ...
+------- post-test output -------
+{"event":"matchmaking.bot_create_failed","profile_id":"00000000-0000-4000-8000-000000000001","request_id":"22563b14-b6ce-4557-b578-5b2009173430","error_code":"P0001"}
+----- post-test output end -----
+  bot-race SQL update requirement stays HTTP426 ... ok (1ms)
+  invite-race SQL update requirement stays HTTP426 ... ok (0ms)
+  new bot series defaults to composer v2 without calibration rejection ...
+------- post-test output -------
+{"event":"matchmaking.bot_ready","profile_id":"00000000-0000-4000-8000-000000000001","request_id":"00000000-0000-4000-8000-000000000004","battle_id":"00000000-0000-4000-8000-000000000003","replayed_request":true}
+----- post-test output end -----
+  new bot series defaults to composer v2 without calibration rejection ... ok (1ms)
+  new unranked series defaults to composer v2 without calibration rejection ...
+------- post-test output -------
+{"event":"matchmaking.queue_ready","profile_id":"00000000-0000-4000-8000-000000000001","request_id":"00000000-0000-4000-8000-000000000004","battle_id":"00000000-0000-4000-8000-000000000003","replayed_request":true}
+----- post-test output end -----
+  new unranked series defaults to composer v2 without calibration rejection ... ok (0ms)
+  new ranked series defaults to composer v2 without calibration rejection ...
+------- post-test output -------
+{"event":"matchmaking.queue_ready","profile_id":"00000000-0000-4000-8000-000000000001","request_id":"00000000-0000-4000-8000-000000000004","battle_id":"00000000-0000-4000-8000-000000000003","replayed_request":true}
+----- post-test output end -----
+  new ranked series defaults to composer v2 without calibration rejection ... ok (1ms)
+  new friend_challenge series defaults to composer v2 without calibration rejection ...
+------- post-test output -------
+{"event":"matchmaking.queue_ready","profile_id":"00000000-0000-4000-8000-000000000001","request_id":"00000000-0000-4000-8000-000000000004","battle_id":"00000000-0000-4000-8000-000000000003","replayed_request":true}
+----- post-test output end -----
+  new friend_challenge series defaults to composer v2 without calibration rejection ... ok (0ms)
+  new bot series requires contract3 before creating a row ... ok (1ms)
+  new unranked series requires contract3 before creating a row ... ok (0ms)
+  new ranked series requires contract3 before creating a row ... ok (0ms)
+  new friend_challenge series requires contract3 before creating a row ... ok (0ms)
+  ranked replay preserves its frozen v2 policy when calibration becomes unavailable ...
+------- post-test output -------
+{"event":"matchmaking.resume_terminal_or_matched","profile_id":"00000000-0000-4000-8000-000000000001","request_id":"17101b83-bdcd-4610-9590-62e152b9bcb6","battle_id":"00000000-0000-4000-8000-000000000003","status":"matched"}
+----- post-test output end -----
+  ranked replay preserves its frozen v2 policy when calibration becomes unavailable ... ok (1ms)
+  fresh request without resume recovers legacy unranked queue before new-series gates ... ok (0ms)
+  fresh request without resume recovers legacy ranked queue before new-series gates ... ok (0ms)
+  stored v2 queue still rejects old clients ... ok (1ms)
+  compatible fresh request keeps stored v2 queue ... ok (0ms)
+matchmaking protects stored replays and propagates SQL upgrade races ... ok (17ms)
+running 2 tests from ./supabase/functions/_tests/composer_telemetry_test.ts
+new composer events remain text-free and allowlisted ... ok (314µs)
+composer event excludes prose and requires bounded round/session ... ok (43µs)
+running 1 test from ./supabase/functions/_tests/composer_video_test.ts
+composer video uses exactly the recorded inputs and round outcome ... ok (392µs)
+running 5 tests from ./supabase/functions/_tests/composition_v3_test.ts
+composition v3 retains compatible fields and assigns stable IDs to all 27 paths per type ... ok (494µs)
+composition rejects a missing, repeated or oversized approach without rejecting legacy input ... ok (283µs)
+composition schema requires every approach and moderation includes every triple plus legacy pairs ... ok (141µs)
+composition version is explicit and invalid versions cannot reserve an operation ... ok (150µs)
+v3 provider isolates a malformed type and increases the output budget ... ok (2ms)
+running 9 tests from ./supabase/functions/_tests/cosmetics-policy.test.ts
+invalid or missing contract versions default to legacy ... ok (168µs)
+legacy/new catalog and purchase policy use minimum version ... ok (39µs)
+equip blocks unsupported and identity-changing slots ... ok (28µs)
+catalog merges authoritative ownership and filters version ... ok (48µs)
+catalog read errors fail explicitly ... ok (144µs)
+ownership read errors fail explicitly ... ok (18µs)
+committed purchase survives failed refresh ... ok (83µs)
+retry reconciles already-owned without claiming a new spend ... ok (29µs)
+failed purchase remains failure when refresh fails ... ok (34µs)
+running 5 tests from ./supabase/functions/_tests/cosmetics_payload_test.ts
+cosmetics - reveal_style is not sellable ... ok (169µs)
+cosmetics - every other type is sellable ... ok (27µs)
+judge isolation - cosmetic fields are redacted ... ok (222µs)
+judge isolation - round-resolve still runs the guard ... ok (136µs)
+judge isolation - no cosmetic field reaches the judge payload ... ok (87µs)
+running 11 tests from ./supabase/functions/_tests/credits_shortfall_test.ts
+credits - parses balance, price and shortfall from the RAISE text ... ok (245µs)
+credits - zero balance parses to a shortfall equal to the price ... ok (63µs)
+credits - shortfall never goes negative ... ok (19µs)
+credits - anything but the exact message parses to null ... ok (17µs)
+credits - detection is looser than parsing ... ok (43µs)
+credits - 402 body carries shortfall, balance and price ... ok (2ms)
+credits - the caller-supplied price wins over the parsed one ... ok (57µs)
+credits - price falls back to the parsed value when the caller has none ... ok (50µs)
+credits - unparseable message yields null numbers, not missing keys ... ok (51µs)
+credits - caller extras are merged flat into the same error object ... ok (45µs)
+credits - extras cannot overwrite the structured fields ... ok (39µs)
+running 2 tests from ./supabase/functions/_tests/dev_gate_test.ts
+isDevFunctionsEnabled: only the exact string "1" enables ... ok (164µs)
+isDevFunctionsEnabled: fails closed when unset or any other value ... ok (24µs)
+running 4 tests from ./supabase/functions/_tests/eligibility_handlers_test.ts
+eligibility management derives account from auth, never body, and requires authentication ... ok (3ms)
+unconfigured consent callback rejects redirects and forged approvals without applying anything ... ok (142µs)
+verified consent events require both adult verification and explicit consent evidence ... ok (145µs)
+consent evidence requires boolean true and rejects malformed decisions before RPC ... ok (78µs)
+running 5 tests from ./supabase/functions/_tests/glicko2_test.ts
+Glicko-2: Scale conversions ... ok (118µs)
+Glicko-2: Win increases rating ... ok (167µs)
+Glicko-2: Loss decreases rating ... ok (33µs)
+Glicko-2: Draw has small impact ... ok (31µs)
+Glicko-2: Compute rating deltas for both players ... ok (53µs)
+running 11 tests from ./supabase/functions/_tests/guardian_consent_test.ts
+KWS consent stays unavailable until an actual Consent Management integration exists ... ok (394µs)
+a genuine KWS parent verification proves adult status but never guardian consent ... ok (590µs)
+a valid body with a forged signature cannot produce verification evidence ... ok (5ms)
+verification authenticates the exact raw body before parsing ... ok (431µs)
+KWS secret rotation accepts either published v1 signature ... ok (295µs)
+stale and future signed deliveries fail the local replay window ... ok (165µs)
+reissued webhook signatures retain the same durable deduplication key ... ok (176µs)
+signed events for another organization or product are rejected ... ok (281µs)
+malformed or ambiguous signature headers fail closed ... ok (96µs)
+signed but invalid event data cannot masquerade as parent verification ... ok (785µs)
+provider payloads cannot inject purported consent evidence into the normalized result ... ok (84µs)
+running 10 tests from ./supabase/functions/_tests/identity_edit_test.ts
+identity - rejects an empty payload ... ok (271µs)
+identity - accepts a partial payload ... ok (88µs)
+identity - applies every present field at once ... ok (47µs)
+identity - drops a field staged back to its saved value ... ok (34µs)
+identity - trims before comparing, so whitespace is not an edit ... ok (35µs)
+identity - validates before reporting anything as applicable ... ok (36µs)
+identity - rejects an over-long name and battle cry ... ok (20µs)
+identity - rejects a non-hex signature colour ... ok (46µs)
+identity - each field logs under its own cooldown kind ... ok (52µs)
+identity - rename is priced as `rename`, not `name` ... ok (18µs)
+running 2 tests from ./supabase/functions/_tests/initial_portrait_recovery_test.ts
+staged initial portraits never demote or publish current art before fenced commit ... ok (824µs)
+ordinary paid render publication remains unchanged ... ok (8ms)
+running 15 tests from ./supabase/functions/_tests/judge_enhanced_test.ts
+validateJudgeResponse - accepts valid response ... ok (306µs)
+validateJudgeResponse - rejects invalid scores ... ok (179µs)
+validateJudgeResponse - rejects missing fields ... ok (44µs)
+aggregateScore - sums rubric scores ... ok (29µs)
+normalizeScores - applies length penalty for long prompts ... ok (58µs)
+normalizeScores - no penalty below threshold ... ok (25µs)
+applyMoveTypeModifier - attack beats finisher ... ok (28µs)
+applyMoveTypeModifier - defense beats attack ... ok (20µs)
+applyMoveTypeModifier - finisher beats defense ... ok (16µs)
+applyMoveTypeModifier - same move types neutral ... ok (11µs)
+applyMoveTypeModifier - losing matchup applies penalty ... ok (13µs)
+runJudgePipeline - returns valid result with double-run ... ok (318µs)
+runJudgePipeline - applies move type modifier ... ok (62µs)
+runJudgePipeline - detects draw with small score difference ... ok (81µs)
+runJudgePipeline - applies length normalization ... ok (75µs)
+running 3 tests from ./supabase/functions/_tests/judge_evaluation_runner_test.ts
+evaluation runs real pipeline for candidate, legacy baseline and swapped position without coverage metadata ... ok (789µs)
+explicit evaluation budget stops provider calls at the ceiling and refuses mock evidence ... ok (378µs)
+human review import binds labels to exact text and context and rejects incomplete or stale evidence ... ok (547µs)
+running 7 tests from ./supabase/functions/_tests/judge_evaluation_test.ts
+calibration persistence is opt-in and cannot be enabled for an offline export ... ok (483µs)
+persistable calibration recomputes complete and partial evidence without upgrading candidate labels ... ok (1ms)
+candidate corpus covers 240 labeled cases without scenario leakage or fabricated review ... ok (111µs)
+expected draws count as correct; authored labels cannot promote even perfect provider results ... ok (444µs)
+promotion rejects incomplete, fallback, wrong model and wrong policy evidence ... ok (1ms)
+signed verbose advantage beyond one aggregate point fails despite draw outcomes ... ok (248µs)
+position, locale, authoring and distribution drifts are independent promotion gates ... ok (819µs)
+running 5 tests from ./supabase/functions/_tests/judge_ideas_test.ts
+ideas pipeline removes the word-only penalty while legacy keeps it ... ok (543µs)
+all ideas runs including disagreement tiebreak receive the same frozen situation ... ok (395µs)
+ideas mock has no writing-length bonus and remains explicitly mock provenance ... ok (62µs)
+real adapter dispatches policy and serializes only frozen scoring inputs ... ok (2ms)
+appeal reuses ideas policy and situation instead of silently applying legacy ... ok (341µs)
+running 7 tests from ./supabase/functions/_tests/judge_provider_test.ts
+FallbackJudgeProvider - provider failure degrades to mock ...
+------- post-test output -------
+Judge provider failed, falling back to mock: JudgeProviderError: simulated outage
+----- post-test output end -----
+FallbackJudgeProvider - provider failure degrades to mock ... ok (760µs)
+FallbackJudgeProvider - fallback output still passes schema validation ...
+------- post-test output -------
+Judge provider failed, falling back to mock: JudgeProviderError: simulated outage
+----- post-test output end -----
+FallbackJudgeProvider - fallback output still passes schema validation ... ok (110µs)
+FallbackJudgeProvider - healthy provider is used, mock is not ... ok (28µs)
+createJudgeProvider - JUDGE_PROVIDER=xai is wrapped in a fallback ...
+------- post-test output -------
+JUDGE_API_KEY/XAI_API_KEY not set; judge calls will fail
+----- post-test output end -----
+createJudgeProvider - JUDGE_PROVIDER=xai is wrapped in a fallback ... ok (78µs)
+createJudgeProvider - defaults to mock, unknown value falls back ...
+------- post-test output -------
+Unknown judge provider: not-a-real-provider, falling back to mock
+----- post-test output end -----
+createJudgeProvider - defaults to mock, unknown value falls back ... ok (43µs)
+XAIJudgeProvider - missing API key fails fast with a typed error ...
+------- post-test output -------
+JUDGE_API_KEY/XAI_API_KEY not set; judge calls will fail
+----- post-test output end -----
+XAIJudgeProvider - missing API key fails fast with a typed error ... ok (379µs)
+XAIJudgeProvider - model id is env-driven ...
+------- post-test output -------
+JUDGE_API_KEY/XAI_API_KEY not set; judge calls will fail
+----- post-test output end -----
+XAIJudgeProvider - model id is env-driven ... ok (110µs)
+running 9 tests from ./supabase/functions/_tests/judge_test.ts
+Judge: Aggregate score calculation ... ok (292µs)
+Judge: Length normalization penalizes verbosity ... ok (69µs)
+Judge: Move type modifier - attack beats finisher ... ok (89µs)
+Judge: Move type modifier - defense beats attack ... ok (15µs)
+Judge: Move type modifier - finisher beats defense ... ok (18µs)
+Judge: Move type modifier - same vs same is neutral ... ok (44µs)
+Judge: Mock provider returns valid scores ... ok (183µs)
+Judge: Quality floor gates when both prompts are low quality ... ok (42µs)
+Judge: Quality floor does not gate when one prompt is decent ... ok (118µs)
+running 6 tests from ./supabase/functions/_tests/leave-battle-remote.test.ts
+remote leave-battle: free before this player locks ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote leave-battle: free before this player locks ... ok (243µs)
+remote leave-battle: remains free after locking ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote leave-battle: remains free after locking ... ok (45µs)
+remote leave-battle: a second call does not charge again ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote leave-battle: a second call does not charge again ... ok (33µs)
+remote leave-battle: zero-credit player can leave after locking ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote leave-battle: zero-credit player can leave after locking ... ok (48µs)
+remote leave-battle: bo3 closes the open round ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote leave-battle: bo3 closes the open round ... ok (84µs)
+remote can_appeal: a forfeit is not appealable ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote can_appeal: a forfeit is not appealable ... ok (48µs)
+running 1 test from ./supabase/functions/_tests/leave_battle_eligibility_test.ts
+restricted players can leave their battles without bypassing ownership or authentication ...
+  consent withdrawal does not prevent free battle settlement ...
+------- post-test output -------
+{"event":"leave_battle.completed","battle_id":"22222222-2222-2222-2222-222222222222","profile_id":"11111111-1111-1111-1111-111111111111","action":"canceled","credits_charged":0,"replayed":false}
+----- post-test output end -----
+  consent withdrawal does not prevent free battle settlement ... ok (3ms)
+  a restricted nonparticipant still cannot leave another battle ...
+------- post-test output -------
+{"event":"leave_battle.rejected","battle_id":"22222222-2222-2222-2222-222222222222","profile_id":"11111111-1111-1111-1111-111111111111","reason":"not_participant"}
+----- post-test output end -----
+  a restricted nonparticipant still cannot leave another battle ... ok (0ms)
+  an invalid session never reaches the service-role claim ...
+------- post-test output -------
+Auth diagnostics {
+  error: "Invalid session",
+  hasSupabaseUrl: true,
+  publishableKeyCount: 0,
+  hasLegacyAnonKey: true,
+  selectedPublishableKeyLength: 9,
+  authorization: {
+    present: true,
+    bearer: true,
+    length: 13,
+    looksLikeJwt: false,
+    looksLikePublishableKey: false,
+    looksLikeSecretKey: false
+  }
+}
+{"event":"leave_battle.failed","error_type":"unhandled"}
+----- post-test output end -----
+  an invalid session never reaches the service-role claim ... ok (1ms)
+restricted players can leave their battles without bypassing ownership or authentication ... ok (40ms)
+running 10 tests from ./supabase/functions/_tests/leave_battle_test.ts
+leaveOutcomeFor: only a matched ranked human match is a forfeit ... ok (209µs)
+buildLeaveScorePayload: keyed `resolution`, never `outcome` ... ok (49µs)
+buildLeaveScorePayload: explanation addresses the winner ... ok (26µs)
+buildLeaveScorePayload: no monetization data reaches scoring ... ok (70µs)
+buildLeaveScorePayload: bo3 records where the series stood ... ok (59µs)
+buildLeaveScorePayload: single format carries no series fields ... ok (27µs)
+buildLeaveScorePayload: rating_gated only when a gate fired ... ok (27µs)
+LEAVABLE_STATUSES: too late once the judge has the battle ... ok (32µs)
+terminal and leavable statuses never overlap ... ok (19µs)
+leaveIdempotencyKey: stable, and independent of round and clock ... ok (24µs)
+running 3 tests from ./supabase/functions/_tests/lock_signal_templates_test.ts
+Lock signal: lock_prompt stamps per-side lock timestamps on battles ... ignored (0ms)
+Lock signal: lock_prompt is round-aware — Bo3 rounds 2-3 get their own prompt rows ... ignored (0ms)
+Templates: get_battle_templates returns one template per move type, deterministically ... ignored (0ms)
+running 13 tests from ./supabase/functions/_tests/look_edit_test.ts
+look - rejects an empty payload ... ok (226µs)
+look - applies every trait in one batch ... ok (62µs)
+look - drops a field staged back to its saved value ... ok (61µs)
+look - a no-op batch changes nothing ... ok (29µs)
+look - validates everything before reporting any of it applicable ... ok (30µs)
+look - clearing the prompt is a real change, not an absent field ... ok (28µs)
+look - blank and whitespace prompts normalise to null ... ok (45µs)
+look - clearing an already-empty prompt is not a change ... ok (19µs)
+look - rejects an over-long prompt ... ok (36µs)
+look - the item is never null ... ok (48µs)
+look - traits and art style share one audit kind, palette and item keep theirs ... ok (32µs)
+look - every log kind is one the character_edits CHECK allows ... ok (19µs)
+random - shuffles all five traits into valid values ... ok (5ms)
+running 1 test from ./supabase/functions/_tests/matchmaking-reliability-remote.test.ts
+remote matchmaking requests are atomic, replayable and service-only ...
+------- post-test output -------
+Skipping remote Supabase character function tests. Set PROMPT_WARS_REMOTE_FUNCTION_TESTS=1 to run them.
+----- post-test output end -----
+remote matchmaking requests are atomic, replayable and service-only ... ok (278µs)
+running 5 tests from ./supabase/functions/_tests/moderation_fail_closed_test.ts
+blocklist matches whole words, not substrings ... ok (8ms)
+with a classifier configured, combat vocabulary is not a blocklist matter ... ok (6ms)
+the hard blocklist applies even with a classifier configured ... ok (99µs)
+no provider configured: blocklist only, still approves clean text ... ok (73µs)
+configured provider that fails is held for review, not approved ... ok (321µs)
+running 7 tests from ./supabase/functions/_tests/moderation_openai_policy_test.ts
+written combat: violence below the tolerance is approved ... ok (276µs)
+violence at or above the tolerance is still held for review ... ok (68µs)
+graphic violence has a lower bar than violence ... ok (41µs)
+every other category keeps the provider flag as-is ... ok (44µs)
+a tolerated violence flag does not shield another flagged category ... ok (32µs)
+extreme violence is refused outright ... ok (37µs)
+nothing flagged approves with confidence from the top score ... ok (32µs)
+running 1 test from ./supabase/functions/_tests/moderation_personal_info_test.ts
+obvious contact information is held before reaching external generation without echoing it ... ok (8ms)
+running 9 tests from ./supabase/functions/_tests/moderation_test.ts
+TextModerationProvider - blocklist rejection ... ok (7ms)
+TextModerationProvider - length validation too short ... ok (178µs)
+TextModerationProvider - length validation too long ... ok (132µs)
+TextModerationProvider - excessive caps flagged ... ok (77µs)
+TextModerationProvider - excessive repetition flagged ... ok (45µs)
+TextModerationProvider - clean text approved ... ok (131µs)
+TextModerationProvider - multiple violations ... ok (33µs)
+VideoModerationProvider - manual review default ... ok (60µs)
+VideoModerationProvider - no provider configured ... ok (44µs)
+running 22 tests from ./supabase/functions/_tests/move_suggestions_test.ts
+buildFighterBrief includes every populated fighter field ... ok (153µs)
+buildFighterBrief omits absent optional fields cleanly ... ok (103µs)
+buildUserPrompt carries theme, round and move guidance ... ok (63µs)
+validateSuggestions accepts a well-formed set ... ok (114µs)
+validateSuggestions rejects the wrong count ... ok (7ms)
+validateSuggestions rejects a non-array payload ... ok (92µs)
+validateSuggestions rejects a body under the table minimum ... ok (102µs)
+validateSuggestions rejects a body over the table maximum ... ok (58µs)
+validateSuggestions rejects a missing title ... ok (62µs)
+validateSuggestions trims and truncates the title ... ok (31µs)
+validateSuggestions counts a whitespace-padded body after trimming ... ok (40µs)
+the generation target sits below the storable maximum ... ok (16µs)
+validateSuggestions accepts a body between the target and the maximum ... ok (30µs)
+validateSuggestions still rejects a body past the table bound ... ok (40µs)
+the system prompt asks for the target length, not the table bound ... ok (43µs)
+the combined prompt carries guidance for every move type ... ok (26µs)
+the combined prompt sends the fighter brief exactly once ... ok (31µs)
+every object in the schema is strict, at every depth ... ok (100µs)
+the schema requires every move type asked for, and no others ... ok (52µs)
+validateCombinedSuggestions returns a set per move type ... ok (55µs)
+validateCombinedSuggestions rejects a missing move type ... ok (59µs)
+a single-move request uses the very same shape ... ok (17µs)
+running 9 tests from ./supabase/functions/_tests/player_avatars_test.ts
+HTTP authentication runs before validation or service signing ... ok (3ms)
+avatar contract accepts identifiers only, deduplicates and bounds combined batches ... ok (196µs)
+current and frozen avatars share one authorized batch signing call ... ok (291µs)
+unauthorized and legacy battles never sign even in mixed batches ... ok (107µs)
+both directions of blocking suppress current and frozen portraits ... ok (78µs)
+snapshot path cannot bypass current moderation, ownership, kind or removal ... ok (146µs)
+battle keeps approved non-current avatar after a new portrait is selected ... ok (61µs)
+database and signing failure never produce new signing or mutation attempts ... ok (206µs)
+block authorization is bounded even for accounts with more than 1000 relationships ... ok (239µs)
+running 27 tests from ./supabase/functions/_tests/portrait-prompt-resolver.test.ts
+resolver includes raw subject when prompt_raw is provided ... ok (315µs)
+resolver composes from each trait phrase when no prompt_raw ... ok (92µs)
+resolver always appends negative-prompt clauses ... ok (38µs)
+resolver caps output at 800 chars even with maximal input ... ok (83µs)
+seed appears in output and color appears as descriptor (not raw hex) ... ok (51µs)
+describeSignatureColor buckets hues into named families ... ok (119µs)
+item icon resolver produces icon-styled prompt with negatives and seed ... ok (47µs)
+signature_item_fragment is included as a mandatory, prominent detail ... ok (32µs)
+fighter kind: every art style demands full-body framing, head to feet, uncropped ... ok (107µs)
+style lock reiterates the medium near the end of the prompt ... ok (28µs)
+safety constraints survive truncation of over-long prompts ... ok (44µs)
+art_style swaps the scaffold and keyword for each known style ... ok (73µs)
+art_style defaults to painterly when omitted or unknown ... ok (35µs)
+avatar kind: every art style demands head-and-shoulders bust framing ... ok (64µs)
+avatar kind softens the signature-item clause ... ok (44µs)
+kind defaults to fighter so existing callers are unchanged ... ok (25µs)
+phrases - every vibe value has one ... ok (43µs)
+phrases - no vibe phrase is keyed on a value that cannot occur ... ok (26µs)
+phrases - every silhouette value has one ... ok (15µs)
+phrases - no silhouette phrase is keyed on a value that cannot occur ... ok (8µs)
+phrases - every era value has one ... ok (10µs)
+phrases - no era phrase is keyed on a value that cannot occur ... ok (17µs)
+phrases - every expression value has one ... ok (8µs)
+phrases - no expression phrase is keyed on a value that cannot occur ... ok (12µs)
+phrases - every palette value has one ... ok (16µs)
+phrases - no palette phrase is keyed on a value that cannot occur ... ok (14µs)
+phrases - no trait reaches the prompt as a raw snake_case token ... ok (40µs)
+running 10 tests from ./supabase/functions/_tests/portrait_pairing_test.ts
+pairing - the audit row wins over a nearer version match ... ok (415µs)
+pairing - the newest audit row for the fighter wins ... ok (54µs)
+pairing - audit rows for other fighters or without an avatar are skipped ... ok (87µs)
+pairing - version fallback picks the avatar nearest in time ... ok (29µs)
+pairing - version fallback ignores other versions even when nearer ... ok (51µs)
+pairing - version fallback ignores rejected avatars ... ok (109µs)
+pairing - version fallback ignores rows that are not avatars ... ok (21µs)
+pairing - a fighter without a version is never matched by version ... ok (19µs)
+pairing - the audit row still applies to a fighter without a version ... ok (48µs)
+pairing - null with nothing to go on ... ok (20µs)
+running 5 tests from ./supabase/functions/_tests/private_bot_resolver_test.ts
+policy2 missing private choice fails recoverably before claiming a round ... ok (3ms)
+policy1 resolver does not require private state ... ok (467µs)
+resolver freezes private text only for policy2 and preserves policy1 text ... ok (2ms)
+opening composer2 round1 never prefetches while legacy opening does ... ok (2ms)
+opening later composer2 rounds never prefetches while legacy opening does ... ok (4ms)
+running 2 tests from ./supabase/functions/_tests/prompt_situations_test.ts
+each series publishes three distinct, stable situations in its theme ... ok (532µs)
+new series default to the composer while existing experiences stay pinned ... ok (29µs)
+running 2 tests from ./supabase/functions/_tests/provider_identity_test.ts
+provider permits require a signed identity, matching audience, expiry and hashed nonce ... ok (100ms)
+signed provider identity requires a non-empty string subject ... ok (134ms)
+running 18 tests from ./supabase/functions/_tests/providers_test.ts
+MockJudgeProvider - returns valid scores ... ok (386µs)
+MockJudgeProvider - deterministic with same seed ... ok (71µs)
+MockImageProvider - returns Tier 0 composition metadata ... ok (76µs)
+MockImageProvider - handles draw outcome ... ok (42µs)
+MockVideoProvider - submits video generation ... ok (46µs)
+MockVideoProvider - polls video status ... ok (39µs)
+xAI video status preserves post-generation moderation verdict ... ok (40µs)
+MockTtsProvider - generates battle cry metadata ... ok (32µs)
+Provider factories return correct instances ... ok (39µs)
+XAIVideoProvider - no references sends base model, no image key ... ok (2ms)
+XAIVideoProvider - references bump the model and are sent ... ok (63µs)
+XAIVideoProvider - references truncate to the 7-image cap ... ok (73µs)
+XAIVideoProvider - flag off ignores references entirely ... ok (63µs)
+XAIVideoProvider - a rate-limited poll is transient ... ok (311µs)
+XAIVideoProvider - an upstream outage is transient ... ok (58µs)
+XAIVideoProvider - a 4xx is the provider having the last word ... ok (44µs)
+XAIVideoProvider - a transport failure is transient ... ok (157µs)
+XAIVideoProvider - a healthy poll still maps normally ... ok (54µs)
+running 5 tests from ./supabase/functions/_tests/registration_policy_test.ts
+age uses the birthday, including future and impossible-date rejection ... ok (379µs)
+missing and unreviewed policies never permit signup ... ok (87µs)
+minimum age cannot be weakened by a country policy ... ok (31µs)
+country consent boundary is enforced and purchase permission is independent ... ok (50µs)
+region validation rejects vague countries and malformed subdivisions ... ok (139µs)
+running 9 tests from ./supabase/functions/_tests/registration_service_test.ts
+guest config requires both rollout switches ... ok (3ms)
+guest authorization returns a short-lived bearer permit after eligibility ... ok (394µs)
+guest intake fails closed when disabled and never skips consent ... ok (539µs)
+registration fails closed on malformed release or expiry data ... ok (233µs)
+under-13 intake rejects before policy/session/identity writes ... ok (139µs)
+permitted registration stores only age transition data and opaque secret hash ... ok (166µs)
+missing reviewed policy and missing consent never authorize signup ... ok (188µs)
+provider authorization binds verified subject, never client-submitted subject ... ok (254µs)
+status rejects client approval and expired registration ... ok (150µs)
+running 16 tests from ./supabase/functions/_tests/render_look_modes_test.ts
+render mode - recognises the three modes ... ok (222µs)
+render mode - anything else is a plain render, never a paid extra ... ok (35µs)
+avatar retry - eligible when there is no avatar at all ... ok (50µs)
+avatar retry - eligible when the avatar is behind the fighter ... ok (14µs)
+avatar retry - refused when the avatar already matches ... ok (47µs)
+avatar retry - an avatar ahead of the fighter is also current ... ok (24µs)
+avatar retry - a NULL avatar version counts as current ... ok (55µs)
+avatar retry - refused when the fighter is behind the character ... ok (16µs)
+avatar retry - refused when there is no fighter ... ok (24µs)
+avatar retry - NULL versions on fighter and character compare as zero ... ok (71µs)
+replay - a render edit rebuilds the full success response ... ok (82µs)
+replay - an avatar_only edit reports the avatar job ... ok (21µs)
+replay - a missing avatar is reported as pending ... ok (18µs)
+replay - a legacy row without mode is told apart by edit_kind ... ok (6ms)
+replay - portrait rows that no longer exist degrade to nulls ... ok (54µs)
+replay - portrait ids to load skip nulls and non-strings ... ok (63µs)
+------- post-test output -------
+✓ request-video-upgrade tests defined (implementation needed for full coverage)
+----- post-test output end -----
+running 7 tests from ./supabase/functions/_tests/request_video_upgrade_test.ts
+checkVideoUpgradeEntitlement - free grant available ... ok (121µs)
+checkVideoUpgradeEntitlement - subscription allowance available ... ok (12µs)
+checkVideoUpgradeEntitlement - credits available ... ok (20µs)
+checkVideoUpgradeEntitlement - insufficient entitlements ... ok (11µs)
+spendCreditsForVideo - idempotency ... ok (16µs)
+request-video-upgrade - validates battle participant ... ok (10µs)
+request-video-upgrade - cost preview mode ... ok (11µs)
+running 8 tests from ./supabase/functions/_tests/revenuecat_events_test.ts
+isSubscriptionLifecycleEvent: recognizes lifecycle events only ... ok (221µs)
+CANCELLATION marks canceled but preserves expires_at when provided ... ok (43µs)
+CANCELLATION without expiration_at_ms does NOT clear expires_at (column omitted) ... ok (30µs)
+UNCANCELLATION returns the row to active ... ok (26µs)
+EXPIRATION is terminal (expired) ... ok (28µs)
+isOneOffPurchaseEvent: NON_RENEWING_PURCHASE is a purchase ... ok (46µs)
+platformForStore: maps RevenueCat uppercase store values ... ok (24µs)
+platformForStore: case-insensitive and safe on missing values ... ok (33µs)
+running 6 tests from ./supabase/functions/_tests/revenuecat_signature_test.ts
+accepts a correctly signed RevenueCat delivery ... ok (565µs)
+rejects a signature made with the wrong secret ... ok (107µs)
+rejects a tampered body ... ok (117µs)
+rejects a stale timestamp even when correctly signed ...
+------- post-test output -------
+Webhook timestamp outside tolerance (3600s)
+----- post-test output end -----
+rejects a stale timestamp even when correctly signed ... ok (158µs)
+rejects the old bare-hex header format ...
+------- post-test output -------
+Malformed webhook signature header
+----- post-test output end -----
+rejects the old bare-hex header format ... ok (6ms)
+rejects malformed headers without throwing ...
+------- post-test output -------
+Malformed webhook signature header
+Malformed webhook signature header
+Malformed webhook signature header
+Webhook timestamp is not numeric
+Webhook signature is not valid hex
+Webhook signature is not valid hex
+----- post-test output end -----
+rejects malformed headers without throwing ... ok (103µs)
+running 5 tests from ./supabase/functions/_tests/revenuecat_webhook_test.ts
+RevenueCat fulfillment is atomic, idempotent, and follows subscription identity ...
+  activation stores original identity; renewal changes transaction and mirrors purchase ... ok (11ms)
+  duplicate delivery cannot reset already spent allowance ... ok (2ms)
+  cancel, uncancel and expire target original subscription after renewal ... ok (4ms)
+  failed credit grant rolls back claim and purchase; retry grants once ... ok (6ms)
+  all configured credit packs grant the catalog amount and unknown packs fail ... ok (2ms)
+  missing expiration is rejected without a claim or invented benefits ... ok (1ms)
+  lifecycle before activation remains retryable, then targets the restored subscription ... ok (4ms)
+  failed subscription purchase mirror rolls back allowance renewal ... ok (1ms)
+  unknown users and TEST events acknowledge without foreign-key failure ... ok (1ms)
+  a purchase transaction cannot be fulfilled to another profile ... ok (1ms)
+  FTUO failure rolls back and retry grants credits plus cosmetic once ... ok (3ms)
+  annual Google Play plan receives first monthly reset ... ok (1ms)
+  late annual delivery starts in the current monthly window ... ok (1ms)
+  monthly boundaries stay anchored across February, leap years, skipped months and expiry ... ok (1ms)
+  reset handles canceled paid annual rows once without rollover or expired benefits ... ok (1ms)
+  reset only changes due active/canceled paid rows ... ok (2ms)
+  migration is idempotent and preserves counters when reapplied ... ok (2ms)
+  fulfillment and reset are unavailable to clients; one cron job is registered ... ok (0ms)
+RevenueCat fulfillment is atomic, idempotent, and follows subscription identity ... ok (548ms)
+migration preserves a renewed monthly subscription allowance window ... ok (246ms)
+paid-through canceled subscriptions spend and restore allowance; expired rows never do ... ok (264ms)
+monthly store period ending March 31 does not refresh again on March 28 ... ok (269ms)
+cancellation arriving before its renewal preserves cancellation and refreshes the new paid allowance ... ok (247ms)
+running 17 tests from ./supabase/functions/_tests/sign_battle_portraits_test.ts
+resolveBattlePortraits — non-participant is forbidden ... ok (333µs)
+resolveBattlePortraits — missing battle is not_found ... ok (45µs)
+resolveBattlePortraits — opponent (player_two) gets BOTH signed portraits ... ok (195µs)
+resolveBattlePortraits — bot side resolves to null portrait + null archetype ... ok (75µs)
+resolveBattlePortraits — bot side carries the persona identity when there is one ... ok (83µs)
+resolveBattlePortraits — human with no current portrait -> null url, archetype kept ... ok (41µs)
+resolveBattlePortraits — rejected portrait -> null url ... ok (38µs)
+resolveBattlePortraits — signing failure on one side does not fail the other ... ok (57µs)
+resolveBattlePortraits — payload carries each side's name and colour ... ok (40µs)
+resolveBattlePortraits — identity survives a portrait signing failure ... ok (33µs)
+resolveBattlePortraits — prefers the avatar render when one exists ... ok (29µs)
+resolveBattlePortraits — falls back to the fighter render when no avatar exists ... ok (29µs)
+resolveBattlePortraits — carries equipped cosmetics to the opponent ... ok (36µs)
+resolveBattlePortraits — a character with no cosmetics reports null ... ok (36µs)
+resolveBattlePortraits — a distinct fighter render is signed separately ... ok (33µs)
+frozen identity and art survive later character edits and missing current portraits ... ok (49µs)
+frozen snapshot never bypasses participant authorization ... ok (19µs)
+running 2 tests from ./supabase/functions/_tests/starter_rules_test.ts
+respec validates progressed pool and rejects fractions or inflation ... ok (218µs)
+funnel accepts only enums and bounded duration, never arbitrary metadata ... ok (64µs)
+running 5 tests from ./supabase/functions/_tests/structured_suggestions_test.ts
+structured options survive validation with stable server-owned IDs ... ok (394µs)
+structured options reject missing, duplicate and oversized intent choices ... ok (295µs)
+structured options reject duplicate or oversized actions ... ok (4ms)
+legacy sets need no structure and retain the existing title/body contract ... ok (46µs)
+optional affordance tags are validated against the published scene allowlist ... ok (70µs)
+running 2 tests from ./supabase/functions/_tests/subscription_allowance_test.ts
+legacy single allowance spends the paid canceled row and ignores expired active rows ... ok (340µs)
+legacy single allowance refuses canceled subscriptions after expiry ... ok (30µs)
+running 1 test from ./supabase/functions/_tests/suggestion_cache_enrichment_endpoint_test.ts
+enriching an exact cached purchase does not replay or reserve its free bank ... ok (37ms)
+running 3 tests from ./supabase/functions/_tests/suggestion_completion_service_test.ts
+custom completion only accepts explicit bounded fragments and client v3 ... ok (425µs)
+a rejected final triple fails free completion and never calls a financial RPC ... ok (947µs)
+short own fragments remain valid when their complete triple meets the prompt bound ... ok (139µs)
+running 3 tests from ./supabase/functions/_tests/suggestion_completion_test.ts
+exact cache enrichment accepts one owned set target only on ensure_free ... ok (424µs)
+own action completion preserves user prefix and generates three intentions with three approaches ... ok (2ms)
+cache upgrade preserves original identifiers, body and fragment spelling ... ok (388µs)
+running 1 test from ./supabase/functions/_tests/suggestion_endpoint_test.ts
+suggestion HTTP contract preserves price errors, private leases and eligible guest access ...
+  eligible anonymous account gets pending free operation without leaked lease ... ok (4ms)
+  batch ensure returns separate private results and rejects paid batches before reserve ... ok (1ms)
+  batch groups only fresh claims in one provider call and preserves pending type ... ok (3ms)
+  stale displayed price retains precise error and current price ... ok (0ms)
+  reroll without confirmation never reaches reservation ... ok (0ms)
+  old clients cannot reserve paid rerolls ... ok (1ms)
+  outsider never reaches service role reservation ... ok (0ms)
+  terminal refunded operation remains a recoverable failed result ... ok (1ms)
+suggestion HTTP contract preserves price errors, private leases and eligible guest access ... ok (43ms)
+running 6 tests from ./supabase/functions/_tests/suggestion_moderation_units_test.ts
+typed short fragments pass while prompt minimum remains twenty and roles validate before deduplication ... ok (10ms)
+OpenAI batches unique inputs; joined harmful meaning is independently refused ... ok (2ms)
+missing or malformed batch results fail closed ... ok (311µs)
+fallback uses at most four requests and a single overall deadline ... ok (28ms)
+partial category maps and contradictory flags fail closed before policy evaluation ... ok (346µs)
+Perspective requires every requested attribute and valid score bounds ... ok (225µs)
+running 1 test from ./supabase/functions/_tests/suggestion_prefetch_test.ts
+v2 service prefetch skips before reservation or provider work ... ok (42ms)
+running 14 tests from ./supabase/functions/_tests/suggestion_service_test.ts
+mixed persisted composition versions start together so every reserved lease is renewed ... ok (530µs)
+omitted legacy operation is free-only and reroll needs explicit price plus idempotency key ... ok (231µs)
+paid rerolls require the integer v3 contract, while legacy omitted operations stay free ... ok (75µs)
+free requests never reserve a paid operation, including a pending prefetch ... ok (63µs)
+all fragments and all assembled pairs are moderated before a fenced completion ... ok (1ms)
+one unsafe intent fails the purchased structured set through the refund RPC ... ok (301µs)
+provider failure terminalizes all owned claims instead of touching rows or wallet directly ... ok (213µs)
+expired lease stops generation; stale cleanup cannot change another worker result ... ok (128µs)
+suggestions are available by default and retain the independent emergency stop ... ok (41µs)
+real heuristic moderator approves three safe structured cards without concatenation artefacts ... ok (319µs)
+free batch accepts one to three unique types and rejects ambiguous or paid batch requests ... ok (98µs)
+unsafe joined pair rejects all three cards and records typed audit without prompt text ... ok (187µs)
+moderation deadline terminalizes owned purchase without publishing partial approvals ... ok (22ms)
+a heartbeat during a committed completion does not fail the other banks ... ok (2ms)
+running 1 test from ./supabase/functions/_tests/suggestion_step_endpoint_test.ts
+paid step endpoint authenticates owners, moderates real context and safely replays purchases ... ok (47ms)
+running 10 tests from ./supabase/functions/_tests/suggestion_step_service_test.ts
+step purchases require explicit confirmation, bounded parents and composition v3 ... ok (467µs)
+step result exposes only client fields and never worker context or provider metadata ... ok (64µs)
+paid step checks parent pair and every triple before fenced delivery ... ok (999µs)
+unsafe combined meaning fails a paid step through its refund finalizer ... ok (134µs)
+context loading and moderation timeout failures use the same financial worker fence ... ok (7ms)
+unowned step cannot generate and lost worker cannot publish a paid result ... ok (132µs)
+paid intentions deliver all nine descendant paths without changing the action ... ok (266µs)
+incomplete paid descendants fail delivery instead of charging for a partial set ... ok (111µs)
+lost finalization response recovers recorded success through the same operation token ... ok (245µs)
+stale finalizer retains only recovery metadata so clients poll the same paid key ... ok (140µs)
+running 7 tests from ./supabase/functions/_tests/video_constants_test.ts
+isPastHardTimeout: job past the timeout window times out ... ok (229µs)
+isPastHardTimeout: job within the timeout window does not time out ... ok (18µs)
+isPastHardTimeout: exact boundary does not time out ... ok (13µs)
+isPastHardTimeout: missing timestamp never times out ... ok (10µs)
+isPastHardTimeout: unparsable timestamp never times out ... ok (19µs)
+isRefundableTrigger: on-demand triggers refund, subscriber-auto does not ... ok (21µs)
+isRetryableFailedJob: refunded and free-auto failures can retry safely ... ok (29µs)
+running 6 tests from ./supabase/functions/_tests/video_cost_test.ts
+an unpriced run records nothing rather than zero ... ok (281µs)
+the blanket rate prices by duration ... ok (108µs)
+a per-model rate wins over the blanket one ... ok (31µs)
+a malformed or negative rate records nothing ... ok (86µs)
+a missing duration records nothing ... ok (75µs)
+an unknown model still gets the blanket rate ... ok (34µs)
+running 12 tests from ./supabase/functions/_tests/video_lease_test.ts
+poll budget < lease < hard timeout ... ok (483µs)
+the schedule opens with a long wait, then polls tightly ... ok (45µs)
+the schedule never overruns its budget ... ok (17µs)
+a schedule shorter than the first delay polls not at all ... ok (32µs)
+the schedule is far shorter than a poll-from-zero one would be ... ok (22µs)
+a live lease is not expired; a lapsed one is ... ok (143µs)
+a missing or unparsable lease reads as expired ... ok (57µs)
+only an explicit 4xx is the provider having the last word ... ok (22µs)
+rate limits, outages, network and timeouts are all transient ... ok (23µs)
+polling continues inside the budget with a healthy provider ... ok (61µs)
+polling stops at the budget ... ok (20µs)
+polling stops after a run of transient errors ... ok (757µs)
+
+ok | 498 passed (59 steps) | 0 failed | 7 ignored (4s)
+

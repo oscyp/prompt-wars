@@ -24,19 +24,15 @@ export function GamePanel({
         ...accessibilityState,
         ...(selected ? { selected: true } : {}),
       }}
-      style={[styles.panel, style]}
+      style={[styles.panel, style, styles.chromeOwner]}
     >
       <GameBevel
         color={
-          selected
-            ? colors.primary
-            : tone === 'ornate'
-              ? colors.ornament
-              : colors.border
+          selected || tone === 'ornate' ? colors.ornament : colors.ornamentMuted
         }
         fill={selected ? colors.selectedSurface : colors.card}
-        insetColor={tone === 'ornate' ? colors.ornamentMuted : undefined}
-        strokeWidth={selected ? 2 : 1}
+        insetColor={colors.ornamentMuted}
+        strokeWidth={1.5}
       />
       {children}
     </View>
@@ -44,5 +40,10 @@ export function GamePanel({
 }
 
 const styles = StyleSheet.create({
+  chromeOwner: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
+  },
   panel: { padding: GameChrome.panelPadding, position: 'relative' },
 });

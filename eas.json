@@ -16,8 +16,10 @@
     },
     "preview": {
       "distribution": "internal",
+      "environment": "production",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "autoIncrement": true
       }
     },
     "production": {

@@ -32,7 +32,7 @@ test.each(['unavailable', 'submitting', 'submitted'] as LockInState[])(
     expect(screen.UNSAFE_getByType(GameBevel).props.gradient).toBeUndefined();
   },
 );
-test('ready uses quill and hold callbacks; screen reader uses confirmation', () => {
+test('legacy ready uses quill and hold callbacks; screen reader uses confirmation', () => {
   const start = jest.fn(),
     cancel = jest.fn(),
     confirm = jest.fn();
@@ -58,3 +58,35 @@ test('ready uses quill and hold callbacks; screen reader uses confirmation', () 
   fireEvent.press(screen.getByTestId('battle-lock-in'));
   expect(confirm).toHaveBeenCalledTimes(1);
 });
+
+test.each(['ready', 'failure'] as const)(
+  'explicit confirmation in %s state uses taps without hold handlers or hints',
+  (state) => {
+    const start = jest.fn(),
+      cancel = jest.fn(),
+      confirm = jest.fn();
+    const screen = render(
+      <BattleLockInControl
+        state={state}
+        activation="confirm"
+        progress={progress}
+        screenReaderEnabled={false}
+        onStart={start}
+        onCancel={cancel}
+        onConfirm={confirm}
+      />,
+    );
+    const control = screen.getByTestId('battle-lock-in');
+    fireEvent(control, 'pressIn');
+    fireEvent(control, 'pressOut');
+    fireEvent.press(control);
+    expect(start).not.toHaveBeenCalled();
+    expect(cancel).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(control.props.accessibilityHint).toContain('Opens confirmation');
+    expect(screen.queryByText(/HOLD/)).toBeNull();
+    expect(
+      screen.getByText(state === 'failure' ? 'TRY AGAIN' : 'LOCK IN PROMPT'),
+    ).toBeTruthy();
+  },
+);

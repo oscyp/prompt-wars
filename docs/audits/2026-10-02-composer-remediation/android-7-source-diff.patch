@@ -1,0 +1,16 @@
+--- ios16-android6/app/(battle)/prompt-entry.tsx
++++ android7/app/(battle)/prompt-entry.tsx
+@@ -1390,9 +1390,12 @@
+       style={[
+         styles.container,
+         { backgroundColor: colors.background, paddingTop: 0 },
+       ]}
+-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
++      behavior={Platform.select({
++        ios: 'padding',
++        android: keyboardVisible ? 'padding' : undefined,
++      })}
+     >
+       {/* Parking preserves the draft; forfeiting remains a separate action. */}
+       <BattleBackdrop theme={battle?.theme} quiet />
+       <BattleHeader

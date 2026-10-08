@@ -7,6 +7,9 @@ type LegacyName = React.ComponentProps<typeof Ionicons>['name'];
 /** Compatibility names stay at call sites; visual game symbols share one family. */
 const GAME_SYMBOLS: Partial<Record<LegacyName, GameIconName>> = {
   flash: 'attack',
+  create: 'quill',
+  'create-outline': 'quill',
+  bulb: 'ideas',
   'flash-outline': 'attack',
   shield: 'defense',
   'shield-outline': 'defense',
@@ -40,7 +43,7 @@ const GAME_SYMBOLS: Partial<Record<LegacyName, GameIconName>> = {
   'shield-checkmark-outline': 'shield-check',
   'settings-outline': 'settings',
   settings: 'settings',
-  'cog-outline': 'gear',
+  'cog-outline': 'settings',
   'cube-outline': 'gear',
   'color-palette-outline': 'palette',
   'color-palette': 'palette',

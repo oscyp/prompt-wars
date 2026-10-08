@@ -1,0 +1,8 @@
+{
+  "checkedAt": "2026-10-08T11:07:11.356601+00:00",
+  "filesCompared": 525,
+  "manifestSha256": "76d760fcfbe8b019b1c6236cd48542993091e1bcac2554e978058a574e632f45",
+  "sourceDrift": [
+    "scripts/test-cinematic-concurrency.py"
+  ]
+}

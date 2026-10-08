@@ -1,0 +1,32 @@
+{
+  "id": "7db76299-0128-406d-8b24-86fe7b6058b5",
+  "status": "NEW",
+  "platform": "IOS",
+  "artifacts": {},
+  "fingerprint": {
+    "id": "01a0fbaa-a80a-799f-8a9a-061d6eccd05d",
+    "hash": "11b375fb96dd8ca1f68c02faf4ac4614f526b608"
+  },
+  "project": {
+    "id": "d4c525e1-0a95-4c6a-b1ee-106fa2f03f46",
+    "name": "prompt-wars",
+    "slug": "prompt-wars",
+    "ownerAccount": {
+      "id": "72cb62bc-d38d-4706-a12c-a881967fb6f1",
+      "name": "prompt-wars"
+    }
+  },
+  "distribution": "STORE",
+  "buildProfile": "production",
+  "sdkVersion": "55.0.0",
+  "appVersion": "1.3.3",
+  "appBuildVersion": "14",
+  "gitCommitHash": "d66e621264fb56b6471ecbaa4a7971bb689abaca",
+  "gitCommitMessage": "UX changes",
+  "priority": "NORMAL",
+  "createdAt": "2026-10-02T08:11:00.448Z",
+  "updatedAt": "2026-10-02T08:11:00.448Z",
+  "message": "Prompt composer: shared situations, Build move, safe suggestions and drafts",
+  "expirationDate": "2026-11-01T08:11:00.483Z",
+  "isForIosSimulator": false
+}

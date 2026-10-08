@@ -27,24 +27,47 @@ test('category rail keeps labels, selected state and unsaved indicators accessib
   fireEvent.press(view.getByRole('tab', { name: 'Gear' }));
   expect(onChange).toHaveBeenCalledWith('gear');
 });
-test('footer preserves independent free save and priced draw actions', () => {
+
+test('reveals the selected Gear tab after the rail becomes horizontally scrollable', () => {
+  const scrollTo = jest
+    .spyOn(ReactNative.ScrollView.prototype, 'scrollTo')
+    .mockImplementation(() => {});
+  const ui = render(
+    <EditorTabs
+      value="gear"
+      dirty={{ look: false, identity: false, gear: false }}
+      onChange={jest.fn()}
+    />,
+  );
+  try {
+    fireEvent(ui.UNSAFE_getByType(ReactNative.ScrollView), 'layout', {
+      nativeEvent: { layout: { width: 320, height: 80 } },
+    });
+    fireEvent(ui.getByRole('tab', { name: 'Gear' }), 'layout', {
+      nativeEvent: { layout: { x: 440, width: 180, height: 80 } },
+    });
+    expect(scrollTo).toHaveBeenCalledWith({ x: 316, animated: false });
+  } finally {
+    ui.unmount();
+    scrollTo.mockRestore();
+  }
+});
+test('footer preserves independent save and review actions without a price', () => {
   const onSave = jest.fn(),
     onRender = jest.fn();
   const view = render(
     <EditorFooter
       status="Unsaved changes"
-      renderLabel="Review & draw · 7 credits"
+      renderLabel="Review & draw"
       saveDisabled={false}
       renderDisabled
       onSave={onSave}
       onRender={onRender}
     />,
   );
-  fireEvent.press(view.getByRole('button', { name: 'Save changes · Free' }));
+  fireEvent.press(view.getByRole('button', { name: 'Save changes' }));
   expect(onSave).toHaveBeenCalledTimes(1);
-  fireEvent.press(
-    view.getByRole('button', { name: 'Review & draw · 7 credits' }),
-  );
+  fireEvent.press(view.getByRole('button', { name: 'Review & draw' }));
   expect(onRender).not.toHaveBeenCalled();
 });
 test('compact fighter keeps explicit preview and history actions', () => {
@@ -61,7 +84,7 @@ test('compact fighter keeps explicit preview and history actions', () => {
       onHistory={onHistory}
     />,
   );
-  expect(view.getByText('Current artwork')).toBeTruthy();
+  expect(view.queryByText(/current artwork/i)).toBeNull();
   fireEvent.press(view.getByRole('button', { name: 'View card' }));
   expect(onView).toHaveBeenCalledTimes(1);
   fireEvent.press(view.getByRole('button', { name: 'Previous looks' }));
@@ -76,18 +99,15 @@ test('stacked accessibility footer actions keep intrinsic text height', () => {
   try {
     view = render(
       <EditorFooter
-        status="Current artwork"
-        renderLabel="Draw another version · 3 credits"
+        status="Unsaved changes"
+        renderLabel="Review & draw"
         saveDisabled
         renderDisabled={false}
         onSave={jest.fn()}
         onRender={jest.fn()}
       />,
     );
-    for (const name of [
-      'Save changes · Free',
-      'Draw another version · 3 credits',
-    ]) {
+    for (const name of ['Save changes', 'Review & draw']) {
       const button = view.getByRole('button', { name });
       const flat = ReactNative.StyleSheet.flatten(button.props.style);
       expect(flat.flex ?? 0).toBe(0);
@@ -95,6 +115,58 @@ test('stacked accessibility footer actions keep intrinsic text height', () => {
     }
   } finally {
     view?.unmount();
+    dimensions.mockRestore();
+  }
+});
+
+test('typing footer dismisses keyboard without saving or drawing', () => {
+  const dismiss = jest.spyOn(ReactNative.Keyboard, 'dismiss');
+  const onSave = jest.fn(),
+    onRender = jest.fn();
+  const view = render(
+    <EditorFooter
+      status="Unsaved changes"
+      renderLabel="Review & draw"
+      saveDisabled={false}
+      renderDisabled={false}
+      keyboardVisible
+      onSave={onSave}
+      onRender={onRender}
+    />,
+  );
+  expect(view.queryByRole('button', { name: 'Review & draw' })).toBeNull();
+  fireEvent.press(view.getByRole('button', { name: 'Done' }));
+  expect(dismiss).toHaveBeenCalledTimes(1);
+  expect(onSave).not.toHaveBeenCalled();
+  expect(onRender).not.toHaveBeenCalled();
+  fireEvent.press(view.getByRole('button', { name: 'Save changes' }));
+  expect(onSave).toHaveBeenCalledTimes(1);
+  dismiss.mockRestore();
+});
+
+test('large text keyboard footer keeps Save and Done side by side and omits verbose status', () => {
+  const dimensions = jest
+    .spyOn(ReactNative, 'useWindowDimensions')
+    .mockReturnValue({ width: 375, height: 812, scale: 3, fontScale: 2.14 });
+  const view = render(
+    <EditorFooter
+      keyboardVisible
+      status="2 included draws remaining"
+      renderLabel="Review & draw"
+      saveDisabled={false}
+      renderDisabled={false}
+      onSave={jest.fn()}
+      onRender={jest.fn()}
+    />,
+  );
+  try {
+    const save = view.getByRole('button', { name: 'Save changes' });
+    const done = view.getByRole('button', { name: 'Done' });
+    expect(ReactNative.StyleSheet.flatten(save.props.style).flex).toBe(2);
+    expect(ReactNative.StyleSheet.flatten(done.props.style).flex).toBe(1);
+    expect(view.queryByText('2 included draws remaining')).toBeNull();
+  } finally {
+    view.unmount();
     dimensions.mockRestore();
   }
 });

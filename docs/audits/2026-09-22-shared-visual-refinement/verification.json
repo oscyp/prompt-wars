@@ -1,0 +1,60 @@
+{
+  "date": "2026-09-22",
+  "status": "automated_pass_native_partial",
+  "jest": {
+    "command": "yarn test --runInBand",
+    "suites": 192,
+    "tests": 1536,
+    "snapshots": 0,
+    "log": ".superpowers/sdd/2026-09-22-shared-visual-refinement/jest-final-delivery.log"
+  },
+  "typescript": {
+    "command": "yarn tsc --noEmit --pretty false",
+    "status": "passed",
+    "log": ".superpowers/sdd/2026-09-22-shared-visual-refinement/typecheck-final-delivery.log"
+  },
+  "eslint": {
+    "command": "yarn lint",
+    "errors": 0,
+    "warnings": 1,
+    "existingWarning": "app/_layout.tsx:29 no-require-imports",
+    "log": ".superpowers/sdd/2026-09-22-shared-visual-refinement/lint-final-delivery.log"
+  },
+  "traits": {
+    "count": 23,
+    "pixels": [
+      512,
+      512
+    ],
+    "bytes": 1095473
+  },
+  "native": {
+    "status": "partial",
+    "captures": 26,
+    "actualRouteCaptures": 15,
+    "fixtureCaptures": 11,
+    "iosViewports": [
+      [
+        375,
+        812
+      ],
+      [
+        402,
+        874
+      ]
+    ],
+    "android": "blocked_no_environment",
+    "typing": "blocked_mac_locked",
+    "voiceOver": "not_completed",
+    "reducedMotionNativeMatrix": "not_completed",
+    "performanceBaseline": "not_completed",
+    "build": "qualified_Debug_simulator_build_with_temporary_Xcode27_workaround_restored"
+  },
+  "release": "not_requested_in_this_implementation",
+  "additionalChecks": {
+    "nonRouteSourceESLint": "passed_zero_warnings",
+    "fixtureIsolation": "passed_direct_call_and_config_checks",
+    "galleryLinks": "all_26_capture_links_and_asset_links_resolve",
+    "balanceLintCleanup": "targeted useCredits/tabHeaderBalance rerun after dependency-expression cleanup"
+  }
+}

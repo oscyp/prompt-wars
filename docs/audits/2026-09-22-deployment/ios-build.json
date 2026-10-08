@@ -1,0 +1,16 @@
+{
+  "id": "1c2352f7-055b-4204-9bc0-5f18dd4f54ed",
+  "status": "FINISHED",
+  "platform": "IOS",
+  "distribution": "STORE",
+  "buildProfile": "production",
+  "sdkVersion": "55.0.0",
+  "appVersion": "1.3.2",
+  "appBuildVersion": "12",
+  "gitCommitHash": "d66e621264fb56b6471ecbaa4a7971bb689abaca",
+  "createdAt": "2026-09-21T22:14:21.595Z",
+  "updatedAt": "2026-09-21T22:20:37.328Z",
+  "completedAt": "2026-09-21T22:20:37.035Z",
+  "isForIosSimulator": false,
+  "error": null
+}

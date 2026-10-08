@@ -1,0 +1,10 @@
+{
+  "private_backend_marker_hits": [],
+  "checked_markers": [
+    "bot_tactic_catalog",
+    "bot_round_choices",
+    "get_private_bot_move",
+    "PROMPT_WARS_SERVICE_ROLE_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY"
+  ]
+}

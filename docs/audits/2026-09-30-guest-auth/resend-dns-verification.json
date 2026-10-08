@@ -1,0 +1,647 @@
+{
+  "checked_at": "2026-09-30T21:21:30Z",
+  "read_only": true,
+  "records": [
+    {
+      "server": "ns1.seohost.pl",
+      "name": "promptwars.gg",
+      "type": "NS",
+      "answer": [
+        "ns2.seohost.pl.",
+        "ns1.seohost.pl."
+      ],
+      "observed_ttl_seconds": [
+        1999,
+        1999
+      ]
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "promptwars.gg",
+      "type": "MX",
+      "answer": [
+        "10 mail.promptwars.gg."
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "MX",
+      "answer": [
+        "10 feedback-smtp.eu-west-1.amazonses.com."
+      ],
+      "observed_ttl_seconds": [
+        1751
+      ]
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "answer": [
+        "\"v=spf1 include:amazonses.com ~all\""
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "resend._domainkey.promptwars.gg",
+      "type": "TXT",
+      "answer": [
+        "\"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDN3upj7+8E2s6kgX7qroN/QtvfrclQhJgjGr8eFS9GvUEf+7EI60TceR4gcZaQtfn0nQvYT29EuqPj2lbZ2wD4HO95GMS5bsyBvJfCiLKdVXT\" \"Q2xc1n1vEE5UfBvu5ixrdK2OazAQhBJJajRV2bBbjrCM+MxyPRKKLP6OIUL7LCQIDAQAB\""
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "_dmarc.promptwars.gg",
+      "type": "TXT",
+      "answer": [
+        "\"v=DMARC1; p=quarantine; adkim=s; pct=100; sp=none; rua=mailto:spam-reports@promptwars.gg\""
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "mail.promptwars.gg",
+      "type": "A",
+      "answer": [
+        "188.210.222.19"
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "ns1.seohost.pl",
+      "name": "mail.promptwars.gg",
+      "type": "AAAA",
+      "answer": [],
+      "observed_ttl_seconds": []
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "promptwars.gg",
+      "type": "NS",
+      "answer": [
+        "ns2.seohost.pl.",
+        "ns1.seohost.pl."
+      ],
+      "observed_ttl_seconds": [
+        2000,
+        2000
+      ]
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "promptwars.gg",
+      "type": "MX",
+      "answer": [
+        "10 mail.promptwars.gg."
+      ],
+      "observed_ttl_seconds": [
+        1996
+      ]
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "MX",
+      "answer": [
+        "10 feedback-smtp.eu-west-1.amazonses.com."
+      ],
+      "observed_ttl_seconds": [
+        1751
+      ]
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "answer": [
+        "\"v=spf1 include:amazonses.com ~all\""
+      ],
+      "observed_ttl_seconds": [
+        1999
+      ]
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "resend._domainkey.promptwars.gg",
+      "type": "TXT",
+      "answer": [
+        "\"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDN3upj7+8E2s6kgX7qroN/QtvfrclQhJgjGr8eFS9GvUEf+7EI60TceR4gcZaQtfn0nQvYT29EuqPj2lbZ2wD4HO95GMS5bsyBvJfCiLKdVXT\" \"Q2xc1n1vEE5UfBvu5ixrdK2OazAQhBJJajRV2bBbjrCM+MxyPRKKLP6OIUL7LCQIDAQAB\""
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "_dmarc.promptwars.gg",
+      "type": "TXT",
+      "answer": [
+        "\"v=DMARC1; p=quarantine; adkim=s; pct=100; sp=none; rua=mailto:spam-reports@promptwars.gg\""
+      ],
+      "observed_ttl_seconds": [
+        1999
+      ]
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "mail.promptwars.gg",
+      "type": "A",
+      "answer": [
+        "188.210.222.19"
+      ],
+      "observed_ttl_seconds": [
+        1998
+      ]
+    },
+    {
+      "server": "ns2.seohost.pl",
+      "name": "mail.promptwars.gg",
+      "type": "AAAA",
+      "answer": [],
+      "observed_ttl_seconds": []
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "promptwars.gg",
+      "type": "NS",
+      "answer": [
+        "ns1.seohost.pl.",
+        "ns2.seohost.pl."
+      ],
+      "observed_ttl_seconds": [
+        1982,
+        1982
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "promptwars.gg",
+      "type": "MX",
+      "answer": [
+        "10 mail.promptwars.gg."
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "send.promptwars.gg",
+      "type": "MX",
+      "answer": [
+        "10 feedback-smtp.eu-west-1.amazonses.com."
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "answer": [
+        "\"v=spf1 include:amazonses.com ~all\""
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "resend._domainkey.promptwars.gg",
+      "type": "TXT",
+      "answer": [
+        "\"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDN3upj7+8E2s6kgX7qroN/QtvfrclQhJgjGr8eFS9GvUEf+7EI60TceR4gcZaQtfn0nQvYT29EuqPj2lbZ2wD4HO95GMS5bsyBvJfCiLKdVXT\" \"Q2xc1n1vEE5UfBvu5ixrdK2OazAQhBJJajRV2bBbjrCM+MxyPRKKLP6OIUL7LCQIDAQAB\""
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "_dmarc.promptwars.gg",
+      "type": "TXT",
+      "answer": [
+        "\"v=DMARC1; p=quarantine; adkim=s; pct=100; sp=none; rua=mailto:spam-reports@promptwars.gg\""
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "mail.promptwars.gg",
+      "type": "A",
+      "answer": [
+        "188.210.222.19"
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "1.1.1.1",
+      "name": "mail.promptwars.gg",
+      "type": "AAAA",
+      "answer": [],
+      "observed_ttl_seconds": []
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "promptwars.gg",
+      "type": "NS",
+      "answer": [
+        "ns2.seohost.pl.",
+        "ns1.seohost.pl."
+      ],
+      "observed_ttl_seconds": [
+        2000,
+        2000
+      ]
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "promptwars.gg",
+      "type": "MX",
+      "answer": [
+        "10 mail.promptwars.gg."
+      ],
+      "observed_ttl_seconds": [
+        1774
+      ]
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "send.promptwars.gg",
+      "type": "MX",
+      "answer": [
+        "10 feedback-smtp.eu-west-1.amazonses.com."
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "send.promptwars.gg",
+      "type": "TXT",
+      "answer": [
+        "\"v=spf1 include:amazonses.com ~all\""
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "resend._domainkey.promptwars.gg",
+      "type": "TXT",
+      "answer": [
+        "\"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDN3upj7+8E2s6kgX7qroN/QtvfrclQhJgjGr8eFS9GvUEf+7EI60TceR4gcZaQtfn0nQvYT29EuqPj2lbZ2wD4HO95GMS5bsyBvJfCiLKdVXT\" \"Q2xc1n1vEE5UfBvu5ixrdK2OazAQhBJJajRV2bBbjrCM+MxyPRKKLP6OIUL7LCQIDAQAB\""
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "_dmarc.promptwars.gg",
+      "type": "TXT",
+      "answer": [
+        "\"v=DMARC1; p=quarantine; adkim=s; pct=100; sp=none; rua=mailto:spam-reports@promptwars.gg\""
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "mail.promptwars.gg",
+      "type": "A",
+      "answer": [
+        "188.210.222.19"
+      ],
+      "observed_ttl_seconds": [
+        2000
+      ]
+    },
+    {
+      "server": "8.8.8.8",
+      "name": "mail.promptwars.gg",
+      "type": "AAAA",
+      "answer": [],
+      "observed_ttl_seconds": []
+    }
+  ],
+  "finding": "The corrected sending MX is visible on both authoritative nameservers and Cloudflare/Google resolvers. SPF, DKIM, DMARC, root MX, nameservers, and mail address records match the pre-repair snapshot.",
+  "required_correction": {
+    "name": "send.promptwars.gg",
+    "type": "MX",
+    "priority": 10,
+    "target": "feedback-smtp.eu-west-1.amazonses.com."
+  },
+  "preserve_root_mx": "10 mail.promptwars.gg.",
+  "dns_changes_applied": true,
+  "verification": {
+    "query_count": 32,
+    "all_queries_succeeded": true,
+    "all_four_servers_return_correct_sending_mx": true,
+    "authoritative_mx_noerror_and_aa_flag_confirmed": [
+      "ns1.seohost.pl",
+      "ns2.seohost.pl"
+    ],
+    "non_target_records_unchanged": true,
+    "provider_domain_verification_checked": false,
+    "smtp_delivery_checked": false
+  },
+  "repair": {
+    "source": "DirectAdmin edit performed by the parent task, followed by independent read-only DNS verification.",
+    "record": "send.promptwars.gg MX",
+    "before": "10 feedback-smtp.eu-west-1.amazonses.com.promptwars.gg.",
+    "after": "10 feedback-smtp.eu-west-1.amazonses.com.",
+    "configured_ttl_seconds_reported_by_parent": 2000
+  },
+  "history": [
+    {
+      "checked_at": "2026-09-30T20:17:12.668334+00:00",
+      "read_only": true,
+      "records": [
+        {
+          "server": "ns1.seohost.pl",
+          "name": "promptwars.gg",
+          "type": "NS",
+          "answer": [
+            "ns2.seohost.pl.",
+            "ns1.seohost.pl."
+          ]
+        },
+        {
+          "server": "ns1.seohost.pl",
+          "name": "promptwars.gg",
+          "type": "MX",
+          "answer": [
+            "10 mail.promptwars.gg."
+          ]
+        },
+        {
+          "server": "ns1.seohost.pl",
+          "name": "send.promptwars.gg",
+          "type": "MX",
+          "answer": [
+            "10 feedback-smtp.eu-west-1.amazonses.com.promptwars.gg."
+          ]
+        },
+        {
+          "server": "ns1.seohost.pl",
+          "name": "send.promptwars.gg",
+          "type": "TXT",
+          "answer": [
+            "\"v=spf1 include:amazonses.com ~all\""
+          ]
+        },
+        {
+          "server": "ns1.seohost.pl",
+          "name": "resend._domainkey.promptwars.gg",
+          "type": "TXT",
+          "answer": [
+            "\"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDN3upj7+8E2s6kgX7qroN/QtvfrclQhJgjGr8eFS9GvUEf+7EI60TceR4gcZaQtfn0nQvYT29EuqPj2lbZ2wD4HO95GMS5bsyBvJfCiLKdVXT\" \"Q2xc1n1vEE5UfBvu5ixrdK2OazAQhBJJajRV2bBbjrCM+MxyPRKKLP6OIUL7LCQIDAQAB\""
+          ]
+        },
+        {
+          "server": "ns1.seohost.pl",
+          "name": "_dmarc.promptwars.gg",
+          "type": "TXT",
+          "answer": [
+            "\"v=DMARC1; p=quarantine; adkim=s; pct=100; sp=none; rua=mailto:spam-reports@promptwars.gg\""
+          ]
+        },
+        {
+          "server": "ns1.seohost.pl",
+          "name": "mail.promptwars.gg",
+          "type": "A",
+          "answer": [
+            "188.210.222.19"
+          ]
+        },
+        {
+          "server": "ns1.seohost.pl",
+          "name": "mail.promptwars.gg",
+          "type": "AAAA",
+          "answer": []
+        },
+        {
+          "server": "ns2.seohost.pl",
+          "name": "promptwars.gg",
+          "type": "NS",
+          "answer": [
+            "ns1.seohost.pl.",
+            "ns2.seohost.pl."
+          ]
+        },
+        {
+          "server": "ns2.seohost.pl",
+          "name": "promptwars.gg",
+          "type": "MX",
+          "answer": [
+            "10 mail.promptwars.gg."
+          ]
+        },
+        {
+          "server": "ns2.seohost.pl",
+          "name": "send.promptwars.gg",
+          "type": "MX",
+          "answer": [
+            "10 feedback-smtp.eu-west-1.amazonses.com.promptwars.gg."
+          ]
+        },
+        {
+          "server": "ns2.seohost.pl",
+          "name": "send.promptwars.gg",
+          "type": "TXT",
+          "answer": [
+            "\"v=spf1 include:amazonses.com ~all\""
+          ]
+        },
+        {
+          "server": "ns2.seohost.pl",
+          "name": "resend._domainkey.promptwars.gg",
+          "type": "TXT",
+          "answer": [
+            "\"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDN3upj7+8E2s6kgX7qroN/QtvfrclQhJgjGr8eFS9GvUEf+7EI60TceR4gcZaQtfn0nQvYT29EuqPj2lbZ2wD4HO95GMS5bsyBvJfCiLKdVXT\" \"Q2xc1n1vEE5UfBvu5ixrdK2OazAQhBJJajRV2bBbjrCM+MxyPRKKLP6OIUL7LCQIDAQAB\""
+          ]
+        },
+        {
+          "server": "ns2.seohost.pl",
+          "name": "_dmarc.promptwars.gg",
+          "type": "TXT",
+          "answer": [
+            "\"v=DMARC1; p=quarantine; adkim=s; pct=100; sp=none; rua=mailto:spam-reports@promptwars.gg\""
+          ]
+        },
+        {
+          "server": "ns2.seohost.pl",
+          "name": "mail.promptwars.gg",
+          "type": "A",
+          "answer": [
+            "188.210.222.19"
+          ]
+        },
+        {
+          "server": "ns2.seohost.pl",
+          "name": "mail.promptwars.gg",
+          "type": "AAAA",
+          "answer": []
+        },
+        {
+          "server": "1.1.1.1",
+          "name": "promptwars.gg",
+          "type": "NS",
+          "answer": [
+            "ns1.seohost.pl.",
+            "ns2.seohost.pl."
+          ]
+        },
+        {
+          "server": "1.1.1.1",
+          "name": "promptwars.gg",
+          "type": "MX",
+          "answer": [
+            "10 mail.promptwars.gg."
+          ]
+        },
+        {
+          "server": "1.1.1.1",
+          "name": "send.promptwars.gg",
+          "type": "MX",
+          "answer": [
+            "10 feedback-smtp.eu-west-1.amazonses.com.promptwars.gg."
+          ]
+        },
+        {
+          "server": "1.1.1.1",
+          "name": "send.promptwars.gg",
+          "type": "TXT",
+          "answer": [
+            "\"v=spf1 include:amazonses.com ~all\""
+          ]
+        },
+        {
+          "server": "1.1.1.1",
+          "name": "resend._domainkey.promptwars.gg",
+          "type": "TXT",
+          "answer": [
+            "\"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDN3upj7+8E2s6kgX7qroN/QtvfrclQhJgjGr8eFS9GvUEf+7EI60TceR4gcZaQtfn0nQvYT29EuqPj2lbZ2wD4HO95GMS5bsyBvJfCiLKdVXT\" \"Q2xc1n1vEE5UfBvu5ixrdK2OazAQhBJJajRV2bBbjrCM+MxyPRKKLP6OIUL7LCQIDAQAB\""
+          ]
+        },
+        {
+          "server": "1.1.1.1",
+          "name": "_dmarc.promptwars.gg",
+          "type": "TXT",
+          "answer": [
+            "\"v=DMARC1; p=quarantine; adkim=s; pct=100; sp=none; rua=mailto:spam-reports@promptwars.gg\""
+          ]
+        },
+        {
+          "server": "1.1.1.1",
+          "name": "mail.promptwars.gg",
+          "type": "A",
+          "answer": [
+            "188.210.222.19"
+          ]
+        },
+        {
+          "server": "1.1.1.1",
+          "name": "mail.promptwars.gg",
+          "type": "AAAA",
+          "answer": []
+        },
+        {
+          "server": "8.8.8.8",
+          "name": "promptwars.gg",
+          "type": "NS",
+          "answer": [
+            "ns1.seohost.pl.",
+            "ns2.seohost.pl."
+          ]
+        },
+        {
+          "server": "8.8.8.8",
+          "name": "promptwars.gg",
+          "type": "MX",
+          "answer": [
+            "10 mail.promptwars.gg."
+          ]
+        },
+        {
+          "server": "8.8.8.8",
+          "name": "send.promptwars.gg",
+          "type": "MX",
+          "answer": [
+            "10 feedback-smtp.eu-west-1.amazonses.com.promptwars.gg."
+          ]
+        },
+        {
+          "server": "8.8.8.8",
+          "name": "send.promptwars.gg",
+          "type": "TXT",
+          "answer": [
+            "\"v=spf1 include:amazonses.com ~all\""
+          ]
+        },
+        {
+          "server": "8.8.8.8",
+          "name": "resend._domainkey.promptwars.gg",
+          "type": "TXT",
+          "answer": [
+            "\"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDN3upj7+8E2s6kgX7qroN/QtvfrclQhJgjGr8eFS9GvUEf+7EI60TceR4gcZaQtfn0nQvYT29EuqPj2lbZ2wD4HO95GMS5bsyBvJfCiLKdVXT\" \"Q2xc1n1vEE5UfBvu5ixrdK2OazAQhBJJajRV2bBbjrCM+MxyPRKKLP6OIUL7LCQIDAQAB\""
+          ]
+        },
+        {
+          "server": "8.8.8.8",
+          "name": "_dmarc.promptwars.gg",
+          "type": "TXT",
+          "answer": [
+            "\"v=DMARC1; p=quarantine; adkim=s; pct=100; sp=none; rua=mailto:spam-reports@promptwars.gg\""
+          ]
+        },
+        {
+          "server": "8.8.8.8",
+          "name": "mail.promptwars.gg",
+          "type": "A",
+          "answer": [
+            "188.210.222.19"
+          ]
+        },
+        {
+          "server": "8.8.8.8",
+          "name": "mail.promptwars.gg",
+          "type": "AAAA",
+          "answer": []
+        }
+      ],
+      "finding": "send.promptwars.gg MX incorrectly appends .promptwars.gg to the Amazon SES target.",
+      "required_correction": {
+        "name": "send.promptwars.gg",
+        "type": "MX",
+        "priority": 10,
+        "target": "feedback-smtp.eu-west-1.amazonses.com."
+      },
+      "preserve_root_mx": "10 mail.promptwars.gg.",
+      "dns_changes_applied": false
+    }
+  ]
+}

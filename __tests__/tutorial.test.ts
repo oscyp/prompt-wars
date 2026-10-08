@@ -33,3 +33,22 @@ test('a progressed respec spends the actual pool instead of losing earned points
   expect(isValidAllocation(allocated, 24)).toBe(true);
   expect(isValidAllocation(allocated)).toBe(false);
 });
+
+test('v2 guidance teaches action completeness, Finisher, and hold on review', () => {
+  expect(tutorialHint(state, 'practice', 'theme', 2)).toContain('Build move or Write your own');
+  expect(tutorialHint(state, 'practice', 'write', 2)).toContain(
+    'Choose Attack, Defense or Finisher',
+  );
+  expect(tutorialHint(state, 'practice', 'lock', 2)).toContain(
+    'Hold to lock in',
+  );
+  expect(tutorialHint(state, 'practice', 'lock', 2)).toContain('Review');
+  expect(tutorialHint(state, 'practice', 'lock', 2)).not.toContain('Tap');
+  expect(tutorialHint(state, 'practice', 'lock', 1)).toContain('Hold Lock in');
+});
+
+test('completed v2 guidance remains completed after the composer redesign', () => {
+  expect(
+    tutorialHint({ ...state, completed_at: 'today' }, 'practice', 'lock', 2),
+  ).toBeNull();
+});

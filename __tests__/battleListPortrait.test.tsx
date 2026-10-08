@@ -1,153 +1,137 @@
 import React from 'react';
-import { AppState, View, StyleSheet } from 'react-native';
+import { AppState } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import BattleListPortrait from '@/components/BattleListPortrait';
+import { playerAvatarCache } from '@/hooks/usePlayerAvatars';
 import { invokeFunctionResult } from '@/utils/supabase';
 import { presentationFor } from '@/constants/Cosmetics';
-jest.mock('@/utils/supabase', () => ({ invokeFunctionResult: jest.fn() }));
-jest.mock('@/components/game/battle/useBattlePresentationActive', () => ({
-  useBattlePresentationActive: () => false,
-}));
-jest.mock('@/hooks/useReducedMotion', () => ({ useReducedMotion: () => true }));
-const snapshot: any = {
-  player_two: {
-    avatar: {
-      image_path: 'frozen/avatar.png',
-      thumb_path: 'frozen/avatar-thumb.png',
+let mockAccount = 'alice';
+jest.mock('@/utils/supabase', () => ({
+  invokeFunctionResult: jest.fn(),
+  supabase: {
+    auth: {
+      getSession: async () => ({
+        data: { session: { user: { id: mockAccount } } },
+      }),
     },
   },
-};
+}));
+jest.mock('@/hooks/useReducedMotion', () => ({ useReducedMotion: () => true }));
 const props = {
   accountId: 'alice',
-  battleId: 'portrait-test',
+  battleId: 'battle-a',
   side: 'player_two' as const,
-  snapshot,
-  visible: false,
+  visible: true,
   fallbackUri: 'fallback',
   accentColor: 'blue',
   name: 'Whisper',
   size: 44,
 };
-it('only signs visible assigned avatars and never shows a previous account response', async () => {
-  let finish!: (value: any) => void;
-  (invokeFunctionResult as jest.Mock).mockImplementation(
-    () =>
-      new Promise((done) => {
-        finish = done;
-      }),
-  );
-  const view = render(<BattleListPortrait {...props} />);
-  expect(invokeFunctionResult).not.toHaveBeenCalled();
-  view.rerender(<BattleListPortrait {...props} visible />);
-  await waitFor(() => expect(invokeFunctionResult).toHaveBeenCalledTimes(1));
-  const first = finish;
-  view.rerender(<BattleListPortrait {...props} visible accountId="bob" />);
-  await waitFor(() => expect(invokeFunctionResult).toHaveBeenCalledTimes(2));
-  await act(async () =>
-    first({
-      data: { player_two: { portrait_url: 'alice-avatar' } },
-      error: null,
-    }),
-  );
-  expect(view.queryByLabelText("Whisper's avatar")).toBeNull();
-  await act(async () =>
-    finish({
-      data: { player_two: { portrait_url: 'bob-avatar' } },
-      error: null,
-    }),
-  );
-  expect(view.getByLabelText("Whisper's avatar").props.source.uri).toBe(
-    'bob-avatar',
-  );
+const label = "Whisper's fighter portrait";
+const response = (id: string, url: string) => ({
+  data: {
+    battles: {
+      [id]: {
+        status: 'available',
+        asset_id: id + '-asset',
+        signed_url: url,
+        expires_at: new Date(Date.now() + 3600000).toISOString(),
+      },
+    },
+  },
+  error: null,
 });
-
-it('falls back after an image failure and re-signs the same frozen asset on foreground', async () => {
+beforeEach(() => {
+  mockAccount = 'alice';
+  AppState.currentState = 'active';
+  playerAvatarCache.setAccount(null);
+  (invokeFunctionResult as jest.Mock).mockReset();
+});
+it('uses a page-prefetched avatar when a row becomes visible later', async () => {
+  (invokeFunctionResult as jest.Mock).mockResolvedValue(
+    response('battle-a', 'prefetched'),
+  );
+  await act(async () => {
+    await playerAvatarCache.request('alice', [
+      { kind: 'battles', id: 'battle-a' },
+    ]);
+  });
+  const view = render(<BattleListPortrait {...props} visible={false} />);
+  view.rerender(<BattleListPortrait {...props} />);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+  expect(view.getByLabelText(label).props.source.uri).toBe('prefetched');
+  expect(invokeFunctionResult).toHaveBeenCalledTimes(1);
+});
+it('batches visible rows and rejects stale account or recycled-row responses', async () => {
+  const finishes: ((value: unknown) => void)[] = [];
+  (invokeFunctionResult as jest.Mock).mockImplementation(
+    () => new Promise((done) => finishes.push(done)),
+  );
+  const view = render(<BattleListPortrait {...props} visible={false} />);
+  expect(invokeFunctionResult).not.toHaveBeenCalled();
+  view.rerender(<BattleListPortrait {...props} />);
+  await waitFor(() => expect(finishes).toHaveLength(1));
+  mockAccount = 'bob';
+  view.rerender(
+    <BattleListPortrait {...props} accountId="bob" battleId="battle-b" />,
+  );
+  await waitFor(() => expect(finishes).toHaveLength(2));
+  await act(async () => finishes[0](response('battle-a', 'old-account')));
+  expect(view.getByLabelText(label).props.source.uri).toBe('fallback');
+  await act(async () => finishes[1](response('battle-b', 'new-account')));
+  expect(view.getByLabelText(label).props.source.uri).toBe('new-account');
+  view.rerender(
+    <BattleListPortrait {...props} accountId="bob" battleId="battle-c" />,
+  );
+  expect(view.getByLabelText(label).props.source.uri).toBe('fallback');
+});
+it('image failure retries signing once, with no generation or purchase call', async () => {
+  (invokeFunctionResult as jest.Mock)
+    .mockResolvedValueOnce(response('battle-a', 'expired'))
+    .mockResolvedValueOnce(response('battle-a', 'fresh'));
+  const view = render(<BattleListPortrait {...props} />);
+  await waitFor(() =>
+    expect(view.getByLabelText(label).props.source.uri).toBe('expired'),
+  );
+  fireEvent(view.getByLabelText(label), 'error', {
+    nativeEvent: { error: 'Gone' },
+  });
+  expect(view.getByLabelText(label).props.source.uri).toBe('fallback');
+  await waitFor(() =>
+    expect(view.getByLabelText(label).props.source.uri).toBe('fresh'),
+  );
+  expect(invokeFunctionResult).toHaveBeenCalledTimes(2);
+  expect(invokeFunctionResult).toHaveBeenLastCalledWith('sign-player-avatars', {
+    profile_ids: [],
+    battle_ids: ['battle-a'],
+  });
+});
+it('foreground removal clears approved art while preserving frozen equipment', async () => {
   const listeners: ((state: string) => void)[] = [];
-  const subscription = jest
+  const spy = jest
     .spyOn(AppState, 'addEventListener')
-    .mockImplementation((_event, listener) => {
-      listeners.push(listener as (state: string) => void);
+    .mockImplementation((_event, fn) => {
+      listeners.push(fn as (state: string) => void);
       return { remove: jest.fn() };
     });
   (invokeFunctionResult as jest.Mock)
-    .mockReset()
+    .mockResolvedValueOnce(response('battle-a', 'frozen'))
     .mockResolvedValueOnce({
-      data: { player_two: { portrait_url: 'failed-uri' } },
-      error: null,
-    })
-    .mockResolvedValueOnce({
-      data: { player_two: { portrait_url: 'fresh-uri' } },
-      error: null,
+      data: { battles: { 'battle-a': { status: 'unavailable' } } },
     });
-  const view = render(
-    <BattleListPortrait {...props} battleId="failure-test" visible />,
-  );
-  await waitFor(() =>
-    expect(view.getByLabelText("Whisper's avatar").props.source.uri).toBe(
-      'failed-uri',
-    ),
-  );
-  fireEvent(view.getByLabelText("Whisper's avatar"), 'error', {
-    nativeEvent: { error: 'Gone' },
-  });
-  expect(view.queryByLabelText("Whisper's avatar")).toBeNull();
-  expect(view.getByLabelText("Whisper's archetype").props.source.uri).toBe(
-    'fallback',
-  );
-  expect(invokeFunctionResult).toHaveBeenCalledTimes(1);
-  await act(async () => listeners.forEach((listener) => listener('active')));
-  await waitFor(() =>
-    expect(view.getByLabelText("Whisper's avatar").props.source.uri).toBe(
-      'fresh-uri',
-    ),
-  );
-  expect(invokeFunctionResult).toHaveBeenNthCalledWith(
-    2,
-    'sign-battle-portraits',
-    { battle_id: 'failure-test' },
-  );
-  subscription.mockRestore();
-});
-
-it('preserves the frozen equipped frame around the assigned avatar', async () => {
-  const subscription = jest
-    .spyOn(AppState, 'addEventListener')
-    .mockReturnValue({ remove: jest.fn() });
-  (invokeFunctionResult as jest.Mock).mockReset().mockResolvedValue({
-    data: { player_two: { portrait_url: 'frozen-framed-avatar' } },
-    error: null,
-  });
-  const framed = {
-    ...snapshot,
-    player_two: {
-      ...snapshot.player_two,
-      cosmetic_config: {
-        frame: 'astral_codex_frame',
-        avatar_effect: 'plus_aura',
-      },
-    },
+  const snapshot: any = {
+    player_two: { cosmetic_config: { frame: 'astral_codex_frame' } },
   };
-  const view = render(
-    <BattleListPortrait {...props} battleId="frame-test" snapshot={framed} />,
-  );
-  const hasAura = () =>
-    view.UNSAFE_getAllByType(View).some((node) => {
-      const style = StyleSheet.flatten(node.props.style);
-      return style?.shadowRadius === 10 && style?.shadowColor === '#A78BFA';
-    });
-  expect(hasAura()).toBe(true);
-  view.rerender(
-    <BattleListPortrait
-      {...props}
-      battleId="frame-test"
-      snapshot={framed}
-      visible
-    />,
-  );
+  const view = render(<BattleListPortrait {...props} snapshot={snapshot} />);
   await waitFor(() =>
-    expect(view.getByLabelText("Whisper's avatar").props.source.uri).toBe(
-      'frozen-framed-avatar',
-    ),
+    expect(view.getByLabelText(label).props.source.uri).toBe('frozen'),
+  );
+  act(() => listeners.forEach((fn) => fn('background')));
+  act(() => listeners.forEach((fn) => fn('active')));
+  await waitFor(() =>
+    expect(view.getByLabelText(label).props.source.uri).toBe('fallback'),
   );
   expect(
     view.getByTestId('frame-artwork', { includeHiddenElements: true }).props
@@ -155,7 +139,5 @@ it('preserves the frozen equipped frame around the assigned avatar', async () =>
   ).toEqual(
     (presentationFor('astral_codex_frame') as any).artwork.avatar.source,
   );
-  expect(hasAura()).toBe(true);
-  view.unmount();
-  subscription.mockRestore();
+  spy.mockRestore();
 });

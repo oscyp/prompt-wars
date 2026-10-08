@@ -1,0 +1,87 @@
+{
+  "verifiedAt": "2026-10-06T22:14:52.313672+00:00",
+  "appTests": {
+    "command": "yarn test --runInBand",
+    "suitesPassed": 223,
+    "testsPassed": 1875,
+    "durationSeconds": 43.514,
+    "logSha256": "251309bb993943d218c69fd52e55cbb24bd6107260625e4848d59151c8e6b4f2",
+    "existingConsoleWarningsPresent": true
+  },
+  "typecheck": {
+    "command": "node node_modules/typescript/bin/tsc --noEmit",
+    "passed": true
+  },
+  "lint": {
+    "changedScopePassed": true,
+    "lastFixCommand": "node node_modules/eslint/bin/eslint.js 'app/(battle)/prompt-entry.tsx' __tests__/battleWorkspaceLayout.test.tsx",
+    "passed": true
+  },
+  "workspaceRegressionsPassed": 39,
+  "independentReview": {
+    "completed": true,
+    "findingsFixed": [
+      "manual type change invalidates catalogue bindings while preserving prose",
+      "stale screen-reader confirmation after accessibility-mode change",
+      "late closed-submit alert cannot affect new scope",
+      "late round cleanup cannot redirect new scope",
+      "storage retry fenced before and after await"
+    ],
+    "remainingConcreteFindings": 0
+  },
+  "nativeEvidence": "native/README.md",
+  "sourceManifest": "source-manifest.json",
+  "releaseStatus": "Android preview8 finished, verified and installed; iOS17 exact submission finished, Apple VALID and IN_BETA_TESTING",
+  "nativeLivePractice": {
+    "platform": "ios",
+    "source": "frozen current production route in existing1.3.2developmenthost",
+    "fullBo3Completed": true,
+    "draftParkAndProcessRestartRecovered": true,
+    "manualExactPromptTypeAndKeyboardObserved": true,
+    "officialHoldSubmitObserved": true,
+    "nextRoundCleanStateObserved": true,
+    "tier0AndFinalSummaryObserved": true,
+    "resultPresentationAnomaliesObserved": true,
+    "telemetry400Observed": true,
+    "noPaidActions": true
+  },
+  "nativeAndroid": {
+    "source": "final-sourceExpoGo55.0.7fixture",
+    "widthsDp": [320, 375, 390, 402, 960],
+    "largeText320FontScale": 2,
+    "maximum800Retained": true,
+    "realKeyboardCaretAndFooter": true,
+    "nativeBackCancelsHold": true,
+    "reducedMotionObserved": true,
+    "talkBackObserved": false,
+    "signedApkSmoke": {
+      "passed": true,
+      "version": "1.3.3",
+      "versionCode": 8,
+      "coldLaunchMs": 343,
+      "unauthenticatedEmailKeyboardAndBackObserved": true,
+      "evidence": "native/android-release-runtime.json",
+      "signedInBattleObserved": false
+    },
+    "ownedProcessesStopped": true,
+    "cleanupEvidence": "native/android-task-cleanup.json"
+  },
+  "limits": [
+    "VoiceOver native traversal not verified",
+    "TalkBack unavailable on AOSP image",
+    "full iOS device and text matrix not completed",
+    "physical TestFlight execution not verified",
+    "live result status/bot prompt presentation and telemetry anomalies remain unexplained; read-only Supabase connector query denied"
+  ],
+  "deliveryUpdatedAt": "2026-10-07T00:31:28.706138+00:00",
+  "internalIosDelivery": {
+    "version": "1.3.3",
+    "buildNumber": 17,
+    "submissionFinished": true,
+    "appleValid": true,
+    "internalTestingEstablished": true,
+    "groupAssignmentIndependentlyVerified": false,
+    "physicalDeviceExecutionVerified": false,
+    "evidence": "ios17-apple-status-proof.json"
+  }
+}

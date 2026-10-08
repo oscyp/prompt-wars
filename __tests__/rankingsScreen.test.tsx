@@ -30,7 +30,7 @@ jest.mock('@/providers/AuthProvider', () => ({
 jest.mock('@/utils/publicPlayers', () => ({
   fetchPublicPlayers: async () => new Map(),
 }));
-jest.mock('@/components/PlayerSafetyActions', () => () => null);
+jest.mock('@/components/ReportBlockSheet', () => () => null);
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon' }));
 jest.mock('@/utils/supabase', () => ({
   supabase: {

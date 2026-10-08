@@ -1,0 +1,33 @@
+{
+  "totalBytes": 1397174019,
+  "archives": [
+    {
+      "file": "platform-tools.zip",
+      "bytes": 16110554,
+      "sha1": "6ae73f4de6452dc57e62ec02b68eed92a4c21661",
+      "sha256": "ee39ad5967e95c2a07f04dbcbde96b1a0c916ba376096db5d2f498b7727a5d1d",
+      "officialMetadataSha1Verified": true
+    },
+    {
+      "file": "emulator.zip",
+      "bytes": 416112708,
+      "sha1": "3af4fe44ce82b3d88ae5678a53735f27ad729c15",
+      "sha256": "f4c4a142bda54fcec064bdb32b51f19e25bae0a45ad019197ef968bf7a48979b",
+      "officialMetadataSha1Verified": true
+    },
+    {
+      "file": "image.zip",
+      "bytes": 769099654,
+      "sha1": "2026a06409db630b56711afdbffb457c1dbaed49",
+      "sha256": "1e6ae4fca6449c07278a333311f0ef29c5101d1e3e18ba48fbe9bd2dc5006926",
+      "officialMetadataSha1Verified": true
+    },
+    {
+      "file": "expo-go.apk",
+      "bytes": 195851103,
+      "sha1": "fe99a158fc0e885a82e604429dc355bc0ac7ace3",
+      "sha256": "6368eec8973ebb011c6f4f9d32afebe3fc64dd3125f2c0b529767e88dccf64ab",
+      "officialMetadataSha1Verified": false
+    }
+  ]
+}

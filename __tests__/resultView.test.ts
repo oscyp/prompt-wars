@@ -9,6 +9,7 @@
 import {
   battleOutcomeFor,
   canOfferVideoUpgrade,
+  cinematicLabel,
   fighterNameFor,
   formatPct,
   formatPoints,
@@ -24,6 +25,8 @@ import {
   upgradeBlockedCopy,
   upgradeSheetCopy,
   videoStatusCopy,
+  VIDEO_NEARLY_OUT_OF_TIME_MS,
+  VIDEO_SLOW_AFTER_MS,
 } from '@/utils/resultView';
 import type { BattleRound } from '@/types/battle';
 
@@ -312,15 +315,18 @@ describe('canOfferVideoUpgrade', () => {
 
 describe('videoStatusCopy', () => {
   it('covers every enum state that is not yet playable', () => {
-    for (const status of ['queued', 'submitted', 'processing']) {
-      expect(videoStatusCopy({ status, hasUrl: false })).toEqual({
-        title: 'Cinematic video',
-        body: 'Generating your cinematic… usually a few minutes',
-        tone: 'pending',
-      });
+    expect(videoStatusCopy({ status: 'queued', hasUrl: false })).toEqual({
+      title: 'Cinematic',
+      body: 'Starting your cinematic…',
+      tone: 'pending',
+    });
+    for (const status of ['submitted', 'processing']) {
+      expect(
+        videoStatusCopy({ status, hasUrl: false, elapsedMs: 0 })?.tone,
+      ).toBe('pending');
     }
     expect(videoStatusCopy({ status: 'succeeded', hasUrl: false })).toEqual({
-      title: 'Cinematic video',
+      title: 'Cinematic',
       body: 'Finishing up…',
       tone: 'pending',
     });
@@ -334,9 +340,126 @@ describe('videoStatusCopy', () => {
   it('hands over to the player once the url is signed', () => {
     expect(videoStatusCopy({ status: 'succeeded', hasUrl: true })).toBeNull();
   });
+
+  it('never promises "a few minutes" for a p50 of about one', () => {
+    // The old copy said that for every non-terminal state. Overstating the
+    // wait is the expensive direction: the player leaves, and the cinematic
+    // lands seconds later.
+    const bodies = [0, 30_000, 60_000, 120_000, 280_000].map(
+      (elapsedMs) =>
+        videoStatusCopy({ status: 'processing', hasUrl: false, elapsedMs })
+          ?.body ?? '',
+    );
+    for (const body of bodies) {
+      expect(body).not.toContain('few minutes');
+    }
+  });
+
+  it('describes longer renders without completion estimates', () => {
+    const early = videoStatusCopy({
+      status: 'processing',
+      hasUrl: false,
+      elapsedMs: 10_000,
+    });
+    const slow = videoStatusCopy({
+      status: 'processing',
+      hasUrl: false,
+      elapsedMs: VIDEO_SLOW_AFTER_MS,
+    });
+    const nearlyDone = videoStatusCopy({
+      status: 'processing',
+      hasUrl: false,
+      elapsedMs: VIDEO_NEARLY_OUT_OF_TIME_MS,
+    });
+
+    expect(early?.body).toContain('Creating your cinematic');
+    expect(early?.body).not.toContain('about a minute');
+    expect(slow?.body).toContain('longer than usual');
+    // Longer waits keep useful status without adding a time promise.
+    expect(slow?.body).not.toContain('about a minute');
+    expect(nearlyDone?.body).toContain('Nearly out of time');
+  });
+
+  it('tells the player they are free to leave', () => {
+    // There is already a push when the video is ready, so the card should not
+    // read as something that must be watched.
+    const body = videoStatusCopy({
+      status: 'processing',
+      hasUrl: false,
+      elapsedMs: 0,
+    })?.body;
+    expect(body).toContain('don’t have to wait');
+  });
+
+  it('treats a missing elapsed time as the start of the wait', () => {
+    expect(
+      videoStatusCopy({ status: 'processing', hasUrl: false })?.body,
+    ).toContain('Creating your cinematic');
+  });
 });
 
 describe('upgradeSheetCopy', () => {
+  it.each([8, 12, 15, 20])(
+    'shows the quoted %i-second length and exact credit cost',
+    (duration) => {
+      const copy = upgradeSheetCopy(
+        {
+          can_upgrade: true,
+          method: 'credit',
+          cost_credits: 2,
+          target_duration_seconds: duration,
+        },
+        10,
+      );
+      expect(copy.title).toBe(`${duration}-second cinematic`);
+      expect(copy.subtitle).toContain('2 credits');
+      expect(copy.rows[0]).toMatchObject({ amount: 2 });
+    },
+  );
+
+  it.each(['subscriber_full', 'subscriber_round'] as const)(
+    'recognizes %s as allowance funding even for a Plus duration',
+    (method) => {
+      const copy = upgradeSheetCopy(
+        {
+          can_upgrade: true,
+          method,
+          allowance_remaining: 4,
+          target_duration_seconds: 15,
+        },
+        10,
+      );
+      expect(copy.title).toBe('15-second cinematic');
+      expect(copy.subtitle).toContain('Included with your allowance');
+      expect(copy.lines).toEqual(['Uses 1 of 4 monthly video reveals']);
+      expect(copy.rows).toEqual([]);
+    },
+  );
+
+  it('recognizes new_user_grant without falsely quoting a credit spend', () => {
+    const copy = upgradeSheetCopy(
+      {
+        can_upgrade: true,
+        method: 'new_user_grant',
+        target_duration_seconds: 12,
+      },
+      10,
+    );
+    expect(copy.subtitle).toContain('Included with your welcome grant');
+    expect(copy.rows).toEqual([]);
+  });
+
+  it('does not invent an allowance balance when a round preview omits it', () => {
+    const copy = upgradeSheetCopy(
+      {
+        can_upgrade: true,
+        method: 'subscriber_round',
+        target_duration_seconds: 15,
+      },
+      10,
+    );
+    expect(copy.lines).toEqual(['Uses 1 monthly video reveal']);
+  });
   it('states the price, balance and remainder before a credit spend', () => {
     const copy = upgradeSheetCopy(
       { can_upgrade: true, method: 'credits', cost_credits: 3 },
@@ -347,9 +470,9 @@ describe('upgradeSheetCopy', () => {
     expect(copy.confirmLabel).toBe('Get the video');
     expect(copy.lines).toEqual([]);
     expect(copy.rows).toEqual([
-      { label: 'Price', value: '3 credits' },
-      { label: 'Balance', value: '10 credits' },
-      { label: 'After', value: '7 credits' },
+      { label: 'Price', value: '3 credits', amount: 3 },
+      { label: 'Balance', value: '10 credits', amount: 10 },
+      { label: 'After', value: '7 credits', amount: 7 },
     ]);
   });
 
@@ -363,8 +486,16 @@ describe('upgradeSheetCopy', () => {
       },
       10,
     );
-    expect(copy.rows).toContainEqual({ label: 'Balance', value: '5 credits' });
-    expect(copy.rows).toContainEqual({ label: 'After', value: '2 credits' });
+    expect(copy.rows).toContainEqual({
+      label: 'Balance',
+      value: '5 credits',
+      amount: 5,
+    });
+    expect(copy.rows).toContainEqual({
+      label: 'After',
+      value: '2 credits',
+      amount: 2,
+    });
   });
 
   it('omits the balance rows while the wallet is still loading', () => {
@@ -372,7 +503,9 @@ describe('upgradeSheetCopy', () => {
       { can_upgrade: true, method: 'credits', cost_credits: 3 },
       null,
     );
-    expect(copy.rows).toEqual([{ label: 'Price', value: '3 credits' }]);
+    expect(copy.rows).toEqual([
+      { label: 'Price', value: '3 credits', amount: 3 },
+    ]);
   });
 
   it('says which allowance it uses when a subscription covers it', () => {
@@ -388,13 +521,35 @@ describe('upgradeSheetCopy', () => {
     expect(copy.rows).toEqual([]);
   });
 
-  it('shows Free for a welcome grant', () => {
+  it('explains the welcome grant without a routine price label', () => {
     const copy = upgradeSheetCopy(
       { can_upgrade: true, method: 'free_grant', free_grants_remaining: 2 },
       10,
     );
-    expect(copy.rows).toEqual([{ label: 'Price', value: 'Free' }]);
+    expect(copy.rows).toEqual([]);
     expect(copy.lines).toEqual(['Included with your welcome grant.']);
+  });
+});
+
+describe('cinematic job duration', () => {
+  it.each([8, 12, 15, 20])(
+    'labels a created job using its frozen %i-second duration',
+    (duration) => {
+      expect(
+        cinematicLabel({
+          target_duration_seconds: duration,
+          battle_round_id: 'r1',
+        }),
+      ).toBe(`${duration}-second cinematic`);
+    },
+  );
+  it('keeps legacy job labels at their original round/single duration', () => {
+    expect(cinematicLabel({ battle_round_id: 'r1' })).toBe(
+      '8-second cinematic',
+    );
+    expect(cinematicLabel({ battle_round_id: null })).toBe(
+      '12-second cinematic',
+    );
   });
 });
 
@@ -492,5 +647,30 @@ describe('number formatting', () => {
     expect(moveMatchupLine('attack', 'defense', -0.6)).toBe(
       'Your Attack vs their Defense · −0.6 pts',
     );
+  });
+});
+
+it('shows a completed bot round as lost from its frozen winner side, regardless of scores', () => {
+  const botRound = round({
+    round_winner_id: null,
+    player_one_score: 50,
+    player_two_score: 10,
+    judge_payload: {
+      combat: {
+        winner: 2,
+        playerOneScore: 50,
+        playerTwoScore: 10,
+        playerOneDamage: 20,
+        playerTwoDamage: 0,
+        scoreGap: 40,
+      },
+    },
+  });
+  expect(
+    roundMiniView(botRound, { myProfileId: ME, playerOneId: ME }),
+  ).toMatchObject({
+    outcome: 'lost',
+    status: 'Opponent won',
+    scoreLine: '50.0 vs 10.0',
   });
 });

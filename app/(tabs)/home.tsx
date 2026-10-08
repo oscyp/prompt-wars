@@ -1,3 +1,5 @@
+import { useTabBalance } from '@/providers/TabBalanceProvider';
+import { usePlayerAvatars } from '@/hooks/usePlayerAvatars';
 import React, {
   useCallback,
   useEffect,
@@ -16,7 +18,6 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
@@ -58,7 +59,6 @@ import {
 import { arenaPrimaryActionCopy } from '@/utils/battleCopy';
 import { standingLabel, standingRankValue } from '@/utils/rankingsView';
 import { resolveSignatureHex } from '@/utils/characters';
-import { getWalletBalance, type WalletBalance } from '@/utils/monetization';
 import { creditsNoun } from '@/utils/credits';
 import { inkFor } from '@/utils/contrast';
 import { hapticError, hapticSuccess } from '@/utils/haptics';
@@ -73,20 +73,13 @@ import {
 } from '@/utils/dailyMeta';
 import { useAuth } from '@/providers/AuthProvider';
 import HomeFirstTimeOffer from '@/components/HomeFirstTimeOffer';
-import {
-  StreakMeter,
-  SectionCard,
-  SubscriberBadge,
-  CreditChip,
-  InlineBanner,
-  Toast,
-} from '@/components';
-import ArenaFighter from '@/components/game/ArenaFighter';
+import { StreakMeter, SectionCard, InlineBanner, Toast } from '@/components';
 import { GameAttentionStrip } from '@/components/game/GameAttentionStrip';
 import { GameText as Text } from '@/components/game';
 import BattleListPortrait from '@/components/BattleListPortrait';
 import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
 import QuestRow from '@/components/QuestRow';
+import { GuestProgressReminder } from '@/components/auth/GuestProgressReminder';
 
 /** Which of the screen's independent reads a load should run. */
 interface LoadParts {
@@ -161,10 +154,10 @@ const SKIPPED = Promise.resolve(undefined);
 
 export default function HomeScreen() {
   const presentationActive = useBattlePresentationActive();
-  const offerReturnFocusRef = useRef<View>(null);
+  const { walletFocusRef: offerReturnFocusRef, refresh: refreshTabBalance } =
+    useTabBalance();
   const colors = useThemedColors();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const accessibleText = useAccessibleTextStyle();
   const tabClearance = useTabClearance();
   const { user } = useAuth();
@@ -172,7 +165,10 @@ export default function HomeScreen() {
 
   const [meta, setMeta] = useState<DailyMetaState | null>(null);
   const [activeBattles, setActiveBattles] = useState<BattleListRow[]>([]);
-  const [balance, setBalance] = useState<WalletBalance | null>(null);
+  usePlayerAvatars(
+    userId,
+    activeBattles.map((row) => ({ kind: 'battles', id: row.id })),
+  );
   const [publicPlayers, setPublicPlayers] = useState<PublicPlayerMap>(
     () => new Map(),
   );
@@ -180,7 +176,6 @@ export default function HomeScreen() {
   const [errors, setErrors] = useState<SectionErrors>(NO_ERRORS);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [fighterRefresh, setFighterRefresh] = useState(0);
   const [claimingQuestId, setClaimingQuestId] = useState<string | null>(null);
   const [ftuo, setFtuo] = useState<FirstTimeOffer | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -208,11 +203,11 @@ export default function HomeScreen() {
   const load = useCallback(
     async (parts: LoadParts) => {
       lastLoadRef.current = Date.now();
-      const [metaRes, battlesRes, balanceRes, ftuoRes, standingRes] =
+      const [metaRes, battlesRes, , ftuoRes, standingRes] =
         await Promise.allSettled([
           parts.meta ? syncDailyMeta() : SKIPPED,
           parts.battles ? getActiveBattles(ACTIVE_BATTLE_LIMIT) : SKIPPED,
-          parts.balance ? getWalletBalance() : SKIPPED,
+          parts.balance ? refreshTabBalance() : SKIPPED,
           parts.ftuo ? getFirstTimeOffer() : SKIPPED,
           parts.standing && userId ? fetchStanding(userId) : SKIPPED,
         ]);
@@ -249,15 +244,6 @@ export default function HomeScreen() {
         }
       }
 
-      if (parts.balance) {
-        if (balanceRes.status === 'fulfilled' && balanceRes.value) {
-          setBalance(balanceRes.value);
-          next.balance = false;
-        } else {
-          next.balance = true;
-        }
-      }
-
       if (parts.ftuo && ftuoRes.status === 'fulfilled') {
         const offer = ftuoRes.value as FirstTimeOffer | null | undefined;
         setFtuo(offer ?? null);
@@ -279,7 +265,7 @@ export default function HomeScreen() {
       setIsLoading(false);
       setRefreshing(false);
     },
-    [userId],
+    [userId, refreshTabBalance],
   );
 
   // The first focus is the mount; later focuses only refresh what changes
@@ -296,7 +282,6 @@ export default function HomeScreen() {
   );
 
   const onRefresh = () => {
-    setFighterRefresh((value) => value + 1);
     setRefreshing(true);
     void load(ALL_PARTS);
   };
@@ -352,6 +337,9 @@ export default function HomeScreen() {
     [activeBattles, user?.id],
   );
   const urgentBattle = arenaBattles.primary;
+  const urgentIdentity = urgentBattle
+    ? opponentIdentityFor(urgentBattle, userId, publicPlayers)
+    : null;
   const otherBattles = arenaBattles.remaining;
   const urgentCopy = urgentBattle
     ? arenaPrimaryActionCopy(
@@ -406,7 +394,7 @@ export default function HomeScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + Spacing.sm,
+            paddingTop: Spacing.sm,
             paddingBottom: tabClearance + Spacing.lg,
           },
         ]}
@@ -418,31 +406,189 @@ export default function HomeScreen() {
           />
         }
       >
-        <ArenaFighter
-          account={userId}
-          refreshVersion={fighterRefresh}
-          mastheadTrailing={
-            <>
-              {balance?.is_subscriber ? <SubscriberBadge /> : null}
-              <CreditChip
-                focusRef={offerReturnFocusRef}
-                credits={balance?.credits_balance ?? 0}
-                unavailable={errors.balance && !balance}
-              />
-            </>
-          }
-          beforeHero={
-            urgentBattle && urgentCopy ? (
-              <GameAttentionStrip
-                {...urgentCopy}
-                onPress={() => {
-                  const route = battleRouteFor(urgentBattle, userId);
-                  if (route) router.push(route);
-                }}
-              />
-            ) : undefined
-          }
-        />
+        {user?.is_anonymous && presentationActive ? (
+          <GuestProgressReminder key={user.id} userId={user.id} />
+        ) : null}
+        {urgentBattle && urgentCopy ? (
+          <View style={styles.sectionSpacing}>
+            <GameAttentionStrip
+              {...urgentCopy}
+              leading={
+                urgentIdentity ? (
+                  <BattleListPortrait
+                    accountId={userId}
+                    battleId={urgentBattle.id}
+                    side={
+                      urgentBattle.player_two_id === userId
+                        ? 'player_one'
+                        : 'player_two'
+                    }
+                    snapshot={urgentBattle.identity_snapshot}
+                    visible={presentationActive}
+                    fallbackUri={
+                      archetypeIllustrationUri(urgentIdentity.archetype) ?? ''
+                    }
+                    accentColor={
+                      urgentIdentity.signatureColor
+                        ? resolveSignatureHex(urgentIdentity.signatureColor)
+                        : colors.border
+                    }
+                    size={40}
+                    name={urgentIdentity.name ?? 'Opponent'}
+                  />
+                ) : undefined
+              }
+              onPress={() => {
+                const route = battleRouteFor(urgentBattle, userId);
+                if (route) router.push(route);
+              }}
+            />
+          </View>
+        ) : undefined}
+
+        {errors.meta ? (
+          <View style={styles.bannerWrap}>
+            <InlineBanner
+              tone="error"
+              text="Couldn’t load your streak and quests."
+              actionLabel="Retry"
+              onAction={() => void load(CLAIM_PARTS)}
+            />
+          </View>
+        ) : null}
+
+        {/* Daily Quests — the whole day's list (three small tasks), never a slice. */}
+        {meta ? (
+          <SectionCard
+            title="Daily Quests"
+            subtitle={
+              quests.length > 0
+                ? `${completedQuests} of ${quests.length} complete`
+                : undefined
+            }
+          >
+            {quests.length === 0 ? (
+              <Text
+                style={[
+                  styles.emptyText,
+                  accessibleText,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                No quests today. Check back tomorrow.
+              </Text>
+            ) : (
+              quests.map((quest, index) => (
+                <QuestRow
+                  key={quest.id}
+                  quest={quest}
+                  claiming={claimingQuestId === quest.daily_quest_id}
+                  onClaim={(q) => void handleClaimQuest(q)}
+                  isLast={index === quests.length - 1}
+                />
+              ))
+            )}
+          </SectionCard>
+        ) : null}
+
+        {/* Streak meter */}
+        {meta ? (
+          <StreakMeter
+            loginStreak={meta.login.streak}
+            claimedToday={meta.login.claimed_today}
+            winStreak={meta.win_streak.current}
+            bestStreak={meta.win_streak.best}
+          />
+        ) : null}
+
+        {/* Your standing — the rankings teaser (audit A3). The whole card is
+            the button; a failed read says so instead of printing "Unranked". */}
+        {errors.standing ? (
+          <View style={styles.bannerWrap}>
+            <InlineBanner
+              tone="error"
+              text="Couldn’t load your standing."
+              actionLabel="Retry"
+              onAction={() => void load(STANDING_PART)}
+            />
+          </View>
+        ) : standing ? (
+          <Pressable
+            style={({ pressed }) => [
+              styles.standingPress,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => router.push('/(tabs)/rankings')}
+            accessibilityRole="button"
+            accessibilityLabel={standingA11y}
+          >
+            <SectionCard
+              title="Your standing"
+              style={styles.standingCard}
+              trailing={
+                <GameSymbol
+                  name="chevron-forward"
+                  size={16}
+                  color={colors.textSecondary}
+                />
+              }
+            >
+              <View style={styles.standingColumns}>
+                <View style={styles.standingCol}>
+                  <Text
+                    style={[
+                      styles.standingLabel,
+                      accessibleText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Season rank
+                  </Text>
+                  <Text
+                    style={[
+                      styles.standingValue,
+                      NumericFontVariant,
+                      { color: colors.text },
+                    ]}
+                  >
+                    {standingRankValue(standing.rank.rank)}
+                  </Text>
+                </View>
+                <View style={styles.standingCol}>
+                  <Text
+                    style={[
+                      styles.standingLabel,
+                      accessibleText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Rating
+                  </Text>
+                  <Text
+                    style={[
+                      styles.standingValue,
+                      NumericFontVariant,
+                      { color: colors.text },
+                    ]}
+                  >
+                    {standingRating.value}
+                  </Text>
+                </View>
+              </View>
+              {standingSeason ? (
+                <Text
+                  style={[
+                    styles.standingSeason,
+                    accessibleText,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {standingSeason}
+                </Text>
+              ) : null}
+            </SectionCard>
+          </Pressable>
+        ) : null}
 
         {errors.battles ? (
           <View style={styles.bannerWrap}>
@@ -599,150 +745,6 @@ export default function HomeScreen() {
           </SectionCard>
         ) : null}
 
-        {errors.meta ? (
-          <View style={styles.bannerWrap}>
-            <InlineBanner
-              tone="error"
-              text="Couldn’t load your streak and quests."
-              actionLabel="Retry"
-              onAction={() => void load(CLAIM_PARTS)}
-            />
-          </View>
-        ) : null}
-
-        {/* Daily Quests — the whole day's list (three small tasks), never a slice. */}
-        {meta ? (
-          <SectionCard
-            title="Daily Quests"
-            subtitle={
-              quests.length > 0
-                ? `${completedQuests} of ${quests.length} complete`
-                : undefined
-            }
-          >
-            {quests.length === 0 ? (
-              <Text
-                style={[
-                  styles.emptyText,
-                  accessibleText,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                No quests today. Check back tomorrow.
-              </Text>
-            ) : (
-              quests.map((quest, index) => (
-                <QuestRow
-                  key={quest.id}
-                  quest={quest}
-                  claiming={claimingQuestId === quest.daily_quest_id}
-                  onClaim={(q) => void handleClaimQuest(q)}
-                  isLast={index === quests.length - 1}
-                />
-              ))
-            )}
-          </SectionCard>
-        ) : null}
-
-        {/* Streak meter */}
-        {meta ? (
-          <StreakMeter
-            loginStreak={meta.login.streak}
-            claimedToday={meta.login.claimed_today}
-            winStreak={meta.win_streak.current}
-            bestStreak={meta.win_streak.best}
-          />
-        ) : null}
-
-        {/* Your standing — the rankings teaser (audit A3). The whole card is
-            the button; a failed read says so instead of printing "Unranked". */}
-        {errors.standing ? (
-          <View style={styles.bannerWrap}>
-            <InlineBanner
-              tone="error"
-              text="Couldn’t load your standing."
-              actionLabel="Retry"
-              onAction={() => void load(STANDING_PART)}
-            />
-          </View>
-        ) : standing ? (
-          <Pressable
-            style={({ pressed }) => [
-              styles.standingPress,
-              pressed && styles.pressed,
-            ]}
-            onPress={() => router.push('/(tabs)/rankings')}
-            accessibilityRole="button"
-            accessibilityLabel={standingA11y}
-          >
-            <SectionCard
-              title="Your standing"
-              style={styles.standingCard}
-              trailing={
-                <GameSymbol
-                  name="chevron-forward"
-                  size={16}
-                  color={colors.textSecondary}
-                />
-              }
-            >
-              <View style={styles.standingColumns}>
-                <View style={styles.standingCol}>
-                  <Text
-                    style={[
-                      styles.standingLabel,
-                      accessibleText,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Season rank
-                  </Text>
-                  <Text
-                    style={[
-                      styles.standingValue,
-                      NumericFontVariant,
-                      { color: colors.text },
-                    ]}
-                  >
-                    {standingRankValue(standing.rank.rank)}
-                  </Text>
-                </View>
-                <View style={styles.standingCol}>
-                  <Text
-                    style={[
-                      styles.standingLabel,
-                      accessibleText,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Rating
-                  </Text>
-                  <Text
-                    style={[
-                      styles.standingValue,
-                      NumericFontVariant,
-                      { color: colors.text },
-                    ]}
-                  >
-                    {standingRating.value}
-                  </Text>
-                </View>
-              </View>
-              {standingSeason ? (
-                <Text
-                  style={[
-                    styles.standingSeason,
-                    accessibleText,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {standingSeason}
-                </Text>
-              ) : null}
-            </SectionCard>
-          </Pressable>
-        ) : null}
-
         <HomeFirstTimeOffer
           returnFocusRef={offerReturnFocusRef}
           key={userId}
@@ -767,6 +769,9 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.lg,
+  },
+  sectionSpacing: {
+    marginBottom: Spacing.md,
   },
   headerRow: {
     flexDirection: 'row',

@@ -13,13 +13,13 @@
 //   prompts, archetypes, move_types, stats snapshot, hp — never any field
 //   sourced from `subscriptions`, `wallet_transactions`, or `purchases`.
 
-import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 export type RoundUpgradeSource =
-  | 'subscriber_full'
-  | 'subscriber_round'
-  | 'credit'
-  | 'new_user_grant';
+  | "subscriber_full"
+  | "subscriber_round"
+  | "credit"
+  | "new_user_grant";
 
 export interface RoundEntitlementResult {
   allowed: boolean;
@@ -30,10 +30,14 @@ export interface RoundEntitlementResult {
 }
 
 export interface RoundEntitlementContext {
+  /** A quote must never reserve or decrement resources. */
+  previewOnly?: boolean;
+  /** Server-generated identity for a confirmed replacement attempt. */
+  reservationAttemptId?: string;
   /** Pre-fetched battle row (avoids re-querying); pass minimally needed fields. */
   battle?: {
     id: string;
-    format: 'single' | 'bo3';
+    format: "single" | "bo3";
     best_of: number;
     player_one_rounds_won?: number | null;
     player_two_rounds_won?: number | null;
@@ -58,23 +62,25 @@ export async function checkRoundUpgradeEntitlement(
   ctx: RoundEntitlementContext = {},
 ): Promise<RoundEntitlementResult> {
   if (roundNumber < 1 || roundNumber > 3) {
-    return { allowed: false, source: null, reason: 'invalid_round_number' };
+    return { allowed: false, source: null, reason: "invalid_round_number" };
   }
 
   // 1. Load entitlements_v2 row.
   const { data: ent, error: entErr } = await client
-    .from('entitlements_v2')
+    .from("entitlements_v2")
     .select(
-      'is_subscriber, monthly_round_allowance_remaining, monthly_full_battle_cap_remaining, new_user_round_grants_remaining, new_user_grant_per_battle_limit, credits_balance',
+      "is_subscriber, monthly_round_allowance_remaining, monthly_full_battle_cap_remaining, new_user_round_grants_remaining, new_user_grant_per_battle_limit, credits_balance",
     )
-    .eq('profile_id', profileId)
+    .eq("profile_id", profileId)
     .maybeSingle();
 
   if (entErr || !ent) {
-    return { allowed: false, source: null, reason: 'entitlements_unavailable' };
+    return { allowed: false, source: null, reason: "entitlements_unavailable" };
   }
 
-  const idemBase = `round_upgrade:${battleId}:${roundNumber}:${profileId}`;
+  const idemBase = `round_upgrade:${battleId}:${roundNumber}:${profileId}${
+    ctx.reservationAttemptId ? `:attempt:${ctx.reservationAttemptId}` : ""
+  }`;
 
   // 2. Subscriber path (no reservation; decrement on success).
   if (ent.is_subscriber) {
@@ -91,12 +97,12 @@ export async function checkRoundUpgradeEntitlement(
         return {
           allowed: false,
           source: null,
-          reason: 'daily_cost_circuit_open_subscriber_downgraded',
+          reason: "daily_cost_circuit_open_subscriber_downgraded",
         };
       }
       return {
         allowed: true,
-        source: 'subscriber_full',
+        source: "subscriber_full",
         reservation_id: null,
         is_full_battle: true,
       };
@@ -107,12 +113,12 @@ export async function checkRoundUpgradeEntitlement(
         return {
           allowed: false,
           source: null,
-          reason: 'daily_cost_circuit_open_subscriber_downgraded',
+          reason: "daily_cost_circuit_open_subscriber_downgraded",
         };
       }
       return {
         allowed: true,
-        source: 'subscriber_round',
+        source: "subscriber_round",
         reservation_id: null,
         is_full_battle: false,
       };
@@ -122,34 +128,72 @@ export async function checkRoundUpgradeEntitlement(
 
   // 3. New-user grant path (per-battle limit enforced inside RPC).
   if ((ent.new_user_round_grants_remaining ?? 0) > 0) {
-    const grantRes = await client.rpc('reserve_round_upgrade_grant', {
-      p_profile_id: profileId,
-      p_battle_id: battleId,
-      p_round_number: roundNumber,
-      p_idempotency_key: `${idemBase}:grant`,
-    });
-    if (!grantRes.error && grantRes.data) {
-      return {
-        allowed: true,
-        source: 'new_user_grant',
-        reservation_id: grantRes.data as string,
-        is_full_battle: false,
-      };
-    }
-    // If grant path returned a known business error, fall through to credits.
-    if (
-      grantRes.error &&
-      !/per_battle_grant_limit_reached|no_grants_remaining|grant_expired/.test(
-        grantRes.error.message ?? '',
-      )
-    ) {
-      console.error('reserve_round_upgrade_grant error:', grantRes.error);
+    if (ctx.previewOnly) {
+      const { count, error } = await client.from("wallet_transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("profile_id", profileId).eq("battle_id", battleId)
+        .eq("source", "new_user_grant").in("status", ["held", "spent"]);
+      if (error) {
+        return {
+          allowed: false,
+          source: null,
+          reason: "entitlements_unavailable",
+        };
+      }
+      if ((count ?? 0) < (ent.new_user_grant_per_battle_limit ?? 1)) {
+        return {
+          allowed: true,
+          source: "new_user_grant",
+          reservation_id: null,
+          is_full_battle: false,
+        };
+      }
+    } else {
+      const grantRes = await client.rpc("reserve_round_upgrade_grant", {
+        p_profile_id: profileId,
+        p_battle_id: battleId,
+        p_round_number: roundNumber,
+        p_idempotency_key: `${idemBase}:grant`,
+      });
+      if (!grantRes.error && grantRes.data) {
+        return {
+          allowed: true,
+          source: "new_user_grant",
+          reservation_id: grantRes.data as string,
+          is_full_battle: false,
+        };
+      }
+      // If grant path returned a known business error, fall through to credits.
+      if (
+        /round_upgrade_already_reserved|round_upgrade_already_spent/.test(
+          grantRes.error?.message ?? "",
+        )
+      ) {
+        return { allowed: false, source: null, reason: "upgrade_in_progress" };
+      }
+      if (
+        grantRes.error &&
+        !/per_battle_grant_limit_reached|no_grants_remaining|grant_expired/
+          .test(
+            grantRes.error.message ?? "",
+          )
+      ) {
+        console.error("reserve_round_upgrade_grant error:", grantRes.error);
+      }
     }
   }
 
   // 4. Credit path.
   if ((ent.credits_balance ?? 0) >= 1) {
-    const creditRes = await client.rpc('reserve_round_upgrade_credit', {
+    if (ctx.previewOnly) {
+      return {
+        allowed: true,
+        source: "credit",
+        reservation_id: null,
+        is_full_battle: false,
+      };
+    }
+    const creditRes = await client.rpc("reserve_round_upgrade_credit", {
       p_profile_id: profileId,
       p_battle_id: battleId,
       p_round_number: roundNumber,
@@ -158,20 +202,27 @@ export async function checkRoundUpgradeEntitlement(
     if (!creditRes.error && creditRes.data) {
       return {
         allowed: true,
-        source: 'credit',
+        source: "credit",
         reservation_id: creditRes.data as string,
         is_full_battle: false,
       };
     }
     if (creditRes.error) {
-      console.error('reserve_round_upgrade_credit error:', creditRes.error);
+      if (
+        /round_upgrade_already_reserved|round_upgrade_already_spent/.test(
+          creditRes.error.message ?? "",
+        )
+      ) {
+        return { allowed: false, source: null, reason: "upgrade_in_progress" };
+      }
+      console.error("reserve_round_upgrade_credit error:", creditRes.error);
     }
   }
 
   return {
     allowed: false,
     source: null,
-    reason: 'insufficient_entitlement',
+    reason: "insufficient_entitlement",
   };
 }
 
@@ -189,16 +240,17 @@ export async function finalizeRoundUpgradeEntitlement(
     round_number: number;
     is_full_battle?: boolean;
   },
-  outcome: 'succeeded' | 'failed' | 'moderation_failed',
+  outcome: "succeeded" | "failed" | "moderation_failed",
   client: SupabaseClient,
 ): Promise<void> {
   // Subscriber: no hold to finalize; decrement counters only on success.
-  if (args.source === 'subscriber_full' || args.source === 'subscriber_round') {
-    if (outcome !== 'succeeded') return; // do not decrement on failure
-    const isFullBattle =
-      args.source === 'subscriber_full' || !!args.is_full_battle;
-    const idemKey = `sub_decr:${args.battle_id}:${args.round_number}:${args.profile_id}`;
-    const { error } = await client.rpc('decrement_subscriber_round_allowance', {
+  if (args.source === "subscriber_full" || args.source === "subscriber_round") {
+    if (outcome !== "succeeded") return; // do not decrement on failure
+    const isFullBattle = args.source === "subscriber_full" ||
+      !!args.is_full_battle;
+    const idemKey =
+      `sub_decr:${args.battle_id}:${args.round_number}:${args.profile_id}`;
+    const { error } = await client.rpc("decrement_subscriber_round_allowance", {
       p_profile_id: args.profile_id,
       p_battle_id: args.battle_id,
       p_round_number: args.round_number,
@@ -206,25 +258,34 @@ export async function finalizeRoundUpgradeEntitlement(
       p_idempotency_key: idemKey,
     });
     if (error) {
-      console.error('decrement_subscriber_round_allowance error:', error);
+      throw new RoundEntitlementFinalizeError(
+        `decrement_subscriber_round_allowance: ${error.message}`,
+      );
     }
     return;
   }
 
   // Credit / grant path: finalize the held row.
   if (!args.reservation_id) {
-    console.warn(
-      'finalizeRoundUpgradeEntitlement: missing reservation_id for',
-      args.source,
+    throw new RoundEntitlementFinalizeError(
+      `Missing reservation_id for ${args.source}`,
     );
-    return;
   }
-  const { error } = await client.rpc('finalize_round_upgrade', {
+  const { error } = await client.rpc("finalize_round_upgrade", {
     p_reservation_id: args.reservation_id,
     p_outcome: outcome,
   });
   if (error) {
-    console.error('finalize_round_upgrade error:', error);
+    throw new RoundEntitlementFinalizeError(
+      `finalize_round_upgrade: ${error.message}`,
+    );
+  }
+}
+
+export class RoundEntitlementFinalizeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RoundEntitlementFinalizeError";
   }
 }
 
@@ -232,10 +293,10 @@ export async function finalizeRoundUpgradeEntitlement(
 
 function isDecidingRound(
   roundNumber: number,
-  battle?: RoundEntitlementContext['battle'],
+  battle?: RoundEntitlementContext["battle"],
 ): boolean {
   if (!battle) return roundNumber === 3;
-  if (battle.format !== 'bo3') return true;
+  if (battle.format !== "bo3") return true;
   if (roundNumber === 3) return true;
   // Round 2 is "deciding" only if one player already lost a round.
   const p1 = battle.player_one_rounds_won ?? 0;
@@ -250,10 +311,10 @@ async function isDailyCostCircuitOpen(
   const since = new Date();
   since.setUTCHours(0, 0, 0, 0);
   const { count, error } = await client
-    .from('video_jobs')
-    .select('id', { count: 'exact', head: true })
-    .eq('status', 'succeeded')
-    .gte('completed_at', since.toISOString());
+    .from("video_jobs")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "succeeded")
+    .gte("completed_at", since.toISOString());
   if (error) {
     // Fail closed on counters is too aggressive; fail open is fine here since
     // the gate has no PII / safety component.

@@ -1,0 +1,22 @@
+{
+  "verifiedAt": "2026-10-02T15:54:02.021719+00:00",
+  "buildId": "6a6caf8c-1848-43c1-9f9d-11be150105e2",
+  "apkPath": "/tmp/prompt-wars-android-6-remediation-20261002.apk",
+  "apkSha256": "518ab7917fdabee903f8a4a4cee9feaddb4dea2a7493d27d8f2e4a446fbb106e",
+  "versionName": "1.3.3",
+  "versionCode": 6,
+  "package": "gg.promptwars.app",
+  "allRequiredStaticChecksPassed": true,
+  "sourceMapExactlyMatchesIos16": true,
+  "signerMatchesIntermediate5": true,
+  "bundleMatchesLinkedBackend": true,
+  "requiredComposerAndResultCopyMarkersPresent": true,
+  "nativeQaOwner": "implement_mobile_composer",
+  "nativeQaReport": "native/android-local-README.md",
+  "nativeQaStatus": "Android fixture found composer Lock in occluded by IME; Android-only keyboard correction and replacement APK pending",
+  "storeSubmissionRequested": false,
+  "finalDeliveryCandidate": false,
+  "updatedAt": "2026-10-02T16:03:52.488583+00:00",
+  "supersededByBuildId": "bc22e58f-7250-4796-94e8-4489e3e80642",
+  "supersededByVersionCode": 7
+}

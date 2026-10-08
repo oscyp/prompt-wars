@@ -85,6 +85,8 @@ export interface MatchmakingResult {
 }
 
 export interface MatchmakingRequestOptions {
+  /** Accept an existing invitation using its frozen battle contract. */
+  acceptBattleId?: string;
   /** Reuse this value for every network retry of one explicit player action. */
   requestId?: string;
   /** Waiting screens provide the row they are already presenting. */
@@ -181,10 +183,11 @@ export async function startMatchmaking(
       'matchmaking',
       {
         character_id: characterId,
-        client_contract_version: 2,
+        client_contract_version: 3,
         mode,
         request_id: options.requestId ?? generateIdempotencyKey(),
         resume_battle_id: options.resumeBattleId,
+        accept_battle_id: options.acceptBattleId,
       },
     );
 
@@ -257,6 +260,7 @@ export async function submitPrompt(
   moveType: MoveType,
   customPromptText: string,
   roundNumber?: number,
+  authoringOrigin?: AuthoringOrigin,
 ): Promise<SubmitPromptResult> {
   try {
     const data = await invokeAuthenticatedFunction<SubmitPromptResult>(
@@ -266,6 +270,8 @@ export async function submitPrompt(
         move_type: moveType,
         custom_prompt_text: customPromptText,
         round_number: roundNumber,
+        client_contract_version: 3,
+        ...(authoringOrigin ? { authoring_origin: authoringOrigin } : {}),
       },
     );
 
@@ -411,10 +417,24 @@ export async function getMyBattles(limit = 20) {
   return data;
 }
 
+export interface ApproachHint { id: string; text: string }
+export interface IntentHint { id: string; text: string; approachHints?: ApproachHint[] }
 export interface MoveSuggestion {
+  id?: string;
+  structureVersion?: 2;
+  compositionVersion?: 3;
+  action?: string;
+  intentHints?: IntentHint[];
+  affordanceIds?: string[];
   title: string;
   body: string;
 }
+
+export type AuthoringOrigin = 'builder' | 'manual' | 'mixed' | 'unknown';
+export type ComposerActionSuggestion = MoveSuggestion & {
+  moveType: MoveType;
+  source: 'authored' | 'ai';
+};
 
 export interface MoveSuggestionSet {
   id: string;
@@ -430,13 +450,48 @@ export type MoveSuggestionFailure =
   | 'failed';
 
 export interface MoveSuggestionResult {
+  compositionStatus?: 'ready' | 'pending' | 'failed';
+  code?: string;
+  status?: 'ready' | 'pending' | 'failed';
+  operationId?: string;
   set: MoveSuggestionSet | null;
   failure: MoveSuggestionFailure | null;
   message: string | null;
 }
 
 /**
- * Reads suggestion sets ALREADY generated for this (battle, round, move type).
+ * What a read of a suggestion slot actually found.
+ *
+ * Three states rather than two, because "nothing I can show you" splits into
+ * two cases the screen must treat differently: a set that is still being
+ * generated, and a slot that is genuinely empty. Collapsing them is expensive
+ * in a very specific way -- a `pending` row read as empty makes the screen
+ * call the generate endpoint on top of a claim that already exists, the free
+ * slot 23505s, and the player is CHARGED A CREDIT for a set that was already
+ * on its way to them.
+ *
+ * That window used to be a rare race (background the app mid-generation, come
+ * back). Once suggestions are prefetched server-side it becomes the normal
+ * case, so the distinction has to live in the type.
+ */
+export type MoveSuggestionRead =
+  | { status: 'ready'; suggestions: MoveSuggestion[]; isPaid?: boolean; id?: string }
+  | { status: 'pending' }
+  | { status: 'none' };
+
+/**
+ * Moderation statuses whose text may be shown to a player.
+ *
+ * An allow-list, not `!== 'pending'`: a status added to the enum later must
+ * default to "do not show", and a deny-list would silently leak it.
+ */
+const READABLE_MODERATION_STATUSES = ['approved', 'flagged_human_review'];
+
+const EMPTY_READ: MoveSuggestionRead = { status: 'none' };
+
+/**
+ * Reads the suggestion sets ALREADY generated for this (battle, round), for
+ * every move type at once.
  *
  * This exists to stop the arena from charging a player for simply walking back
  * into the screen. `generateMoveSuggestions` spends the free slot on its first
@@ -444,43 +499,91 @@ export interface MoveSuggestionResult {
  * would bill someone for navigating back from prompt-entry and forward again.
  * Mount reads; only an explicit reroll generates.
  *
+ * All three move types come back in one query rather than one query per move,
+ * so switching moves in the workspace never waits on the network.
+ *
+ * THROWS on a query error, and that is deliberate. Returning an empty result
+ * would be indistinguishable from "no set exists", which sends the caller
+ * straight to the generate path -- i.e. a transient network blip would spend
+ * the player's free slot, or a credit. The caller has a read-retry path built
+ * for exactly this; it was previously unreachable because this function
+ * swallowed its own errors.
+ *
  * Owner-only under RLS (`move_prompt_suggestions_select_own`), and the client
  * holds SELECT and nothing else, so this cannot be used to see an opponent's
  * suggestions or to forge one.
+ */
+export async function readMoveSuggestions(
+  battleId: string,
+  roundNumber: number,
+): Promise<Record<MoveType, MoveSuggestionRead>> {
+  const result: Record<MoveType, MoveSuggestionRead> = {
+    attack: EMPTY_READ,
+    defense: EMPTY_READ,
+    finisher: EMPTY_READ,
+  };
+
+  const { data, error } = await supabase
+    .from('move_prompt_suggestions')
+    .select('id, suggestions, created_at, moderation_status, move_type, is_paid')
+    .eq('battle_id', battleId)
+    .eq('round_number', roundNumber)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Move suggestions read error:', error);
+    throw new Error(error.message || 'Failed to read move suggestions');
+  }
+  if (!Array.isArray(data)) return result;
+
+  const seen = new Set<MoveType>();
+  for (const raw of data) {
+    const row = raw as {
+      id?: string;
+      suggestions?: unknown;
+      moderation_status?: string | null;
+      move_type?: string | null;
+      is_paid?: boolean;
+    };
+    const moveType = row.move_type as MoveType | undefined;
+    if (!moveType || !(moveType in result)) continue;
+    // Rows arrive newest-first, so the first one seen for a move type is the
+    // set that counts; a superseded reroll behind it is not.
+    if (seen.has(moveType)) continue;
+    seen.add(moveType);
+
+    const status = row.moderation_status ?? '';
+    if (status === 'pending') {
+      result[moveType] = { status: 'pending' };
+      continue;
+    }
+    // A rejected set must not resurface on a later visit. It reads as empty,
+    // which matches the behaviour before this function grew a third state.
+    if (!READABLE_MODERATION_STATUSES.includes(status)) continue;
+    if (!Array.isArray(row.suggestions)) continue;
+
+    result[moveType] = {
+      status: 'ready',
+      ...(typeof row.id === 'string' ? { id: row.id } : {}),
+      suggestions: row.suggestions as MoveSuggestion[],
+      ...(typeof row.is_paid === 'boolean' ? { isPaid: row.is_paid } : {}),
+    };
+  }
+
+  return result;
+}
+
+/**
+ * Single-move-type view of {@link readMoveSuggestions}, for callers that only
+ * care about the move the player has picked.
  */
 export async function getMoveSuggestions(
   battleId: string,
   moveType: MoveType,
   roundNumber: number,
-): Promise<MoveSuggestion[]> {
-  try {
-    const { data, error } = await supabase
-      .from('move_prompt_suggestions')
-      .select('suggestions, created_at, moderation_status')
-      .eq('battle_id', battleId)
-      .eq('round_number', roundNumber)
-      .eq('move_type', moveType)
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (error || !Array.isArray(data) || data.length === 0) {
-      if (error) console.error('Move suggestions read error:', error);
-      return [];
-    }
-
-    const row = data[0] as {
-      suggestions?: unknown;
-      moderation_status?: string | null;
-    };
-    // A rejected set must not resurface on a later visit.
-    if (row.moderation_status === 'rejected') return [];
-    return Array.isArray(row.suggestions)
-      ? (row.suggestions as MoveSuggestion[])
-      : [];
-  } catch (err) {
-    console.error('Move suggestions read exception:', err);
-    return [];
-  }
+): Promise<MoveSuggestionRead> {
+  const all = await readMoveSuggestions(battleId, roundNumber);
+  return all[moveType] ?? EMPTY_READ;
 }
 
 /**
@@ -515,18 +618,134 @@ export function classifySuggestionFailure(
   return 'unavailable';
 }
 
+/** A batch can only ensure existing per-type free slots; it can never purchase. */
+export async function ensureFreeMoveSuggestionBanks(
+  battleId: string,
+  roundNumber: number,
+  moveTypes: MoveType[] = ['attack', 'defense', 'finisher'],
+): Promise<Partial<Record<MoveType, MoveSuggestionResult>>> {
+  const types = [...new Set(moveTypes)];
+  if (
+    !types.length ||
+    types.some((type) => !['attack', 'defense', 'finisher'].includes(type))
+  )
+    throw new Error('Select valid suggestion types');
+  const unavailable = (
+    code?: string,
+    message = 'Suggestions unavailable',
+  ): MoveSuggestionResult => ({
+    set: null,
+    failure: classifySuggestionFailure(undefined, code),
+    message,
+    ...(code ? { code } : {}),
+  });
+  const result: Partial<Record<MoveType, MoveSuggestionResult>> = {};
+  for (const type of types) result[type] = unavailable();
+  try {
+    const reply = await invokeAuthenticatedFunction<{
+      ok?: boolean;
+      data?: { results?: unknown[] };
+      error?: { code?: string; message?: string };
+    }>('generate-move-suggestions', {
+      battle_id: battleId,
+      round_number: roundNumber,
+      operation: 'ensure_free',
+      move_types: types,
+      client_contract_version: 3,
+      composition_version: 3,
+    });
+    if (!Array.isArray(reply?.data?.results)) {
+      for (const type of types)
+        result[type] = unavailable(reply?.error?.code, reply?.error?.message);
+      return result;
+    }
+    const seen = new Set<MoveType>();
+    for (const value of reply.data.results) {
+      if (!value || typeof value !== 'object') continue;
+      const row = value as Record<string, unknown>;
+      const type = row.move_type as MoveType;
+      if (!types.includes(type) || seen.has(type)) continue;
+      seen.add(type);
+      const operationId =
+        typeof row.operation_id === 'string' ? row.operation_id : undefined;
+      const code = typeof row.error === 'string' ? row.error : undefined;
+      if (row.status === 'pending' || row.status === 'stale') {
+        result[type] = {
+          set: null,
+          status: 'pending',
+          operationId,
+          failure: null,
+          message: null,
+        };
+      } else if (row.status === 'failed') {
+        result[type] = {
+          set: null,
+          status: 'failed',
+          operationId,
+          failure: 'failed',
+          code,
+          message:
+            'These ideas could not be delivered. Your free choices are ready.',
+        };
+      } else if (
+        row.status === 'ready' &&
+        typeof row.id === 'string' &&
+        Array.isArray(row.suggestions)
+      ) {
+        result[type] = {
+          status: 'ready',
+          compositionStatus: row.composition_status as MoveSuggestionResult['compositionStatus'],
+          operationId,
+          failure: null,
+          message: null,
+          set: {
+            id: row.id,
+            suggestions: row.suggestions as MoveSuggestion[],
+            isPaid: Boolean(row.is_paid),
+            creditsSpent: Number(row.credits_spent ?? 0),
+          },
+        };
+      } else result[type] = unavailable(code);
+    }
+  } catch (error) {
+    let code: string | undefined;
+    let status: number | undefined;
+    if (error instanceof FunctionInvokeError) {
+      status = error.status;
+      const body = error.body as { error?: { code?: unknown } } | null;
+      if (typeof body?.error?.code === 'string') code = body.error.code;
+    }
+    for (const type of types)
+      result[type] = {
+        ...unavailable(code),
+        failure: classifySuggestionFailure(status, code),
+      };
+  }
+  return result;
+}
+
 export async function generateMoveSuggestions(
   battleId: string,
   moveType: MoveType,
   roundNumber: number,
+  options: {
+    operation: 'ensure_free' | 'reroll';
+    idempotencyKey?: string;
+    expectedCredits?: number;
+    compositionVersion?: 3;
+    suggestionSetId?: string;
+  } = { operation: 'ensure_free' },
 ): Promise<MoveSuggestionResult> {
   let data: {
     ok?: boolean;
     data?: {
+      status?: 'ready' | 'pending' | 'failed';
+      operation_id?: string;
       id: string;
       suggestions: MoveSuggestion[];
       is_paid: boolean;
       credits_spent: number;
+      composition_status?: 'ready' | 'pending' | 'failed';
     };
     error?: { code?: string; message?: string };
   } | null = null;
@@ -536,6 +755,12 @@ export async function generateMoveSuggestions(
       battle_id: battleId,
       move_type: moveType,
       round_number: roundNumber,
+      operation: options.operation,
+      idempotency_key: options.idempotencyKey,
+      expected_credits: options.expectedCredits,
+      client_contract_version: 3,
+      composition_version: options.compositionVersion,
+      ...(options.suggestionSetId ? { suggestion_set_id: options.suggestionSetId } : {}),
     });
   } catch (err) {
     const message =
@@ -552,7 +777,7 @@ export async function generateMoveSuggestions(
     }
     const failure = classifySuggestionFailure(status, code);
     console.error('Move suggestions error:', { status, code, message });
-    return { set: null, failure, message };
+    return { set: null, failure, message, code };
   }
 
   if (!data) {
@@ -564,6 +789,26 @@ export async function generateMoveSuggestions(
   }
 
   const payload = data.data;
+  if (payload?.status === 'pending') {
+    return {
+      set: null,
+      failure: null,
+      message: null,
+      status: 'pending',
+      operationId: payload.operation_id,
+    };
+  }
+  if (payload?.status === 'failed') {
+    return {
+      set: null,
+      failure: 'failed',
+      message:
+        data.error?.message ??
+        'Suggestions could not be delivered. Any charge has been refunded.',
+      status: 'failed',
+      operationId: payload.operation_id,
+    };
+  }
   if (!payload || !Array.isArray(payload.suggestions)) {
     return {
       set: null,
@@ -573,6 +818,9 @@ export async function generateMoveSuggestions(
   }
 
   return {
+    status: 'ready',
+    compositionStatus: payload.composition_status,
+    operationId: payload.operation_id,
     set: {
       id: payload.id,
       suggestions: payload.suggestions,
@@ -582,6 +830,41 @@ export async function generateMoveSuggestions(
     failure: null,
     message: null,
   };
+}
+
+export interface MoveCompletionResult {
+  status: 'ready' | 'pending' | 'failed';
+  operationId?: string;
+  contextKey?: string;
+  remainingAdaptations?: number;
+  intentHints?: IntentHint[];
+  approachHints?: ApproachHint[];
+  error?: string;
+}
+
+/** Free, idempotent adaptation. No purchase or wallet fields are accepted. */
+export async function completeMoveSuggestion(
+  battleId: string, round: number, moveType: MoveType,
+  target: 'intent' | 'approach', actionText: string, intentText?: string,
+): Promise<MoveCompletionResult> {
+  const reply = await invokeAuthenticatedFunction<{
+    ok?: boolean;
+    data?: { status: 'ready' | 'pending' | 'failed'; operation_id?: string;
+      context_key?: string; remaining_adaptations?: number;
+      intentHints?: IntentHint[]; approachHints?: ApproachHint[]; result?: { intentHints?: IntentHint[]; approachHints?: ApproachHint[] }; error?: string };
+    error?: { code?: string };
+  }>('complete-move-suggestion', {
+    battle_id: battleId, round_number: round, move_type: moveType, target,
+    action_text: actionText.trim(),
+    ...(target === 'approach' ? { intent_text: intentText?.trim() } : {}),
+    composition_version: 3, client_contract_version: 3,
+  });
+  const value = reply.data;
+  if (!value) return { status: 'failed', error: reply.error?.code ?? 'unavailable' };
+  return { status: value.status, operationId: value.operation_id,
+    contextKey: value.context_key, remainingAdaptations: value.remaining_adaptations,
+    intentHints: value.result?.intentHints ?? value.intentHints, approachHints: value.result?.approachHints ?? value.approachHints,
+    error: value.error ?? reply.error?.code };
 }
 
 /**
@@ -664,6 +947,16 @@ export async function getOpponentMoveProfile(
     console.error('Opponent move profile exception:', err);
     return null;
   }
+}
+
+/** Only completed historical moves, oldest first; never expose prediction fields. */
+export async function getOpponentMoveHistory(
+  battleId: string,
+): Promise<{ move_type: MoveType }[]> {
+  const profile = await getOpponentMoveProfile(battleId);
+  return (profile?.recent_moves ?? [])
+    .slice(-5)
+    .map((move_type) => ({ move_type }));
 }
 
 export interface RivalSummary {

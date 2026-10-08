@@ -21,6 +21,8 @@ export function useBattleExitGuard(
      */
     enabled?: boolean;
     beforeExit?: () => Promise<void>;
+    /** Return true when Back was consumed by a local composing step. */
+    onBack?: () => boolean;
   },
 ) {
   const navigation = useNavigation();
@@ -40,6 +42,7 @@ export function useBattleExitGuard(
     // the way out — forever.
     Boolean(battleId) && enabled && !leave.isLeaving && pendingExit === null,
     () => {
+      if (args.onBack?.()) return;
       const run = () => router.dismissTo('/(tabs)/home');
       Promise.resolve(beforeExit?.())
         .then(() => setPendingExit({ run }))

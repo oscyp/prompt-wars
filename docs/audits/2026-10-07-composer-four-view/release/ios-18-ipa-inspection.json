@@ -1,0 +1,60 @@
+{
+  "at": "2026-10-07T13:06:40.622916+00:00",
+  "buildId": "9301c70c-2276-481c-a0ea-fcd63323bcfc",
+  "path": "/tmp/prompt-wars-four-view-release-20261007/prompt-wars-1.3.3-18.ipa",
+  "bytes": 59311907,
+  "sha256": "fab2de05705a71547f5c5407e353d78da82baa957f96111bf6cf1c13819ab153",
+  "bundleIdentifier": "gg.promptwars.app",
+  "version": "1.3.3",
+  "buildNumber": "18",
+  "minimumOS": "15.1",
+  "supportedPlatforms": [
+    "iPhoneOS"
+  ],
+  "zipCrcVerified": true,
+  "codeSignaturePresent": true,
+  "provisionPresent": true,
+  "signature": {
+    "strictRecursiveVerified": true,
+    "applicationIdentifier": "9665HWDCCA.gg.promptwars.app",
+    "teamIdentifier": "9665HWDCCA",
+    "debuggerAllowed": false,
+    "pushEnvironment": "production"
+  },
+  "sourcePrimaryIcon": {
+    "path": "/Users/patdom/sources/prompt-wars/ios/PromptWars/Images.xcassets/AppIcon.appiconset/App-Icon-1024x1024@1x.png",
+    "sha256": "b461c8fca2ce7c1fee0bcdde1363363b986b4121abc389d6b4b0532d266b3295",
+    "dimensions": [
+      1024,
+      1024
+    ],
+    "pngColorType": 2,
+    "hasAlphaOrTransparency": false,
+    "matchesFrozenBuildArchive": true
+  },
+  "bundle": {
+    "bytes": 8003944,
+    "sha256": "425f95c451238f0b0b0857dcbf339eb666f4527a9701bbc73bf3cd14753b6bc6",
+    "composerMarkers": {
+      "How will you make it work?": true,
+      "What do you do?": true,
+      "What are you trying to achieve?": true,
+      "approachHints": true,
+      "composer_step_next": true,
+      "composition_version": true,
+      "HOLD TO LOCK IN": true
+    },
+    "checkedPrivateBackendMarkers": {
+      "bot_policy_catalog": false,
+      "bot_policy_seeds": false,
+      "bot_round_choices": false,
+      "private_bot_tactics": false,
+      "reserve_suggestion_completion": false
+    },
+    "checkedFixtureOnlyMarkers": {
+      "local composer fixture": false,
+      "sb_publishable_fixture_placeholder": false,
+      "127.0.0.1:9": false
+    }
+  }
+}

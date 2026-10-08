@@ -85,3 +85,31 @@ it('switching move and authoring mode keeps writing across restoration', async (
   const restored = renderHook(() => useBattleDraft('writer', 'battle', 2));
   await waitFor(() => expect(restored.result.current.draft).toEqual(switched));
 });
+
+it('a late old-scope save failure cannot replace the current account error or latest draft', async () => {
+  let reject!: (error: Error) => void;
+  const hook = renderHook(
+    ({ account }: { account: string }) =>
+      useBattleDraft(account, 'scope-battle', 1),
+    { initialProps: { account: 'old' } },
+  );
+  await waitFor(() => expect(hook.result.current.ready).toBe(true));
+  (AsyncStorage.setItem as jest.Mock).mockImplementationOnce(
+    () =>
+      new Promise((_, no) => {
+        reject = no;
+      }),
+  );
+  let pending!: Promise<void>;
+  act(() => {
+    pending = hook.result.current.save(value);
+  });
+  await act(async () => {});
+  hook.rerender({ account: 'new' });
+  await waitFor(() => expect(hook.result.current.ready).toBe(true));
+  await act(async () => {
+    reject(new Error('Old disk error'));
+    await pending;
+  });
+  expect(hook.result.current.error).toBeNull();
+});

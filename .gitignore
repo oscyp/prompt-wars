@@ -49,3 +49,7 @@ ios/.xcode.env.local
 .eas.production.env
 # Claude Code local overrides
 .claude/settings.local.json
+
+# Python caches
+__pycache__/
+*.py[cod]

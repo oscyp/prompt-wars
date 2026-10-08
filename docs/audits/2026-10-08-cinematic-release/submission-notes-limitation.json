@@ -1,0 +1,9 @@
+{
+  "checkedAt": "2026-10-08T11:02:59.264862+00:00",
+  "buildId": "6ccdf2ab-8a5e-407c-89a8-fc8601c53faa",
+  "firstAttemptScheduled": false,
+  "failureReason": "Expo account plan rejects changelog/What to Test unless Enterprise. No paid plan change performed.",
+  "whatToTestProvidedToApple": false,
+  "notesRetainedLocally": "testflight-notes-en-US.txt",
+  "publicAppReviewSubmitted": false
+}

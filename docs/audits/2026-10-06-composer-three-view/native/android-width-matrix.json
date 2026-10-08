@@ -1,0 +1,111 @@
+{
+  "fixtureOnly": true,
+  "screenReaderNativeVerified": false,
+  "cases": [
+    {
+      "logicalWidthDp": 320,
+      "fontScale": 1.0,
+      "densityDpi": 160,
+      "screenshotPixels": [
+        320,
+        844
+      ],
+      "editorBounds": "[16,285][304,485]",
+      "editorFocused": true,
+      "textCharacters": 82,
+      "footerBounds": "[16,494][304,542]",
+      "footerEnabled": true,
+      "evidence": "android-width-320-font-1.0-keyboard"
+    },
+    {
+      "logicalWidthDp": 375,
+      "fontScale": 1.0,
+      "densityDpi": 160,
+      "screenshotPixels": [
+        375,
+        844
+      ],
+      "editorBounds": "[16,259][359,459]",
+      "editorFocused": true,
+      "textCharacters": 82,
+      "footerBounds": "[16,468][359,516]",
+      "footerEnabled": true,
+      "evidence": "android-width-375-font-1.0-keyboard"
+    },
+    {
+      "logicalWidthDp": 390,
+      "fontScale": 1.0,
+      "densityDpi": 160,
+      "screenshotPixels": [
+        390,
+        844
+      ],
+      "editorBounds": "[16,373][374,449]",
+      "editorFocused": true,
+      "textCharacters": 82,
+      "footerBounds": "[16,458][374,506]",
+      "footerEnabled": true,
+      "evidence": "android-width-390-font-1.0-keyboard"
+    },
+    {
+      "logicalWidthDp": 402,
+      "fontScale": 1.0,
+      "densityDpi": 160,
+      "screenshotPixels": [
+        402,
+        844
+      ],
+      "editorBounds": "[16,242][386,442]",
+      "editorFocused": true,
+      "textCharacters": 82,
+      "footerBounds": "[16,451][386,499]",
+      "footerEnabled": true,
+      "evidence": "android-width-402-font-1.0-keyboard"
+    },
+    {
+      "logicalWidthDp": 375,
+      "fontScale": 1.0,
+      "densityDpi": 440,
+      "screenshotPixels": [
+        1031,
+        2321
+      ],
+      "editorBounds": "[44,710][987,1260]",
+      "editorFocused": true,
+      "textCharacters": 82,
+      "footerBounds": "[44,1285][987,1417]",
+      "footerEnabled": true,
+      "evidence": "android-width-375-font-1.0-density-440-keyboard"
+    },
+    {
+      "logicalWidthDp": 320,
+      "fontScale": 2.0,
+      "densityDpi": 440,
+      "screenshotPixels": [
+        880,
+        2321
+      ],
+      "editorBounds": "[44,750][836,1300]",
+      "editorFocused": true,
+      "textCharacters": 82,
+      "footerBounds": "[44,1325][836,1489]",
+      "footerEnabled": true,
+      "evidence": "android-width-320-font-2.0-density-440-keyboard"
+    },
+    {
+      "logicalWidthDp": 960,
+      "fontScale": 1.0,
+      "densityDpi": 160,
+      "screenshotPixels": [
+        960,
+        1280
+      ],
+      "editorBounds": "[16,571][944,771]",
+      "editorFocused": true,
+      "textCharacters": 82,
+      "footerBounds": "[16,795][944,843]",
+      "footerEnabled": true,
+      "evidence": "android-width-960-font-1.0-keyboard"
+    }
+  ]
+}

@@ -18,6 +18,9 @@ export interface CosmeticFrameProps {
   size: number;
   accentColor?: string;
   onImageError?: ImageProps['onError'];
+  onImageLoad?: ImageProps['onLoad'];
+  onFrameImageLoad?: ImageProps['onLoad'];
+  onFrameImageError?: ImageProps['onError'];
   accessibilityLabel?: string;
 }
 
@@ -29,6 +32,9 @@ export default function CosmeticFrame({
   size,
   accentColor,
   onImageError,
+  onImageLoad,
+  onFrameImageLoad,
+  onFrameImageError,
   accessibilityLabel,
 }: CosmeticFrameProps) {
   const colors = useThemedColors();
@@ -72,6 +78,7 @@ export default function CosmeticFrame({
         <Image
           source={source}
           onError={onImageError}
+          onLoad={onImageLoad}
           accessibilityLabel={accessibilityLabel}
           accessible={!!accessibilityLabel}
           importantForAccessibility={accessibilityLabel ? 'auto' : 'no'}
@@ -95,6 +102,8 @@ export default function CosmeticFrame({
         >
           <Image
             testID="frame-artwork"
+            onLoad={onFrameImageLoad}
+            onError={onFrameImageError}
             source={artwork.source}
             resizeMode="contain"
             style={[StyleSheet.absoluteFill, { width: size, height }]}

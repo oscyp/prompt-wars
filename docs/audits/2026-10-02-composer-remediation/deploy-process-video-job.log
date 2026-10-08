@@ -1,0 +1,16 @@
+Deployed Functions on project uoyjhudegdpanrgllfoj: process-video-job
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/uoyjhudegdpanrgllfoj/functions
+
+Uploading asset (process-video-job): supabase/functions/process-video-job/index.ts
+Uploading asset (process-video-job): supabase/functions/_shared/video-constants.ts
+Uploading asset (process-video-job): supabase/functions/_shared/entitlement-gate.ts
+Uploading asset (process-video-job): supabase/functions/_shared/push.ts
+Uploading asset (process-video-job): supabase/functions/_shared/moderation.ts
+Uploading asset (process-video-job): supabase/functions/_shared/types.ts
+Uploading asset (process-video-job): supabase/functions/_shared/compose-reveal-payload.ts
+Uploading asset (process-video-job): supabase/functions/_shared/providers.ts
+Uploading asset (process-video-job): supabase/functions/_shared/prompt-situations.ts
+Uploading asset (process-video-job): supabase/functions/_shared/judge-policy.ts
+Uploading asset (process-video-job): supabase/functions/_shared/utils.ts
+Uploading asset (process-video-job): supabase/functions/_shared/eligibility.ts
+Uploading asset (process-video-job): supabase/functions/_shared/composer-video.ts

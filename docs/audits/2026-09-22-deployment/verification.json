@@ -1,0 +1,27 @@
+{
+  "date": "2026-09-22 Europe/Warsaw",
+  "typescript": "passed",
+  "eslint": {
+    "errors": 0,
+    "warnings": 1,
+    "warning": "Existing app/_layout.tsx no-require-imports"
+  },
+  "jest": {
+    "suites_passed": 174,
+    "tests_passed": 1393,
+    "failed": 0,
+    "snapshots": 0
+  },
+  "deno": {
+    "passed": 382,
+    "failed": 0,
+    "ignored": 7,
+    "network": "denied",
+    "remote_integration_enabled": false,
+    "local_auth_integration_enabled": false
+  },
+  "native_project_plist_validation": "passed",
+  "ios_production_build": "FINISHED",
+  "android": "No build or distribution; validation remains blocked",
+  "native_acceptance_report": "../2026-09-21-visual-remediation/README.md"
+}

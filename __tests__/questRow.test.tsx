@@ -109,7 +109,7 @@ describe('QuestRow', () => {
     getByText('Win a battle');
     getByText('Win any battle today');
     getByText('1/3');
-    getByText('+5 credits');
+    getByText('+5', { includeHiddenElements: true });
     expect(queryByRole('button')).toBeNull();
   });
 
@@ -144,10 +144,30 @@ describe('QuestRow', () => {
       />,
     );
     const button = getByRole('button', { name: 'Claim 5 credits' });
-    expect(button.props.accessibilityState).toEqual({
+    expect(button.props.accessibilityState).toMatchObject({
       disabled: true,
       busy: true,
     });
+  });
+
+  it('shows a signed diamond reward and retains the claim after a failed attempt', () => {
+    const onClaim = jest.fn();
+    const done = quest({ current_value: 3 });
+    const ui = render(<QuestRow quest={done} onClaim={onClaim} />);
+    expect(ui.getByText('Claim')).toBeTruthy();
+    expect(ui.getByText('+5', { includeHiddenElements: true })).toBeTruthy();
+    fireEvent.press(ui.getByRole('button', { name: 'Claim 5 credits' }));
+    ui.rerender(<QuestRow quest={done} claiming onClaim={onClaim} />);
+    fireEvent.press(ui.getByRole('button', { name: 'Claim 5 credits' }));
+    expect(onClaim).toHaveBeenCalledTimes(1);
+    // The owner clears claiming after a failed request; the reward stays claimable.
+    ui.rerender(<QuestRow quest={done} onClaim={onClaim} />);
+    fireEvent.press(ui.getByRole('button', { name: 'Claim 5 credits' }));
+    expect(onClaim).toHaveBeenCalledTimes(2);
+    ui.rerender(
+      <QuestRow quest={{ ...done, completed: true }} onClaim={onClaim} />,
+    );
+    expect(ui.queryByRole('button')).toBeNull();
   });
 
   it('says complete once the reward has been taken', () => {

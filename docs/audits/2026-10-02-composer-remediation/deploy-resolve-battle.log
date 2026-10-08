@@ -1,0 +1,15 @@
+Deployed Functions on project uoyjhudegdpanrgllfoj: resolve-battle
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/uoyjhudegdpanrgllfoj/functions
+
+Uploading asset (resolve-battle): supabase/functions/resolve-battle/index.ts
+Uploading asset (resolve-battle): supabase/functions/_shared/auto-video.ts
+Uploading asset (resolve-battle): supabase/functions/_shared/utils.ts
+Uploading asset (resolve-battle): supabase/functions/_shared/compose-reveal-payload.ts
+Uploading asset (resolve-battle): supabase/functions/_shared/types.ts
+Uploading asset (resolve-battle): supabase/functions/_shared/providers.ts
+Uploading asset (resolve-battle): supabase/functions/_shared/video-constants.ts
+Uploading asset (resolve-battle): supabase/functions/_shared/prompt-situations.ts
+Uploading asset (resolve-battle): supabase/functions/_shared/judge-policy.ts
+Uploading asset (resolve-battle): supabase/functions/_shared/push.ts
+Uploading asset (resolve-battle): supabase/functions/_shared/glicko2.ts
+Uploading asset (resolve-battle): supabase/functions/_shared/judge.ts

@@ -1,8 +1,8 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { BorderRadius, Spacing } from '@/constants/DesignTokens';
-import { HERO_MIN_HEIGHT } from './FighterHero';
+import { heroArtworkBudget } from '@/utils/heroArtworkLayout';
 
 export const SKELETON_LABEL = 'Loading your profile';
 /**
@@ -12,6 +12,7 @@ export const SKELETON_LABEL = 'Loading your profile';
  */
 export default function ProfileSkeleton() {
   const colors = useThemedColors();
+  const { height, fontScale } = useWindowDimensions();
   const block = { backgroundColor: colors.backgroundTertiary };
 
   return (
@@ -21,10 +22,29 @@ export default function ProfileSkeleton() {
       accessibilityState={{ busy: true }}
       testID="profile-skeleton"
     >
-      <View style={[styles.hero, block]} />
+      <View
+        style={[
+          styles.hero,
+          block,
+          { height: heroArtworkBudget(height - 90, 360 * fontScale) },
+        ]}
+      />
       <View style={[styles.line, styles.meta, block]} />
+      <View style={styles.stats} testID="profile-skeleton-stats">
+        {[0, 1, 2, 3].map((index) => (
+          <View
+            key={index}
+            style={{
+              flex: 1,
+              height: 60,
+              backgroundColor: colors.backgroundTertiary,
+              borderLeftWidth: index ? 1 : 0,
+              borderLeftColor: colors.border,
+            }}
+          />
+        ))}
+      </View>
       <View style={styles.pills}>
-        <View style={[styles.pill, block]} />
         <View style={[styles.pill, block]} />
         <View style={[styles.pill, block]} />
       </View>
@@ -40,7 +60,8 @@ export default function ProfileSkeleton() {
 
 const styles = StyleSheet.create({
   hero: {
-    minHeight: HERO_MIN_HEIGHT,
+    width: '64%',
+    alignSelf: 'center',
     borderRadius: BorderRadius.lg,
   },
   line: {
@@ -51,6 +72,7 @@ const styles = StyleSheet.create({
     width: '55%',
     marginTop: Spacing.sm,
   },
+  stats: { flexDirection: 'row', marginTop: Spacing.md },
   pills: {
     flexDirection: 'row',
     gap: Spacing.sm,
@@ -58,11 +80,11 @@ const styles = StyleSheet.create({
   },
   pill: {
     flex: 1,
-    height: 44,
-    borderRadius: BorderRadius.full,
+    height: 48,
+    borderRadius: 4,
   },
   strip: {
-    height: 220,
+    height: 96,
     borderRadius: BorderRadius.lg,
     marginTop: Spacing.lg,
   },

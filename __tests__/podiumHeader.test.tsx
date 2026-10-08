@@ -1,3 +1,7 @@
+jest.mock('react-native-safe-area-context', () => {
+  const mock = jest.requireActual('react-native-safe-area-context/jest/mock');
+  return mock.default ?? mock;
+});
 /**
  * The podium: three accessible cards, the winner in the middle, each read as
  * "1st place: Name, rating N"; nothing for fewer than three rows.
@@ -106,8 +110,8 @@ describe('PodiumHeader', () => {
     const { getByLabelText } = render(
       <PodiumHeader rows={TOP} players={players} />,
     );
-    getByLabelText("Ace's archetype");
-    getByLabelText("Bea's archetype");
+    getByLabelText("Ace's fighter portrait");
+    getByLabelText("Bea's fighter portrait");
   });
 
   it('renders nothing for fewer than three rows', () => {

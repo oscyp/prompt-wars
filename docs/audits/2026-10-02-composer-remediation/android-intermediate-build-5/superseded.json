@@ -1,0 +1,7 @@
+{
+  "buildId": "99f1739f-8928-4a3d-b0ce-7c3207e6a571",
+  "notFinal": true,
+  "reason": "Live native QA found result-copy issue: null winner_id for bot victory rendered Pending; root is coordinating frozen-combat outcome fix and replacement builds.",
+  "notedAt": "2026-10-02T14:27:15.105466+00:00",
+  "replacementBuildNotYetAuthorizedToStart": true
+}

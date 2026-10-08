@@ -1,0 +1,12 @@
+Deployed Functions on project uoyjhudegdpanrgllfoj: generate-portrait
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/uoyjhudegdpanrgllfoj/functions
+
+Uploading asset (generate-portrait): supabase/functions/generate-portrait/index.ts
+Uploading asset (generate-portrait): supabase/functions/_shared/portrait-prompt-resolver.ts
+Uploading asset (generate-portrait): supabase/functions/_shared/render-portrait.ts
+Uploading asset (generate-portrait): supabase/functions/_shared/image-provider.ts
+Uploading asset (generate-portrait): supabase/functions/_shared/credits.ts
+Uploading asset (generate-portrait): supabase/functions/_shared/character-creation.ts
+Uploading asset (generate-portrait): supabase/functions/_shared/utils.ts
+Uploading asset (generate-portrait): supabase/functions/_shared/moderation.ts
+Uploading asset (generate-portrait): supabase/functions/_shared/types.ts

@@ -1,0 +1,39 @@
+{
+  "id": "bb09da5a-13cd-4e2f-b8ab-79ea3d486a76",
+  "status": "IN_QUEUE",
+  "platform": "IOS",
+  "createdAt": "2026-10-07T13:06:53.691Z",
+  "updatedAt": null,
+  "completedAt": null,
+  "canRetry": false,
+  "error": null,
+  "errorCode": null,
+  "errorMessage": null,
+  "cancelReason": null,
+  "priority": null,
+  "exposedRootKeys": [
+    "id",
+    "status",
+    "platform",
+    "app",
+    "iosConfig",
+    "logFiles",
+    "createdAt",
+    "canRetry",
+    "maxRetryTimeMinutes",
+    "submittedBuild"
+  ],
+  "submissionLogFilesAvailable": false,
+  "submissionLogsUrlAvailable": false,
+  "submittedBuild": {
+    "id": "9301c70c-2276-481c-a0ea-fcd63323bcfc",
+    "status": "FINISHED",
+    "appBuildVersion": "18",
+    "completedAt": "2026-10-07T13:04:33.312Z"
+  },
+  "iosConfigKeys": [
+    "ascAppIdentifier"
+  ],
+  "observedAt": "2026-10-07T13:30:44.669447+00:00",
+  "historicalSnapshot": true
+}

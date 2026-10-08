@@ -1,0 +1,56 @@
+[
+  {
+    "widthDp": 375,
+    "pixelWidth": 1125,
+    "heightPx": 2532,
+    "densityDpi": 480,
+    "fontScale": 1.0,
+    "phase": "context",
+    "ctaBounds": "[48,2172][1077,2364]"
+  },
+  {
+    "widthDp": 375,
+    "pixelWidth": 1125,
+    "heightPx": 2532,
+    "densityDpi": 480,
+    "fontScale": 1.0,
+    "phase": "actions",
+    "ctaBounds": "[48,2172][1077,2364]"
+  },
+  {
+    "widthDp": 390,
+    "pixelWidth": 1170,
+    "heightPx": 2532,
+    "densityDpi": 480,
+    "fontScale": 1.0,
+    "phase": "context",
+    "ctaBounds": "[48,2172][1122,2364]"
+  },
+  {
+    "widthDp": 390,
+    "pixelWidth": 1170,
+    "heightPx": 2532,
+    "densityDpi": 480,
+    "fontScale": 1.0,
+    "phase": "actions",
+    "ctaBounds": "[48,2172][1122,2364]"
+  },
+  {
+    "widthDp": 402,
+    "pixelWidth": 1206,
+    "heightPx": 2532,
+    "densityDpi": 480,
+    "fontScale": 1.0,
+    "phase": "context",
+    "ctaBounds": "[48,2172][1158,2364]"
+  },
+  {
+    "widthDp": 402,
+    "pixelWidth": 1206,
+    "heightPx": 2532,
+    "densityDpi": 480,
+    "fontScale": 1.0,
+    "phase": "actions",
+    "ctaBounds": "[48,2172][1158,2364]"
+  }
+]

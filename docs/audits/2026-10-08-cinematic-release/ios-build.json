@@ -1,0 +1,51 @@
+{
+  "id": "6ccdf2ab-8a5e-407c-89a8-fc8601c53faa",
+  "status": "FINISHED",
+  "platform": "IOS",
+  "artifacts": {
+    "buildUrl": "https://expo.dev/artifacts/eas/XAWMYbrrtOPT9pBumT8nAn4zf3vHa290CLL-9Te3wg4.ipa",
+    "xcodeBuildLogsUrl": "https://storage.googleapis.com/eas-workflows-production/logs/d4c525e1-0a95-4c6a-b1ee-106fa2f03f46/6ccdf2ab-8a5e-407c-89a8-fc8601c53faa/2026-10-08T10%3A53%3A39Z-6ccdf2ab-8a5e-407c-89a8-fc8601c53faa-xcode.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20261008%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20261008T110056Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=38b048ca7564038fe7d875c851ea01d83fec864c36f092f299c552dff2d1975be6821836ebd159e7abb63230e621e37f86095569665f1fc71c206247205180060edfb770e59944b2014eba75c4b3fad387c5ec982b25a27b6dbf988f437c1cd3384cf3b6e6bd1cea1e9e7db9b40b025222ca30183ccad47c7116bbd5ee375a6948487b8d01f9f18f14703b0163f2c22ed6430d915f1ddcb64073bd67066bd3fd8611db080bfd09481f5c54677e2bfeddd63a2cfbca9bbc06267d3ef7766bdbc4bb97a0ba2ff9fe2abcce2e105f74190111dba91c737330c65cc41d3cf13049792d497ba233cce181e7ead5826f53861949bbb43153097885dbe822cf1f2854b3",
+    "applicationArchiveUrl": "https://expo.dev/artifacts/eas/XAWMYbrrtOPT9pBumT8nAn4zf3vHa290CLL-9Te3wg4.ipa"
+  },
+  "fingerprint": {
+    "id": "01a11b25-ac5b-7f85-bb7e-3c51be5739f0",
+    "hash": "9e773983959cb0252a3243c148a9dea5a110c821"
+  },
+  "initiatingActor": {
+    "id": "3dedb902-54fb-4141-933d-74d495799a12",
+    "displayName": "p__d"
+  },
+  "logFiles": [
+    "https://storage.googleapis.com/eas-workflows-production/logs/d4c525e1-0a95-4c6a-b1ee-106fa2f03f46/6ccdf2ab-8a5e-407c-89a8-fc8601c53faa/2026-10-08T10%3A53%3A39Z-0bb5ae34-8033-4777-8c72-405553d62571.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20261008%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20261008T110056Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=69377b4bbf948686d0d415dca9f0e841716470cc30453848f83518b998e7e466caf784705adde8a9555ebc37b93d4f94dfc89f7de180e980ad96f414351ff40cd258de6bee7f9a5677bb177fbbc7d7fd625dcc616a1e49ddd47b42c291d9c492c8bedc7c99b281fadc4ae725fcb046b8361bfe37bbc2a5ada07aec71b3665cfd382a84424d09ccc3e2c557d0afd0a1282ee5648b0acd8c69272c0f252d198349dc3d8e84702dd3179f082f48b24cff3d868107466aa98b0c4a5654ba036849e1d116012938477abe2915f17cf259a70beaeb0aae94923e5c6cfde2e63de7256b3ed684e6439a032aa4fda74374c7de7a62a154ffbdcb49976f38db1251c84b67",
+    "https://storage.googleapis.com/eas-workflows-production/logs/d4c525e1-0a95-4c6a-b1ee-106fa2f03f46/6ccdf2ab-8a5e-407c-89a8-fc8601c53faa/2026-10-08T10%3A53%3A39Z-6ccdf2ab-8a5e-407c-89a8-fc8601c53faa-xcode.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20261008%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20261008T110056Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=38b048ca7564038fe7d875c851ea01d83fec864c36f092f299c552dff2d1975be6821836ebd159e7abb63230e621e37f86095569665f1fc71c206247205180060edfb770e59944b2014eba75c4b3fad387c5ec982b25a27b6dbf988f437c1cd3384cf3b6e6bd1cea1e9e7db9b40b025222ca30183ccad47c7116bbd5ee375a6948487b8d01f9f18f14703b0163f2c22ed6430d915f1ddcb64073bd67066bd3fd8611db080bfd09481f5c54677e2bfeddd63a2cfbca9bbc06267d3ef7766bdbc4bb97a0ba2ff9fe2abcce2e105f74190111dba91c737330c65cc41d3cf13049792d497ba233cce181e7ead5826f53861949bbb43153097885dbe822cf1f2854b3"
+  ],
+  "app": {
+    "id": "d4c525e1-0a95-4c6a-b1ee-106fa2f03f46",
+    "name": "prompt-wars",
+    "slug": "prompt-wars",
+    "ownerAccount": {
+      "id": "72cb62bc-d38d-4706-a12c-a881967fb6f1",
+      "name": "prompt-wars"
+    }
+  },
+  "distribution": "STORE",
+  "buildProfile": "production",
+  "appIdentifier": "gg.promptwars.app",
+  "sdkVersion": "55.0.0",
+  "appVersion": "1.3.4",
+  "appBuildVersion": "19",
+  "gitCommitHash": "d66e621264fb56b6471ecbaa4a7971bb689abaca",
+  "gitCommitMessage": "UX changes",
+  "priority": "NORMAL",
+  "createdAt": "2026-10-08T10:53:36.165Z",
+  "updatedAt": "2026-10-08T11:00:26.105Z",
+  "message": "Prompt Wars 1.3.4: 20-second Plus cinematics and confirmed funding quotes",
+  "completedAt": "2026-10-08T11:00:25.775Z",
+  "expirationDate": "2026-11-07T10:53:36.209Z",
+  "isForIosSimulator": false,
+  "metrics": {
+    "buildWaitTime": 3251,
+    "buildQueueTime": 20322,
+    "buildDuration": 386037
+  }
+}

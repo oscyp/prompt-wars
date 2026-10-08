@@ -1,0 +1,100 @@
+{
+  "project_id": "prompt-wars-509413",
+  "verified_at_utc": "2026-09-30T21:33:16Z",
+  "audience": "External",
+  "publishing_status": "Testing",
+  "test_user_count": 1,
+  "support_and_contact_email": "[redacted]",
+  "branding": {
+    "name": "Prompt Wars",
+    "home": "https://promptwars.gg",
+    "privacy": "https://promptwars.gg/privacy-policy",
+    "terms": "https://promptwars.gg/terms-and-conditions",
+    "authorized_domains": [
+      "uoyjhudegdpanrgllfoj.supabase.co",
+      "promptwars.gg"
+    ]
+  },
+  "scopes": [
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile"
+  ],
+  "clients": [
+    {
+      "name": "Prompt Wars Supabase Web",
+      "type": "web",
+      "client_id": "393460808098-tbk2g30eo0h0t9ugh3dtd5p234h7dv6l.apps.googleusercontent.com",
+      "redirect_uri": "https://uoyjhudegdpanrgllfoj.supabase.co/auth/v1/callback"
+    },
+    {
+      "name": "Prompt Wars iOS",
+      "type": "ios",
+      "client_id": "393460808098-95qnrgg0op04jo22h7nq90ameetg28og.apps.googleusercontent.com",
+      "bundle_id": "gg.promptwars.app",
+      "team_id": "9665HWDCCA",
+      "app_store_id": "6788787677"
+    },
+    {
+      "name": "Prompt Wars Android EAS",
+      "type": "android",
+      "client_id": "393460808098-r0020s5tqnr656gp7b89fhnibti97ns9.apps.googleusercontent.com",
+      "package": "gg.promptwars.app",
+      "sha1": "CA:44:24:45:80:B8:75:C4:5F:4B:72:9B:C1:9C:04:86:6B:65:56:A2"
+    },
+    {
+      "name": "Prompt Wars Android Play",
+      "type": "android",
+      "client_id": "393460808098-5k6gbtb8sl1qtogsjq1j5uvsgk1cu0v8.apps.googleusercontent.com",
+      "package": "gg.promptwars.app",
+      "sha1": "BA:42:AE:43:3D:59:58:D0:8E:94:27:35:96:8F:F2:D7:BC:F4:6D:10",
+      "sha1_source": "Owner supplied the Play App Signing fingerprint in this task."
+    }
+  ],
+  "supabase": {
+    "enabled": true,
+    "client_order": [
+      "web",
+      "ios",
+      "android_eas",
+      "android_play"
+    ],
+    "oauth_secret_saved": true,
+    "skip_nonce_checks": false,
+    "allow_users_without_email": false,
+    "verified_by_dashboard_reload": true,
+    "verified_at_utc": "2026-09-30T21:33:16Z"
+  },
+  "native_configuration_evidence": "google-native-configuration.json",
+  "remaining": [
+    "Signed-device sign-in/linking/token-audience acceptance",
+    "Production publishing and applicable brand verification before general availability"
+  ],
+  "contains_private_credentials": false,
+  "play_fingerprint_followup": {
+    "provided_sha1": "BA:42:AE:43:3D:59:58:D0:8E:94:27:35:96:8F:F2:D7:BC:F4:6D:10",
+    "source": "Owner confirmed Play App Signing certificate",
+    "matches_existing_eas_upload_certificate": false,
+    "play_app_signing_sha1_still_required": false,
+    "play_client_created": true,
+    "supabase_client_id_saved_and_reloaded": true,
+    "verified_at_utc": "2026-09-30T21:33:16Z",
+    "history": [
+      {
+        "provided_sha1": "CA:44:24:45:80:B8:75:C4:5F:4B:72:9B:C1:9C:04:86:6B:65:56:A2",
+        "matches_existing_eas_upload_certificate": true,
+        "duplicate_client_created": false,
+        "play_app_signing_sha1_still_required": true
+      }
+    ]
+  },
+  "play_app_ownership_verification": {
+    "attempted": true,
+    "verified": false,
+    "result": "Google requires administrator permission in Play Console.",
+    "optional": true,
+    "blocks_oauth_client_creation": false,
+    "blocks_supabase_provider_configuration": false,
+    "verified_at_utc": "2026-09-30T21:33:16Z"
+  }
+}

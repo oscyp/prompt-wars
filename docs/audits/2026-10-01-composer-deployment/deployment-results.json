@@ -1,0 +1,97 @@
+[
+  {
+    "function": "generate-move-suggestions",
+    "exit_code": 0,
+    "duration_seconds": 1.8
+  },
+  {
+    "function": "prefetch-move-suggestions",
+    "exit_code": 0,
+    "duration_seconds": 1.7
+  },
+  {
+    "function": "run-judge-calibration",
+    "exit_code": 0,
+    "duration_seconds": 1.9
+  },
+  {
+    "function": "resolve-appeal",
+    "exit_code": 0,
+    "duration_seconds": 5.4
+  },
+  {
+    "function": "appeal-battle",
+    "exit_code": 0,
+    "duration_seconds": 1.5
+  },
+  {
+    "function": "round-resolve",
+    "exit_code": 0,
+    "duration_seconds": 2.3
+  },
+  {
+    "function": "resolve-battle",
+    "exit_code": 0,
+    "duration_seconds": 1.7
+  },
+  {
+    "function": "process-video-job",
+    "exit_code": 0,
+    "duration_seconds": 4.0
+  },
+  {
+    "function": "generate-tier0-reveal",
+    "exit_code": 0,
+    "duration_seconds": 1.9
+  },
+  {
+    "function": "dev-generate-video",
+    "exit_code": 0,
+    "duration_seconds": 1.6
+  },
+  {
+    "function": "request-video-upgrade",
+    "exit_code": 0,
+    "duration_seconds": 1.5
+  },
+  {
+    "function": "sign-battle-portraits",
+    "exit_code": 0,
+    "duration_seconds": 3.5
+  },
+  {
+    "function": "expire-battles",
+    "exit_code": 0,
+    "duration_seconds": 1.7
+  },
+  {
+    "function": "leave-battle",
+    "exit_code": 0,
+    "duration_seconds": 1.9
+  },
+  {
+    "function": "battle-advance",
+    "exit_code": 0,
+    "duration_seconds": 1.4
+  },
+  {
+    "function": "record-funnel-event",
+    "exit_code": 0,
+    "duration_seconds": 1.2
+  },
+  {
+    "function": "submit-prompt",
+    "exit_code": 0,
+    "duration_seconds": 1.5
+  },
+  {
+    "function": "matchmaking",
+    "exit_code": 0,
+    "duration_seconds": 2.3
+  },
+  {
+    "function": "tutorial",
+    "exit_code": 0,
+    "duration_seconds": 1.0
+  }
+]

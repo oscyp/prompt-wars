@@ -213,7 +213,7 @@ function StageExpandedBody({
                   variant="caption"
                   style={[styles.historyCaption, accessibleText]}
                 >
-                  Previous renders · free to restore
+                  Previous renders
                 </GameText>
                 {visibleHistory.map((entry) => {
                   let historyRef = historyRefs.current.get(entry.portraitId);

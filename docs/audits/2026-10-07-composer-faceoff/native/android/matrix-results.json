@@ -1,0 +1,41 @@
+[
+  {
+    "width": 390,
+    "fontScale": 1.0,
+    "typeToActionGap": 8,
+    "choices": 3,
+    "editableBuilderFields": 0,
+    "nativeKeyboard": true,
+    "manualPromptCharacters": 83,
+    "manualExactReview": true,
+    "backPreservedText": true,
+    "inputBounds": "[16,403][374,603]",
+    "keyboardFooterBounds": "[16,458][374,506]"
+  },
+  {
+    "width": 320,
+    "fontScale": 1.0,
+    "typeToActionGap": 8,
+    "choices": 3,
+    "editableBuilderFields": 0,
+    "nativeKeyboard": true,
+    "manualPromptCharacters": 83,
+    "manualExactReview": true,
+    "backPreservedText": true,
+    "inputBounds": "[16,472][304,672]",
+    "keyboardFooterBounds": "[16,494][304,542]"
+  },
+  {
+    "width": 320,
+    "fontScale": 1.5,
+    "typeToActionGap": 8,
+    "choices": 3,
+    "editableBuilderFields": 0,
+    "nativeKeyboard": true,
+    "manualPromptCharacters": 83,
+    "manualExactReview": true,
+    "backPreservedText": true,
+    "inputBounds": "[16,691][304,719]",
+    "keyboardFooterBounds": "[16,490][304,542]"
+  }
+]

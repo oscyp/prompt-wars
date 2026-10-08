@@ -1,11 +1,6 @@
-import { GameText } from '@/components/game';
+import { GameText, CreditAmount, GameButton } from '@/components/game';
 
-import {
-  ActivityIndicator,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
@@ -16,7 +11,6 @@ import {
   Typography,
 } from '@/constants/DesignTokens';
 import { creditsNoun } from '@/utils/credits';
-import { inkFor } from '@/utils/contrast';
 import type { DailyQuest } from '@/utils/dailyMeta';
 
 export interface QuestRowProps {
@@ -101,7 +95,6 @@ export default function QuestRow({
   const progress = questProgress(quest);
   const reward = quest.quest?.reward_credits ?? 0;
   const fillColor = progress.completed ? colors.success : colors.primary;
-  const primaryInk = inkFor(colors.primary);
 
   return (
     <View
@@ -164,16 +157,13 @@ export default function QuestRow({
                 {progress.value}/{progress.target}
               </GameText>
               {reward > 0 ? (
-                <GameText
-                  variant="body"
-                  style={[
-                    styles.reward,
-                    NumericFontVariant,
-                    { color: colors.primary },
-                  ]}
-                >
-                  +{creditsNoun(reward)}
-                </GameText>
+                <CreditAmount
+                  amount={reward}
+                  signed
+                  size="small"
+                  color={colors.primary}
+                  accessible={false}
+                />
               ) : null}
             </View>
           ) : null}
@@ -195,29 +185,15 @@ export default function QuestRow({
         </View>
       </View>
       {progress.claimable ? (
-        <TouchableOpacity
-          style={[styles.claimButton, { backgroundColor: colors.primary }]}
+        <GameButton
+          label="Claim"
+          amount={reward}
+          amountSigned
+          style={{ maxWidth: '100%' }}
           onPress={() => onClaim(quest)}
-          disabled={claiming}
-          accessibilityRole="button"
+          busy={claiming}
           accessibilityLabel={`Claim ${creditsNoun(reward)}`}
-          accessibilityState={{ disabled: claiming, busy: claiming }}
-        >
-          {claiming ? (
-            <ActivityIndicator size="small" color={primaryInk} />
-          ) : (
-            <GameText
-              variant="body"
-              style={[
-                styles.claimText,
-                NumericFontVariant,
-                { color: primaryInk },
-              ]}
-            >
-              Claim +{reward}
-            </GameText>
-          )}
-        </TouchableOpacity>
+        />
       ) : null}
     </View>
   );
@@ -287,18 +263,5 @@ const styles = StyleSheet.create({
   fill: {
     height: 4,
     borderRadius: BorderRadius.full,
-  },
-  claimButton: {
-    // 44pt: the design language's minimum target, met by the visible control.
-    minHeight: 48,
-    minWidth: 96,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  claimText: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold,
   },
 });

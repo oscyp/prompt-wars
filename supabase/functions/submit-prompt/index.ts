@@ -13,6 +13,7 @@ import {
 import { MoveType } from '../_shared/types.ts';
 import { TextModerationProvider } from '../_shared/moderation.ts';
 import { notifyOpponentSubmitted } from '../_shared/push.ts';
+import { requiresPromptClientUpdate } from '../_shared/prompt-situations.ts';
 
 /**
  * Trigger battle resolution server-side (reliable async invocation)
@@ -55,7 +56,7 @@ async function triggerBattleResolution(battleId: string): Promise<void> {
   // Use EdgeRuntime.waitUntil when available (production/deployed)
   // @ts-ignore - EdgeRuntime may not be defined in all contexts
   if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
-    // @ts-ignore
+    // @ts-ignore EdgeRuntime is supplied only in the deployed Edge runtime.
     EdgeRuntime.waitUntil(resolutionTask);
   } else {
     // Fallback: await for local/test runtimes to ensure completion
@@ -91,7 +92,7 @@ async function invokeFn(
   })();
   // @ts-ignore EdgeRuntime may not be defined
   if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
-    // @ts-ignore
+    // @ts-ignore EdgeRuntime is supplied only in the deployed Edge runtime.
     EdgeRuntime.waitUntil(task);
   } else {
     await task;
@@ -103,6 +104,8 @@ interface SubmitPromptRequest {
   prompt_template_id?: string;
   custom_prompt_text?: string;
   move_type: MoveType;
+  client_contract_version?: number;
+  authoring_origin?: 'builder' | 'manual' | 'mixed' | 'unknown';
   round_number?: number; // Bo3 only; defaults to battles.current_round
 }
 
@@ -119,10 +122,15 @@ Deno.serve(async (req) => {
       custom_prompt_text,
       move_type,
       round_number: requestedRound,
+      client_contract_version,
+      authoring_origin = 'unknown',
     }: SubmitPromptRequest = await req.json();
 
     if (!battle_id || !move_type) {
       return errorResponse('battle_id and move_type required');
+    }
+    if (!['builder', 'manual', 'mixed', 'unknown'].includes(authoring_origin)) {
+      return errorResponse('Invalid authoring_origin');
     }
 
     if (!prompt_template_id && !custom_prompt_text) {
@@ -131,11 +139,44 @@ Deno.serve(async (req) => {
       );
     }
 
+    const supabase = createServiceClient();
+
+    // Read the frozen experience before moderation or writes. An old client
+    // must never submit into a situation it cannot display.
+    const { data: battle, error: battleError } = await supabase
+      .from('battles')
+      .select(
+        'status, player_one_id, player_two_id, is_player_two_bot, format, current_round, mode, prompt_experience_version',
+      )
+      .eq('id', battle_id)
+      .single();
+    if (battleError || !battle) {
+      return errorResponse('Battle not found', 404);
+    }
+
+    if (battle.player_one_id !== userId && battle.player_two_id !== userId) {
+      return errorResponse('Battle participant required', 403);
+    }
+    if (
+      requiresPromptClientUpdate(
+        battle.prompt_experience_version ?? 1,
+        client_contract_version,
+      )
+    ) {
+      return errorResponse(
+        'Update Prompt Wars to submit a move in this battle.',
+        426,
+        {
+          code: 'client_update_required',
+          minimum_client_contract_version: 3,
+        },
+      );
+    }
+
     // §7.8 enforced rate limit: cap prompt submissions per hour and day,
     // before any moderation-provider spend.
     {
-      const rateLimitClient = createServiceClient();
-      const { data: rateCheck, error: rateErr } = await rateLimitClient.rpc(
+      const { data: rateCheck, error: rateErr } = await supabase.rpc(
         'check_rate_limit',
         { p_profile_id: userId, p_action: 'prompt_submit' },
       );
@@ -158,8 +199,6 @@ Deno.serve(async (req) => {
         );
       }
     }
-
-    const supabase = createServiceClient();
 
     // Pre-gen moderation for custom prompts
     let moderationStatus:
@@ -224,19 +263,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch battle context BEFORE locking so lock_prompt writes the row for
-    // the correct round (Bo3 rounds 2-3 have their own battle_prompts rows).
-    const { data: battle, error: battleError } = await supabase
-      .from('battles')
-      .select(
-        'status, player_one_id, player_two_id, is_player_two_bot, format, current_round, mode',
-      )
-      .eq('id', battle_id)
-      .single();
-    if (battleError || !battle) {
-      return errorResponse('Battle not found', 404);
-    }
-
     const isBo3 = battle.format === 'bo3';
     const roundNumber = isBo3
       ? (requestedRound ?? battle.current_round ?? 1)
@@ -271,7 +297,7 @@ Deno.serve(async (req) => {
     // Lock prompt via DB function (idempotent per battle/player/round; the
     // row is created with the correct round_number — no retag needed).
     const { data: promptId, error: lockError } = await supabase.rpc(
-      'lock_prompt',
+      'lock_prompt_with_origin',
       {
         p_battle_id: battle_id,
         p_profile_id: userId,
@@ -280,6 +306,7 @@ Deno.serve(async (req) => {
         p_move_type: move_type,
         p_moderation_status: moderationStatus,
         p_round_number: roundNumber,
+        p_authoring_origin: authoring_origin,
       },
     );
 

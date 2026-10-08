@@ -1,0 +1,1 @@
+Please test the updated battle results: illustrated themes and round-by-round statistics are now always visible, with longer explanations in Result info. Check cinematic playback, sharing, rewards and navigation. Also try the refreshed Edit Look controls, illustrated trait choices and keyboard behavior.

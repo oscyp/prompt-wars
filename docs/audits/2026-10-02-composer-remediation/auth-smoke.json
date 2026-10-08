@@ -1,0 +1,242 @@
+[
+  {
+    "function": "appeal-battle",
+    "invalid_token": false,
+    "http_status": 500
+  },
+  {
+    "function": "appeal-battle",
+    "invalid_token": true,
+    "http_status": 500
+  },
+  {
+    "function": "battle-advance",
+    "invalid_token": false,
+    "http_status": 403
+  },
+  {
+    "function": "battle-advance",
+    "invalid_token": true,
+    "http_status": 403
+  },
+  {
+    "function": "create-custom-signature-item",
+    "invalid_token": false,
+    "http_status": 401
+  },
+  {
+    "function": "create-custom-signature-item",
+    "invalid_token": true,
+    "http_status": 401
+  },
+  {
+    "function": "dev-generate-video",
+    "invalid_token": false,
+    "http_status": 404
+  },
+  {
+    "function": "dev-generate-video",
+    "invalid_token": true,
+    "http_status": 404
+  },
+  {
+    "function": "expire-battles",
+    "invalid_token": false,
+    "http_status": 401
+  },
+  {
+    "function": "expire-battles",
+    "invalid_token": true,
+    "http_status": 401
+  },
+  {
+    "function": "finalize-character-creation",
+    "invalid_token": false,
+    "http_status": 401
+  },
+  {
+    "function": "finalize-character-creation",
+    "invalid_token": true,
+    "http_status": 401
+  },
+  {
+    "function": "generate-move-suggestions",
+    "invalid_token": false,
+    "http_status": 401
+  },
+  {
+    "function": "generate-move-suggestions",
+    "invalid_token": true,
+    "http_status": 401
+  },
+  {
+    "function": "generate-portrait",
+    "invalid_token": false,
+    "http_status": 401
+  },
+  {
+    "function": "generate-portrait",
+    "invalid_token": true,
+    "http_status": 401
+  },
+  {
+    "function": "generate-tier0-reveal",
+    "invalid_token": false,
+    "http_status": 401
+  },
+  {
+    "function": "generate-tier0-reveal",
+    "invalid_token": true,
+    "http_status": 401
+  },
+  {
+    "function": "leave-battle",
+    "invalid_token": false,
+    "http_status": 500
+  },
+  {
+    "function": "leave-battle",
+    "invalid_token": true,
+    "http_status": 500
+  },
+  {
+    "function": "matchmaking",
+    "invalid_token": false,
+    "http_status": 401
+  },
+  {
+    "function": "matchmaking",
+    "invalid_token": true,
+    "http_status": 401
+  },
+  {
+    "function": "moderate-prompt",
+    "invalid_token": false,
+    "http_status": 500
+  },
+  {
+    "function": "moderate-prompt",
+    "invalid_token": true,
+    "http_status": 500
+  },
+  {
+    "function": "moderate-video",
+    "invalid_token": false,
+    "http_status": 403
+  },
+  {
+    "function": "moderate-video",
+    "invalid_token": true,
+    "http_status": 403
+  },
+  {
+    "function": "prefetch-move-suggestions",
+    "invalid_token": false,
+    "http_status": 403
+  },
+  {
+    "function": "prefetch-move-suggestions",
+    "invalid_token": true,
+    "http_status": 403
+  },
+  {
+    "function": "process-video-job",
+    "invalid_token": false,
+    "http_status": 403
+  },
+  {
+    "function": "process-video-job",
+    "invalid_token": true,
+    "http_status": 403
+  },
+  {
+    "function": "record-funnel-event",
+    "invalid_token": false,
+    "http_status": 401
+  },
+  {
+    "function": "record-funnel-event",
+    "invalid_token": true,
+    "http_status": 401
+  },
+  {
+    "function": "regenerate-portrait",
+    "invalid_token": false,
+    "http_status": 401
+  },
+  {
+    "function": "regenerate-portrait",
+    "invalid_token": true,
+    "http_status": 401
+  },
+  {
+    "function": "request-video-upgrade",
+    "invalid_token": false,
+    "http_status": 500
+  },
+  {
+    "function": "request-video-upgrade",
+    "invalid_token": true,
+    "http_status": 500
+  },
+  {
+    "function": "resolve-appeal",
+    "invalid_token": false,
+    "http_status": 403
+  },
+  {
+    "function": "resolve-appeal",
+    "invalid_token": true,
+    "http_status": 403
+  },
+  {
+    "function": "resolve-battle",
+    "invalid_token": false,
+    "http_status": 400
+  },
+  {
+    "function": "resolve-battle",
+    "invalid_token": true,
+    "http_status": 400
+  },
+  {
+    "function": "round-resolve",
+    "invalid_token": false,
+    "http_status": 403
+  },
+  {
+    "function": "round-resolve",
+    "invalid_token": true,
+    "http_status": 403
+  },
+  {
+    "function": "run-judge-calibration",
+    "invalid_token": false,
+    "http_status": 403
+  },
+  {
+    "function": "run-judge-calibration",
+    "invalid_token": true,
+    "http_status": 403
+  },
+  {
+    "function": "sign-battle-portraits",
+    "invalid_token": false,
+    "http_status": 401
+  },
+  {
+    "function": "sign-battle-portraits",
+    "invalid_token": true,
+    "http_status": 401
+  },
+  {
+    "function": "submit-prompt",
+    "invalid_token": false,
+    "http_status": 500
+  },
+  {
+    "function": "submit-prompt",
+    "invalid_token": true,
+    "http_status": 500
+  }
+]

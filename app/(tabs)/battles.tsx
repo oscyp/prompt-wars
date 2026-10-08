@@ -1,8 +1,8 @@
-import { GameBevel } from '@/components/game';
-import { GameButton, GameHeader } from '@/components/game';
+import { usePlayerAvatars } from '@/hooks/usePlayerAvatars';
+import { GameButton } from '@/components/game';
 import { GameText } from '@/components/game';
 import BattleListPortrait from '@/components/BattleListPortrait';
-import PlayerSafetyActions from '@/components/PlayerSafetyActions';
+import { PlayerSafetyRow } from '@/components/PlayerSafetyActions';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
@@ -15,7 +15,6 @@ import {
   type ViewToken,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
@@ -149,7 +148,6 @@ function outcomePresentation(
 export default function BattlesScreen() {
   const colors = useThemedColors();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const accessibleText = useAccessibleTextStyle();
   const tabClearance = useTabClearance();
   const battleSheet = useBattleSheet();
@@ -249,6 +247,11 @@ export default function BattlesScreen() {
     battleSheet.open();
   };
 
+  usePlayerAvatars(
+    userId,
+    battles.map((row) => ({ kind: 'battles', id: row.id })),
+  );
+
   const sections = useMemo(
     () => groupBattlesForList(battles, userId),
     [battles, userId],
@@ -291,15 +294,20 @@ export default function BattlesScreen() {
     const opponentId =
       item.player_one_id === userId ? item.player_two_id : item.player_one_id;
     return (
-      <View>
+      <PlayerSafetyRow
+        framed
+        emphasized={chipFilled}
+        profileId={!identity.isBot ? opponentId : null}
+        name={name}
+      >
         <Pressable
           style={({ pressed }) => [
             styles.battleCard,
             stacked && styles.stackedCard,
             {
-              backgroundColor: colors.card,
+              backgroundColor: 'transparent',
               borderColor: chipFilled ? colors.primary : colors.borderLight,
-              borderWidth: chipFilled ? 1 : StyleSheet.hairlineWidth,
+              borderWidth: 0,
               opacity: !route ? DISABLED_ROW_OPACITY : pressed ? 0.85 : 1,
             },
           ]}
@@ -311,9 +319,6 @@ export default function BattlesScreen() {
           accessibilityLabel={label}
           accessibilityState={{ disabled: !route }}
         >
-          <GameBevel
-            color={chipFilled ? colors.primary : colors.ornamentMuted}
-          />
           <BattleListPortrait
             accountId={userId}
             battleId={item.id}
@@ -455,10 +460,7 @@ export default function BattlesScreen() {
             ) : null}
           </View>
         </Pressable>
-        {opponentId && !identity.isBot ? (
-          <PlayerSafetyActions profileId={opponentId} name={name} />
-        ) : null}
-      </View>
+      </PlayerSafetyRow>
     );
   };
 
@@ -505,11 +507,10 @@ export default function BattlesScreen() {
         styles.container,
         {
           backgroundColor: colors.background,
-          paddingTop: insets.top + Spacing.sm,
+          paddingTop: Spacing.sm,
         },
       ]}
     >
-      <GameHeader title="Battles" style={{ marginBottom: 16 }} />
       {isLoading ? (
         <ListSkeleton label="Loading your battles" />
       ) : (

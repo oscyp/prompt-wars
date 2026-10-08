@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { plusSubscriptionPeriod } from '@/utils/revenuecat';
 import { supabase } from './supabase';
 
 export interface PendingPurchase {
@@ -116,10 +117,7 @@ export async function isPurchaseFulfilled(
     });
     if (!replaced) return false;
   }
-  if (
-    pending.productId === 'promptwars_plus_monthly' ||
-    pending.productId === 'promptwars_plus_annual'
-  )
+  if (plusSubscriptionPeriod(pending.productId))
     return Boolean(purchase.fulfilled_at);
   const { data, error: ledgerError } = await supabase
     .from('wallet_transactions')

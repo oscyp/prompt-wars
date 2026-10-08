@@ -1,9 +1,15 @@
 import React from 'react';
+import { useCredits } from '@/hooks/useCredits';
 import { Image, Alert, StyleSheet, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act } from '@testing-library/react-native';
 import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import {
+  fireEvent,
+  render,
+  waitFor,
+  within,
+} from '@testing-library/react-native';
 import EditCharacterScreen from '@/app/(profile)/edit-character';
 import {
   readInitialPortraitRecovery,
@@ -16,6 +22,7 @@ import {
 
 let mockUser = { id: 'owner' };
 const mockRefreshCredits = jest.fn();
+let mockCreditState = { credits: 10, loading: false, error: false };
 const mockRefreshLock = jest.fn();
 const mockLoadCharacter = jest.fn();
 const mockRouter = {
@@ -49,6 +56,7 @@ jest.mock('@/hooks/usePortraitOperationRecovery', () => ({
 }));
 jest.mock('expo-router', () => ({
   useRouter: () => mockRouter,
+  useSegments: () => ['(profile)', 'edit-character'],
   useNavigation: () => ({ dispatch: mockDispatch }),
   useLocalSearchParams: () => mockParams,
   Stack: { Screen: () => null },
@@ -71,11 +79,10 @@ jest.mock('@/providers/AuthProvider', () => ({
   useAuth: () => ({ user: mockUser }),
 }));
 jest.mock('@/hooks/useCredits', () => ({
-  useCredits: () => ({
-    credits: 10,
-    loading: false,
+  useCredits: jest.fn(() => ({
+    ...mockCreditState,
     refresh: mockRefreshCredits,
-  }),
+  })),
 }));
 jest.mock('@/hooks/useCharacterEditLock', () => ({
   useCharacterEditLock: () => ({
@@ -129,11 +136,7 @@ jest.mock('@/components', () => {
   const empty = () => null;
   return {
     Toast: empty,
-    CreditChip: ({ onPress }: any) => (
-      <Pressable accessibilityLabel="Open Wallet" onPress={onPress}>
-        <Text>Credits</Text>
-      </Pressable>
-    ),
+    CreditChip: jest.requireActual('@/components/CreditChip').default,
     IdentityPanel: ({ onStage, disabled }: any) => (
       <View>
         <Text>Identity panel</Text>
@@ -155,10 +158,19 @@ jest.mock('@/components', () => {
       </View>
     ),
     GearPanel: () => <Text>Gear panel</Text>,
-    ConfirmSheet: ({ visible, onConfirm, confirmLabel, title }: any) =>
+    ConfirmSheet: ({
+      visible,
+      onConfirm,
+      confirmLabel,
+      title,
+      lines = [],
+    }: any) =>
       visible ? (
         <View>
           <Text>{title}</Text>
+          {lines.map((line: string) => (
+            <Text key={line}>{line}</Text>
+          ))}
           <Pressable
             accessibilityLabel="Confirm editor action"
             onPress={onConfirm}
@@ -190,6 +202,7 @@ const row = {
 beforeEach(async () => {
   jest.clearAllMocks();
   mockUser = { id: 'owner' };
+  mockCreditState = { credits: 10, loading: false, error: false };
   const memory = new Map<string, string>();
   (AsyncStorage.getItem as jest.Mock).mockImplementation(
     async (key: string) => memory.get(key) ?? null,
@@ -260,7 +273,7 @@ it.each(['succeeded', 'failed'])(
     expect(generatePortrait).not.toHaveBeenCalled();
     if (status === 'failed')
       await waitFor(() =>
-        expect(screen.getByText('Review & draw · Free (1 left)')).toBeTruthy(),
+        expect(screen.getByText('Review & draw')).toBeTruthy(),
       );
   },
 );
@@ -352,6 +365,10 @@ test('large text keeps horizontal categories and one form scroll with one keyboa
     view.rerender(<EditCharacterScreen />);
     expect(view.getByText('Gear panel')).toBeTruthy();
     const scroll = view.getByTestId('edit-look-scroll');
+    expect(
+      within(scroll).getByRole('button', { name: 'View card' }),
+    ).toBeTruthy();
+    expect(within(scroll).queryByText(/current artwork/i)).toBeNull();
     expect(scroll.props.automaticallyAdjustKeyboardInsets).toBe(false);
     expect(
       StyleSheet.flatten(scroll.props.contentContainerStyle).paddingTop ?? 0,
@@ -378,7 +395,7 @@ test('explicit Fighter color entry overrides a stored category without clearing 
   const view = render(<EditCharacterScreen />);
   await waitFor(() => expect(view.getByText('Identity panel')).toBeTruthy());
   expect(view.getByText('Draft restored')).toBeTruthy();
-  expect(view.getByText('Save changes · Free').parent?.props).toBeDefined();
+  expect(view.getByText('Save changes').parent?.props).toBeDefined();
 });
 
 test('cold entry shows a Profile fallback', async () => {
@@ -394,7 +411,7 @@ test('a battle lock arriving while confirmation is open prevents saving', async 
   const view = render(<EditCharacterScreen />);
   await waitFor(() => expect(view.getByText('Look panel')).toBeTruthy());
   fireEvent.changeText(view.getByLabelText('Description'), 'bold');
-  fireEvent.press(view.getByText('Save changes · Free'));
+  fireEvent.press(view.getByText('Save changes'));
   expect(view.getByText('Save changes?')).toBeTruthy();
   mockLocked = true;
   view.rerender(<EditCharacterScreen />);
@@ -415,7 +432,7 @@ test('a partial save acknowledges identity once and keeps failed look edits for 
     .mockResolvedValueOnce({})
     .mockRejectedValueOnce(new Error('offline'))
     .mockResolvedValue({});
-  fireEvent.press(view.getByText('Save changes · Free'));
+  fireEvent.press(view.getByText('Save changes'));
   fireEvent.press(view.getByLabelText('Confirm editor action'));
   await waitFor(() =>
     expect(alert).toHaveBeenCalledWith(
@@ -423,7 +440,7 @@ test('a partial save acknowledges identity once and keeps failed look edits for 
       expect.stringContaining('Already saved: identity'),
     ),
   );
-  fireEvent.press(view.getByText('Save changes · Free'));
+  fireEvent.press(view.getByText('Save changes'));
   fireEvent.press(view.getByLabelText('Confirm editor action'));
   await waitFor(() => expect(editCharacter).toHaveBeenCalledTimes(3));
   const calls = (editCharacter as jest.Mock).mock.calls;
@@ -439,11 +456,12 @@ test('free initial drawings also require review before generation', async () => 
     error: null,
   });
   const view = render(<EditCharacterScreen />);
-  await waitFor(() =>
-    expect(view.getByText('Review & draw · Free (2 left)')).toBeTruthy(),
-  );
-  fireEvent.press(view.getByText('Review & draw · Free (2 left)'));
+  await waitFor(() => expect(view.getByText('Review & draw')).toBeTruthy());
+  fireEvent.press(view.getByText('Review & draw'));
   expect(view.getByText('Draw this look?')).toBeTruthy();
+  expect(
+    view.getByText('Uses 1 included draw. 1 remaining afterwards.'),
+  ).toBeTruthy();
   expect(generatePortrait).not.toHaveBeenCalled();
 });
 
@@ -470,7 +488,7 @@ test('unknown prices still allow free look saves and block paid drawing', async 
   const view = render(<EditCharacterScreen />);
   await waitFor(() => expect(view.getByText('Look panel')).toBeTruthy());
   fireEvent.changeText(view.getByLabelText('Description'), 'bold');
-  fireEvent.press(view.getByText('Save changes · Free'));
+  fireEvent.press(view.getByText('Save changes'));
   fireEvent.press(view.getByLabelText('Confirm editor action'));
   await waitFor(() =>
     expect(editCharacter).toHaveBeenCalledWith({
@@ -484,30 +502,51 @@ test('unknown prices still allow free look saves and block paid drawing', async 
 
 test('each category restores its own scroll position in the durable draft', async () => {
   read.mockResolvedValue(null);
+  const rn = jest.requireActual<typeof import('react-native')>('react-native');
+  const scrollTo = jest
+    .spyOn(rn.ScrollView.prototype, 'scrollTo')
+    .mockImplementation(() => {});
   const view = render(<EditCharacterScreen />);
-  await waitFor(() => expect(view.getByText('Look panel')).toBeTruthy());
-  fireEvent.scroll(view.getByTestId('edit-look-scroll'), {
-    nativeEvent: { contentOffset: { y: 230, x: 0 } },
-  });
-  fireEvent.press(view.getByRole('tab', { name: 'Gear' }));
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 35));
-  });
-  fireEvent.scroll(view.getByTestId('edit-look-scroll'), {
-    nativeEvent: { contentOffset: { y: 80, x: 0 } },
-  });
-  fireEvent.press(view.getByRole('tab', { name: 'Look' }));
-  await waitFor(() =>
-    expect(
-      (AsyncStorage.setItem as jest.Mock).mock.calls.some(([, raw]) => {
-        const saved = JSON.parse(raw);
-        return (
-          saved.scrollPositions?.look === 230 &&
-          saved.scrollPositions?.gear === 80
-        );
-      }),
-    ).toBe(true),
-  );
+  try {
+    // Hydration and the native-frame restoration must finish before simulating a drag.
+    // Seeing the panel alone does not mean its durable draft is ready yet.
+    await waitFor(() =>
+      expect(view.getByLabelText('Description').props.editable).toBe(true),
+    );
+    await waitFor(() =>
+      expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: false }),
+    );
+    fireEvent.scroll(view.getByTestId('edit-look-scroll'), {
+      nativeEvent: { contentOffset: { y: 230, x: 0 } },
+    });
+    scrollTo.mockClear();
+    fireEvent.press(view.getByRole('tab', { name: 'Gear' }));
+    await waitFor(() =>
+      expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: false }),
+    );
+    fireEvent.scroll(view.getByTestId('edit-look-scroll'), {
+      nativeEvent: { contentOffset: { y: 80, x: 0 } },
+    });
+    scrollTo.mockClear();
+    fireEvent.press(view.getByRole('tab', { name: 'Look' }));
+    await waitFor(() =>
+      expect(scrollTo).toHaveBeenCalledWith({ y: 230, animated: false }),
+    );
+    await waitFor(() =>
+      expect(
+        (AsyncStorage.setItem as jest.Mock).mock.calls.some(([, raw]) => {
+          const saved = JSON.parse(raw);
+          return (
+            saved.scrollPositions?.look === 230 &&
+            saved.scrollPositions?.gear === 80
+          );
+        }),
+      ).toBe(true),
+    );
+  } finally {
+    view.unmount();
+    scrollTo.mockRestore();
+  }
 });
 
 test('account changes remount editor state while an older save is pending', async () => {
@@ -522,7 +561,7 @@ test('account changes remount editor state while an older save is pending', asyn
   const view = render(<EditCharacterScreen />);
   await waitFor(() => expect(view.getByText('Look panel')).toBeTruthy());
   fireEvent.changeText(view.getByLabelText('Description'), 'bold');
-  fireEvent.press(view.getByText('Save changes · Free'));
+  fireEvent.press(view.getByText('Save changes'));
   fireEvent.press(view.getByLabelText('Confirm editor action'));
   await waitFor(() => expect(editCharacter).toHaveBeenCalledTimes(1));
   mockUser = { id: 'other' };
@@ -556,10 +595,8 @@ test('a price refresh failure while review is open prevents paid dispatch', asyn
   });
   try {
     const view = render(<EditCharacterScreen />);
-    await waitFor(() =>
-      expect(view.getByText('Draw another version · 3 credits')).toBeTruthy(),
-    );
-    fireEvent.press(view.getByText('Draw another version · 3 credits'));
+    await waitFor(() => expect(view.getByText('Review & draw')).toBeTruthy());
+    fireEvent.press(view.getByText('Review & draw'));
     expect(view.getByText('Draw this look?')).toBeTruthy();
     mockPricingError = true;
     act(() => listeners.forEach((callback) => callback('active')));
@@ -586,7 +623,7 @@ test('ordinary reopening starts on Look while preserving Gear draft work', async
   const view = render(<EditCharacterScreen />);
   await waitFor(() => expect(view.getByText('Draft restored')).toBeTruthy());
   expect(view.getByText('Look panel')).toBeTruthy();
-  fireEvent.press(view.getByText('Save changes · Free'));
+  fireEvent.press(view.getByText('Save changes'));
   fireEvent.press(view.getByLabelText('Confirm editor action'));
   await waitFor(() =>
     expect(editCharacter).toHaveBeenCalledWith({
@@ -594,4 +631,91 @@ test('ordinary reopening starts on Look while preserving Gear draft work', async
       changes: { look: { vibe: 'bold' } },
     }),
   );
+});
+
+test('keyboard hides the preview while preserving the mounted draft input and exposes dismiss-only Done', async () => {
+  const rn = jest.requireActual<typeof import('react-native')>('react-native');
+  const listeners: Record<string, (() => void)[]> = {};
+  const subscribe = jest
+    .spyOn(rn.Keyboard, 'addListener')
+    .mockImplementation((event, callback) => {
+      (listeners[event] ??= []).push(callback as () => void);
+      return { remove: jest.fn() } as unknown as ReturnType<
+        typeof rn.Keyboard.addListener
+      >;
+    });
+  const dismiss = jest
+    .spyOn(rn.Keyboard, 'dismiss')
+    .mockImplementation(() => {});
+  const view = render(<EditCharacterScreen />);
+  try {
+    await waitFor(() => expect(view.getByText('Look panel')).toBeTruthy());
+    const input = view.getByLabelText('Description');
+    fireEvent.changeText(input, 'bold');
+    expect(view.getByRole('button', { name: 'View card' })).toBeTruthy();
+    act(() =>
+      (listeners.keyboardWillShow ?? listeners.keyboardDidShow).forEach(
+        (callback) => callback(),
+      ),
+    );
+    expect(view.queryByRole('button', { name: 'View card' })).toBeNull();
+    expect(view.getByLabelText('Description')).toBe(input);
+    expect(view.getByRole('tab', { name: 'Look' })).toBeTruthy();
+    expect(view.queryByText('Review & draw')).toBeNull();
+    fireEvent.press(view.getByRole('button', { name: 'Done' }));
+    expect(dismiss).toHaveBeenCalledTimes(1);
+    expect(editCharacter).not.toHaveBeenCalled();
+    expect(mockPaidStart).not.toHaveBeenCalled();
+    act(() =>
+      (listeners.keyboardWillHide ?? listeners.keyboardDidHide).forEach(
+        (callback) => callback(),
+      ),
+    );
+    expect(view.getByLabelText('Description')).toBe(input);
+    expect(view.getByRole('button', { name: 'View card' })).toBeTruthy();
+  } finally {
+    view.unmount();
+    subscribe.mockRestore();
+    dismiss.mockRestore();
+  }
+});
+
+test.each([0, 2])(
+  'failed wallet read stays unknown with %s included draws while editing remains available',
+  async (included) => {
+    read.mockResolvedValue(null);
+    mockCreditState = { credits: 0, loading: false, error: true };
+    mockLoadCharacter.mockResolvedValue({
+      data: { ...row, draft_portrait_renders: 3 - included },
+      error: null,
+    });
+    const view = render(<EditCharacterScreen />);
+    await waitFor(() => expect(view.getByText('Look panel')).toBeTruthy());
+    expect(
+      view.getByLabelText('View wallet, balance unavailable'),
+    ).toBeTruthy();
+    expect(view.queryByLabelText('View wallet, 0 credits')).toBeNull();
+    fireEvent.changeText(view.getByLabelText('Description'), 'bold');
+    expect(
+      view.getByRole('button', { name: 'Save changes' }).props
+        .accessibilityState.disabled,
+    ).toBe(false);
+    fireEvent.press(view.getByText('Review & draw'));
+    expect(view.getByText('Draw this look?')).toBeTruthy();
+    expect(mockRouter.push).not.toHaveBeenCalled();
+    expect(mockPaidStart).not.toHaveBeenCalled();
+    if (included)
+      expect(
+        view.getByText('Uses 1 included draw. 1 remaining afterwards.'),
+      ).toBeTruthy();
+  },
+);
+
+test('editor scopes wallet reads to the current account', async () => {
+  const view = render(<EditCharacterScreen />);
+  await waitFor(() => expect(view.getByText('Look panel')).toBeTruthy());
+  expect(useCredits).toHaveBeenLastCalledWith('owner');
+  mockUser = { id: 'other' };
+  view.rerender(<EditCharacterScreen />);
+  await waitFor(() => expect(useCredits).toHaveBeenLastCalledWith('other'));
 });

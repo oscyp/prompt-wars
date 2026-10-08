@@ -1,5 +1,11 @@
 import React from 'react';
-import { Text, TextProps, TextStyle, StyleSheet } from 'react-native';
+import {
+  Text,
+  TextProps,
+  TextStyle,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
 import { isLoaded } from 'expo-font';
 import { GameFonts, GameType } from '@/constants/DesignTokens';
 import { useThemedColors } from '@/hooks/useThemedColors';
@@ -29,6 +35,7 @@ export function GameText({
   ...props
 }: GameTextProps) {
   const colors = useThemedColors();
+  const { fontScale } = useWindowDimensions();
   const font = variant === 'display' ? GameFonts.display : GameFonts.label;
   const useDisplayFont =
     variant !== 'body' &&
@@ -47,6 +54,10 @@ export function GameText({
   return (
     <Text
       {...props}
+      // Recreate only the native text node when Dynamic Type changes. The
+      // current iOS binary otherwise reuses stale line metrics after resuming.
+      // Editors, screen state and input nodes are not remounted.
+      key={`text-scale-${fontScale}`}
       allowFontScaling
       style={[
         type,

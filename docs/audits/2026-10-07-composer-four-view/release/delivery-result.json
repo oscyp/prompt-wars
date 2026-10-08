@@ -1,0 +1,48 @@
+{
+  "recordedAt": "2026-10-07T14:27:43.604472+00:00",
+  "backend": {
+    "migration": "20261007122059",
+    "generateMoveSuggestionsVersion": 21,
+    "completeMoveSuggestionVersion": 1,
+    "recordFunnelEventVersion": 15
+  },
+  "ios": {
+    "version": "1.3.3",
+    "buildNumber": "18",
+    "buildId": "9301c70c-2276-481c-a0ea-fcd63323bcfc",
+    "buildStatus": "FINISHED",
+    "submissionId": "bb09da5a-13cd-4e2f-b8ab-79ea3d486a76",
+    "submissionStatus": "FINISHED",
+    "appleProcessing": "VALID",
+    "internalBetaState": "IN_BETA_TESTING",
+    "requestedGroups": [
+      "Team (Expo)",
+      "testers"
+    ],
+    "groupAssignmentIndependentlyVerified": false,
+    "ipaSha256": "fab2de05705a71547f5c5407e353d78da82baa957f96111bf6cf1c13819ab153"
+  },
+  "android": {
+    "version": "1.3.3",
+    "versionCode": 9,
+    "buildId": "c177cc6f-084e-4130-981f-ac85f9cabfac",
+    "buildStatus": "FINISHED",
+    "artifactUrl": "https://expo.dev/artifacts/eas/wLVxM2ADE8p3-7X-ZDki69YaiJCObWRLAT4n6etkKKI.apk",
+    "apkSha256": "b52abf2944adf655674cb3575207291ea1dd1414966eec522d321c6638f326c9",
+    "binaryAndSigningVerified": true,
+    "exactArtifactNativeSmoke": "Passed: installed version1.3.3/code9; cold launch Status ok in447ms to SIGN IN; bounded AndroidRuntime/ReactNativeJS error scan empty. No authentication or purchase."
+  },
+  "observers": {
+    "buildObserverExitedNormally": true,
+    "submissionObserverExitedNormally": true,
+    "continuingBackgroundObserver": false
+  },
+  "publicStoreReleasePerformed": false,
+  "knownLimitations": [
+    "Reliable AI-bank availability is not established: six hosted free operations failed near the 45-second limit, with safe fallback/manual completion.",
+    "Native result presentation defects were observed; cause remains unconfirmed.",
+    "CLI confirms internal beta state but not exact group assignment or tester installation."
+  ],
+  "additionalDirectBenchmarkCallsAfterSixCallBudget": false,
+  "authorizedHostedPracticeRoundsWithFreeBankAttempts": 2
+}

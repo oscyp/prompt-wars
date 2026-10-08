@@ -1,0 +1,27 @@
+yarn run v1.22.22
+warning Skipping preferred cache folder "/Users/patdom/Library/Caches/Yarn" because it is not writable.
+warning Selected the next writable cache folder in the list, will be "/var/folders/s6/mdps3zk93v588msmq1kp3bn00000gn/T/.yarn-cache-501".
+$ jest --runInBand __tests__/useMoveSuggestionBanks.test.tsx
+warning Cannot find a suitable global folder. Tried these: "/usr/local, /Users/patdom/.yarn"
+PASS __tests__/useMoveSuggestionBanks.test.tsx
+  ✓ Write does not generate; Face-off Build prepares missing types with separate free requests (111 ms)
+  ✓ cached AI replaces starters immediately without mixing duplicate banks (56 ms)
+  ✓ delivers each free type without waiting for the slowest generation (53 ms)
+  ✓ every type keeps its ambiguous purchase journal while another bank is used (54 ms)
+  ✓ retains paid cache metadata so purchased ideas remain visible after restart (54 ms)
+  ✓ stops the loading state while submission suspends suggestions and recovers the cache on resume (2 ms)
+  ✓ keeps a type failure from initial read visible while other banks finish, until that type recovers (1 ms)
+  ✓ keeps a type failure from poll visible while other banks finish, until that type recovers (1 ms)
+  ✓ recovers an exact paid cache enrichment without rerolling or hiding the delivered bank (1 ms)
+  ✓ keeps the successfully purchased cache if its free enrichment request fails (52 ms)
+  ✓ does not offer starter ideas when all three AI banks are already available (1 ms)
+  ✓ a late free enrichment cannot replace a newer paid bank after its purchase is applied (53 ms)
+  ✓ accepts an immediately completed free enrichment during initial cache hydration (53 ms)
+  ✓ allows explicit complete starters when cached old banks cannot be enriched (52 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       14 passed, 14 total
+Snapshots:   0 total
+Time:        1.162 s, estimated 2 s
+Ran all test suites matching /__tests__\/useMoveSuggestionBanks.test.tsx/i.
+Done in 2.52s.

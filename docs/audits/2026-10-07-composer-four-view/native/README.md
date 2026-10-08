@@ -1,0 +1,10 @@
+# Native composer verification
+
+Evidence is specific to the four-view implementation on October 7, 2026. Earlier release screenshots do not establish this flow's acceptance.
+
+- [Android component/runtime checks](android/README.md): four views, restored branches, explicit fallback, hold, 800-character writing, real keyboard at 320/375/390/402/800 dp, 150% text at 320/390 dp, and scoped label-clipping fixes.
+- [iOS native checks and live Bo3](ios/README.md): four views, exact review and Back retention at 402 pt; real software keyboard; VoiceOver-enabled cancel/confirm; observed Reduced Motion; 375 pt standard/large text and 390 pt layout. The iPad check runs in 375 pt phone compatibility because the app does not enable native tablet support. Native 320 pt and full spoken-reader traversal remain unverified. A screenshot of an empty editor is not proof of successful typing.
+- Signed artifacts and hosted behavior are recorded in the [delivery ledger](../../../deployments/2026-10-07-composer-four-view.md), separately from Expo Go/development fixtures.
+- The exact signed Android 1.3.3 (9) APK separately passed installation and cold launch to SIGN IN in 447 ms, with an empty bounded native error log. [Runtime proof](android/release9-runtime.json). This startup check did not authenticate or exercise a battle. Task-owned Android/iOS fixture servers, extra simulators and release observers were stopped after verification; the original iOS simulator was preserved.
+
+Fixture checks perform no live auth, purchase, AI request or battle submit. They cannot establish server behavior, persistent production drafts, paid recovery or complete live rounds. The separate authenticated iOS run completed one Practice Bo3 through the development host, with no purchases; the hosted snapshot confirms exact accepted texts and zero wallet transactions. Result-presentation defects and failed automatic free AI banks are recorded explicitly. Full spoken VoiceOver/TalkBack traversal, physical-device and signed-release-binary full-round acceptance remain unverified. The human repeat-play pilot remains separate.

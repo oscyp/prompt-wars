@@ -1,0 +1,7 @@
+Starting: Intent { cmp=gg.promptwars.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: gg.promptwars.app/.MainActivity
+TotalTime: 447
+WaitTime: 449
+Complete

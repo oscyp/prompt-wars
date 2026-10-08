@@ -1,4 +1,6 @@
-import { GameHeader } from '@/components/game';
+import { GameFeedback } from '@/components/game/GameFeedback';
+import PlayerListAvatar from '@/components/PlayerListAvatar';
+import { usePlayerAvatars } from '@/hooks/usePlayerAvatars';
 import { GamePanel, GameText } from '@/components/game';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -9,7 +11,6 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
@@ -23,9 +24,9 @@ import {
 import { archetypeIllustrationUri } from '@/constants/ArchetypeAvatars';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/providers/AuthProvider';
-import { CosmeticBadge, InlineBanner, PortraitPreview } from '@/components';
+import { CosmeticBadge, InlineBanner } from '@/components';
 import ListSkeleton from '@/components/ListSkeleton';
-import PlayerSafetyActions from '@/components/PlayerSafetyActions';
+import { PlayerSafetyRow } from '@/components/PlayerSafetyActions';
 import PodiumHeader from '@/components/PodiumHeader';
 import {
   fetchPublicPlayers,
@@ -60,6 +61,8 @@ interface SeasonRow {
 }
 
 interface RankingCardProps {
+  accountId?: string;
+  framed?: boolean;
   row: RankingRow;
   isViewer: boolean;
   /** Rendered under the list because the viewer is outside the top 50. */
@@ -69,6 +72,8 @@ interface RankingCardProps {
 }
 
 function RankingCard({
+  accountId,
+  framed = true,
   row,
   isViewer,
   pinned = false,
@@ -98,16 +103,19 @@ function RankingCard({
     ? resolveSignatureHex(player.signatureColor)
     : colors.border;
 
+  const Container = framed ? GamePanel : View;
   return (
-    <GamePanel
-      tone="ornate"
+    <Container
+      {...(framed
+        ? { tone: emphasised ? ('selected' as const) : ('quiet' as const) }
+        : {})}
       style={[
         styles.rankingCard,
         stacked && styles.stackedRankingCard,
         {
-          backgroundColor: isViewer ? colors.backgroundSecondary : colors.card,
+          backgroundColor: 'transparent',
           borderColor,
-          borderWidth: emphasised ? 1.5 : StyleSheet.hairlineWidth,
+          borderWidth: 0,
         },
         pinned && styles.pinnedCard,
       ]}
@@ -135,17 +143,19 @@ function RankingCard({
             {rankDisplay(row.rank)}
           </GameText>
         </View>
-        {/* Other players' characters are RLS-protected; the public view gives
-          the archetype and colour, and the bundled illustration stands in for
-          the portrait (never a bare initial). */}
-        <PortraitPreview
-          uri={archetypeIllustrationUri(player?.archetype ?? null) ?? ''}
+        {/* Approved avatars load independently through authenticated signing. */}
+        <PlayerListAvatar
+          accountId={accountId}
+          reference={{ kind: 'players', id: row.profile_id }}
+          fallbackUri={
+            archetypeIllustrationUri(player?.archetype ?? null) ?? ''
+          }
           variant="circle"
           size={AVATAR_SIZE}
           accentColor={ring}
           frame={player?.cosmetics.frame ?? null}
           avatarEffect={player?.cosmetics.avatarEffect ?? null}
-          accessibilityLabel={`${name}'s archetype`}
+          accessibilityLabel={`${name}'s fighter portrait`}
         />
         {stacked ? (
           <GameText
@@ -209,13 +219,12 @@ function RankingCard({
           {Math.round(row.rating)}
         </GameText>
       ) : null}
-    </GamePanel>
+    </Container>
   );
 }
 
 export default function RankingsScreen() {
   const colors = useThemedColors();
-  const insets = useSafeAreaInsets();
   const accessibleText = useAccessibleTextStyle();
   const tabClearance = useTabClearance();
   const { user } = useAuth();
@@ -358,20 +367,29 @@ export default function RankingsScreen() {
         .join(' · ')
     : null;
 
+  usePlayerAvatars(
+    userId,
+    [...rankings, ...(viewerRow ? [viewerRow] : [])].map((row) => ({
+      kind: 'players',
+      id: row.profile_id,
+    })),
+  );
+
   const renderRanking = ({ item }: { item: RankingRow }) => (
-    <View>
+    <PlayerSafetyRow
+      framed
+      emphasized={item.profile_id === userId}
+      profileId={item.profile_id !== userId ? item.profile_id : null}
+      name={rankingPlayerName(item)}
+    >
       <RankingCard
+        framed={false}
+        accountId={userId}
         row={item}
         isViewer={item.profile_id === userId}
         player={players.get(item.profile_id)}
       />
-      {item.profile_id !== userId ? (
-        <PlayerSafetyActions
-          profileId={item.profile_id}
-          name={rankingPlayerName(item)}
-        />
-      ) : null}
-    </View>
+    </PlayerSafetyRow>
   );
 
   const errorBanner = (
@@ -391,11 +409,10 @@ export default function RankingsScreen() {
         styles.container,
         {
           backgroundColor: colors.background,
-          paddingTop: insets.top + Spacing.sm,
+          paddingTop: Spacing.sm,
         },
       ]}
     >
-      <GameHeader title="Rankings" style={{ marginBottom: 16 }} />
       {seasonLine ? (
         <GameText
           variant="body"
@@ -434,29 +451,6 @@ export default function RankingsScreen() {
                       players={players}
                       viewerId={userId}
                     />
-                    {podium
-                      .filter((row) => row.profile_id !== userId)
-                      .map((row) => (
-                        <View
-                          key={row.profile_id}
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          <GameText
-                            variant="body"
-                            style={{ color: colors.text }}
-                          >
-                            {rankingPlayerName(row)}
-                          </GameText>
-                          <PlayerSafetyActions
-                            profileId={row.profile_id}
-                            name={rankingPlayerName(row)}
-                          />
-                        </View>
-                      ))}
                   </>
                 ) : null}
               </>
@@ -465,24 +459,11 @@ export default function RankingsScreen() {
               rankings.length > 0 ? null : loadError ? (
                 errorBanner
               ) : (
-                <View style={styles.emptyState}>
-                  <GameText
-                    variant="title"
-                    style={[styles.emptyTitle, { color: colors.text }]}
-                  >
-                    {emptyTitle}
-                  </GameText>
-                  <GameText
-                    variant="body"
-                    style={[
-                      styles.emptyText,
-                      accessibleText,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {emptyBody}
-                  </GameText>
-                </View>
+                <GameFeedback
+                  icon="rankings"
+                  title={emptyTitle}
+                  message={emptyBody}
+                />
               )
             }
             refreshControl={
@@ -497,6 +478,7 @@ export default function RankingsScreen() {
           {pinViewer && viewerRow ? (
             <View style={[styles.pinnedWrap, { paddingBottom: tabClearance }]}>
               <RankingCard
+                accountId={userId}
                 row={viewerRow}
                 isViewer
                 pinned

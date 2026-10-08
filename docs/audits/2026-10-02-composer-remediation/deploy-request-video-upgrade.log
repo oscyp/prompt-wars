@@ -1,0 +1,15 @@
+Deployed Functions on project uoyjhudegdpanrgllfoj: request-video-upgrade
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/uoyjhudegdpanrgllfoj/functions
+
+Uploading asset (request-video-upgrade): supabase/functions/request-video-upgrade/index.ts
+Uploading asset (request-video-upgrade): supabase/functions/_shared/entitlement-gate.ts
+Uploading asset (request-video-upgrade): supabase/functions/_shared/video-constants.ts
+Uploading asset (request-video-upgrade): supabase/functions/_shared/per-round-payload.ts
+Uploading asset (request-video-upgrade): supabase/functions/_shared/compose-tier1-payload.ts
+Uploading asset (request-video-upgrade): supabase/functions/_shared/types.ts
+Uploading asset (request-video-upgrade): supabase/functions/_shared/compose-reveal-payload.ts
+Uploading asset (request-video-upgrade): supabase/functions/_shared/providers.ts
+Uploading asset (request-video-upgrade): supabase/functions/_shared/prompt-situations.ts
+Uploading asset (request-video-upgrade): supabase/functions/_shared/judge-policy.ts
+Uploading asset (request-video-upgrade): supabase/functions/_shared/auto-video.ts
+Uploading asset (request-video-upgrade): supabase/functions/_shared/utils.ts

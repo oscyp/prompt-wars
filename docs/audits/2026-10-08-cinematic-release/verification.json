@@ -1,0 +1,21 @@
+{
+  "appVersion": "1.3.4",
+  "appIdentifier": "gg.promptwars.app",
+  "project": "@prompt-wars/prompt-wars",
+  "easProjectId": "d4c525e1-0a95-4c6a-b1ee-106fa2f03f46",
+  "localChecks": {
+    "jestSuites": 228,
+    "jestTests": 1978,
+    "jestPassed": true,
+    "typecheckPassed": true,
+    "scopedEslintPassed": true,
+    "plistValidationPassed": true,
+    "fixtureIsolationPassed": true,
+    "endpointGateTests": 2,
+    "endpointBehavioralSteps": 15,
+    "endpointPassed": true
+  },
+  "releaseScope": "Existing iOS internal TestFlight groups through Expo. No public App Review, Android build, notifications or invitations.",
+  "backendRolloutOwnedBy": "root and cinematic_sql",
+  "nativeVisualScreenshotsVerified": false
+}

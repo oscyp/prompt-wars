@@ -1,0 +1,156 @@
+{
+  "tool": "built-in image_gen",
+  "date": "2026-09-20",
+  "assets": [
+    {
+      "key": "fountain_pen",
+      "prompt": "Use case: stylized-concept. Create ONE production artwork plate for the Prompt Wars mobile game's Fountain Pen signature item. Reference image 1 is a style/composition guide only: match the ornate golden fountain pen in its CURRENT SIGNATURE ITEM banner, not the whole UI. Render an exquisite obsidian-black fountain pen with detailed engraved warm gold filigree, a visible sharp metal nib, and a restrained violet crystal accent, lying diagonally from lower-left nib to upper-right cap. Rich painterly collectible fantasy game illustration, dimensional materials, premium warm gold highlights, violet magical wisps curling behind and beneath the pen. Near-black navy/obsidian background with subtle deep-purple haze and sparse tiny motes; edges fade to near-black. Landscape 3:2 composition, single complete object large and centered at about 80% of frame width with at least 8% margin on all sides. Full-bleed atmospheric artwork. NO UI, NO cards, NO borders, NO labels, NO text, NO logos, NO other items, NO checkerboard. This will sit in native gold-edged cards with separate dynamic text. Preserve the item's recognizable real-world silhouette.",
+      "asset": "assets/signature-icons/fountain_pen.jpg",
+      "sourceFile": "exec-59ef249f-f608-4433-b5b9-a0debfae9222.png",
+      "original": "output/imagegen/2026-09-20-signature-items/fountain_pen.png",
+      "sha256": "a86ce72e6013750ff388dcc5cc1c6ed85a55573f7e2da9ccbe68d33cec808c87",
+      "bytes": 392806,
+      "encoding": "JPEG quality 90, 4:4:4, original 1536 × 1024 dimensions"
+    },
+    {
+      "key": "compass",
+      "prompt": "Use case: stylized-concept. Create ONE production signature-item artwork plate for the Prompt Wars mobile game. Input image 1 is the approved Gear screen style guide only; image 2 is the matching fountain-pen artwork style reference only. Render this NEW subject instead of the pen: An ornate round navigational compass in engraved warm gold and obsidian, at a three-quarter angle, with a clear eight-point wind rose, a fine gold needle and subtle amethyst details. No written directional letters. Match the references' premium dimensional painterly collectible-fantasy illustration, rich warm gold, obsidian materials, realistic ornate details and restrained violet magical wisps. Near-black navy background fading dark at every edge, deep-purple haze and sparse tiny motes. Landscape 3:2 composition; single complete object large and centered, fully inside the frame with at least 8% margin. Rich luminous focal object, quieter backdrop. NO UI, NO cards surrounding the artwork, NO labels, NO text, NO logos, NO watermarks, NO other objects except explicitly specified parts, NO checkerboard. Native components will provide all borders and labels. Preserve the object's recognizable real-world silhouette.",
+      "asset": "assets/signature-icons/compass.jpg",
+      "sourceFile": "exec-237334f7-9cb0-41d6-bb0b-a3e5823f19ef.png",
+      "original": "output/imagegen/2026-09-20-signature-items/compass.png",
+      "sha256": "201a71cae5d8b5ce2d1533226b9b11d5ed8b68661f7f7c0b19e3647d318856c9",
+      "bytes": 480128,
+      "encoding": "JPEG quality 90, 4:4:4, original 1536 × 1024 dimensions"
+    },
+    {
+      "key": "hourglass",
+      "prompt": "Use case: stylized-concept. Create ONE production signature-item artwork plate for the Prompt Wars mobile game. Input image 1 is the approved Gear screen style guide only; image 2 is the matching fountain-pen artwork style reference only. Render this NEW subject instead of the pen: An upright antique hourglass, slightly tilted, ornate warm-gold endcaps and slender gold pillars holding two clear glass bulbs, luminous violet sand flowing through its narrow waist. Match the references' premium dimensional painterly collectible-fantasy illustration, rich warm gold, obsidian materials, realistic ornate details and restrained violet magical wisps. Near-black navy background fading dark at every edge, deep-purple haze and sparse tiny motes. Landscape 3:2 composition; single complete object large and centered, fully inside the frame with at least 8% margin. Rich luminous focal object, quieter backdrop. NO UI, NO cards surrounding the artwork, NO labels, NO text, NO logos, NO watermarks, NO other objects except explicitly specified parts, NO checkerboard. Native components will provide all borders and labels. Preserve the object's recognizable real-world silhouette.",
+      "asset": "assets/signature-icons/hourglass.jpg",
+      "sourceFile": "exec-17548c61-4320-4620-968c-4cb859d4e632.png",
+      "original": "output/imagegen/2026-09-20-signature-items/hourglass.png",
+      "sha256": "06895796d72814407c34b39d3c84e08047b4bd2474ee3b8e7e10fc3d952af2e8",
+      "bytes": 423247,
+      "encoding": "JPEG quality 90, 4:4:4, original 1536 × 1024 dimensions"
+    },
+    {
+      "key": "crown_fragment",
+      "prompt": "Use case: stylized-concept. Create ONE production signature-item artwork plate for the Prompt Wars mobile game. Input image 1 is the approved Gear screen style guide only; image 2 is the matching fountain-pen artwork style reference only. Render this NEW subject instead of the pen: A recognizably broken curved section of a royal crown with three gold points, detailed gold filigree, obsidian insets and one brilliant amethyst. Clearly a crown fragment, with jagged broken ends, not a complete crown. Match the references' premium dimensional painterly collectible-fantasy illustration, rich warm gold, obsidian materials, realistic ornate details and restrained violet magical wisps. Near-black navy background fading dark at every edge, deep-purple haze and sparse tiny motes. Landscape 3:2 composition; single complete object large and centered, fully inside the frame with at least 8% margin. Rich luminous focal object, quieter backdrop. NO UI, NO cards surrounding the artwork, NO labels, NO text, NO logos, NO watermarks, NO other objects except explicitly specified parts, NO checkerboard. Native components will provide all borders and labels. Preserve the object's recognizable real-world silhouette.",
+      "asset": "assets/signature-icons/crown_fragment.jpg",
+      "sourceFile": "exec-74e9678c-eb33-4de6-ba60-98ad527712ae.png",
+      "original": "output/imagegen/2026-09-20-signature-items/crown_fragment.png",
+      "sha256": "0672ac57ddf8cba7bffdc4d3e94b8d8148fd329c00d78b920d1d9d57be6570e7",
+      "bytes": 423984,
+      "encoding": "JPEG quality 90, 4:4:4, original 1536 × 1024 dimensions"
+    },
+    {
+      "key": "briefcase",
+      "prompt": "Use case: stylized-concept. Create ONE production signature-item artwork plate for the Prompt Wars mobile game. Input image 1 is the approved Gear screen style guide only; image 2 is the matching fountain-pen artwork style reference only. Render this NEW subject instead of the pen: A closed elegant dark leather briefcase in three-quarter view with a strong arched handle, engraved warm-gold corner guards, two gold clasps and a subtle violet light leaking from the seam. Match the references' premium dimensional painterly collectible-fantasy illustration, rich warm gold, obsidian materials, realistic ornate details and restrained violet magical wisps. Near-black navy background fading dark at every edge, deep-purple haze and sparse tiny motes. Landscape 3:2 composition; single complete object large and centered, fully inside the frame with at least 8% margin. Rich luminous focal object, quieter backdrop. NO UI, NO cards surrounding the artwork, NO labels, NO text, NO logos, NO watermarks, NO other objects except explicitly specified parts, NO checkerboard. Native components will provide all borders and labels. Preserve the object's recognizable real-world silhouette.",
+      "asset": "assets/signature-icons/briefcase.jpg",
+      "sourceFile": "exec-86c36bc5-6795-45a3-8793-2929c130eaa3.png",
+      "original": "output/imagegen/2026-09-20-signature-items/briefcase.png",
+      "sha256": "55b5ec6b7a76c317e25588766a490f598a3260154972e2031b3b5851bd6dffe1",
+      "bytes": 449117,
+      "encoding": "JPEG quality 90, 4:4:4, original 1536 × 1024 dimensions"
+    },
+    {
+      "key": "lucky_coin",
+      "prompt": "Use case: stylized-concept. Create ONE production signature-item artwork plate for the Prompt Wars mobile game. Input image 1 is the approved Gear screen style guide only; image 2 is the matching fountain-pen artwork style reference only. Render this NEW subject instead of the pen: One thick antique lucky coin floating upright at a three-quarter angle, warm-gold embossed four-leaf clover on its face, finely engraved milled rim and restrained amethyst highlights. No numbers or lettering. Match the references' premium dimensional painterly collectible-fantasy illustration, rich warm gold, obsidian materials, realistic ornate details and restrained violet magical wisps. Near-black navy background fading dark at every edge, deep-purple haze and sparse tiny motes. Landscape 3:2 composition; single complete object large and centered, fully inside the frame with at least 8% margin. Rich luminous focal object, quieter backdrop. NO UI, NO cards surrounding the artwork, NO labels, NO text, NO logos, NO watermarks, NO other objects except explicitly specified parts, NO checkerboard. Native components will provide all borders and labels. Preserve the object's recognizable real-world silhouette.",
+      "asset": "assets/signature-icons/lucky_coin.jpg",
+      "sourceFile": "exec-7b529c8f-13fc-41dd-8b11-ba525b344ddb.png",
+      "original": "output/imagegen/2026-09-20-signature-items/lucky_coin.png",
+      "sha256": "048cc86484c594db39507e4d5ec3feda1bc2253047299585ee80c6ad970709d1",
+      "bytes": 409424,
+      "encoding": "JPEG quality 90, 4:4:4, original 1536 × 1024 dimensions"
+    },
+    {
+      "key": "wrench",
+      "prompt": "Use case: stylized-concept. Create ONE production signature-item artwork plate for the Prompt Wars mobile game. Input image 1 is the approved Gear screen style guide only; image 2 is the matching fountain-pen artwork style reference only. Render this NEW subject instead of the pen: One recognizable open-ended mechanical wrench, diagonal, forged dark steel with warm-gold engraved trim and a violet gem set into its handle. Keep the functional jaw silhouette unmistakable. Match the references' premium dimensional painterly collectible-fantasy illustration, rich warm gold, obsidian materials, realistic ornate details and restrained violet magical wisps. Near-black navy background fading dark at every edge, deep-purple haze and sparse tiny motes. Landscape 3:2 composition; single complete object large and centered, fully inside the frame with at least 8% margin. Rich luminous focal object, quieter backdrop. NO UI, NO cards surrounding the artwork, NO labels, NO text, NO logos, NO watermarks, NO other objects except explicitly specified parts, NO checkerboard. Native components will provide all borders and labels. Preserve the object's recognizable real-world silhouette.",
+      "asset": "assets/signature-icons/wrench.jpg",
+      "sourceFile": "exec-32a9f712-ec87-4670-8e44-38628d25bed2.png",
+      "original": "output/imagegen/2026-09-20-signature-items/wrench.png",
+      "sha256": "e039fc8f07ad7228789a9ceaa02ba69d2d878b5dcb5ee9e9e9ca1cacad2650f3",
+      "bytes": 409290,
+      "encoding": "JPEG quality 90, 4:4:4, original 1536 × 1024 dimensions"
+    },
+    {
+      "key": "microphone",
+      "prompt": "Use case: stylized-concept. Create ONE production signature-item artwork plate for the Prompt Wars mobile game. Input image 1 is the approved Gear screen style guide only; image 2 is the matching fountain-pen artwork style reference only. Render this NEW subject instead of the pen: One vintage handheld performance microphone tilted diagonally, gold mesh grille, obsidian handle with gold engraving and a subtle amethyst ring. No stand or cables. Match the references' premium dimensional painterly collectible-fantasy illustration, rich warm gold, obsidian materials, realistic ornate details and restrained violet magical wisps. Near-black navy background fading dark at every edge, deep-purple haze and sparse tiny motes. Landscape 3:2 composition; single complete object large and centered, fully inside the frame with at least 8% margin. Rich luminous focal object, quieter backdrop. NO UI, NO cards surrounding the artwork, NO labels, NO text, NO logos, NO watermarks, NO other objects except explicitly specified parts, NO checkerboard. Native components will provide all borders and labels. Preserve the object's recognizable real-world silhouette.",
+      "asset": "assets/signature-icons/microphone.jpg",
+      "sourceFile": "exec-713b398f-c7bd-45b6-91c2-37d9c5c9fbb5.png",
+      "original": "output/imagegen/2026-09-20-signature-items/microphone.png",
+      "sha256": "19a6ee3e3d5092227f36059ff0cf85d34f56f87728a868b7d5dce2867fed56a6",
+      "bytes": 420717,
+      "encoding": "JPEG quality 90, 4:4:4, original 1536 × 1024 dimensions"
+    },
+    {
+      "key": "tarot_card",
+      "prompt": "Use case: stylized-concept. Create ONE production signature-item artwork plate for the Prompt Wars mobile game. Input image 1 is the approved Gear screen style guide only; image 2 is the matching fountain-pen artwork style reference only. Render this NEW subject instead of the pen: One upright single mystical tarot card tilted in three-quarter view, obsidian face, gold ornamental border and a large gold crescent moon above an amethyst eight-point star illustration. No lettering or numbers. Match the references' premium dimensional painterly collectible-fantasy illustration, rich warm gold, obsidian materials, realistic ornate details and restrained violet magical wisps. Near-black navy background fading dark at every edge, deep-purple haze and sparse tiny motes. Landscape 3:2 composition; single complete object large and centered, fully inside the frame with at least 8% margin. Rich luminous focal object, quieter backdrop. NO UI, NO cards surrounding the artwork, NO labels, NO text, NO logos, NO watermarks, NO other objects except explicitly specified parts, NO checkerboard. Native components will provide all borders and labels. Preserve the object's recognizable real-world silhouette.",
+      "asset": "assets/signature-icons/tarot_card.jpg",
+      "sourceFile": "exec-362c1130-0d5c-4aa1-b7a8-7607b7b5cc0a.png",
+      "original": "output/imagegen/2026-09-20-signature-items/tarot_card.png",
+      "sha256": "988632bb2ec7b2f55f8954a3143aa07d61bb6f2f69bc09b73c3387570d652bc8",
+      "bytes": 408397,
+      "encoding": "JPEG quality 90, 4:4:4, original 1536 × 1024 dimensions"
+    },
+    {
+      "key": "stopwatch",
+      "prompt": "Use case: stylized-concept. Create ONE production signature-item artwork plate for the Prompt Wars mobile game. Input image 1 is the approved Gear screen style guide only; image 2 is the matching fountain-pen artwork style reference only. Render this NEW subject instead of the pen: One antique handheld stopwatch at three-quarter angle, warm-gold engraved case with a push button and ring at its top, obsidian dial with gold hour tick marks, visible slim hands and restrained violet glass reflections. No letters or numbers. Match the references' premium dimensional painterly collectible-fantasy illustration, rich warm gold, obsidian materials, realistic ornate details and restrained violet magical wisps. Near-black navy background fading dark at every edge, deep-purple haze and sparse tiny motes. Landscape 3:2 composition; single complete object large and centered, fully inside the frame with at least 8% margin. Rich luminous focal object, quieter backdrop. NO UI, NO cards surrounding the artwork, NO labels, NO text, NO logos, NO watermarks, NO other objects except explicitly specified parts, NO checkerboard. Native components will provide all borders and labels. Preserve the object's recognizable real-world silhouette.",
+      "asset": "assets/signature-icons/stopwatch.jpg",
+      "sourceFile": "exec-1890a455-a134-4b6d-8761-3506237ab531.png",
+      "original": "output/imagegen/2026-09-20-signature-items/stopwatch.png",
+      "sha256": "6340e8e01b088cc6bc5a51d0fd7cae71ba5e39fd48646fde0958d74fa2fca676",
+      "bytes": 419223,
+      "encoding": "JPEG quality 90, 4:4:4, original 1536 × 1024 dimensions"
+    },
+    {
+      "key": "folding_chair",
+      "prompt": "Use case: stylized-concept. Create ONE production signature-item artwork plate for the Prompt Wars mobile game. Input image 1 is the approved Gear screen style guide only; image 2 is the matching fountain-pen artwork style reference only. Render this NEW subject instead of the pen: One recognizable unfolded portable folding chair in three-quarter view, dark upholstered seat and back, slim engraved warm-gold metal folding frame, modest violet light along its contours. Complete chair with all legs visible. Match the references' premium dimensional painterly collectible-fantasy illustration, rich warm gold, obsidian materials, realistic ornate details and restrained violet magical wisps. Near-black navy background fading dark at every edge, deep-purple haze and sparse tiny motes. Landscape 3:2 composition; single complete object large and centered, fully inside the frame with at least 8% margin. Rich luminous focal object, quieter backdrop. NO UI, NO cards surrounding the artwork, NO labels, NO text, NO logos, NO watermarks, NO other objects except explicitly specified parts, NO checkerboard. Native components will provide all borders and labels. Preserve the object's recognizable real-world silhouette.",
+      "asset": "assets/signature-icons/folding_chair.jpg",
+      "sourceFile": "exec-cd626796-e582-4947-94c6-d315a4786143.png",
+      "original": "output/imagegen/2026-09-20-signature-items/folding_chair.png",
+      "sha256": "c89a40ff3757b4d501ecdc5f50350a25226b7eaaa1f843b31e523684768b6a55",
+      "bytes": 444779,
+      "encoding": "JPEG quality 90, 4:4:4, original 1536 × 1024 dimensions"
+    },
+    {
+      "key": "polaroid",
+      "prompt": "Use case: stylized-concept. Create ONE production signature-item artwork plate for the Prompt Wars mobile game. Input image 1 is the approved Gear screen style guide only; image 2 is the matching fountain-pen artwork style reference only. Render this NEW subject instead of the pen: One recognizable instant-film camera in three-quarter view, obsidian body with warm-gold trim and mechanical details, large glass lens reflecting violet light, a blank instant photograph beginning to emerge. No text or trademarks. Match the references' premium dimensional painterly collectible-fantasy illustration, rich warm gold, obsidian materials, realistic ornate details and restrained violet magical wisps. Near-black navy background fading dark at every edge, deep-purple haze and sparse tiny motes. Landscape 3:2 composition; single complete object large and centered, fully inside the frame with at least 8% margin. Rich luminous focal object, quieter backdrop. NO UI, NO cards surrounding the artwork, NO labels, NO text, NO logos, NO watermarks, NO other objects except explicitly specified parts, NO checkerboard. Native components will provide all borders and labels. Preserve the object's recognizable real-world silhouette.",
+      "asset": "assets/signature-icons/polaroid.jpg",
+      "sourceFile": "exec-7a80717a-c30e-43d7-84c5-462afcbf232a.png",
+      "original": "output/imagegen/2026-09-20-signature-items/polaroid.png",
+      "sha256": "541648e465c43c5eddbb1b60ca9cd4340fd0f7f3bccacf470c9735d8b17e5fb2",
+      "bytes": 429717,
+      "encoding": "JPEG quality 90, 4:4:4, original 1536 × 1024 dimensions"
+    },
+    {
+      "key": "tuning_fork",
+      "prompt": "Use case: stylized-concept. Create ONE production signature-item artwork plate for the Prompt Wars mobile game. Input image 1 is the approved Gear screen style guide only; image 2 is the matching fountain-pen artwork style reference only. Render this NEW subject instead of the pen: One recognizable two-pronged tuning fork, diagonal, dark polished metal core with elegant warm-gold edges, violet resonance waves lightly surrounding its two long parallel prongs. Clear U-shaped fork and short handle. Match the references' premium dimensional painterly collectible-fantasy illustration, rich warm gold, obsidian materials, realistic ornate details and restrained violet magical wisps. Near-black navy background fading dark at every edge, deep-purple haze and sparse tiny motes. Landscape 3:2 composition; single complete object large and centered, fully inside the frame with at least 8% margin. Rich luminous focal object, quieter backdrop. NO UI, NO cards surrounding the artwork, NO labels, NO text, NO logos, NO watermarks, NO other objects except explicitly specified parts, NO checkerboard. Native components will provide all borders and labels. Preserve the object's recognizable real-world silhouette.",
+      "asset": "assets/signature-icons/tuning_fork.jpg",
+      "sourceFile": "exec-2a360471-fa63-426b-9636-1b2dbf3d8b63.png",
+      "original": "output/imagegen/2026-09-20-signature-items/tuning_fork.png",
+      "sha256": "8e14f7ac22585d2c7970e5f128ed07d9345d3d1a8a0e6bbfae4c4aff709ced13",
+      "bytes": 403057,
+      "encoding": "JPEG quality 90, 4:4:4, original 1536 × 1024 dimensions"
+    },
+    {
+      "key": "megaphone",
+      "prompt": "Use case: stylized-concept. Create ONE production signature-item artwork plate for the Prompt Wars mobile game. Input image 1 is the approved Gear screen style guide only; image 2 is the matching fountain-pen artwork style reference only. Render this NEW subject instead of the pen: One handheld megaphone in three-quarter view, dark obsidian cone edged with engraved warm gold, visible rear grip and handle, restrained violet energy emerging around the wide open mouth. Match the references' premium dimensional painterly collectible-fantasy illustration, rich warm gold, obsidian materials, realistic ornate details and restrained violet magical wisps. Near-black navy background fading dark at every edge, deep-purple haze and sparse tiny motes. Landscape 3:2 composition; single complete object large and centered, fully inside the frame with at least 8% margin. Rich luminous focal object, quieter backdrop. NO UI, NO cards surrounding the artwork, NO labels, NO text, NO logos, NO watermarks, NO other objects except explicitly specified parts, NO checkerboard. Native components will provide all borders and labels. Preserve the object's recognizable real-world silhouette.",
+      "asset": "assets/signature-icons/megaphone.jpg",
+      "sourceFile": "exec-7a72d8c3-d028-443c-bb4c-526ecd3fc1dd.png",
+      "original": "output/imagegen/2026-09-20-signature-items/megaphone.png",
+      "sha256": "d609b1e0c1d68b9999ee31d60844482ea9b1cef4fe2b5ec3fc36d3475bd7d8da",
+      "bytes": 450797,
+      "encoding": "JPEG quality 90, 4:4:4, original 1536 × 1024 dimensions"
+    },
+    {
+      "key": "umbrella",
+      "prompt": "Use case: stylized-concept. Create ONE production signature-item artwork plate for the Prompt Wars mobile game. Input image 1 is the approved Gear screen style guide only; image 2 is the matching fountain-pen artwork style reference only. Render this NEW subject instead of the pen: One elegant open umbrella in three-quarter view, complete dark obsidian fabric canopy with subtle gold celestial embroidery, fine warm-gold ribs and a curved hooked handle, violet light tracing its scalloped edge. Entire canopy and handle visible. Match the references' premium dimensional painterly collectible-fantasy illustration, rich warm gold, obsidian materials, realistic ornate details and restrained violet magical wisps. Near-black navy background fading dark at every edge, deep-purple haze and sparse tiny motes. Landscape 3:2 composition; single complete object large and centered, fully inside the frame with at least 8% margin. Rich luminous focal object, quieter backdrop. NO UI, NO cards surrounding the artwork, NO labels, NO text, NO logos, NO watermarks, NO other objects except explicitly specified parts, NO checkerboard. Native components will provide all borders and labels. Preserve the object's recognizable real-world silhouette.",
+      "asset": "assets/signature-icons/umbrella.jpg",
+      "sourceFile": "exec-b6eca7d8-7fb8-4a14-85df-2b8eb108fb64.png",
+      "original": "output/imagegen/2026-09-20-signature-items/umbrella.png",
+      "sha256": "e14d730643e2e449a0ae5cbfd35905308e37cec7d797b89dde946836bd76affb",
+      "bytes": 445968,
+      "encoding": "JPEG quality 90, 4:4:4, original 1536 × 1024 dimensions"
+    }
+  ]
+}

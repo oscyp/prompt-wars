@@ -1,0 +1,13 @@
+{
+  "id": "0bb38afd-be02-453c-a536-4ec67b9971ea",
+  "status": "FINISHED",
+  "platform": "IOS",
+  "iosConfig": {
+    "ascAppIdentifier": "6788787677"
+  },
+  "createdAt": "2026-10-02T08:19:41.652Z",
+  "completedAt": "2026-10-02T08:22:25.776Z",
+  "error": null,
+  "canRetry": false,
+  "build_id": "7db76299-0128-406d-8b24-86fe7b6058b5"
+}

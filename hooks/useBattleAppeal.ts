@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { supabase } from '@/utils/supabase';
+import { FunctionInvokeError, supabase } from '@/utils/supabase';
 import { readBattleAppeal, type AppealAvailability } from '@/utils/appeals';
 export function useBattleAppeal(
   battleId: string | null,
@@ -23,7 +23,20 @@ export function useBattleAppeal(
         request = ++sequence.current;
       setLoading(true);
       try {
-        const next = await readBattleAppeal(battleId, action);
+        let next: AppealAvailability;
+        try {
+          next = await readBattleAppeal(battleId, action);
+        } catch (cause) {
+          if (
+            action !== 'submit' ||
+            !(cause instanceof FunctionInvokeError) ||
+            cause.status !== 409
+          )
+            throw cause;
+          // Availability can change between confirmation and submission. Keep
+          // this recovery under the same request/account fence.
+          next = await readBattleAppeal(battleId, 'status');
+        }
         if (scope.current === key && sequence.current === request) {
           setData(next);
           setError(null);
@@ -49,6 +62,7 @@ export function useBattleAppeal(
   useEffect(() => {
     setData(null);
     setError(null);
+    setLoading(false);
     if (!battleId || !userId) return;
     const channel = supabase
       .channel(`appeal:${userId}:${battleId}`)

@@ -1,0 +1,14 @@
+{
+  "validation": "Static HTML/link/manifest validation only. Local browser URL policy prevented rendering; no alternate browser was used.",
+  "captures": 31,
+  "kinds": {
+    "actual-route": 25,
+    "component-fixture": 6
+  },
+  "stages": {
+    "visible-stats": 11,
+    "initial-refinement": 20
+  },
+  "missingLinks": [],
+  "filterMetadataValid": true
+}

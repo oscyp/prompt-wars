@@ -13,6 +13,10 @@ import {
   matchmakingRulesVersion,
   requiresCombatClientUpdate,
 } from '../_shared/combat-rollout.ts';
+import {
+  promptExperienceVersion,
+  requiresPromptClientUpdate,
+} from '../_shared/prompt-situations.ts';
 import { startFaceOff } from '../_shared/start-face-off.ts';
 
 const THEMES = [
@@ -158,6 +162,7 @@ async function convertToBotBattle(
 interface MatchmakingRequest {
   character_id: string;
   client_contract_version?: number;
+  accept_battle_id?: string;
   mode?: BattleMode;
   /** Client generated. Optional only while the previous app version ages out. */
   request_id?: string;
@@ -177,6 +182,8 @@ interface ReplayBattle {
   is_player_two_bot: boolean;
   created_at?: string;
   rules_version?: number;
+  prompt_experience_version?: number;
+  bot_policy_version?: number;
 }
 
 const UUID_RE =
@@ -206,6 +213,43 @@ function replayPayload(battle: ReplayBattle, replayedRequest = true) {
   };
 }
 
+/** SQL may discover a newer stored row after the preflight read. */
+function matchmakingRpcError(
+  error: { message?: string } | null,
+  fallback: string,
+  status = 400,
+): Response {
+  if (error?.message === 'client_update_required') {
+    return errorResponse('Update Prompt Wars to continue this battle.', 426, {
+      code: 'client_update_required',
+      minimum_client_contract_version: 3,
+    });
+  }
+  return errorResponse(fallback, status);
+}
+
+async function replayCompatibleBattle(
+  supabase: ReturnType<typeof createServiceClient>,
+  battle: ReplayBattle,
+  clientVersion: unknown,
+) {
+  if (
+    requiresPromptClientUpdate(
+      battle.prompt_experience_version ?? 1,
+      clientVersion,
+    )
+  ) {
+    return errorResponse('Update Prompt Wars to continue this battle.', 426, {
+      code: 'client_update_required',
+      minimum_client_contract_version: 3,
+    });
+  }
+  if (battle.status === 'matched') {
+    await startFaceOff(supabase, battle.id);
+  }
+  return successResponse(replayPayload(battle));
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -219,6 +263,7 @@ Deno.serve(async (req) => {
       request_id,
       resume_battle_id,
       client_contract_version,
+      accept_battle_id,
     }: MatchmakingRequest = await req.json();
 
     if (!character_id) {
@@ -250,12 +295,102 @@ Deno.serve(async (req) => {
       return errorResponse('Invalid character');
     }
 
+    if (accept_battle_id) {
+      if (mode !== 'friend_challenge' || !UUID_RE.test(accept_battle_id))
+        return errorResponse('Invalid challenge');
+      const { data: invite } = await supabase
+        .from('battles')
+        .select('*')
+        .eq('id', accept_battle_id)
+        .maybeSingle();
+      if (
+        !invite ||
+        invite.mode !== 'friend_challenge' ||
+        invite.player_one_id === userId
+      )
+        return errorResponse('Challenge unavailable', 404);
+      if (
+        invite.player_two_id === userId &&
+        invite.player_two_character_id === character_id
+      )
+        return replayCompatibleBattle(
+          supabase,
+          invite,
+          client_contract_version,
+        );
+      if (invite.status !== 'created' || invite.player_two_id)
+        return errorResponse('Challenge already accepted', 409);
+      if (
+        requiresPromptClientUpdate(
+          invite.prompt_experience_version ?? 1,
+          client_contract_version,
+        ) ||
+        requiresCombatClientUpdate(
+          invite.rules_version ?? 1,
+          client_contract_version,
+        )
+      ) {
+        return errorResponse(
+          'Update Prompt Wars to accept this challenge.',
+          426,
+          {
+            code: 'client_update_required',
+            minimum_client_contract_version:
+              invite.prompt_experience_version === 2 ? 3 : 2,
+          },
+        );
+      }
+      const { data: blocked, error: blockError } = await supabase.rpc(
+        'is_blocked',
+        { p_profile_id: userId, p_other_profile_id: invite.player_one_id },
+      );
+      if (blockError || blocked)
+        return errorResponse('Challenge unavailable', 403);
+      const { data: rate, error: rateError } = await supabase.rpc(
+        'check_rate_limit',
+        { p_profile_id: userId, p_action: 'battle_create' },
+      );
+      if (rateError || rate?.allowed === false)
+        return errorResponse(
+          'Cannot accept another challenge right now.',
+          rateError ? 503 : 429,
+        );
+      const theme = invite.theme ?? pickTheme();
+      const { data: accepted, error } = await supabase.rpc(
+        'match_battle_request_composer',
+        {
+          p_battle_id: invite.id,
+          p_player_two_id: userId,
+          p_player_two_character_id: character_id,
+          p_theme: theme,
+          p_request_id: requestId,
+          p_previous_battle_id: null,
+          p_client_contract: client_contract_version ?? null,
+          p_experience: invite.prompt_experience_version ?? 1,
+        },
+      );
+      if (error || !accepted)
+        return matchmakingRpcError(
+          error,
+          'Challenge could not be accepted. Try again.',
+          409,
+        );
+      await startFaceOff(supabase, invite.id);
+
+      return successResponse({
+        battle_id: invite.id,
+        matched: true,
+        theme,
+        is_bot_battle: false,
+      });
+    }
+
     let resumedBattle: ReplayBattle | null = null;
     if (resume_battle_id) {
       const { data } = await supabase
         .from('battles')
         .select(
-          'id, status, mode, theme, player_one_id, player_two_id, player_one_character_id, player_two_character_id, is_player_two_bot, created_at, rules_version',
+          'id, status, mode, theme, player_one_id, player_two_id, player_one_character_id, player_two_character_id, is_player_two_bot, created_at, rules_version, prompt_experience_version, bot_policy_version',
         )
         .eq('id', resume_battle_id)
         .maybeSingle();
@@ -282,7 +417,11 @@ Deno.serve(async (req) => {
           battle_id: candidate.id,
           status: candidate.status,
         });
-        return successResponse(replayPayload(candidate));
+        return replayCompatibleBattle(
+          supabase,
+          candidate,
+          client_contract_version,
+        );
       }
     } else if (request_id) {
       // A transport retry before navigation replays immediately. Waiting-screen
@@ -297,7 +436,7 @@ Deno.serve(async (req) => {
         const { data } = await supabase
           .from('battles')
           .select(
-            'id, status, mode, theme, player_one_id, player_two_id, player_one_character_id, player_two_character_id, is_player_two_bot',
+            'id, status, mode, theme, player_one_id, player_two_id, player_one_character_id, player_two_character_id, is_player_two_bot, rules_version, prompt_experience_version, bot_policy_version',
           )
           .eq('id', mapping.battle_id)
           .maybeSingle();
@@ -308,7 +447,11 @@ Deno.serve(async (req) => {
             battle_id: data.id,
             status: data.status,
           });
-          return successResponse(replayPayload(data as ReplayBattle));
+          return replayCompatibleBattle(
+            supabase,
+            data as ReplayBattle,
+            client_contract_version,
+          );
         }
       }
     }
@@ -319,7 +462,7 @@ Deno.serve(async (req) => {
       const { data: queued, error: queueError } = await supabase
         .from('battles')
         .select(
-          'id,status,mode,theme,player_one_id,player_two_id,player_one_character_id,player_two_character_id,is_player_two_bot,created_at,rules_version',
+          'id,status,mode,theme,player_one_id,player_two_id,player_one_character_id,player_two_character_id,is_player_two_bot,created_at,rules_version,prompt_experience_version,bot_policy_version',
         )
         .eq('player_one_id', userId)
         .eq('player_one_character_id', character_id)
@@ -338,6 +481,18 @@ Deno.serve(async (req) => {
       return errorResponse('Update Prompt Wars to start a new battle.', 426, {
         code: 'client_update_required',
         minimum_client_contract_version: 2,
+      });
+    }
+
+    const experienceVersion = promptExperienceVersion(
+      resumedBattle?.prompt_experience_version,
+    );
+    if (
+      requiresPromptClientUpdate(experienceVersion, client_contract_version)
+    ) {
+      return errorResponse('Update Prompt Wars to start a new battle.', 426, {
+        code: 'client_update_required',
+        minimum_client_contract_version: 3,
       });
     }
 
@@ -401,10 +556,12 @@ Deno.serve(async (req) => {
       const randomBot =
         botPersonas[Math.floor(Math.random() * botPersonas.length)];
       const { data: createdRows, error: createError } = await supabase.rpc(
-        'create_matchmaking_battle_versioned',
+        'create_matchmaking_battle_composer',
         {
           p_player_one_id: userId,
           p_rules_version: rulesVersion,
+          p_prompt_experience: experienceVersion,
+          p_client_contract: client_contract_version ?? null,
           p_character_id: character_id,
           p_mode: mode,
           p_request_id: requestId,
@@ -419,10 +576,15 @@ Deno.serve(async (req) => {
           request_id: requestId,
           error_code: createError?.code,
         });
-        return errorResponse('Failed to create bot battle', 500);
+        return matchmakingRpcError(
+          createError,
+          'Failed to create bot battle',
+          500,
+        );
       }
       // Bo3 face-off writer (no-op for single-format bot battles).
       await startFaceOff(supabase, created.battle_id);
+
       logMatchmaking('bot_ready', {
         profile_id: userId,
         request_id: requestId,
@@ -450,11 +612,14 @@ Deno.serve(async (req) => {
       ? { data: null }
       : await supabase
           .from('battles')
-          .select('id, created_at, mode, player_one_character_id')
+          .select(
+            'id, created_at, mode, player_one_character_id, bot_policy_version',
+          )
           .eq('player_one_id', userId)
           .eq('status', 'created')
           .eq('mode', mode)
           .eq('rules_version', rulesVersion)
+          .eq('prompt_experience_version', experienceVersion)
           .eq('player_one_character_id', character_id)
           .gte('created_at', queueCutoffIso)
           .maybeSingle();
@@ -464,6 +629,7 @@ Deno.serve(async (req) => {
           created_at: resumedBattle.created_at ?? new Date().toISOString(),
           mode: resumedBattle.mode,
           player_one_character_id: resumedBattle.player_one_character_id,
+          bot_policy_version: resumedBattle.bot_policy_version ?? 1,
         }
       : queriedExistingBattle;
 
@@ -497,11 +663,18 @@ Deno.serve(async (req) => {
           .eq('status', 'created')
           .eq('mode', 'ranked')
           .eq('rules_version', rulesVersion)
+          .eq('prompt_experience_version', experienceVersion)
           .neq('player_one_id', userId) // Don't match with self
           .gte('created_at', queueCutoffIso)
           .gte('profiles.rating', minRating)
           .lte('profiles.rating', maxRating);
 
+        if (existingBattle?.bot_policy_version != null) {
+          query = query.eq(
+            'bot_policy_version',
+            existingBattle.bot_policy_version,
+          );
+        }
         if (createdBefore) query = query.lt('created_at', createdBefore);
         if (createdAfter) query = query.gt('created_at', createdAfter);
 
@@ -571,9 +744,16 @@ Deno.serve(async (req) => {
           .eq('status', 'created')
           .eq('mode', 'unranked')
           .eq('rules_version', rulesVersion)
+          .eq('prompt_experience_version', experienceVersion)
           .neq('player_one_id', userId)
           .gte('created_at', queueCutoffIso);
 
+        if (existingBattle?.bot_policy_version != null) {
+          query = query.eq(
+            'bot_policy_version',
+            existingBattle.bot_policy_version,
+          );
+        }
         if (createdBefore) query = query.lt('created_at', createdBefore);
         if (createdAfter) query = query.gt('created_at', createdAfter);
 
@@ -611,9 +791,11 @@ Deno.serve(async (req) => {
       // Claim + request mapping commit together, so a timeout after this RPC
       // replays the matched battle instead of opening another queue row.
       const { data: didMatch, error: matchError } = await supabase.rpc(
-        'match_battle_request',
+        'match_battle_request_composer',
         {
           p_battle_id: matchedBattle.id,
+          p_client_contract: client_contract_version ?? null,
+          p_experience: experienceVersion,
           p_player_two_id: userId,
           p_player_two_character_id: character_id,
           p_theme: theme,
@@ -629,7 +811,7 @@ Deno.serve(async (req) => {
           battle_id: matchedBattle.id,
           error_code: matchError.code,
         });
-        return errorResponse('Failed to match battle');
+        return matchmakingRpcError(matchError, 'Failed to match battle');
       }
 
       if (didMatch === true) {
@@ -663,10 +845,12 @@ Deno.serve(async (req) => {
       // Attach this request to the existing row before any fallback work. The
       // atomic creator reuses the natural queue key and records the replay map.
       const { error: mapError } = await supabase.rpc(
-        'create_matchmaking_battle_versioned',
+        'create_matchmaking_battle_composer',
         {
           p_player_one_id: userId,
           p_rules_version: rulesVersion,
+          p_prompt_experience: experienceVersion,
+          p_client_contract: client_contract_version ?? null,
           p_character_id: character_id,
           p_mode: mode,
           p_request_id: requestId,
@@ -681,7 +865,7 @@ Deno.serve(async (req) => {
           battle_id: existingBattle.id,
           error_code: mapError.code,
         });
-        return errorResponse('Failed to resume battle', 500);
+        return matchmakingRpcError(mapError, 'Failed to resume battle', 500);
       }
 
       const battleAge =
@@ -708,6 +892,7 @@ Deno.serve(async (req) => {
 
         const botBattle = await convertToBotBattle(supabase, existingBattle.id);
         await startFaceOff(supabase, existingBattle.id);
+
         return successResponse({
           battle_id: existingBattle.id,
           matched: true,
@@ -729,10 +914,12 @@ Deno.serve(async (req) => {
 
     // Create or resume the one open queue row atomically.
     const { data: createdRows, error: createError } = await supabase.rpc(
-      'create_matchmaking_battle_versioned',
+      'create_matchmaking_battle_composer',
       {
         p_player_one_id: userId,
         p_rules_version: rulesVersion,
+        p_prompt_experience: experienceVersion,
+        p_client_contract: client_contract_version ?? null,
         p_character_id: character_id,
         p_mode: mode,
         p_request_id: requestId,
@@ -748,7 +935,7 @@ Deno.serve(async (req) => {
         request_id: requestId,
         error_code: createError?.code,
       });
-      return errorResponse('Failed to create battle');
+      return matchmakingRpcError(createError, 'Failed to create battle');
     }
 
     logMatchmaking('queue_ready', {

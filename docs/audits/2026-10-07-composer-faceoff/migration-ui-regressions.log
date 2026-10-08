@@ -1,0 +1,14 @@
+yarn run v1.22.22
+warning Skipping preferred cache folder "/Users/patdom/Library/Caches/Yarn" because it is not writable.
+warning Selected the next writable cache folder in the list, will be "/var/folders/s6/mdps3zk93v588msmq1kp3bn00000gn/T/.yarn-cache-501".
+$ jest --runInBand __tests__/battleWorkspaceLayout.test.tsx __tests__/composerDraftRecovery.test.ts
+warning Cannot find a suitable global folder. Tried these: "/usr/local, /Users/patdom/.yarn"
+PASS __tests__/battleWorkspaceLayout.test.tsx (6.739 s)
+PASS __tests__/composerDraftRecovery.test.ts
+
+Test Suites: 2 passed, 2 total
+Tests:       54 passed, 54 total
+Snapshots:   0 total
+Time:        6.846 s
+Ran all test suites matching /__tests__\/battleWorkspaceLayout.test.tsx|__tests__\/composerDraftRecovery.test.ts/i.
+Done in 8.17s.

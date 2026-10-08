@@ -59,16 +59,23 @@ export default function InlineBanner({
         { borderColor: accent, backgroundColor: colors.backgroundSecondary },
       ]}
     >
-      <GameSymbol name={icon ?? DEFAULT_ICON[tone]} size={16} color={accent} />
-      <Text style={[styles.text, accessibleText, { color: colors.text }]}>
-        {text}
-      </Text>
+      <View style={styles.message}>
+        <GameSymbol
+          name={icon ?? DEFAULT_ICON[tone]}
+          size={20}
+          color={accent}
+        />
+        <Text style={[styles.text, accessibleText, { color: colors.text }]}>
+          {text}
+        </Text>
+      </View>
       {actionLabel && onAction ? (
         <GameButton
           label={actionLabel}
           onPress={onAction}
           tone="secondary"
-          style={{ alignSelf: 'stretch' }}
+          chrome="utility"
+          style={{ alignSelf: 'flex-start', maxWidth: '100%' }}
         />
       ) : null}
     </View>
@@ -77,9 +84,7 @@ export default function InlineBanner({
 
 const styles = StyleSheet.create({
   wrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+    alignItems: 'stretch',
     gap: Spacing.sm,
     minHeight: 48,
     paddingVertical: Spacing.sm,
@@ -87,6 +92,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     borderWidth: StyleSheet.hairlineWidth,
   },
+  message: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
   text: {
     flex: 1,
     fontSize: 16,

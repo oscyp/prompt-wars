@@ -1,0 +1,9 @@
+{
+  "library": "Google com.android.tools.build:apksig:8.9.3",
+  "downloadUrl": "https://dl.google.com/dl/android/maven2/com/android/tools/build/apksig/8.9.3/apksig-8.9.3.jar",
+  "libraryBytes": 506969,
+  "librarySha256": "c070ed1394629d74641aa0906f60b2ffa1ee77e6366a1f93437f59717b1aeb89",
+  "runtime": "Existing Rider JBR; no global Java installation",
+  "runnerSha256": "3ac32029865235283fdcbcc1c9e2ab0edf171d3b6d547a5abd24d843d60371cf",
+  "manifestParserSha256": "bc392f826cf3afbf3169bf13b254255c34e2c051b3be24bd610ba0ba2efe50ea"
+}

@@ -1,0 +1,35 @@
+{
+  "device": "iPhone 17 Pro, existing Debug app",
+  "checkedAt": "2026-09-21T22:35:00.330Z",
+  "current_rival_avatar": {
+    "context": "players",
+    "expiryInFuture": true,
+    "hasAsset": true,
+    "hasIdentity": true,
+    "hasSignedUrl": true,
+    "status": "available"
+  },
+  "database_availability_counts": {
+    "approved_owned_avatar_records": 1,
+    "blocking_relationships": 0,
+    "fighters_with_avatar_reference": 1,
+    "matching_active_fighters": 1,
+    "stored_avatar_objects": 1
+  },
+  "observed_screens": [
+    "Arena",
+    "Rankings: ended season",
+    "Battles: practice bot history",
+    "Profile: current human rival"
+  ],
+  "excluded": [
+    "Populated Rankings",
+    "Frozen human battle avatars",
+    "Fresh production binary walkthrough"
+  ],
+  "credit_balance_before": 129,
+  "credit_balance_after": 129,
+  "returned_to": "Arena",
+  "account_mutations": false,
+  "screenshot": "rival-after-deploy.jpg"
+}

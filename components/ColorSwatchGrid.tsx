@@ -1,3 +1,5 @@
+import { useId } from 'react';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { inkFor } from '@/utils/contrast';
 import { GameText } from '@/components/game';
 
@@ -47,6 +49,7 @@ export default function ColorSwatchGrid({
   groupLabel,
 }: ColorSwatchGridProps) {
   const colors = useThemedColors();
+  const gradientId = useId().replace(/:/g, '');
   const accessibleText = useAccessibleTextStyle();
   const selected = options.find((o) => o.value === value);
 
@@ -78,6 +81,32 @@ export default function ColorSwatchGrid({
                   },
                 ]}
               >
+                <Svg
+                  width="100%"
+                  height="100%"
+                  style={StyleSheet.absoluteFill}
+                  accessible={false}
+                >
+                  <Defs>
+                    <LinearGradient
+                      id={`${gradientId}-${option.value.replace(/[^a-zA-Z0-9]/g, '')}`}
+                      x1="0"
+                      y1="0"
+                      x2="1"
+                      y2="1"
+                    >
+                      <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.35} />
+                      <Stop offset="0.5" stopColor={option.hex} />
+                      <Stop offset="1" stopColor="#000000" stopOpacity={0.3} />
+                    </LinearGradient>
+                  </Defs>
+                  <Rect
+                    width="100%"
+                    height="100%"
+                    rx={24}
+                    fill={`url(#${gradientId}-${option.value.replace(/[^a-zA-Z0-9]/g, '')})`}
+                  />
+                </Svg>
                 {isSelected ? (
                   <GameSymbol
                     name="checkmark"

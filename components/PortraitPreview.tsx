@@ -20,6 +20,9 @@ import type {
 interface PortraitPreviewProps {
   uri: string;
   onImageError?: ImageProps['onError'];
+  onImageLoad?: ImageProps['onLoad'];
+  onFrameImageLoad?: ImageProps['onLoad'];
+  onFrameImageError?: ImageProps['onError'];
   /**
    * Width of the frame in px. For `fullBody` the height is derived from a
    * 2:3 aspect ratio (size * 1.5).
@@ -59,6 +62,9 @@ const FULL_BODY_ASPECT = 1.5;
 export default function PortraitPreview({
   uri,
   onImageError,
+  onImageLoad,
+  onFrameImageLoad,
+  onFrameImageError,
   size = 240,
   loading = false,
   caption,
@@ -106,7 +112,14 @@ export default function PortraitPreview({
 
   const isFullBody = variant === 'fullBody';
   const frameWidth = size;
-  const frameHeight = isFullBody ? Math.round(size * FULL_BODY_ASPECT) : size;
+  const artwork = isFullBody
+    ? frame?.artwork?.portrait
+    : frame?.artwork?.avatar;
+  const frameHeight = artwork
+    ? size / artwork.aspectRatio
+    : isFullBody
+      ? Math.round(size * FULL_BODY_ASPECT)
+      : size;
   const frameRadius = isFullBody ? BorderRadius.lg : size / 2;
 
   return (
@@ -139,6 +152,9 @@ export default function PortraitPreview({
             frame={frame}
             accentColor={accentColor}
             onImageError={onImageError}
+            onImageLoad={onImageLoad}
+            onFrameImageLoad={onFrameImageLoad}
+            onFrameImageError={onFrameImageError}
             accessibilityLabel={accessibilityLabel}
           />
           {loading ? (

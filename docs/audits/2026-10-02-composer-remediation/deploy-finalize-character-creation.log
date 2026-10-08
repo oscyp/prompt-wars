@@ -1,0 +1,9 @@
+Deployed Functions on project uoyjhudegdpanrgllfoj: finalize-character-creation
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/uoyjhudegdpanrgllfoj/functions
+
+Uploading asset (finalize-character-creation): supabase/functions/finalize-character-creation/index.ts
+Uploading asset (finalize-character-creation): supabase/functions/_shared/character-stats.ts
+Uploading asset (finalize-character-creation): supabase/functions/_shared/moderation.ts
+Uploading asset (finalize-character-creation): supabase/functions/_shared/types.ts
+Uploading asset (finalize-character-creation): supabase/functions/_shared/character-creation.ts
+Uploading asset (finalize-character-creation): supabase/functions/_shared/utils.ts

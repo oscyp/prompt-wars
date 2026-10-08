@@ -9,7 +9,18 @@ import {
 } from './types.ts';
 import { AiJudgeProvider, JudgeResponse } from './providers.ts';
 
-export const JUDGE_PROMPT_VERSION = 'v1.0.0-mvp';
+import {
+  JUDGE_PROMPT_VERSION,
+  IDEAS_JUDGE_PROMPT_VERSION,
+  judgePolicyVersion,
+  judgeSituation,
+} from './judge-policy.ts';
+import type { SituationSnapshot } from './prompt-situations.ts';
+export {
+  JUDGE_PROMPT_VERSION,
+  IDEAS_JUDGE_PROMPT_VERSION,
+  judgePolicyVersion,
+} from './judge-policy.ts';
 
 /**
  * Validate judge response against JSON schema
@@ -226,7 +237,10 @@ export async function runJudgePipeline(
   wordCountTwo: number,
   theme: string | null,
   promptVersion = JUDGE_PROMPT_VERSION,
+  situationSnapshot?: SituationSnapshot | null,
 ): Promise<JudgeRunResult> {
+  const version = judgePolicyVersion(promptVersion);
+  const situation = judgeSituation(version, situationSnapshot);
   const calls: JudgeCallProvenance[] = [];
   const run = async () => {
     const seed = Math.floor(Math.random() * 2147483647);
@@ -237,11 +251,24 @@ export async function runJudgePipeline(
       moveTypeTwo,
       theme,
       seed,
-      promptVersion,
+      promptVersion: version,
+      ...(situation ? { situationSnapshot: situation } : {}),
     });
     const response = validateJudgeResponse(raw);
-    const one = normalizeScores(response.playerOneScores, wordCountOne);
-    const two = normalizeScores(response.playerTwoScores, wordCountTwo);
+    if (
+      version === IDEAS_JUDGE_PROMPT_VERSION &&
+      response.promptVersion !== version
+    ) {
+      throw new Error('Judge response does not match frozen policy');
+    }
+    const one =
+      version === IDEAS_JUDGE_PROMPT_VERSION
+        ? { ...response.playerOneScores }
+        : normalizeScores(response.playerOneScores, wordCountOne);
+    const two =
+      version === IDEAS_JUDGE_PROMPT_VERSION
+        ? { ...response.playerTwoScores }
+        : normalizeScores(response.playerTwoScores, wordCountTwo);
     calls.push({
       response_id: raw.responseId,
       model_id: response.modelId,

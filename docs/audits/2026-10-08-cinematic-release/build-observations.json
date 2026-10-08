@@ -1,0 +1,46 @@
+[
+  {
+    "id": "6ccdf2ab-8a5e-407c-89a8-fc8601c53faa",
+    "status": "IN_PROGRESS",
+    "appVersion": "1.3.4",
+    "appBuildVersion": "19",
+    "createdAt": "2026-10-08T10:53:36.165Z",
+    "completedAt": null,
+    "estimatedQueueWaitTimeSeconds": null,
+    "priority": "NORMAL",
+    "artifacts": {},
+    "checkedAt": "2026-10-08T10:54:40.708403+00:00"
+  },
+  {
+    "checkedAt": "2026-10-08T10:56:32.724238+00:00",
+    "id": "6ccdf2ab-8a5e-407c-89a8-fc8601c53faa",
+    "status": "IN_PROGRESS",
+    "appVersion": "1.3.4",
+    "appBuildVersion": "19",
+    "completedAt": null
+  },
+  {
+    "checkedAt": "2026-10-08T10:58:22.736356+00:00",
+    "id": "6ccdf2ab-8a5e-407c-89a8-fc8601c53faa",
+    "status": "IN_PROGRESS",
+    "appVersion": "1.3.4",
+    "appBuildVersion": "19",
+    "completedAt": null
+  },
+  {
+    "checkedAt": "2026-10-08T10:59:37.094422+00:00",
+    "id": "6ccdf2ab-8a5e-407c-89a8-fc8601c53faa",
+    "status": "IN_PROGRESS",
+    "appVersion": "1.3.4",
+    "appBuildVersion": "19",
+    "completedAt": null
+  },
+  {
+    "checkedAt": "2026-10-08T11:01:08.436210+00:00",
+    "id": "6ccdf2ab-8a5e-407c-89a8-fc8601c53faa",
+    "status": "FINISHED",
+    "appVersion": "1.3.4",
+    "appBuildVersion": "19",
+    "completedAt": "2026-10-08T11:00:25.775Z"
+  }
+]

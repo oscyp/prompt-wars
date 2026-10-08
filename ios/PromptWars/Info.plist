@@ -21,7 +21,7 @@
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.1</string>
+	<string>1.3.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleURLTypes</key>
@@ -31,6 +31,7 @@
 			<array>
 				<string>promptwars</string>
 				<string>gg.promptwars.app</string>
+				<string>com.googleusercontent.apps.393460808098-95qnrgg0op04jo22h7nq90ameetg28og</string>
 			</array>
 		</dict>
 		<dict>

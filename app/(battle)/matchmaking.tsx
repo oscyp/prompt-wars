@@ -1,11 +1,7 @@
+import BattleHeader from '@/components/battle/BattleHeader';
 import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  GameText as Text,
-  GameFooter,
-  GameButton,
-  GameBevel,
-} from '@/components/game';
+import { GameText as Text, GameButton, GameBevel } from '@/components/game';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -15,7 +11,6 @@ import {
   Alert,
   Image,
   ImageBackground,
-  Pressable,
   AccessibilityInfo,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -46,7 +41,6 @@ import { useAuth } from '@/providers/AuthProvider';
 import FighterEntrance from '@/components/FighterEntrance';
 import ArenaTips from '@/components/ArenaTips';
 import { generateIdempotencyKey } from '@/utils/characters';
-import { inkFor } from '@/utils/contrast';
 import { useBattleAudio } from '@/providers/BattleAudioProvider';
 
 type Status = 'finding' | 'matched' | 'error';
@@ -347,7 +341,14 @@ export default function MatchmakingScreen() {
     >
       {/* Scrim keeps overlay text AA on top of the arena illustration. */}
       <View style={styles.scrim} />
-      <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+      <BattleHeader
+        onPark={park}
+        parkLabel="Return to Arena; keep search active"
+        onLeave={confirmCancelSearch}
+        leaveDisabled={isCancelling || status !== 'finding'}
+        leaveLabel="Cancel search"
+      />
+      <SafeAreaView edges={['left', 'right']} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.content}>
           {status === 'error' ? (
             <Image
@@ -395,76 +396,22 @@ export default function MatchmakingScreen() {
           {status === 'error' ? (
             <View style={styles.actions}>
               {errorCopy?.canRetry !== false ? (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.primaryButton,
-                    {
-                      backgroundColor: colors.primary,
-                      opacity: pressed ? 0.85 : 1,
-                    },
-                  ]}
+                <GameButton
+                  label="Try again"
+                  chrome="utility"
+                  gameIcon="replay"
                   onPress={() => setAttempt((n) => n + 1)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Try again"
-                >
-                  <Text
-                    style={[
-                      styles.primaryButtonText,
-                      { color: inkFor(colors.primary) },
-                    ]}
-                  >
-                    Try again
-                  </Text>
-                </Pressable>
+                />
               ) : null}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.secondaryButton,
-                  { opacity: pressed ? 0.85 : 1 },
-                ]}
-                onPress={park}
-                accessibilityRole="button"
-                accessibilityLabel="Back"
-              >
-                <Text style={styles.secondaryButtonText}>Back</Text>
-              </Pressable>
             </View>
           ) : null}
 
           {status === 'finding' ? (
             <>
               <ArenaTips seed={tipSeed} reduceMotion={reduceMotion} />
-              <Pressable
-                style={({ pressed }) => [
-                  styles.cancelSearchButton,
-                  { opacity: pressed || isCancelling ? 0.65 : 1 },
-                ]}
-                onPress={confirmCancelSearch}
-                disabled={isCancelling}
-                accessibilityRole="button"
-                accessibilityLabel="Cancel search"
-                accessibilityState={{ disabled: isCancelling }}
-              >
-                <Text style={styles.cancelSearchText}>
-                  {isCancelling ? 'Canceling…' : 'Cancel search'}
-                </Text>
-              </Pressable>
             </>
           ) : null}
         </ScrollView>
-      </SafeAreaView>
-      <SafeAreaView
-        edges={['bottom']}
-        style={{ backgroundColor: colors.background }}
-      >
-        <GameFooter>
-          <GameButton
-            tone="secondary"
-            label="Arena · Keep search active"
-            accessibilityLabel="Return to Arena; keep search active"
-            onPress={park}
-          />
-        </GameFooter>
       </SafeAreaView>
     </ImageBackground>
   );
@@ -487,7 +434,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.lg,
-    paddingTop: Spacing.lg + 44,
+    paddingTop: Spacing.lg,
   },
   entrance: {
     padding: 16,

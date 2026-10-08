@@ -38,7 +38,7 @@ export async function loadTutorial(
 export async function startTutorial(replay = false): Promise<string> {
   const { state } = await invokeAuthenticatedFunction<{ state: TutorialState }>(
     'tutorial',
-    { action: replay ? 'replay' : 'start' },
+    { action: replay ? 'replay' : 'start', client_contract_version: 3 },
   );
   if (!state.battle_id) throw new Error('Practice is not ready. Try again.');
   void recordFunnelEvent('tutorial_started', state.battle_id);

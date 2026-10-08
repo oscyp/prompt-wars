@@ -15,6 +15,8 @@ export function useBattleDraft(
   const [draft, setDraft] = useState<BattleDraft | null>(null);
   const [loadedScope, setLoadedScope] = useState<typeof scope>(null);
   const [error, setError] = useState<string | null>(null);
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
   const latest = useRef<BattleDraft | null>(null);
   const cleared = useRef(false);
   const pendingDelete = useRef(false);
@@ -46,35 +48,45 @@ export function useBattleDraft(
   }, [scope, reload]);
   const save = useCallback(
     async (value: BattleDraft) => {
-      if (!scope || loadedScope !== scope || cleared.current) return;
+      if (
+        !scope ||
+        scopeRef.current !== scope ||
+        loadedScope !== scope ||
+        cleared.current
+      )
+        return;
       latest.current = value;
       try {
         if (pendingDelete.current) {
           await battleDrafts.clear(scope);
+          if (scopeRef.current !== scope) return;
           pendingDelete.current = false;
         }
         await battleDrafts.save(scope, value);
-        setError(null);
+        if (scopeRef.current === scope) setError(null);
       } catch {
-        setError(
-          'Draft is not saved on this device. Keep this screen open and retry.',
-        );
+        if (scopeRef.current === scope)
+          setError(
+            'Draft is not saved on this device. Keep this screen open and retry.',
+          );
       }
     },
     [scope, loadedScope],
   );
   const flush = useCallback(async () => {
-    if (!scope) return;
+    if (!scope || scopeRef.current !== scope) return;
     if (pendingDelete.current) {
       try {
         await battleDrafts.clear(scope);
+        if (scopeRef.current !== scope) return;
         pendingDelete.current = false;
         setDraft(null);
         setError(null);
       } catch {
-        setError(
-          'Couldn’t remove the saved draft. Retry to finish deleting it.',
-        );
+        if (scopeRef.current === scope)
+          setError(
+            'Couldn’t remove the saved draft. Retry to finish deleting it.',
+          );
         throw new Error('Draft could not be removed');
       }
     }
@@ -83,11 +95,12 @@ export function useBattleDraft(
     try {
       if (latest.current) await battleDrafts.save(scope, latest.current);
       await battleDrafts.flush(scope);
-      setError(null);
+      if (scopeRef.current === scope) setError(null);
     } catch {
-      setError(
-        'Draft is not saved on this device. Keep this screen open and retry.',
-      );
+      if (scopeRef.current === scope)
+        setError(
+          'Draft is not saved on this device. Keep this screen open and retry.',
+        );
       throw new Error('Draft could not be saved');
     }
   }, [scope, loadedScope]);
@@ -99,20 +112,22 @@ export function useBattleDraft(
   }, [flush]);
   const clear = useCallback(
     async (terminal = true) => {
-      if (!scope) return true;
+      if (!scope || scopeRef.current !== scope) return true;
       cleared.current = terminal;
       pendingDelete.current = true;
       latest.current = null;
       try {
         await battleDrafts.clear(scope);
+        if (scopeRef.current !== scope) return true;
         pendingDelete.current = false;
         setDraft(null);
         setError(null);
         return true;
       } catch {
-        setError(
-          'Couldn’t remove the saved draft. Retry to finish deleting it.',
-        );
+        if (scopeRef.current === scope)
+          setError(
+            'Couldn’t remove the saved draft. Retry to finish deleting it.',
+          );
         return false;
       }
     },

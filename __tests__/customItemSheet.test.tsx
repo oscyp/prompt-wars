@@ -51,13 +51,13 @@ describe('CustomItemSheet', () => {
   });
 
   it('shows Price, Balance and After before the tap', () => {
-    const { getByText } = renderSheet();
+    const { getByText, getByLabelText } = renderSheet();
     expect(getByText('Price')).toBeTruthy();
-    expect(getByText('3 credits')).toBeTruthy();
+    expect(getByLabelText('3 credits')).toBeTruthy();
     expect(getByText('Balance')).toBeTruthy();
-    expect(getByText('10 credits')).toBeTruthy();
+    expect(getByLabelText('10 credits')).toBeTruthy();
     expect(getByText('After')).toBeTruthy();
-    expect(getByText('7 credits')).toBeTruthy();
+    expect(getByLabelText('7 credits')).toBeTruthy();
   });
 
   it('reads the shortfall and opens the wallet instead when short', () => {

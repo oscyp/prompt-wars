@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
 import { GameText as Text, GameBevel } from '@/components/game';
 import BrandMark from '@/components/game/BrandMark';
 import { GameSymbol } from '@/components/game/icons/GameSymbol';
@@ -10,21 +10,25 @@ import {
   Spacing,
   Typography,
 } from '@/constants/DesignTokens';
-import { getArchetypeAvatar } from '@/constants/ArchetypeAvatars';
+import { archetypeIllustrationUri } from '@/constants/ArchetypeAvatars';
 import { inkFor } from '@/utils/contrast';
 import type { BattleOutcome } from '@/utils/resultView';
+import type { EquippedCosmetics } from '@/utils/cosmetics';
+import PortraitPreview from '@/components/PortraitPreview';
 
 export interface ShareCardFighter {
   name: string;
   archetype: string | null;
   /** A fresh signed avatar URL; the bundled archetype art when null. */
   avatarUrl: string | null;
+  signatureColor?: string | null;
+  cosmetics?: EquippedCosmetics;
 }
 
 export interface ResultShareCardProps {
   /** From `outcomeHeadline`. */
   headline: string;
-  outcome: BattleOutcome;
+  outcome: BattleOutcome | 'no_contest';
   isKo: boolean;
   /** "2–1" on a series; null on single format, where the centre says VS. */
   scoreLine: string | null;
@@ -37,6 +41,8 @@ export interface ResultShareCardProps {
   /** The winner's signature colour for the frame; the brand colour when null. */
   accentColor?: string | null;
   adjudicationRevision?: number;
+  onArtworkLoaded?: (asset: string) => void;
+  onArtworkError?: () => void;
 }
 
 export const KNOCKOUT_TAG = 'KNOCKOUT';
@@ -49,22 +55,34 @@ const AVATAR_SIZE = 64;
  * DESIGN_LANGUAGE.md).
  */
 export default function ResultShareCard({
-  headline,
+  headline: _headline,
   outcome,
-  isKo,
-  scoreLine,
+  isKo: originalKo,
+  scoreLine: originalScore,
   me,
   them,
-  winnerSide,
+  winnerSide: originalWinner,
   theme,
   ratingLine,
   accentColor,
   adjudicationRevision = 0,
+  onArtworkLoaded,
+  onArtworkError,
 }: ResultShareCardProps) {
+  const noContest = outcome === 'no_contest';
+  const headline = {
+    won: 'Victory',
+    lost: 'Defeat',
+    draw: 'Draw',
+    no_contest: 'No contest',
+  }[outcome];
+  const isKo = !noContest && originalKo;
+  const scoreLine = noContest ? null : originalScore;
+  const winnerSide = noContest || outcome === 'draw' ? null : originalWinner;
   const colors = useThemedColors();
   const accent = accentColor ?? colors.primary;
   const outcomeColor =
-    outcome === 'draw'
+    outcome === 'draw' || noContest
       ? colors.warning
       : outcome === 'won'
         ? colors.success
@@ -85,48 +103,50 @@ export default function ResultShareCard({
 
   return (
     <View
-      style={[
-        styles.card,
-        { backgroundColor: colors.card, borderColor: accent },
-      ]}
+      style={[styles.card, { backgroundColor: colors.card }]}
       accessible
       accessibilityLabel={label}
     >
       <GameBevel color={colors.ornament} insetColor={colors.ornamentMuted} />
       <BrandMark size={180} />
+      <Text
+        variant="display"
+        style={[styles.headline, { color: outcomeColor }]}
+        accessibilityRole="header"
+      >
+        {headline}
+      </Text>
+      {scoreLine ? (
+        <View style={{ alignSelf: 'stretch', alignItems: 'center' }}>
+          <Text variant="title" style={[styles.score, NumericFontVariant]}>
+            {scoreLine}
+          </Text>
+        </View>
+      ) : null}
       <View style={styles.fighters}>
         <Fighter
           fighter={me}
           isWinner={winnerSide === 'me'}
           accent={accent}
           who="You"
+          onLoad={(kind) => onArtworkLoaded?.('me:' + kind)}
+          onError={onArtworkError}
         />
-        <View style={styles.centre}>
-          {scoreLine ? (
-            <Text
-              style={[styles.score, NumericFontVariant, { color: colors.text }]}
-            >
-              {scoreLine}
-            </Text>
-          ) : (
-            <Text style={[styles.vs, { color: colors.textTertiary }]}>VS</Text>
-          )}
-        </View>
+        <Text
+          variant="label"
+          style={{ color: colors.textTertiary, paddingTop: 24 }}
+        >
+          VS
+        </Text>
         <Fighter
           fighter={them}
           isWinner={winnerSide === 'them'}
           accent={accent}
           who="Opponent"
+          onLoad={(kind) => onArtworkLoaded?.('them:' + kind)}
+          onError={onArtworkError}
         />
       </View>
-
-      <Text
-        variant="display"
-        style={[styles.headline, NumericFontVariant, { color: outcomeColor }]}
-        accessibilityRole="header"
-      >
-        {headline}
-      </Text>
 
       {isKo ? (
         <View style={[styles.koTag, { borderColor: outcomeColor }]}>
@@ -167,33 +187,34 @@ function Fighter({
   isWinner,
   accent,
   who,
+  onLoad,
+  onError,
 }: {
   fighter: ShareCardFighter;
   isWinner: boolean;
   accent: string;
   who: string;
+  onLoad: (kind: string) => void;
+  onError?: () => void;
 }) {
   const colors = useThemedColors();
-  const [failed, setFailed] = useState(false);
-  const source =
-    fighter.avatarUrl && !failed
-      ? { uri: fighter.avatarUrl }
-      : getArchetypeAvatar(fighter.archetype);
+  const uri =
+    fighter.avatarUrl ?? archetypeIllustrationUri(fighter.archetype) ?? '';
 
   return (
     <View style={styles.fighter}>
       <View style={styles.avatarWrap}>
-        <Image
-          source={source}
-          style={[
-            styles.avatar,
-            {
-              borderColor: isWinner ? accent : colors.border,
-              borderWidth: isWinner ? 3 : StyleSheet.hairlineWidth,
-            },
-          ]}
-          onError={() => setFailed(true)}
-          accessibilityIgnoresInvertColors
+        <PortraitPreview
+          uri={uri}
+          size={AVATAR_SIZE}
+          frame={fighter.cosmetics?.frame}
+          avatarEffect={fighter.cosmetics?.avatarEffect}
+          accentColor={fighter.signatureColor ?? accent}
+          onImageLoad={() => onLoad('avatar')}
+          onFrameImageLoad={() => onLoad('frame')}
+          onImageError={onError}
+          onFrameImageError={onError}
+          accessibilityLabel={fighter.name}
         />
         {isWinner ? (
           <View
@@ -215,8 +236,6 @@ function Fighter({
 const styles = StyleSheet.create({
   card: {
     padding: Spacing.lg,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 2,
     alignItems: 'center',
     gap: Spacing.sm,
   },
@@ -269,7 +288,9 @@ const styles = StyleSheet.create({
     paddingTop: AVATAR_SIZE / 2 - Typography.sizes.xxl / 2,
   },
   score: {
-    fontSize: Typography.sizes.xxl,
+    fontSize: 40,
+    lineHeight: 48,
+    flexShrink: 0,
     fontWeight: Typography.weights.bold,
   },
   vs: {

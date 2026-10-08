@@ -1,0 +1,31 @@
+{
+  "deployment_checked_at": "2026-10-02T13:47:40.335905+00:00",
+  "live_practice_checked_at": "2026-10-02T14:25:11.964403+00:00",
+  "live_practice_evidence": "live-rounds-completed.json",
+  "live_suggestions_evidence": "live-suggestions-final.json",
+  "summary_updated_at": "2026-10-02T15:58:44.556830+00:00",
+  "migrations_applied": [
+    "20261002130316",
+    "20261002130317",
+    "20261002130331",
+    "20261002130332"
+  ],
+  "compatible_functions_deployed_before_bot_activation": true,
+  "active_functions": 24,
+  "gateway_auth_changed_from_previous_evidence": [],
+  "private_rls_client_read_denied": true,
+  "private_realtime_excluded": true,
+  "post_deploy_new_operation_sample": 6,
+  "negative_requests": 48,
+  "negative_requests_accepted": 0,
+  "auth_status_note": "Some unchanged handlers map Unauthorized to HTTP500. dev-generate-video returns404; resolve-battle empty body returns400 and a nonexistent test battle ID returns403. These checks do not prove authenticated gameplay.",
+  "live_ai_successful_free_banks": 3,
+  "live_paid_purchase_exercised": false,
+  "live_credits_spent": 0,
+  "live_expired_leases": 0,
+  "live_practice_series_complete": true,
+  "live_rounds": 2,
+  "live_mock_assisted": false,
+  "initial_submit_failure": "Unclassified; draft and type preserved, bounded retry after full reload succeeded; no transport status captured.",
+  "live_free_ai_delivery_verified": true
+}

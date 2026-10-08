@@ -1,0 +1,18 @@
+{
+  "scheduledAt": "2026-10-08T11:03:38.577023+00:00",
+  "buildId": "6ccdf2ab-8a5e-407c-89a8-fc8601c53faa",
+  "submissionId": "a1353759-705a-4169-ac41-a6541ccf001e",
+  "version": "1.3.4",
+  "buildNumber": "19",
+  "groupsRequested": [
+    "Team (Expo)",
+    "testers"
+  ],
+  "autoTestflightSetup": false,
+  "publicReviewRequested": false,
+  "testerNotificationsRequested": false,
+  "newInvitationsRequested": false,
+  "whatToTestPassed": false,
+  "notesLocalOnly": true,
+  "cli": "23.1.0"
+}

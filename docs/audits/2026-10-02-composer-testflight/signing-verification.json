@@ -1,0 +1,10 @@
+{
+  "application-identifier": "9665HWDCCA.gg.promptwars.app",
+  "com.apple.developer.team-identifier": "9665HWDCCA",
+  "get-task-allow": false,
+  "aps-environment": "production",
+  "com.apple.developer.applesignin": [
+    "Default"
+  ],
+  "strict_recursive_signature_verification": "passed: valid on disk; satisfies its Designated Requirement"
+}

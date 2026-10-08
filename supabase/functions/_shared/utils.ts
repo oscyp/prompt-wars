@@ -220,7 +220,12 @@ function getBearerToken(authHeader: string | null): string | null {
 /**
  * Get authenticated user ID from request
  */
-export async function getAuthUserId(req: Request): Promise<string> {
+export async function getAuthUserId(
+  req: Request,
+  options: {
+    capability?: 'account' | 'play' | 'generate' | 'purchase' | 'grant';
+  } = {},
+): Promise<string> {
   const authHeader = req.headers.get('Authorization');
   const bearerToken = getBearerToken(authHeader);
   const client = createUserClient(authHeader, req.headers.get('apikey'));
@@ -240,6 +245,25 @@ export async function getAuthUserId(req: Request): Promise<string> {
     throw new Error('Unauthorized');
   }
 
+  // Account management must remain available after consent withdrawal. Every
+  // gameplay endpoint defaults to authoritative eligibility, not JWT metadata.
+  if (options.capability !== 'account') {
+    const capability = options.capability ?? 'play';
+    const { data, error: eligibilityError } = await createServiceClient().rpc(
+      'get_account_eligibility',
+      { p_profile_id: user.id },
+    );
+    if (eligibilityError || !data)
+      throw new Error('account_eligibility_unavailable');
+    const permissions: Record<string, string> = {
+      play: 'can_play',
+      generate: 'can_generate',
+      purchase: 'can_purchase',
+      grant: 'can_grant',
+    };
+    if (data[permissions[capability]] !== true)
+      throw new Error('account_eligibility_required');
+  }
   return user.id;
 }
 
@@ -259,6 +283,13 @@ export function errorResponse(
   status = 400,
   extra?: Record<string, unknown>,
 ): Response {
+  if (message === 'account_eligibility_required') {
+    status = 403;
+    extra = { ...extra, code: message };
+  } else if (message === 'account_eligibility_unavailable') {
+    status = 503;
+    extra = { ...extra, code: message };
+  }
   return new Response(JSON.stringify({ error: message, ...extra }), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },

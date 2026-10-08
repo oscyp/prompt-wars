@@ -1,3 +1,4 @@
+import { IDEAS_JUDGE_PROMPT_VERSION } from './judge-policy.ts';
 import {
   hpMax,
   resolveCombatRound,
@@ -154,6 +155,34 @@ export function calibrationEligible(
     Date.now() - Date.parse(String(r.created_at)) > maxAgeHours * 3600000
   )
     return false;
+  if (version === IDEAS_JUDGE_PROMPT_VERSION) {
+    const evidence = r.evaluation_metadata as
+      | Record<string, unknown>
+      | undefined;
+    if (
+      !evidence ||
+      evidence.passed !== true ||
+      evidence.labelProvenance !== 'independently_human_reviewed' ||
+      evidence.split !== 'holdout' ||
+      Number(r.total_count) < 80
+    )
+      return false;
+    const gates = evidence.gates as Record<string, unknown> | undefined;
+    const required = [
+      'completeHoldout',
+      'humanReviewed',
+      'actualModelNoFallback',
+      'accuracy',
+      'verbosity',
+      'position',
+      'locale',
+      'authoring',
+      'drawDrift',
+      'koDrift',
+      'medianGapDrift',
+    ];
+    if (!gates || required.some((key) => gates[key] !== true)) return false;
+  }
   const items = r.per_item_results as { calls?: ActualCall[] }[];
   if (!Array.isArray(items) || items.length !== r.total_count) return false;
   try {

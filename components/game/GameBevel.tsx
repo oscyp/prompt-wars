@@ -12,12 +12,27 @@ export interface GameBevelProps {
   gradient?: readonly [string, string];
 }
 
+/** Shared pixel-space outline for bevels and artwork clipped inside them. */
+export function gameBevelPath(
+  width: number,
+  height: number,
+  inset: number,
+  cut: number = GameChrome.cut,
+): string {
+  const x = inset,
+    y = inset,
+    right = width - inset,
+    bottom = height - inset;
+  const c = Math.max(0, Math.min(cut, (right - x) / 2, (bottom - y) / 2));
+  return `M ${x + c} ${y} H ${right - c} L ${right} ${y + c} V ${bottom - c} L ${right - c} ${bottom} H ${x + c} L ${x} ${bottom - c} V ${y + c} Z`;
+}
+
 /** Decoration only. Pixel-space geometry keeps corner cuts stable on tall panels. */
 export function GameBevel({
   color,
   fill = 'transparent',
   insetColor,
-  strokeWidth = 1,
+  strokeWidth = 1.5,
   cut = GameChrome.cut,
   gradient,
 }: GameBevelProps) {
@@ -30,14 +45,8 @@ export function GameBevel({
         : { width: layout.width, height: layout.height },
     );
   };
-  const path = (inset: number) => {
-    const x = inset,
-      y = inset,
-      right = size.width - inset,
-      bottom = size.height - inset;
-    const c = Math.max(0, Math.min(cut, (right - x) / 2, (bottom - y) / 2));
-    return `M ${x + c} ${y} H ${right - c} L ${right} ${y + c} V ${bottom - c} L ${right - c} ${bottom} H ${x + c} L ${x} ${bottom - c} V ${y + c} Z`;
-  };
+  const path = (inset: number) =>
+    gameBevelPath(size.width, size.height, inset, cut);
   return (
     <View
       pointerEvents="none"
@@ -65,7 +74,7 @@ export function GameBevel({
           />
           {insetColor && (
             <Path
-              d={path(3.5)}
+              d={path(4)}
               fill="none"
               stroke={insetColor}
               strokeWidth={0.75}

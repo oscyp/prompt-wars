@@ -1,7 +1,7 @@
 // Moderation provider adapters
 // Supports text and video moderation with pluggable providers
 
-import { ModerationStatus } from './types.ts';
+import { ModerationStatus } from "./types.ts";
 
 export interface TextModerationResult {
   status: ModerationStatus;
@@ -28,7 +28,7 @@ export interface VideoModerationResult {
 /** True when at least one real text-moderation provider is configured. */
 export function hasTextModerationProvider(): boolean {
   return Boolean(
-    Deno.env.get('OPENAI_API_KEY') || Deno.env.get('PERSPECTIVE_API_KEY'),
+    Deno.env.get("OPENAI_API_KEY") || Deno.env.get("PERSPECTIVE_API_KEY"),
   );
 }
 
@@ -40,13 +40,13 @@ export function hasTextModerationProvider(): boolean {
  */
 export function assertTextModerationConfigured(): void {
   if (hasTextModerationProvider()) return;
-  const env = Deno.env.get('ENVIRONMENT') ?? Deno.env.get('DENO_ENV') ?? '';
-  if (env === 'development' || env === 'test' || Deno.env.get('DENO_TESTING')) {
+  const env = Deno.env.get("ENVIRONMENT") ?? Deno.env.get("DENO_ENV") ?? "";
+  if (env === "development" || env === "test" || Deno.env.get("DENO_TESTING")) {
     return;
   }
   throw new Error(
-    'No text moderation provider configured. Set OPENAI_API_KEY or ' +
-      'PERSPECTIVE_API_KEY before accepting user-generated prompts.',
+    "No text moderation provider configured. Set OPENAI_API_KEY or " +
+      "PERSPECTIVE_API_KEY before accepting user-generated prompts.",
   );
 }
 
@@ -61,7 +61,7 @@ export function assertTextModerationConfigured(): void {
  */
 export const FICTION_TOLERANT_THRESHOLDS: Readonly<Record<string, number>> = {
   violence: 0.85,
-  'violence/graphic': 0.7,
+  "violence/graphic": 0.7,
 };
 
 /** Above this, a flagged prompt is refused outright rather than held. */
@@ -92,37 +92,106 @@ export function evaluateOpenAiModeration(
   if (effective.length === 0) {
     const allScores = Object.values(scores);
     return {
-      status: 'approved',
+      status: "approved",
       confidence: 1.0 - (allScores.length ? Math.max(...allScores) : 0),
-      provider: 'openai',
+      provider: "openai",
       providerRequestId: requestId,
     };
   }
 
   const maxScore = Math.max(...effective.map((c) => scores[c] ?? 0));
   return {
-    status:
-      maxScore > OPENAI_REJECT_SCORE ? 'rejected' : 'flagged_human_review',
-    reason: `Flagged categories: ${effective.join(', ')}`,
+    status: maxScore > OPENAI_REJECT_SCORE
+      ? "rejected"
+      : "flagged_human_review",
+    reason: `Flagged categories: ${effective.join(", ")}`,
     confidence: maxScore,
     flaggedCategories: effective,
-    provider: 'openai',
+    provider: "openai",
     providerRequestId: requestId,
   };
+}
+
+export type ModerationUnitKind =
+  | "prompt"
+  | "title"
+  | "action"
+  | "intent"
+  | "approach"
+  | "triple"
+  | "body"
+  | "pair";
+export interface ModerationUnit {
+  kind: ModerationUnitKind;
+  text: string;
+}
+export interface ModerationUnitResult extends TextModerationResult {
+  kind: ModerationUnitKind;
+}
+const MODERATION_UNIT_BOUNDS: Record<
+  ModerationUnitKind,
+  readonly [number, number]
+> = {
+  prompt: [20, 800],
+  title: [3, 48],
+  action: [5, 240],
+  intent: [5, 180],
+  approach: [5, 240],
+  triple: [20, 800],
+  body: [20, 800],
+  pair: [20, 800],
+};
+function moderationUnavailable(): TextModerationResult {
+  return {
+    status: "flagged_human_review",
+    reason: "Moderation response unavailable",
+    confidence: 0,
+    provider: "unavailable",
+    flaggedCategories: ["provider_unavailable"],
+  };
+}
+// Categories shared by both supported text and omni moderation responses.
+// Omni may also return illicit categories; any returned category is validated.
+const REQUIRED_OPENAI_CATEGORIES = [
+  "harassment",
+  "harassment/threatening",
+  "hate",
+  "hate/threatening",
+  "self-harm",
+  "self-harm/intent",
+  "self-harm/instructions",
+  "sexual",
+  "sexual/minors",
+  "violence",
+  "violence/graphic",
+];
+function validOpenAiResult(value: unknown): value is OpenAiModerationResult {
+  if (!value || typeof value !== "object") return false;
+  const r = value as OpenAiModerationResult;
+  return typeof r.flagged === "boolean" && !!r.categories &&
+    !!r.category_scores &&
+    REQUIRED_OPENAI_CATEGORIES.every((key) =>
+      typeof r.categories[key] === "boolean"
+    ) &&
+    Object.entries(r.categories).every(([key, flag]) =>
+      typeof flag === "boolean" && typeof r.category_scores[key] === "number" &&
+      Number.isFinite(r.category_scores[key]) && r.category_scores[key] >= 0 &&
+      r.category_scores[key] <= 1
+    ) && r.flagged === Object.values(r.categories).some(Boolean);
 }
 
 export class TextModerationProvider {
   /** Never acceptable in this game, whatever the context. Rejected outright. */
   private hardBlocklist: string[] = [
-    'spam',
-    'test123',
-    'asdf',
-    'xxx',
-    'porn',
-    'drugs',
-    'nsfw',
-    'sexual',
-    'explicit',
+    "spam",
+    "test123",
+    "asdf",
+    "xxx",
+    "porn",
+    "drugs",
+    "nsfw",
+    "sexual",
+    "explicit",
   ];
 
   /**
@@ -130,11 +199,146 @@ export class TextModerationProvider {
    * development and tests): a word list cannot tell "kill the momentum" from a
    * threat, but the classifier can, so in production it gets to decide.
    */
-  private fallbackBlocklist: string[] = ['violence', 'kill', 'die'];
+  private fallbackBlocklist: string[] = ["violence", "kill", "die"];
 
   async moderate(text: string): Promise<TextModerationResult> {
+    const [{ kind: _kind, ...result }] = await this.moderateUnits([{
+      kind: "prompt",
+      text,
+    }]);
+    return result;
+  }
+
+  /** Validate each role first, then classify unique text without concatenating alternatives. */
+  async moderateUnits(units: ModerationUnit[], options: {
+    deadlineMs?: number;
+    classify?: (
+      text: string,
+      signal: AbortSignal,
+    ) => Promise<TextModerationResult>;
+  } = {}): Promise<ModerationUnitResult[]> {
+    const local = units.map((unit) => this.validateUnit(unit));
+    const texts = [
+      ...new Set(units.filter((_, i) => !local[i]).map((unit) => unit.text)),
+    ];
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const expired = new Promise<null>((resolve) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        resolve(null);
+      }, Math.min(options.deadlineMs ?? 60_000, 60_000));
+    });
+    try {
+      const classified = texts.length
+        ? await Promise.race([
+          this.classifyTexts(texts, controller.signal, options.classify).catch(
+            () => null,
+          ),
+          expired,
+        ])
+        : [];
+      const byText = new Map(
+        texts.map((
+          text,
+          i,
+        ) => [text, classified?.[i] ?? moderationUnavailable()]),
+      );
+      return units.map((unit, i) => ({
+        kind: unit.kind,
+        ...(local[i] ?? byText.get(unit.text)!),
+      }));
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  }
+
+  private async classifyTexts(
+    texts: string[],
+    signal: AbortSignal,
+    classify?: (
+      text: string,
+      signal: AbortSignal,
+    ) => Promise<TextModerationResult>,
+  ): Promise<TextModerationResult[]> {
+    const openAiKey = Deno.env.get("OPENAI_API_KEY");
+    const perspectiveKey = Deno.env.get("PERSPECTIVE_API_KEY");
+    if (openAiKey && !classify) {
+      try {
+        const response = await fetch("https://api.openai.com/v1/moderations", {
+          method: "POST",
+          signal,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openAiKey}`,
+          },
+          body: JSON.stringify({ input: texts }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (
+            Array.isArray(data.results) &&
+            data.results.length === texts.length &&
+            data.results.every(validOpenAiResult)
+          ) {
+            return data.results.map((result: OpenAiModerationResult) =>
+              evaluateOpenAiModeration(result, data.id)
+            );
+          }
+        }
+      } catch { /* Fallback shares the same deadline and abort signal. */ }
+    }
+    if (!classify && !openAiKey && !perspectiveKey) {
+      return texts.map(() => ({
+        status: "approved",
+        confidence: 0.95,
+        provider: "blocklist",
+      }));
+    }
+    const results: TextModerationResult[] = Array(texts.length);
+    let next = 0;
+    await Promise.all(
+      Array.from({ length: Math.min(4, texts.length) }, async () => {
+        while (next < texts.length && !signal.aborted) {
+          const index = next++;
+          try {
+            results[index] = await (classify
+              ? classify(texts[index], signal)
+              : this.callPerspective(texts[index], signal, perspectiveKey)) ??
+              moderationUnavailable();
+          } catch {
+            results[index] = moderationUnavailable();
+          }
+        }
+      }),
+    );
+    return texts.map((_, i) => results[i] ?? moderationUnavailable());
+  }
+
+  private validateUnit(
+    { text, kind }: ModerationUnit,
+  ): TextModerationResult | null {
     const lowerText = text.toLowerCase().trim();
     const configured = hasTextModerationProvider();
+
+    // Hold obvious accidental contact sharing before sending text to providers.
+    // This is a narrow extra guard, not a substitute for multilingual PII and
+    // exploitation evaluation in the reviewed teen-release safety assessment.
+    if (
+      /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(text) ||
+      /\b(?:my|our)\s+(?:phone|mobile|telephone)(?:\s+number)?\s*(?:is|:)?\s*\+?[\d ()-]{7,}/i
+        .test(
+          text,
+        ) ||
+      /\b(?:my|our)\s+(?:home\s+)?address\s*(?:is|:)\s*\d/i.test(text)
+    ) {
+      return {
+        status: "flagged_human_review",
+        reason: "Remove personal contact information before submitting.",
+        flaggedCategories: ["personal_information"],
+        provider: "privacy_guard",
+      };
+    }
 
     // Word-boundary match, not substring. `includes()` flagged "skill" for
     // "kill", "soldier" for "die" and "assassin" for "ass" -- in a game whose
@@ -146,15 +350,15 @@ export class TextModerationProvider {
       : [...this.hardBlocklist, ...this.fallbackBlocklist];
     for (const blocked of blocklist) {
       const pattern = new RegExp(
-        `\\b${blocked.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
+        `\\b${blocked.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
       );
       if (pattern.test(lowerText)) {
         return {
-          status: 'rejected',
-          reason: 'Blocked term detected',
+          status: "rejected",
+          reason: "Blocked term detected",
           confidence: 1.0,
-          flaggedCategories: ['blocklist'],
-          provider: 'blocklist',
+          flaggedCategories: ["blocklist"],
+          provider: "blocklist",
         };
       }
     }
@@ -163,11 +367,11 @@ export class TextModerationProvider {
     const capsRatio = (text.match(/[A-Z]/g) || []).length / text.length;
     if (capsRatio > 0.7 && text.length > 20) {
       return {
-        status: 'flagged_human_review',
-        reason: 'Excessive capitalization',
+        status: "flagged_human_review",
+        reason: "Excessive capitalization",
         confidence: 0.6,
-        flaggedCategories: ['spam_like'],
-        provider: 'heuristic',
+        flaggedCategories: ["spam_like"],
+        provider: "heuristic",
       };
     }
 
@@ -176,101 +380,47 @@ export class TextModerationProvider {
     const uniqueWords = new Set(words);
     if (words.length > 10 && uniqueWords.size < words.length * 0.3) {
       return {
-        status: 'flagged_human_review',
-        reason: 'Excessive repetition',
+        status: "flagged_human_review",
+        reason: "Excessive repetition",
         confidence: 0.7,
-        flaggedCategories: ['spam_like'],
-        provider: 'heuristic',
+        flaggedCategories: ["spam_like"],
+        provider: "heuristic",
       };
     }
 
     // Length validation (already checked in submit-prompt, but defense in depth)
-    if (text.length < 20 || text.length > 800) {
+    const [minimum, maximum] = MODERATION_UNIT_BOUNDS[kind];
+    if (text.length < minimum || text.length > maximum) {
       return {
-        status: 'rejected',
-        reason: 'Prompt length out of bounds (20-800 chars)',
+        status: "rejected",
+        reason: `${
+          kind === "prompt" ? "Prompt" : kind
+        } length out of bounds (${minimum}-${maximum} chars)`,
         confidence: 1.0,
-        flaggedCategories: ['length'],
-        provider: 'validation',
+        flaggedCategories: ["length"],
+        provider: "validation",
       };
     }
 
-    // Call external provider if configured.
-    //
-    // `callExternalProvider` returns null for two very different situations:
-    // no provider is configured, or a configured provider errored. Treating
-    // both as "approve" meant an OpenAI outage silently downgraded the entire
-    // UGC pipeline -- prompts that reach a video generator -- to a
-    // twelve-word blocklist, with nothing in the logs to say moderation had
-    // stopped working.
-    const providerResult = await this.callExternalProvider(text);
-    if (providerResult) {
-      return providerResult;
-    }
-
-    if (configured) {
-      // Configured but returned nothing: the provider failed. Fail closed.
-      // `flagged_human_review` is already blocked by submit-prompt, so the
-      // prompt is held rather than published, and the report lands in the
-      // moderation queue for a human.
-      console.error('Text moderation provider failed; failing closed');
-      return {
-        status: 'flagged_human_review',
-        confidence: 0,
-        provider: 'unavailable',
-        flaggedCategories: ['provider_unavailable'],
-      };
-    }
-
-    // No provider configured at all: development and local test. Production
-    // must configure one -- see assertTextModerationConfigured().
-    return {
-      status: 'approved',
-      confidence: 0.95,
-      provider: 'blocklist',
-    };
+    return null;
   }
-
-  private async callExternalProvider(
+  private async callPerspective(
     text: string,
+    signal: AbortSignal,
+    perspectiveKey?: string,
   ): Promise<TextModerationResult | null> {
-    const openAiKey = Deno.env.get('OPENAI_API_KEY');
-    const perspectiveKey = Deno.env.get('PERSPECTIVE_API_KEY');
-
-    // OpenAI Moderation API
-    if (openAiKey) {
-      try {
-        const response = await fetch('https://api.openai.com/v1/moderations', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${openAiKey}`,
-          },
-          body: JSON.stringify({ input: text }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const result = data.results[0] as OpenAiModerationResult;
-          return evaluateOpenAiModeration(result, data.id);
-        }
-      } catch (error) {
-        console.error('OpenAI moderation error:', error);
-        // Fall through to next provider or default
-      }
-    }
-
     // Perspective API (Google Jigsaw)
     if (perspectiveKey) {
       try {
         const response = await fetch(
           `https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key=${perspectiveKey}`,
           {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: "POST",
+            signal,
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               comment: { text },
-              languages: ['en'],
+              languages: ["en"],
               requestedAttributes: {
                 TOXICITY: {},
                 SEVERE_TOXICITY: {},
@@ -286,6 +436,23 @@ export class TextModerationProvider {
         if (response.ok) {
           const data = await response.json();
           const scores = data.attributeScores;
+          if (
+            !scores ||
+            [
+              "TOXICITY",
+              "SEVERE_TOXICITY",
+              "IDENTITY_ATTACK",
+              "INSULT",
+              "PROFANITY",
+              "THREAT",
+            ].some(
+              (key) =>
+                typeof scores[key]?.summaryScore?.value !== "number" ||
+                !Number.isFinite(scores[key].summaryScore.value) ||
+                scores[key].summaryScore.value < 0 ||
+                scores[key].summaryScore.value > 1,
+            )
+          ) return null;
           const maxScore = Math.max(
             scores.TOXICITY?.summaryScore?.value || 0,
             scores.SEVERE_TOXICITY?.summaryScore?.value || 0,
@@ -299,30 +466,30 @@ export class TextModerationProvider {
 
           if (maxScore > 0.85) {
             return {
-              status: 'rejected',
-              reason: `Toxic content detected: ${flagged.join(', ')}`,
+              status: "rejected",
+              reason: `Toxic content detected: ${flagged.join(", ")}`,
               confidence: maxScore,
               flaggedCategories: flagged,
-              provider: 'perspective',
+              provider: "perspective",
             };
           } else if (maxScore > 0.6) {
             return {
-              status: 'flagged_human_review',
-              reason: `Potentially toxic: ${flagged.join(', ')}`,
+              status: "flagged_human_review",
+              reason: `Potentially toxic: ${flagged.join(", ")}`,
               confidence: maxScore,
               flaggedCategories: flagged,
-              provider: 'perspective',
+              provider: "perspective",
             };
           }
 
           return {
-            status: 'approved',
+            status: "approved",
             confidence: 1.0 - maxScore,
-            provider: 'perspective',
+            provider: "perspective",
           };
         }
       } catch (error) {
-        console.error('Perspective API error:', error);
+        if (!signal.aborted) console.error("Perspective API error:", error);
         // Fall through
       }
     }
@@ -338,37 +505,37 @@ export class TextModerationProvider {
 export class VideoModerationProvider {
   async moderate(
     videoUrl: string,
-    videoId: string,
+    _videoId: string,
   ): Promise<VideoModerationResult> {
-    const provider = Deno.env.get('VIDEO_MODERATION_PROVIDER') || 'manual';
+    const provider = Deno.env.get("VIDEO_MODERATION_PROVIDER") || "manual";
 
     // Stub: in production, call video moderation API (e.g., Google Video Intelligence, Hive)
     // For MVP, all videos flagged for manual review
-    if (provider === 'manual') {
+    if (provider === "manual") {
       return {
-        status: 'flagged_human_review',
-        reason: 'Manual review required for all videos in MVP',
+        status: "flagged_human_review",
+        reason: "Manual review required for all videos in MVP",
         confidence: 0.5,
-        provider: 'manual',
+        provider: "manual",
       };
     }
 
     // Placeholder for future provider integration
     // Example: Hive AI Video Moderation
-    const hiveApiKey = Deno.env.get('HIVE_API_KEY');
-    if (hiveApiKey && provider === 'hive') {
+    const hiveApiKey = Deno.env.get("HIVE_API_KEY");
+    if (hiveApiKey && provider === "hive") {
       try {
         const response = await fetch(
-          'https://api.thehive.ai/api/v2/task/sync',
+          "https://api.thehive.ai/api/v2/task/sync",
           {
-            method: 'POST',
+            method: "POST",
             headers: {
               Authorization: `Token ${hiveApiKey}`,
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
               url: videoUrl,
-              models: ['nsfw', 'violence', 'hate_speech'],
+              models: ["nsfw", "violence", "hate_speech"],
             }),
           },
         );
@@ -386,33 +553,35 @@ export class VideoModerationProvider {
               ...flaggedClasses.map((c: { score: number }) => c.score),
             );
             return {
-              status: maxScore > 0.95 ? 'rejected' : 'flagged_human_review',
-              reason: `Flagged: ${flaggedClasses.map((c: { class: string }) => c.class).join(', ')}`,
+              status: maxScore > 0.95 ? "rejected" : "flagged_human_review",
+              reason: `Flagged: ${
+                flaggedClasses.map((c: { class: string }) => c.class).join(", ")
+              }`,
               confidence: maxScore,
               flaggedCategories: flaggedClasses.map(
                 (c: { class: string }) => c.class,
               ),
-              provider: 'hive',
+              provider: "hive",
             };
           }
 
           return {
-            status: 'approved',
+            status: "approved",
             confidence: 0.95,
-            provider: 'hive',
+            provider: "hive",
           };
         }
       } catch (error) {
-        console.error('Hive video moderation error:', error);
+        console.error("Hive video moderation error:", error);
       }
     }
 
     // Default: flag for manual review
     return {
-      status: 'flagged_human_review',
-      reason: 'No automated video moderation provider configured',
+      status: "flagged_human_review",
+      reason: "No automated video moderation provider configured",
       confidence: 0.5,
-      provider: 'none',
+      provider: "none",
     };
   }
 }

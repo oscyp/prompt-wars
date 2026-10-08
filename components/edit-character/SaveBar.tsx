@@ -54,12 +54,6 @@ export default function SaveBar({
         >
           {changeCount} change{changeCount === 1 ? '' : 's'}
         </GameText>
-        <GameText
-          variant="caption"
-          style={[styles.sub, accessibleText, { color: colors.textSecondary }]}
-        >
-          Free
-        </GameText>
       </View>
       <GameButton
         onPress={onClear}

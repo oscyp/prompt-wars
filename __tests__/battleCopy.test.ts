@@ -289,3 +289,42 @@ describe('inkFor', () => {
     }
   });
 });
+
+describe('frozen round winner side', () => {
+  const botResult = {
+    status: 'result_ready',
+    isDraw: false,
+    roundWinnerId: null,
+    myProfileId: 'me',
+    winnerSide: 2,
+    viewerSide: 1 as const,
+  };
+  it('recognises a completed bot win without a profile id', () => {
+    expect(roundOutcomeFor(botResult)).toBe('lost');
+    expect(roundOutcomeFor({ ...botResult, viewerSide: 2 })).toBe('won');
+  });
+  it('preserves unresolved, draw and explicit winner-id precedence', () => {
+    expect(roundOutcomeFor({ ...botResult, status: 'resolving' })).toBe(
+      'pending',
+    );
+    expect(roundOutcomeFor({ ...botResult, isDraw: true })).toBe('draw');
+    expect(roundOutcomeFor({ ...botResult, roundWinnerId: 'me' })).toBe('won');
+    expect(
+      roundOutcomeFor({ ...botResult, roundWinnerId: 'them', winnerSide: 1 }),
+    ).toBe('lost');
+  });
+  it.each([undefined, null, 0, 3, '2'])(
+    'keeps an absent or invalid frozen side %p pending',
+    (winnerSide) => {
+      expect(roundOutcomeFor({ ...botResult, winnerSide })).toBe('pending');
+    },
+  );
+  it('keeps an unknown viewer pending', () => {
+    expect(roundOutcomeFor({ ...botResult, myProfileId: null })).toBe(
+      'pending',
+    );
+    expect(roundOutcomeFor({ ...botResult, viewerSide: undefined })).toBe(
+      'pending',
+    );
+  });
+});

@@ -1,0 +1,5 @@
+shell getprop ro.build.version.release: 15
+shell getprop ro.build.version.sdk: 35
+shell getprop ro.product.cpu.abi: arm64-v8a
+shell wm size: Physical size: 1080x2340
+shell wm density: Physical density: 440

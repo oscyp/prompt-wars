@@ -1,17 +1,13 @@
-import { GameDisplayTitle } from '@/components/game/GameDisplayTitle';
+import { GameFeedback } from '@/components/game/GameFeedback';
 import { GameText as Text, GamePanel, GameButton } from '@/components/game';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
   Alert,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import {
@@ -21,7 +17,6 @@ import {
   Layout,
 } from '@/constants/DesignTokens';
 import Toast from '@/components/Toast';
-import { HEADER_BUTTON_SIZE } from '@/components/HeaderBackButton';
 import {
   getBlockedProfiles,
   unblockUser,
@@ -42,7 +37,6 @@ const TOAST_MS = 2500;
  */
 export default function BlockedPlayersScreen() {
   const colors = useThemedColors();
-  const insets = useSafeAreaInsets();
   const accessibleText = useAccessibleTextStyle();
   const [blocked, setBlocked] = useState<BlockedProfile[]>([]);
   const [loadState, setLoadState] = useState<LoadState>('loading');
@@ -117,7 +111,7 @@ export default function BlockedPlayersScreen() {
     );
   };
 
-  const topInset = insets.top + HEADER_BUTTON_SIZE;
+  const topInset = Spacing.md;
 
   if (loadState === 'loading') {
     return (
@@ -128,7 +122,11 @@ export default function BlockedPlayersScreen() {
           { backgroundColor: colors.background, paddingTop: topInset },
         ]}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
+        <GameFeedback
+          icon="shield-check"
+          title="Loading blocked players"
+          busy
+        />
       </View>
     );
   }
@@ -142,35 +140,13 @@ export default function BlockedPlayersScreen() {
           { backgroundColor: colors.background, paddingTop: topInset },
         ]}
       >
-        <GameSymbol
-          name="shield-outline"
-          size={32}
-          color={colors.textTertiary}
+        <GameFeedback
+          icon="shield-check"
+          title="Couldn’t load your block list"
+          message="Check your connection and try again."
+          tone="error"
+          action={{ label: 'Retry', onPress: retry }}
         />
-        <Text
-          variant="title"
-          accessibilityRole="header"
-          style={[styles.errorTitle, accessibleText, { color: colors.text }]}
-        >
-          Couldn’t load your block list
-        </Text>
-        <Text
-          style={[
-            styles.errorBody,
-            accessibleText,
-            { color: colors.textSecondary },
-          ]}
-        >
-          Check your connection and try again.
-        </Text>
-        <TouchableOpacity
-          onPress={retry}
-          accessibilityRole="button"
-          accessibilityLabel="Retry"
-          style={[styles.retryButton, { backgroundColor: colors.primary }]}
-        >
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -182,13 +158,6 @@ export default function BlockedPlayersScreen() {
         { backgroundColor: colors.background, paddingTop: topInset },
       ]}
     >
-      <GameDisplayTitle
-        accessibilityRole="header"
-        style={[styles.title, accessibleText]}
-      >
-        Blocked Players
-      </GameDisplayTitle>
-
       <FlatList
         data={blocked}
         keyExtractor={(item) => item.profileId}
@@ -204,16 +173,11 @@ export default function BlockedPlayersScreen() {
           />
         }
         ListEmptyComponent={
-          <Text
-            style={[
-              styles.empty,
-              accessibleText,
-              { color: colors.textSecondary },
-            ]}
-          >
-            You have not blocked anyone. You can block a player from the report
-            option on any battle result.
-          </Text>
+          <GameFeedback
+            icon="shield-check"
+            title="No blocked players"
+            message="You have not blocked anyone. Use Safety beside a player or on a battle result to report or block them."
+          />
         }
         renderItem={({ item }) => {
           const since = blockedAtLabel(item.blockedAt);

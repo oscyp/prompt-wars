@@ -15,9 +15,11 @@ import {
 export default function TutorialCoach({
   battleId,
   stage,
+  composerVersion = 1,
 }: {
   battleId: string;
   stage: TutorialHintKey;
+  composerVersion?: 1 | 2;
 }) {
   const { user } = useAuth();
   const colors = useThemedColors();
@@ -50,7 +52,7 @@ export default function TutorialCoach({
       active = false;
     };
   }, [user, battleId, stage, retry]);
-  const text = tutorialHint(state, battleId, stage);
+  const text = tutorialHint(state, battleId, stage, composerVersion);
   if (error)
     return (
       <Pressable

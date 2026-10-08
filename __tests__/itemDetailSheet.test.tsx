@@ -44,14 +44,14 @@ describe('ItemDetailSheet', () => {
     expect(getByText('A coin that always lands your way.')).toBeTruthy();
     expect(
       getByText(
-        'Select for free, then save your choices. A new drawing brings this item into your artwork.',
+        'Save your choices. A new drawing brings this item into your artwork.',
       ),
     ).toBeTruthy();
   });
 
   it('chooses the item by id', () => {
     const { getByLabelText, props } = renderSheet();
-    fireEvent.press(getByLabelText('Use Lucky Coin · Free'));
+    fireEvent.press(getByLabelText('Use Lucky Coin'));
     expect(props.onChoose).toHaveBeenCalledWith('coin');
   });
 
@@ -60,15 +60,27 @@ describe('ItemDetailSheet', () => {
       equipped: true,
     });
     const button = getByText('Selected');
-    expect(queryByLabelText('Use Lucky Coin · Free')).toBeNull();
+    expect(queryByLabelText('Use Lucky Coin')).toBeNull();
     fireEvent.press(button);
     expect(props.onChoose).not.toHaveBeenCalled();
   });
 
   it('does not choose while disabled', () => {
     const { getByLabelText, props } = renderSheet({ disabled: true });
-    fireEvent.press(getByLabelText('Use Lucky Coin · Free'));
+    fireEvent.press(getByLabelText('Use Lucky Coin'));
     expect(props.onChoose).not.toHaveBeenCalled();
+  });
+
+  it('announces and performs Manage battles when selection is locked', () => {
+    const onDisabledAction = jest.fn();
+    const { getByRole, queryByLabelText, props } = renderSheet({
+      disabled: true,
+      onDisabledAction,
+    });
+    fireEvent.press(getByRole('button', { name: 'Manage battles' }));
+    expect(onDisabledAction).toHaveBeenCalledTimes(1);
+    expect(props.onChoose).not.toHaveBeenCalled();
+    expect(queryByLabelText('Use Lucky Coin')).toBeNull();
   });
 
   it('credits the player for their own items', () => {
@@ -93,7 +105,7 @@ describe('ItemDetailSheet', () => {
     const { queryByText } = renderSheet({ visible: false, item: null });
     expect(
       queryByText(
-        'Select for free, then save your choices. A new drawing brings this item into your artwork.',
+        'Save your choices. A new drawing brings this item into your artwork.',
       ),
     ).toBeNull();
   });

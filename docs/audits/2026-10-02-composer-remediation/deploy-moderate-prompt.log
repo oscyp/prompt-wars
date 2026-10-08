@@ -1,0 +1,7 @@
+Deployed Functions on project uoyjhudegdpanrgllfoj: moderate-prompt
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/uoyjhudegdpanrgllfoj/functions
+
+Uploading asset (moderate-prompt): supabase/functions/moderate-prompt/index.ts
+Uploading asset (moderate-prompt): supabase/functions/_shared/types.ts
+Uploading asset (moderate-prompt): supabase/functions/_shared/moderation.ts
+Uploading asset (moderate-prompt): supabase/functions/_shared/utils.ts

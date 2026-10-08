@@ -1,0 +1,22 @@
+{
+  "id": "bc22e58f-7250-4796-94e8-4489e3e80642",
+  "status": "FINISHED",
+  "platform": "ANDROID",
+  "appVersion": "1.3.3",
+  "appBuildVersion": "7",
+  "sdkVersion": "55.0.0",
+  "distribution": "INTERNAL",
+  "buildProfile": "preview",
+  "gitCommitHash": "d66e621264fb56b6471ecbaa4a7971bb689abaca",
+  "createdAt": "2026-10-02T16:26:14.120Z",
+  "updatedAt": "2026-10-02T17:40:34.247Z",
+  "completedAt": "2026-10-02T17:40:34.064Z",
+  "error": null,
+  "artifacts": {
+    "buildUrl": "https://expo.dev/artifacts/eas/ipYBjrgacAsSHqXsM5drO8aAOcADMFIoUSWAMJYrlC0.apk",
+    "applicationArchiveUrl": "https://expo.dev/artifacts/eas/ipYBjrgacAsSHqXsM5drO8aAOcADMFIoUSWAMJYrlC0.apk"
+  },
+  "observedAt": "2026-10-02T17:42:03.007Z",
+  "statusSource": "Expo connector expo_build_info",
+  "queueEstimateAvailable": false
+}

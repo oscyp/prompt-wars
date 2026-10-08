@@ -7,7 +7,6 @@ import { GameSymbol } from '@/components/game/icons/GameSymbol';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useAccessibleTextStyle } from '@/hooks/useAccessibleText';
 import { Spacing, Typography, BorderRadius } from '@/constants/DesignTokens';
-import { formatCredits } from '@/utils/credits';
 import { hapticSuccess } from '@/utils/haptics';
 import { avatarPendingCopy } from '@/utils/editDialogCopy';
 import PortraitPreview from './PortraitPreview';
@@ -68,7 +67,6 @@ export default function RenderRevealSheet({
   frame,
   avatar,
   mode,
-  creditsSpent,
   canRetryAvatar,
   retryingAvatar = false,
   canRestorePrevious,
@@ -179,13 +177,9 @@ export default function RenderRevealSheet({
     : avatar;
   const pendingCopy = avatarPendingCopy(canRetryAvatar);
 
-  const spent =
-    creditsSpent > 0
-      ? ` · ${formatCredits(creditsSpent, 'sentence')} spent`
-      : '';
   const caption = `${characterName} · ${
     mode === 'random' ? 'New character' : 'New look'
-  }${spent}`;
+  }`;
 
   return (
     <BottomSheet
@@ -209,8 +203,8 @@ export default function RenderRevealSheet({
           )}
           <GameButton label="Keep" onPress={onKeep} disabled={restoring} />
           <GameButton
-            label={restoring ? 'Restoring…' : 'Restore previous · Free'}
-            accessibilityLabel="Restore previous, free"
+            label={restoring ? 'Restoring…' : 'Restore previous'}
+            accessibilityLabel="Restore previous"
             onPress={onRestorePrevious}
             disabled={!canRestorePrevious}
             busy={restoring}

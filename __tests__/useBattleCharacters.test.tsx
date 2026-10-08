@@ -18,6 +18,26 @@ beforeEach(() => {
   invoke.mockReset();
   auth.mockReturnValue({ user: { id: 'account-a' } });
 });
+it('distinguishes unresolved signing from a confirmed missing legacy portrait', async () => {
+  let resolve!: (value: unknown) => void;
+  invoke.mockImplementationOnce(
+    () =>
+      new Promise((r) => {
+        resolve = r;
+      }),
+  );
+  const { result } = renderHook(() =>
+    useBattleCharacters('share-readiness', null),
+  );
+  expect(result.current.portraitsResolved).toBe(false);
+  await act(async () =>
+    resolve({
+      data: { player_one: side('Legacy', ''), player_two: null },
+      error: null,
+    }),
+  );
+  expect(result.current.portraitsResolved).toBe(true);
+});
 it('signing refresh changes assets without reading mutable character rows', async () => {
   invoke.mockResolvedValue({
     data: {

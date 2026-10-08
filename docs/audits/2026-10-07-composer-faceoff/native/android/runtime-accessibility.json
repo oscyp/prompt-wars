@@ -1,0 +1,9 @@
+{
+  "talkBackInstalled": false,
+  "enabledAccessibilityServices": "null",
+  "readerTraversalVerified": false,
+  "sdk": "35",
+  "androidRelease": "15",
+  "runtime": "Expo Go existing installation",
+  "nativeAppBuildCreated": false
+}

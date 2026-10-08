@@ -1,0 +1,50 @@
+{
+  "id": "c60b6c40-b019-46d6-bf93-b88e3200fd33",
+  "status": "FINISHED",
+  "platform": "IOS",
+  "artifacts": {
+    "buildUrl": "https://expo.dev/artifacts/eas/pqJ4ORYXyUmbzled14XUjP-CzWzMVCSEAFfAd4Btd80.ipa",
+    "xcodeBuildLogsUrl": "https://storage.googleapis.com/eas-workflows-production/logs/d4c525e1-0a95-4c6a-b1ee-106fa2f03f46/c60b6c40-b019-46d6-bf93-b88e3200fd33/2026-10-02T14%3A39%3A26Z-c60b6c40-b019-46d6-bf93-b88e3200fd33-xcode.txt",
+    "applicationArchiveUrl": "https://expo.dev/artifacts/eas/pqJ4ORYXyUmbzled14XUjP-CzWzMVCSEAFfAd4Btd80.ipa"
+  },
+  "fingerprint": {
+    "id": "01a0fd0e-36c2-780b-ada7-a0df1a49748a",
+    "hash": "b0037e5177bbee980fafcb38af6761be2c8006cd"
+  },
+  "initiatingActor": {
+    "id": "3dedb902-54fb-4141-933d-74d495799a12",
+    "displayName": "p__d"
+  },
+  "logFiles": [
+    "https://storage.googleapis.com/eas-workflows-production/logs/d4c525e1-0a95-4c6a-b1ee-106fa2f03f46/c60b6c40-b019-46d6-bf93-b88e3200fd33/2026-10-02T14%3A39%3A26Z-794e0d46-da93-4176-bbd5-229fed706a07.txt",
+    "https://storage.googleapis.com/eas-workflows-production/logs/d4c525e1-0a95-4c6a-b1ee-106fa2f03f46/c60b6c40-b019-46d6-bf93-b88e3200fd33/2026-10-02T14%3A39%3A26Z-c60b6c40-b019-46d6-bf93-b88e3200fd33-xcode.txt"
+  ],
+  "app": {
+    "id": "d4c525e1-0a95-4c6a-b1ee-106fa2f03f46",
+    "name": "prompt-wars",
+    "slug": "prompt-wars",
+    "ownerAccount": {
+      "id": "72cb62bc-d38d-4706-a12c-a881967fb6f1",
+      "name": "prompt-wars"
+    }
+  },
+  "distribution": "STORE",
+  "buildProfile": "production",
+  "appIdentifier": "gg.promptwars.app",
+  "sdkVersion": "55.0.0",
+  "appVersion": "1.3.3",
+  "appBuildVersion": "16",
+  "gitCommitHash": "d66e621264fb56b6471ecbaa4a7971bb689abaca",
+  "gitCommitMessage": "UX changes",
+  "priority": "NORMAL",
+  "createdAt": "2026-10-02T14:39:22.233Z",
+  "updatedAt": "2026-10-02T14:45:42.965Z",
+  "completedAt": "2026-10-02T14:45:42.630Z",
+  "expirationDate": "2026-11-01T14:39:22.292Z",
+  "isForIosSimulator": false,
+  "metrics": {
+    "buildWaitTime": 3963,
+    "buildQueueTime": 19962,
+    "buildDuration": 356472
+  }
+}

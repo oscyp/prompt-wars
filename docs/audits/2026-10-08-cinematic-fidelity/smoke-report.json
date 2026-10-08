@@ -1,0 +1,31 @@
+{
+  "fixture": "synthetic-bundled-smoke",
+  "requestedDuration": 15,
+  "inputHash": "2e9bcbf303daf83266d371760bb0ac19ee831f014bd996b8313d8884937a3ffc",
+  "referenceCount": 4,
+  "status": "succeeded",
+  "visualGate": "not_passed_full_matrix_pending",
+  "model": "grok-imagine-video-1.5",
+  "providerJobId": "6ea0ca29-99f3-9bcf-9084-8f904f6c04eb",
+  "submittedDuration": 15,
+  "latencySeconds": 94.636,
+  "actualDuration": 15,
+  "providerModerationApproved": true,
+  "clip": "clip.mp4",
+  "measuredDurationSeconds": 15.042,
+  "review": {
+    "scope": "six sampled frames",
+    "identity": "recognizable",
+    "items": "recognizable; duplicate compass during motion",
+    "moveIdeas": "both recognizable",
+    "outcome": "correct P2 winner",
+    "originalAudioTracks": 1,
+    "audioPeak": 0.114866376,
+    "audioRms": 0.01047512332377592,
+    "signedUrlFetch": "not_tested",
+    "storedAudioTracks": 0,
+    "storedDurationSeconds": 15.042,
+    "remux": "audio track metadata removed; media offsets and video bytes unchanged"
+  },
+  "estimatedListCostUsd": 2.14
+}

@@ -1,0 +1,71 @@
+{
+  "observedAt": "2026-10-07T14:26:00.491098+00:00",
+  "buildId": "c177cc6f-084e-4130-981f-ac85f9cabfac",
+  "apkPath": "/tmp/prompt-wars-four-view-release-20261007/prompt-wars-1.3.3-9.apk",
+  "bytes": 139039741,
+  "sha256": "b52abf2944adf655674cb3575207291ea1dd1414966eec522d321c6638f326c9",
+  "zipCrcVerified": true,
+  "manifest": {
+    "manifest.package": "gg.promptwars.app",
+    "manifest.versionName": "1.3.3",
+    "manifest.versionCode": "9",
+    "uses-sdk.minSdkVersion": "24",
+    "uses-sdk.targetSdkVersion": "36"
+  },
+  "debuggable": false,
+  "nativeAbis": [
+    "arm64-v8a",
+    "armeabi-v7a",
+    "x86",
+    "x86_64"
+  ],
+  "bundle": {
+    "bytes": 5323272,
+    "sha256": "ee76a4447d81e9a75d38debcffc45439adda0b1e2b0cce9712337b529581d8ce",
+    "magic": "c61fbc03c103191f",
+    "composerMarkers": {
+      "How will you make it work?": true,
+      "What do you do?": true,
+      "What are you trying to achieve?": true,
+      "approachHints": true,
+      "composer_step_next": true,
+      "composition_version": true,
+      "HOLD TO LOCK IN": true
+    },
+    "removedComposerCopyMarkers": {
+      "All ideas": false,
+      "Draft saved on this device": false,
+      "Discard draft": false,
+      "Undo builder changes": false,
+      "Show shared situation": false,
+      "Change intention": false
+    },
+    "checkedPrivateBackendMarkers": {
+      "bot_policy_catalog": false,
+      "bot_policy_seeds": false,
+      "bot_round_choices": false,
+      "private_bot_tactics": false
+    },
+    "checkedFixtureOnlyMarkers": {
+      "local composer fixture": false,
+      "sb_publishable_fixture_placeholder": false,
+      "127.0.0.1:9": false
+    }
+  },
+  "signature": {
+    "verified": true,
+    "v1": false,
+    "v2": true,
+    "v3": false,
+    "v31": false,
+    "v4": false,
+    "signerCount": 1,
+    "signerSha256": "0c64ae959415b1406a00943daa0bb4cae83c9e5f816d4be726d8089dd3612c14",
+    "publicKeyAlgorithm": "RSA",
+    "matchesExpectedExistingCertificate": true,
+    "errors": [],
+    "warnings": [],
+    "verifier": "Google com.android.tools.build:apksig:8.9.3"
+  },
+  "runtimeVerification": "Passed exact APK cold-launch smoke; see ../native/android/release9-runtime.json."
+}

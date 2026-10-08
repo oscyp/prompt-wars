@@ -26,6 +26,17 @@ describe('native game controls', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
+  it('distinguishes a signed reward from an ordinary purchase amount', () => {
+    const ui = render(<GameButton label="Claim" amount={2} amountSigned />);
+    expect(
+      ui.getByRole('button', { name: 'Claim, Plus 2 credits' }),
+    ).toBeTruthy();
+    expect(ui.getByText('+2', { includeHiddenElements: true })).toBeTruthy();
+    ui.rerender(<GameButton label="Buy" amount={2} />);
+    expect(ui.getByRole('button', { name: 'Buy, 2 credits' })).toBeTruthy();
+    expect(ui.queryByText('+2', { includeHiddenElements: true })).toBeNull();
+  });
+
   it.each(['disabled', 'busy', 'unavailable'] as const)(
     'blocks activation when %s',
     (state) => {

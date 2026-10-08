@@ -2,7 +2,12 @@ import type { SheetFocusRef } from '@/hooks/useSheetReturnFocus';
 import React, { useState } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { useThemedColors } from '@/hooks/useThemedColors';
-import { GameText as Text, GameButton, GamePanel } from '@/components/game';
+import {
+  GameText as Text,
+  GameButton,
+  GamePanel,
+  CreditAmount,
+} from '@/components/game';
 import { GameIcon } from '@/components/game/icons/GameIcon';
 import { presentationFor } from '@/constants/Cosmetics';
 import type { CosmeticItem } from '@/utils/cosmetics';
@@ -14,13 +19,13 @@ import {
   rarityLabel,
   type UnlockProgressCounts,
 } from '@/utils/walletView';
-import { formatCredits } from '@/utils/credits';
 import PortraitPreview from '../PortraitPreview';
 import CosmeticBadge from '../CosmeticBadge';
 import CosmeticTitle from '../CosmeticTitle';
 
 export function ShopButton({
   label,
+  amount,
   accessibilityLabel,
   onPress,
   disabled,
@@ -30,6 +35,7 @@ export function ShopButton({
   collection = false,
 }: {
   label: string;
+  amount?: number | null;
   accessibilityLabel?: string;
   onPress: () => void;
   disabled?: boolean;
@@ -42,6 +48,7 @@ export function ShopButton({
     <GameButton
       ref={focusRef}
       label={label}
+      amount={amount}
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       disabled={disabled}
@@ -102,15 +109,24 @@ export function ShopItemAction({
     if (credits !== null && credits < item.price_credits)
       return (
         <View style={styles.details}>
-          <Text style={{ color: colors.textSecondary }}>
-            Need {formatCredits(item.price_credits)}
-          </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <Text style={{ color: colors.textSecondary }}>Price</Text>
+            <CreditAmount amount={item.price_credits} />
+          </View>
           <ShopButton label="Top up" onPress={onWallet} />
         </View>
       );
     return (
       <ShopButton
-        label={`Buy · ${formatCredits(item.price_credits)}`}
+        label="Buy"
+        amount={item.price_credits}
         accessibilityLabel={buyAccessibilityLabel({
           name: item.name,
           price: item.price_credits,
@@ -130,7 +146,7 @@ export function ShopItemAction({
       {item.acquisition === 'exclusive'
         ? 'Launch offer only'
         : item.acquisition === 'free'
-          ? 'Included free · refresh to claim'
+          ? 'Included · refresh to claim'
           : lockedProgressHint(item.unlock_rule, progress)}
     </Text>
   );
@@ -235,15 +251,7 @@ export function ShopItemCard({
             </Text>
           </View>
         ) : item.price_credits != null ? (
-          <View style={styles.marker}>
-            <GameIcon name="crystal" size={18} color={colors.primary} />
-            <Text
-              variant="label"
-              style={{ color: colors.ornament, flexShrink: 1 }}
-            >
-              {formatCredits(item.price_credits, 'sentence')}
-            </Text>
-          </View>
+          <CreditAmount amount={item.price_credits} size="small" />
         ) : null}
       </View>
       {!item.owned &&

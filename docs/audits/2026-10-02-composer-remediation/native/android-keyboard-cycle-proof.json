@@ -1,0 +1,26 @@
+[
+  {
+    "capture": "go-padding-show1",
+    "lockBounds": "[44,1230][1036,1406]"
+  },
+  {
+    "capture": "go-padding-hide1",
+    "lockBounds": "[44,2010][1036,2186]"
+  },
+  {
+    "capture": "go-padding-show2",
+    "lockBounds": "[44,1230][1036,1406]"
+  },
+  {
+    "capture": "go-padding-hide2",
+    "lockBounds": "[44,2010][1036,2186]"
+  },
+  {
+    "capture": "go-padding-show3",
+    "lockBounds": "[44,1230][1036,1406]"
+  },
+  {
+    "capture": "go-padding-hide3",
+    "lockBounds": "[44,2010][1036,2186]"
+  }
+]

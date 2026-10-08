@@ -1,0 +1,12 @@
+Deployed Functions on project uoyjhudegdpanrgllfoj: create-custom-signature-item
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/uoyjhudegdpanrgllfoj/functions
+
+Uploading asset (create-custom-signature-item): supabase/functions/create-custom-signature-item/index.ts
+Uploading asset (create-custom-signature-item): supabase/functions/_shared/test-user.ts
+Uploading asset (create-custom-signature-item): supabase/functions/_shared/image-provider.ts
+Uploading asset (create-custom-signature-item): supabase/functions/_shared/portrait-prompt-resolver.ts
+Uploading asset (create-custom-signature-item): supabase/functions/_shared/credits.ts
+Uploading asset (create-custom-signature-item): supabase/functions/_shared/character-creation.ts
+Uploading asset (create-custom-signature-item): supabase/functions/_shared/utils.ts
+Uploading asset (create-custom-signature-item): supabase/functions/_shared/moderation.ts
+Uploading asset (create-custom-signature-item): supabase/functions/_shared/types.ts

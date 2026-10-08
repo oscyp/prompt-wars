@@ -1,3 +1,4 @@
+import { hashCinematicInput } from './cinematic-inputs.ts';
 // Tier 1 per-round payload composition.
 //
 // CRITICAL INVARIANTS:
@@ -244,10 +245,5 @@ export function composeTier1PerRoundPayload(
 export async function hashTier1Payload(
   payload: Tier1PerRoundPayload,
 ): Promise<string> {
-  const canonical = JSON.stringify(payload, Object.keys(payload).sort());
-  const bytes = new TextEncoder().encode(canonical);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  return await hashCinematicInput(payload);
 }

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, type Href } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocalSearchParams, type Href } from 'expo-router';
 import { isLoaded } from 'expo-font';
 import {
   View,
@@ -41,6 +41,7 @@ import { ShopItemCard } from '@/components/shop/ShopItem';
 import { ShopTrustFooter } from '@/components/shop/ShopTrustFooter';
 import type { CosmeticType } from '@/utils/cosmetics';
 import type { MoveType } from '@/utils/battles';
+import ItemGrid from '@/components/ItemGrid';
 import {
   catalog,
   deadline,
@@ -61,7 +62,18 @@ const states: LockInState[] = [
   'submitted',
 ];
 export default function NativeFixtures() {
+  const params = useLocalSearchParams<{ screen?: string; controls?: string }>();
   const [screen, setScreen] = useState('Arena');
+  useEffect(() => {
+    if (
+      params.screen &&
+      ['Arena', 'Battle', 'Shop', 'Icons', 'Stats', 'Creator'].includes(
+        params.screen,
+      )
+    )
+      setScreen(params.screen);
+    if (params.controls === 'hide') setControls(false);
+  }, [params.screen, params.controls]);
   const [widthIndex, setWidthIndex] = useState(0);
   const [controls, setControls] = useState(true);
   const [nameIndex, setNameIndex] = useState(0);
@@ -83,6 +95,7 @@ export default function NativeFixtures() {
   const [owned, setOwned] = useState(false);
   const [message, setMessage] = useState('');
   const [failedArt, setFailedArt] = useState(false);
+  const [creatorItem, setCreatorItem] = useState('compass');
   const progress = useSharedValue(0);
   const { width, fontScale } = useWindowDimensions();
   const fixtureWidths = [width, 320, 375, 390];
@@ -118,11 +131,13 @@ export default function NativeFixtures() {
               : 'Show development fixture controls',
             () => setControls(!controls),
           )}
-          <Link href={'/edit-look' as Href} asChild>
-            <Pressable accessibilityRole="button" style={styles.control}>
-              <GameText>Edit Look fixture</GameText>
-            </Pressable>
-          </Link>
+          {controls && (
+            <Link href={'/edit-look' as Href} asChild>
+              <Pressable accessibilityRole="button" style={styles.control}>
+                <GameText>Edit Look fixture</GameText>
+              </Pressable>
+            </Link>
+          )}
           {controls && (
             <View style={styles.controls}>
               <GameText>
@@ -137,8 +152,8 @@ export default function NativeFixtures() {
                   : 'unavailable — system fallback'}
               </GameText>
               <View style={styles.wrap}>
-                {['Arena', 'Battle', 'Shop', 'Icons', 'Stats'].map((label) =>
-                  control(label, () => setScreen(label)),
+                {['Arena', 'Battle', 'Shop', 'Icons', 'Stats', 'Creator'].map(
+                  (label) => control(label, () => setScreen(label)),
                 )}
               </View>
               <View style={styles.wrap}>
@@ -187,6 +202,44 @@ export default function NativeFixtures() {
               { width: fixtureWidth - 40, alignSelf: 'center' },
             ]}
           >
+            {screen === 'Creator' && (
+              <>
+                <GameHeader
+                  title="Pick a signature item"
+                  subtitle="Shared creator controls · fixture choices only"
+                />
+                <ItemGrid
+                  items={[
+                    {
+                      id: 'compass',
+                      name: 'Compass',
+                      description: 'A trusted guide.',
+                      itemClass: 'tool',
+                    },
+                    {
+                      id: 'hourglass',
+                      name: 'Hourglass',
+                      description: 'Borrowed time.',
+                      itemClass: 'relic',
+                    },
+                    {
+                      id: 'crown',
+                      name: 'Crown Fragment',
+                      description: 'A forgotten kingdom.',
+                      itemClass: 'symbol',
+                    },
+                    {
+                      id: 'briefcase',
+                      name: 'Briefcase',
+                      description: 'A brilliant argument.',
+                      itemClass: 'tool',
+                    },
+                  ]}
+                  selectedId={creatorItem}
+                  onSelect={setCreatorItem}
+                />
+              </>
+            )}
             {screen === 'Stats' && (
               <>
                 <GameHeader

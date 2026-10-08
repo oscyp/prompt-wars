@@ -1,0 +1,308 @@
+[
+  {
+    "id": "01-arena",
+    "title": "Arena · first viewport",
+    "note": "Compact hero, stat dividers and both primary actions are visible; preserve this hierarchy.",
+    "findings": [
+      "F4"
+    ],
+    "file": "screenshots/01-arena.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "02-profile",
+    "title": "Profile · first viewport",
+    "note": "Equipped frame, fighter, stats and actions read together.",
+    "findings": [
+      "F5"
+    ],
+    "file": "screenshots/02-profile.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "03-profile-progress",
+    "title": "Profile · progression",
+    "note": "Scrolled content reaches the status area; secondary panel styles diverge.",
+    "findings": [
+      "F4",
+      "F6"
+    ],
+    "file": "screenshots/03-profile-progress.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "04-profile-navigation",
+    "title": "Profile · rivals and destinations",
+    "note": "Rounded Rivals panel contrasts with the beveled navigation rows; label behind status bar.",
+    "findings": [
+      "F4",
+      "F6",
+      "F10"
+    ],
+    "file": "screenshots/04-profile-navigation.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "05-safety-sheet",
+    "title": "Report sheet",
+    "note": "Bounded shared sheet and explicit actions remain. No report was submitted.",
+    "findings": [],
+    "file": "screenshots/05-safety-sheet.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "06-stats",
+    "title": "Stats · overview",
+    "note": "Quiet information panels work; header spacing can follow the shared utility shell.",
+    "findings": [
+      "F4"
+    ],
+    "file": "screenshots/06-stats.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "07-stats-details",
+    "title": "Stats · scrolled detail",
+    "note": "Chart content reaches the status/Back area. Recent-data labels remain explicit.",
+    "findings": [
+      "F4"
+    ],
+    "file": "screenshots/07-stats-details.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "08-wallet",
+    "title": "Wallet · overview",
+    "note": "Long metallic title has visibly misaligned duplicate paint.",
+    "findings": [
+      "F1"
+    ],
+    "file": "screenshots/08-wallet.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "09-wallet-offers",
+    "title": "Wallet · credit packs",
+    "note": "Rounded outside edges remain behind angular pack bevels.",
+    "findings": [
+      "F4",
+      "F6"
+    ],
+    "file": "screenshots/09-wallet-offers.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "10-shop",
+    "title": "Shop · collection",
+    "note": "Tabs and trust copy are in place. Wearing summary does not show the named equipped frame.",
+    "findings": [
+      "F5"
+    ],
+    "file": "screenshots/10-shop.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "11-shop-preview",
+    "title": "Shop · frame preview",
+    "note": "Preview names and rounded controls do not match the collection typography and chrome.",
+    "findings": [
+      "F6"
+    ],
+    "file": "screenshots/11-shop-preview.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "12-settings",
+    "title": "Settings · notification warning",
+    "note": "Banner action stretches vertically and squeezes the message at default text size.",
+    "findings": [
+      "F2"
+    ],
+    "file": "screenshots/12-settings.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "13-blocked",
+    "title": "Blocked users · empty",
+    "note": "Readable but visually bare; opportunity for consistent empty-state feedback.",
+    "findings": [
+      "F9"
+    ],
+    "file": "screenshots/13-blocked.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "14-rankings-ended",
+    "title": "Rankings · ended season",
+    "note": "Actual available season state. A populated podium was not available on this account.",
+    "findings": [
+      "F9"
+    ],
+    "file": "screenshots/14-rankings-ended.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "15-edit-look",
+    "title": "Edit Look · restored draft",
+    "note": "Compact avatar and visible categories work. Existing draft was inspected without editing or saving.",
+    "findings": [],
+    "file": "screenshots/15-edit-look.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "16-editor-card-viewer",
+    "title": "Edit Look · full-card viewer",
+    "note": "Contained fighter and equipped frame are preserved; full-size viewing is appropriate here.",
+    "findings": [],
+    "file": "screenshots/16-editor-card-viewer.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "17-battles",
+    "title": "Battles · played history",
+    "note": "Routine finished rows have strong gold enclosures. Illustrated bots/legacy fallbacks are valid.",
+    "findings": [
+      "F10"
+    ],
+    "file": "screenshots/17-battles.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "18-series-summary",
+    "title": "Series result · 2–1 practice victory",
+    "note": "Score splits between headline lines. Red signature outline competes with gold and green victory signals.",
+    "findings": [
+      "F3",
+      "F5",
+      "F6"
+    ],
+    "file": "screenshots/18-series-summary.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "19-reveal-verdict",
+    "title": "Free reveal · verdict beat",
+    "note": "Clear focused result moment; preserve the decisive hierarchy.",
+    "findings": [],
+    "file": "screenshots/19-reveal-verdict.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "20-reveal-winner",
+    "title": "Free reveal · winner beat",
+    "note": "Full fighter card fills the stage before the winner name/caption is visible.",
+    "findings": [
+      "F7"
+    ],
+    "file": "screenshots/20-reveal-winner.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "21-reveal-rewards",
+    "title": "Free reveal · rewards beat",
+    "note": "Small heading and long text in the value column weaken the final payoff.",
+    "findings": [
+      "F6"
+    ],
+    "file": "screenshots/21-reveal-rewards.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "22-mode-picker",
+    "title": "Full-screen battle mode picker",
+    "note": "Illustrated mode choices work. Back/Arena treatment differs from other secondary routes.",
+    "findings": [
+      "F4"
+    ],
+    "file": "screenshots/22-mode-picker.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "23-small-sign-in",
+    "title": "Sign-in · 375-point phone",
+    "note": "Multiline branded heading shows paint misalignment; branding dominates the form entry.",
+    "findings": [
+      "F1",
+      "F10"
+    ],
+    "file": "screenshots/23-small-sign-in.jpg",
+    "device": "375×812 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "24-small-sign-up",
+    "title": "Sign-up · default text",
+    "note": "Actual default-text account creation form, with no values entered.",
+    "findings": [
+      "F1",
+      "F10"
+    ],
+    "file": "screenshots/24-small-sign-up.jpg",
+    "device": "375×812 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "25-small-sign-up-large-text",
+    "title": "Sign-up · accessibility-extra-large",
+    "note": "Heading dominates the viewport, glyph layers diverge and the logo reaches the Back area. Content remains scrollable.",
+    "findings": [
+      "F1",
+      "F4",
+      "F10"
+    ],
+    "file": "screenshots/25-small-sign-up-large-text.jpg",
+    "device": "375×812 pt",
+    "textSize": "accessibility-extra-large"
+  },
+  {
+    "id": "26-small-reset-expired",
+    "title": "Password reset · expired link",
+    "note": "Clear recoverable state using the shared brand/button system. No reset email sent.",
+    "findings": [],
+    "file": "screenshots/26-small-reset-expired.jpg",
+    "device": "375×812 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "27-battle-mode-sheet",
+    "title": "Battle mode sheet",
+    "note": "Illustrated modes inside the existing bounded, dismissible sheet. No battle started.",
+    "findings": [],
+    "file": "screenshots/27-battle-mode-sheet.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  },
+  {
+    "id": "28-arena-progress",
+    "title": "Arena · quests and progression",
+    "note": "Quest hierarchy is clear. Customize/Cosmetics scroll under the status indicators.",
+    "findings": [
+      "F4"
+    ],
+    "file": "screenshots/28-arena-progress.jpg",
+    "device": "402×874 pt",
+    "textSize": "default (large)"
+  }
+]

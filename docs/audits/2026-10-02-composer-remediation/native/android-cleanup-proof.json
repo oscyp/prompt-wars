@@ -1,0 +1,18 @@
+{
+  "metroSession": 85107,
+  "metroExitCode": 130,
+  "deviceBeforeShutdown": "List of devices attached\nemulator-5580\tdevice",
+  "reverseBeforeRemoval": "host-16 tcp:8082 tcp:8082",
+  "reverseAfterRemoval": "",
+  "emulatorShutdown": "OK: killing emulator, bye bye\nOK",
+  "devicesAfterShutdown": "List of devices attached",
+  "ownedAdbServerStopped": true,
+  "listeningAfterCleanup": {
+    "5037": false,
+    "5580": false,
+    "5581": false,
+    "8082": false
+  },
+  "emulatorSession": 29121,
+  "emulatorExitCode": 0
+}

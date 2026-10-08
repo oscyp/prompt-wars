@@ -1,0 +1,530 @@
+{
+  "project_ref": "uoyjhudegdpanrgllfoj",
+  "started_at": "2026-10-08T11:03:57Z",
+  "function_order": [
+    "process-video-job",
+    "moderate-video",
+    "request-video-upgrade",
+    "matchmaking",
+    "battle-advance",
+    "resolve-battle",
+    "round-resolve",
+    "expire-battles",
+    "generate-tier0-reveal",
+    "sign-battle-portraits",
+    "leave-battle",
+    "dev-generate-video",
+    "appeal-battle",
+    "resolve-appeal",
+    "run-judge-calibration"
+  ],
+  "source_sha256": {
+    "supabase/functions/_shared/anti-p2w.ts": "3f72f68eb3aea301404e8f12dcb27dd291a865bbdd45508153a765bee6743a1a",
+    "supabase/functions/_shared/appeals-service.ts": "915deb4dee648be40b7bf3d90ce73f86e6127818de5495afba49deaebdd9556e",
+    "supabase/functions/_shared/appeals.ts": "51b926f451848dd22d2be983a6d1d795969611b3e49f007ab7ec9174c840abe3",
+    "supabase/functions/_shared/auto-video.ts": "d6f9c16cf92a48f8ce59cc691e73d0546824cf34d5a9668d64aaba1f29287bbd",
+    "supabase/functions/_shared/cinematic-bundled-assets.ts": "74ef2bb4826bde90d382fd235646b732fcf2ef5b74e73e9d8d5e1f2bef8e8a55",
+    "supabase/functions/_shared/cinematic-captions.ts": "642d0e01257677c4b352578084b4aa4870689a93b5e08ffb4d33831e59f261d8",
+    "supabase/functions/_shared/cinematic-execution.ts": "a93b56ee08366d1da8ce514471b92a05312dcf1c8f8c4c749db593b8d9bc3f5d",
+    "supabase/functions/_shared/cinematic-generation.ts": "43813f2e02a80ca89a26ea8225b0ccc9ff5e0be0e4eba7ffed0be47ad71c8d9e",
+    "supabase/functions/_shared/cinematic-identity.ts": "58f36063e85881eb26963b7d12ed283a5aef9e3d4a058db0f0a004839b95dd4d",
+    "supabase/functions/_shared/cinematic-inputs.ts": "308199f7c3717569e3864bb70a2dadb057f7aac2e2661f8a5c6e6d92a961cacb",
+    "supabase/functions/_shared/cinematic-media.ts": "a701a50ae8b9093b9314c11dd096d8a5f789703c75471f0f46353b289f71cff8",
+    "supabase/functions/_shared/cinematic-moderation.ts": "f4bbd147fc343c5545cefc00d19d844ab8df42afc9787f30c4bed3b28975a67c",
+    "supabase/functions/_shared/cinematic-prompt.ts": "d191c8012fc89e3376e58afb662968b16ad96c57f99872b0e080af9c69211d4b",
+    "supabase/functions/_shared/cinematic-references.ts": "9a9ec48af411a24e58a61539eb8c6e868ef716e9b1b2259c88877998bc2f9c33",
+    "supabase/functions/_shared/combat-rollout.ts": "8ae9a791f094eadf7c1d7fde215155a34b9050a9da88a91bdc3274e75986b176",
+    "supabase/functions/_shared/combat.ts": "9d4e5c706973bbeafabd6e18171ddc331e22b99430f952b195e2d702e7e5d08d",
+    "supabase/functions/_shared/compose-reveal-payload.ts": "6d6a96ad2497793143adfab1a08faab5318ed2563dad2d565567e986429a84af",
+    "supabase/functions/_shared/compose-tier1-payload.ts": "3f4cd5971f3e334461ad50f6ee7c003b96d82683ccced00865322831c2826f5a",
+    "supabase/functions/_shared/composer-video.ts": "af95067b7c3698d9ad28f5a500285f7d2d6a671e39793988459fec4944f145bb",
+    "supabase/functions/_shared/dev-gate.ts": "2e439567587d457ce6d0046502ed081d751744b678c0dddfa62288c2163e0d89",
+    "supabase/functions/_shared/eligibility.ts": "23019720d3ab3b643839f923953e5c275deffad0ccf8c86c154bb36d49212d79",
+    "supabase/functions/_shared/entitlement-gate.ts": "362fe7213f20f7c0bd03a76f544bf4faa86ad60eb9ade08e0e46c05016484712",
+    "supabase/functions/_shared/glicko2.ts": "12cb946b84eb46eb1b8361340cac3a66080d60273046402849767888f78f86ef",
+    "supabase/functions/_shared/judge-calibration-evidence.ts": "29a3c6a77007b7d23d9eedc6614884b41845e7ccd16139686c0a0674c0db4e9c",
+    "supabase/functions/_shared/judge-evaluation-corpus.ts": "3f456502a4d211b27af2d9101f96ab1ed3fd0c6b6402e8737df7840dd5fb8626",
+    "supabase/functions/_shared/judge-evaluation-runner.ts": "e8b6b2d062ebefa170436b6c3bfd5500d8b1f56df2dc4e7d4122d82cc66225a3",
+    "supabase/functions/_shared/judge-evaluation.ts": "4f8e6b2606dabd87153b0e3d6a311dc601ac1b128286542b01fb8e254bc70dad",
+    "supabase/functions/_shared/judge-policy.ts": "4580519630f535943021bfafd954d59082a5fecdaa211a7ea04dbc26a9a3f59c",
+    "supabase/functions/_shared/judge.ts": "b001c10ce8fc561b49b4cc303201f51853030b692787696856472598aab1d67b",
+    "supabase/functions/_shared/leave-battle.ts": "882aad5d1f97758d619667be1bf8dc3e3f91bdb323a202fd8706636f0bea0c07",
+    "supabase/functions/_shared/moderation.ts": "759d1759a3f1975f2165a7bcd1461c126e2829415fdde92fab24113d9a1a9f32",
+    "supabase/functions/_shared/move-suggestions.ts": "324506df6298123991ed1f927b78a0e7ea0c35fa17416bf23afe315502f670df",
+    "supabase/functions/_shared/per-round-payload.ts": "d9060c5ed3650d26ae1d4298ae82290d30e0ff5400bc8013e19712cad3df1683",
+    "supabase/functions/_shared/private-bot.ts": "8cc7433e346bee65226e2f4ecaca0f15591915cd139d518e90701eb745f49aab",
+    "supabase/functions/_shared/prompt-situations.ts": "5323da24f89460e2fe862712290d5d728cb5a4d9142ef80152c377a21afe1def",
+    "supabase/functions/_shared/providers.ts": "275262c875ff695c14b0ca1fe67369dcebdbefa8539a02b995c59a16b2f8fd49",
+    "supabase/functions/_shared/push.ts": "9de115abae18daaf8f72ddec4183fa2b232f91ccf539869e85c25c2af4c4c542",
+    "supabase/functions/_shared/resolve-forfeit.ts": "9893bdb3cf69404678fd965d9eb7afc408599bdc9dce00883cede799c1752347",
+    "supabase/functions/_shared/round-forfeit.ts": "eaa480b94a0a502ad6265f356ad81b42aca5b104880a1fd58e594a554d947e0b",
+    "supabase/functions/_shared/round-timeout.ts": "cac6b636959d3f9e7c102a13e1d3bbddc4aac58c98766ed521c67090be23d941",
+    "supabase/functions/_shared/start-face-off.ts": "b136e542d4b81a4af8782a14746f87cb841f976a750788033139fbb72db3a84d",
+    "supabase/functions/_shared/suggestion-service.ts": "1fa24d2eb08e9d9c4130dff6772c1c3ae17d4e49dda56203a2afdb67d68a7ef5",
+    "supabase/functions/_shared/types.ts": "793f78345e61f9e8f849a887e8c65600f1eb756bb1151d68c28c4d93728850e3",
+    "supabase/functions/_shared/utils.ts": "0f113d4cb16e522af4a7575c7a3cdf2706ae6fd71a55f12dd0f77d6ada4b1166",
+    "supabase/functions/_shared/video-constants.ts": "85510afddd65a9b7c326e9be28eebf942544afb43f54d1aa46fbb99bf2cd8474",
+    "supabase/functions/appeal-battle/index.ts": "b9bbb703a94020ee9ce934da652c7f6257c0edc10caf97c246d5c048d7a8e3be",
+    "supabase/functions/battle-advance/index.ts": "67715cf6a56fb1d2c46c74e8478777b37a9ebd81f986952d0e73b778eb8e52dd",
+    "supabase/functions/dev-generate-video/index.ts": "6c36ead66cf423c9283a53812edebf21224b96d7c5732f3d1ee722c3e568bd94",
+    "supabase/functions/expire-battles/index.ts": "f8b5ad4088d6c4fde4055587eef1589bc19b603714c8ff7c9b6cd4ffc0e0b430",
+    "supabase/functions/generate-tier0-reveal/index.ts": "1da96ad28d63d7101c394ce79403f78f3b9d3819e60b878d178403f7c04682b0",
+    "supabase/functions/leave-battle/index.ts": "8d9160cba8bafba4455484e40b950e438212c9c78e813056efdcc9cdfaf9f819",
+    "supabase/functions/matchmaking/index.ts": "f969ba9e1d4ca35e79366aa3bef8dd78e6d12ff8a8ab57708ef4f852d5e4a6e4",
+    "supabase/functions/moderate-video/index.ts": "655705845528d10a1b56e3290839e1b118f5a90ad259a3b82840d96bbf8d54f2",
+    "supabase/functions/process-video-job/index.ts": "b4ad327dae946ebcb1cf8a4dc10d4e7d1bc5aef43d58d83a494eb0a73f26a3a8",
+    "supabase/functions/request-video-upgrade/index.ts": "07c3e91c405898a009b7077a1d4da07c68af98bbac290cd3c0ece0b079f72146",
+    "supabase/functions/resolve-appeal/index.ts": "e88ae74b4aea4c073176d1fe0fdaa158989f3bfbe3b6005c337b2efeb827f7c2",
+    "supabase/functions/resolve-battle/index.ts": "10e6d7616c9be8b5c7b031e7421a86ae19edd8bf5f16567efcef2ec9f781eed4",
+    "supabase/functions/round-resolve/index.ts": "2f7cad9e4dabdcb42d9f42a882f2ed99cf36499f3c0de43f15b5c0d0d58352fb",
+    "supabase/functions/run-judge-calibration/index.ts": "10afffd4d92f98b11b660ee48f839a52c8d8bc421c88c8ee99b28053df64ac4f",
+    "supabase/functions/sign-battle-portraits/index.ts": "2bf8cc38827b7a96f9f1b12d8cf243b5f8a6350695399fbe94e9d428857c4a46",
+    "supabase/functions/sign-battle-portraits/resolve-battle-portraits.ts": "da9de75be39cf2b81eb701927fd4fa972a9a4b0e979598e09313ca4f2a6b576f",
+    "supabase/config.toml": "a265a8edb6144e3c3b6f34c49c83efe02eaba7ab255164fe72b7c9a9ebb7204b"
+  },
+  "functions_before": {
+    "process-video-job": {
+      "version": 38,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1790948396181
+    },
+    "moderate-video": {
+      "version": 30,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1790948390819
+    },
+    "request-video-upgrade": {
+      "version": 35,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1790948399002
+    },
+    "matchmaking": {
+      "version": 39,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1790948372060
+    },
+    "battle-advance": {
+      "version": 31,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1790948373656
+    },
+    "resolve-battle": {
+      "version": 47,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1790948403811
+    },
+    "round-resolve": {
+      "version": 31,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1790948369516
+    },
+    "expire-battles": {
+      "version": 34,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "updated_at": 1790948381370
+    },
+    "generate-tier0-reveal": {
+      "version": 32,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "updated_at": 1790948384709
+    },
+    "sign-battle-portraits": {
+      "version": 29,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1790948407434
+    },
+    "leave-battle": {
+      "version": 25,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1790948387328
+    },
+    "dev-generate-video": {
+      "version": 27,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1790948380171
+    },
+    "appeal-battle": {
+      "version": 30,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1790948378046
+    },
+    "resolve-appeal": {
+      "version": 30,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1790948401563
+    },
+    "run-judge-calibration": {
+      "version": 30,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1790948405806
+    }
+  },
+  "completed": [
+    "process-video-job",
+    "moderate-video",
+    "request-video-upgrade",
+    "matchmaking",
+    "battle-advance",
+    "resolve-battle",
+    "round-resolve",
+    "expire-battles",
+    "generate-tier0-reveal",
+    "sign-battle-portraits",
+    "leave-battle",
+    "dev-generate-video",
+    "appeal-battle",
+    "resolve-appeal",
+    "run-judge-calibration"
+  ],
+  "functions_after": {
+    "process-video-job": {
+      "version": 39,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1791457438473
+    },
+    "moderate-video": {
+      "version": 31,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1791457439561
+    },
+    "request-video-upgrade": {
+      "version": 36,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1791457440776
+    },
+    "matchmaking": {
+      "version": 40,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1791457444133
+    },
+    "battle-advance": {
+      "version": 32,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1791457445610
+    },
+    "resolve-battle": {
+      "version": 48,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1791457446916
+    },
+    "round-resolve": {
+      "version": 32,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1791457448494
+    },
+    "expire-battles": {
+      "version": 35,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "updated_at": 1791457449852
+    },
+    "generate-tier0-reveal": {
+      "version": 33,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "updated_at": 1791457450823
+    },
+    "sign-battle-portraits": {
+      "version": 30,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1791457452130
+    },
+    "leave-battle": {
+      "version": 26,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1791457453656
+    },
+    "dev-generate-video": {
+      "version": 28,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1791457454842
+    },
+    "appeal-battle": {
+      "version": 31,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1791457456258
+    },
+    "resolve-appeal": {
+      "version": 31,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1791457457809
+    },
+    "run-judge-calibration": {
+      "version": 31,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1791457459067
+    }
+  },
+  "finished_at": "2026-10-08T11:04:19Z",
+  "unauthenticated_smoke": [
+    {
+      "function": "process-video-job",
+      "status": 403,
+      "body": "{\"error\":\"Service role required\"}"
+    },
+    {
+      "function": "moderate-video",
+      "status": 403,
+      "body": "{\"error\":\"Service role required\"}"
+    },
+    {
+      "function": "request-video-upgrade",
+      "status": 500,
+      "body": "{\"error\":\"Unauthorized\"}"
+    },
+    {
+      "function": "matchmaking",
+      "status": 401,
+      "body": "{\"error\":\"Unauthorized\"}"
+    },
+    {
+      "function": "battle-advance",
+      "status": 403,
+      "body": "{\"error\":\"Service role required\"}"
+    },
+    {
+      "function": "resolve-battle",
+      "status": 400,
+      "body": "{\"error\":\"battle_id required\"}"
+    },
+    {
+      "function": "round-resolve",
+      "status": 403,
+      "body": "{\"error\":\"Service role required\"}"
+    },
+    {
+      "function": "expire-battles",
+      "status": 401,
+      "body": "{\"code\":\"UNAUTHORIZED_NO_AUTH_HEADER\",\"message\":\"Missing authorization header\"}"
+    },
+    {
+      "function": "generate-tier0-reveal",
+      "status": 401,
+      "body": "{\"code\":\"UNAUTHORIZED_NO_AUTH_HEADER\",\"message\":\"Missing authorization header\"}"
+    },
+    {
+      "function": "sign-battle-portraits",
+      "status": 401,
+      "body": "{\"error\":\"Unauthorized\"}"
+    },
+    {
+      "function": "leave-battle",
+      "status": 500,
+      "body": "{\"error\":\"Could not leave the battle\"}"
+    },
+    {
+      "function": "dev-generate-video",
+      "status": 404,
+      "body": "{\"error\":\"Not found\"}"
+    },
+    {
+      "function": "appeal-battle",
+      "status": 500,
+      "body": "{\"error\":\"Unauthorized\"}"
+    },
+    {
+      "function": "resolve-appeal",
+      "status": 403,
+      "body": "{\"error\":\"Service role required\"}"
+    },
+    {
+      "function": "run-judge-calibration",
+      "status": 403,
+      "body": "{\"error\":\"Service role required\"}"
+    },
+    {
+      "function": "resolve-battle",
+      "status": 403,
+      "body": "{\"error\":\"Service role or battle participant required\"}",
+      "request": "well-formed nonexistent battle UUID without auth"
+    }
+  ],
+  "authorized_smoke": [
+    {
+      "label": "worker_unclaimable_job",
+      "status": 200,
+      "body": {
+        "processed": 0,
+        "jobs": [],
+        "skipped": "not_claimable"
+      }
+    },
+    {
+      "label": "capability_rest",
+      "status": 200,
+      "body": {
+        "enabled": false,
+        "plus_duration_seconds": 20
+      }
+    }
+  ],
+  "authorized_key_type": "modern default secret from official reveal=true",
+  "database_readiness": {
+    "active_video_jobs": 0,
+    "capabilities": {
+      "enabled": false,
+      "plus_duration_seconds": 20
+    },
+    "human_battles_with_subscriber": 0,
+    "migration_count": 126,
+    "subscriber_profiles": 0
+  },
+  "reference_assets": {
+    "uploaded": 21,
+    "checksum_verified": 21,
+    "overwrite": false
+  },
+  "model_configuration": {
+    "reference_model": "grok-imagine-video-1.5",
+    "fallback_output_rates_usd_per_second": {
+      "grok-imagine-video-1.5": 0.14,
+      "grok-imagine-video": 0.07
+    },
+    "rates_note": "Provider usage cost overrides output-only fallback estimates."
+  },
+  "migration_audit": {
+    "deployed_cinematic_versions": [
+      "20261008095453",
+      "20261008100820",
+      "20261008101423",
+      "20261008105415"
+    ],
+    "exact_source_recorded_and_verified": true,
+    "local_remote_versions_match": true,
+    "pending_migrations": [],
+    "private_work_bucket": true,
+    "client_work_read_policies": 0
+  },
+  "worker_patch": {
+    "function": "process-video-job",
+    "deployed_at": "2026-10-08T11:10:39Z",
+    "source_sha256": {
+      "supabase/functions/_shared/cinematic-bundled-assets.ts": "74ef2bb4826bde90d382fd235646b732fcf2ef5b74e73e9d8d5e1f2bef8e8a55",
+      "supabase/functions/_shared/cinematic-captions.ts": "642d0e01257677c4b352578084b4aa4870689a93b5e08ffb4d33831e59f261d8",
+      "supabase/functions/_shared/cinematic-execution.ts": "a93b56ee08366d1da8ce514471b92a05312dcf1c8f8c4c749db593b8d9bc3f5d",
+      "supabase/functions/_shared/cinematic-generation.ts": "94cf3e3c6cdac61e80b2bd7e40c59aad8c1cbf7dcc3d6682334105e0db9cbd98",
+      "supabase/functions/_shared/cinematic-identity.ts": "58f36063e85881eb26963b7d12ed283a5aef9e3d4a058db0f0a004839b95dd4d",
+      "supabase/functions/_shared/cinematic-inputs.ts": "308199f7c3717569e3864bb70a2dadb057f7aac2e2661f8a5c6e6d92a961cacb",
+      "supabase/functions/_shared/cinematic-media.ts": "34bc361209b5a9be08605c4307147b7a476e7914f4be58e0dd3ddbef9aedc36a",
+      "supabase/functions/_shared/cinematic-moderation.ts": "f4bbd147fc343c5545cefc00d19d844ab8df42afc9787f30c4bed3b28975a67c",
+      "supabase/functions/_shared/cinematic-prompt.ts": "d191c8012fc89e3376e58afb662968b16ad96c57f99872b0e080af9c69211d4b",
+      "supabase/functions/_shared/cinematic-references.ts": "9a9ec48af411a24e58a61539eb8c6e868ef716e9b1b2259c88877998bc2f9c33",
+      "supabase/functions/_shared/compose-reveal-payload.ts": "6d6a96ad2497793143adfab1a08faab5318ed2563dad2d565567e986429a84af",
+      "supabase/functions/_shared/composer-video.ts": "af95067b7c3698d9ad28f5a500285f7d2d6a671e39793988459fec4944f145bb",
+      "supabase/functions/_shared/eligibility.ts": "23019720d3ab3b643839f923953e5c275deffad0ccf8c86c154bb36d49212d79",
+      "supabase/functions/_shared/entitlement-gate.ts": "362fe7213f20f7c0bd03a76f544bf4faa86ad60eb9ade08e0e46c05016484712",
+      "supabase/functions/_shared/judge-policy.ts": "4580519630f535943021bfafd954d59082a5fecdaa211a7ea04dbc26a9a3f59c",
+      "supabase/functions/_shared/moderation.ts": "759d1759a3f1975f2165a7bcd1461c126e2829415fdde92fab24113d9a1a9f32",
+      "supabase/functions/_shared/prompt-situations.ts": "5323da24f89460e2fe862712290d5d728cb5a4d9142ef80152c377a21afe1def",
+      "supabase/functions/_shared/providers.ts": "275262c875ff695c14b0ca1fe67369dcebdbefa8539a02b995c59a16b2f8fd49",
+      "supabase/functions/_shared/push.ts": "9de115abae18daaf8f72ddec4183fa2b232f91ccf539869e85c25c2af4c4c542",
+      "supabase/functions/_shared/types.ts": "793f78345e61f9e8f849a887e8c65600f1eb756bb1151d68c28c4d93728850e3",
+      "supabase/functions/_shared/utils.ts": "0f113d4cb16e522af4a7575c7a3cdf2706ae6fd71a55f12dd0f77d6ada4b1166",
+      "supabase/functions/_shared/video-constants.ts": "85510afddd65a9b7c326e9be28eebf942544afb43f54d1aa46fbb99bf2cd8474",
+      "supabase/functions/process-video-job/index.ts": "25684acbb15a1be7ef0448f8dca270dc4bdb9cf706d2e57b01f381d730aaf379"
+    },
+    "version": 40,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791457838565,
+    "reason": "Validate actual MP4 duration; extension API metadata describes only five-second new segment. Recheck asset approval before base and extension.",
+    "authorized_readiness": {
+      "status": 200,
+      "body": {
+        "processed": 0,
+        "jobs": [],
+        "skipped": "not_claimable"
+      }
+    }
+  },
+  "client_private_access_checks": [
+    {
+      "route": "/rest/v1/video_job_inputs?select=payload&limit=1",
+      "status": 401,
+      "body": {
+        "code": "42501",
+        "details": null,
+        "hint": "Grant the required privileges to the current role with: GRANT SELECT ON public.video_job_inputs TO anon;",
+        "message": "permission denied for table video_job_inputs"
+      }
+    },
+    {
+      "route": "/rest/v1/cinematic_generation_config?select=enabled&limit=1",
+      "status": 401,
+      "body": {
+        "code": "42501",
+        "details": null,
+        "hint": "Grant the required privileges to the current role with: GRANT SELECT ON public.cinematic_generation_config TO anon;",
+        "message": "permission denied for table cinematic_generation_config"
+      }
+    },
+    {
+      "route": "/rest/v1/rpc/resolve_cinematic_policy",
+      "status": 401,
+      "body": {
+        "code": "42501",
+        "details": null,
+        "hint": null,
+        "message": "permission denied for function resolve_cinematic_policy"
+      }
+    }
+  ],
+  "rollout": {
+    "enabled_at": "2026-10-08T11:11:44.349Z",
+    "database_proof": {
+      "capabilities": {
+        "enabled": true,
+        "plus_duration_seconds": 20
+      },
+      "standard_bo3": {
+        "cinematic_profile": "standard",
+        "duration_policy_version": "cinematics-v3",
+        "target_duration_seconds": 8
+      },
+      "standard_single": {
+        "cinematic_profile": "standard",
+        "duration_policy_version": "cinematics-v3",
+        "target_duration_seconds": 12
+      },
+      "subscriber_profiles": 0
+    },
+    "capability_rest": {
+      "status": 200,
+      "body": {
+        "enabled": true,
+        "plus_duration_seconds": 20
+      }
+    },
+    "plus_live_sample": "Unavailable: hosted derived entitlements has no current subscribers; Plus20 covered by real PostgreSQL policy suites.",
+    "validation_limit": "Full 24-clip matrix remains incomplete; bounded live base+extension sample independently measured 15.0417/20.0417 seconds, final zero audio tracks."
+  },
+  "temporary_credentials_removed": true
+}

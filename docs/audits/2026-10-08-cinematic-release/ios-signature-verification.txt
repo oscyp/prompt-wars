@@ -1,0 +1,2 @@
+/tmp/prompt-wars-1.3.4-19-extracted/Payload/PromptWars.app: valid on disk
+/tmp/prompt-wars-1.3.4-19-extracted/Payload/PromptWars.app: satisfies its Designated Requirement

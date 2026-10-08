@@ -1,0 +1,8 @@
+Deployed Functions on project uoyjhudegdpanrgllfoj: record-funnel-event
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/uoyjhudegdpanrgllfoj/functions
+
+Uploading asset (record-funnel-event): supabase/functions/record-funnel-event/index.ts
+Uploading asset (record-funnel-event): supabase/functions/_shared/composer-events.ts
+Uploading asset (record-funnel-event): supabase/functions/_shared/tutorial.ts
+Uploading asset (record-funnel-event): supabase/functions/_shared/character-creation.ts
+Uploading asset (record-funnel-event): supabase/functions/_shared/utils.ts

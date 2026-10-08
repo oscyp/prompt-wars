@@ -89,3 +89,20 @@ test('an unavailable confirmation stays cancelable without committing', () => {
   expect(confirm).not.toHaveBeenCalled();
   expect(cancel).toHaveBeenCalledTimes(1);
 });
+
+test('numeric spend rows display diamond amounts and preserve spoken credits and unknown state', () => {
+  const view = render(
+    <ConfirmSheet
+      {...baseProps}
+      rows={[
+        { label: 'Price', value: 'legacy price', amount: 3 },
+        { label: 'Balance', value: 'legacy balance', amount: 0 },
+        { label: 'After', value: 'Unavailable', amount: null },
+      ]}
+    />,
+  );
+  expect(view.getByLabelText('3 credits')).toBeTruthy();
+  expect(view.getByLabelText('0 credits')).toBeTruthy();
+  expect(view.getByLabelText('Credits unavailable')).toBeTruthy();
+  expect(view.queryByText('legacy price')).toBeNull();
+});

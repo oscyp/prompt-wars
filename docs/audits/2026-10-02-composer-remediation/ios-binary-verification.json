@@ -1,0 +1,28 @@
+{
+  "bundle_id": "gg.promptwars.app",
+  "version": "1.3.3",
+  "build": "15",
+  "ipa_sha256": "46b4167ddf5d90649077d33e8d8073f2744b05004fc0a561b978f9fa1e735f42",
+  "ipa_bytes": 59282243,
+  "javascript_bundle_bytes": 7939934,
+  "composer_markers": {
+    "Build move": true,
+    "Write your own": true,
+    "All ideas": true,
+    "Write an action": true,
+    "Check included AI ideas": true,
+    "authoring_origin": true,
+    "ensure_free": true,
+    "move_types": true
+  },
+  "fonts": [
+    "BarlowCondensed-Bold.ttf",
+    "BarlowCondensed-ExtraBoldItalic.ttf",
+    "BarlowCondensed-Bold.ttf",
+    "BarlowCondensed-ExtraBoldItalic.ttf"
+  ],
+  "encryption_declaration": false,
+  "supported_platforms": [
+    "iPhoneOS"
+  ]
+}

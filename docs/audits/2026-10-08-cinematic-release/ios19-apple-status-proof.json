@@ -1,0 +1,25 @@
+{
+  "checkedAt": "2026-10-08T11:08:40.141144+00:00",
+  "ascAppIdentifier": "6788787677",
+  "exactBuild": {
+    "appVersion": "1.3.4",
+    "buildNumber": "19",
+    "processingState": "VALID",
+    "internalState": "IN_BETA_TESTING",
+    "externalState": "READY_FOR_BETA_SUBMISSION",
+    "uploadedDate": "2026-10-08T04:04:48-07:00",
+    "expired": false,
+    "easSubmissionId": "a1353759-705a-4169-ac41-a6541ccf001e",
+    "easBuildId": "6ccdf2ab-8a5e-407c-89a8-fc8601c53faa",
+    "fingerprintHash": "9e773983959cb0252a3243c148a9dea5a110c821"
+  },
+  "appleAcceptanceEstablished": true,
+  "internalTestingEstablished": true,
+  "requestedGroups": [
+    "Team (Expo)",
+    "testers"
+  ],
+  "groupAssignmentIndependentlyVerified": false,
+  "testerInstallationVerified": false,
+  "publicAppReviewSubmitted": false
+}

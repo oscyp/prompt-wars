@@ -1,0 +1,11 @@
+Initialising login role...
+Connecting to remote database...
+Skipping migration README.md... (file name must match pattern "<timestamp>_name.sql")
+Do you want to push these migrations to the remote database?
+ • 20261007122059_composer_three_decision_operations.sql
+
+ [Y/n] y
+Applying migration 20261007122059_composer_three_decision_operations.sql...
+NOTICE (00000): policy "composer_event_occurrences_read_own" for relation "public.composer_event_occurrences" does not exist, skipping
+NOTICE (00000): trigger "keep_composer_occurrence_duration" for relation "public.composer_event_occurrences" does not exist, skipping
+Finished supabase db push.

@@ -1,0 +1,51 @@
+{
+  "completions_table_installed": true,
+  "expired_pending_leases": 0,
+  "failure_codes": [
+    {
+      "count": 3,
+      "failure_code": "generation_failed"
+    },
+    {
+      "count": 3,
+      "failure_code": "moderation_rejected"
+    }
+  ],
+  "moderation_categories": [
+    {
+      "category": "self-harm",
+      "count": 5
+    },
+    {
+      "category": "self-harm/intent",
+      "count": 1
+    },
+    {
+      "category": "violence",
+      "count": 6
+    }
+  ],
+  "occurrence_table_installed": true,
+  "operation_statuses": [
+    {
+      "count": 6,
+      "mean_success_seconds": null,
+      "paid": 0,
+      "refunded_credits": 0,
+      "refunded_operations": 0,
+      "reserved_credits": 0,
+      "status": "failed"
+    },
+    {
+      "count": 12,
+      "mean_success_seconds": 16.286,
+      "paid": 0,
+      "refunded_credits": 0,
+      "refunded_operations": 0,
+      "reserved_credits": 0,
+      "status": "succeeded"
+    }
+  ],
+  "recorded_at": "2026-10-07T13:05:44.307376+00:00",
+  "window_hours": 24
+}

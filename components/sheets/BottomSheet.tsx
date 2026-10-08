@@ -27,6 +27,8 @@ const SHEET_OFFSET = 420;
 export interface BottomSheetProps {
   visible: boolean;
   onClose: () => void;
+  /** Fires once after native dismissal (or Android's dismissal interaction). */
+  onDismiss?: () => void;
   /** Scrim tap and hardware back are ignored while true (e.g. mid-submit). */
   dismissDisabled?: boolean;
   /** Announced for the scrim, e.g. "Close item details". */
@@ -34,10 +36,14 @@ export interface BottomSheetProps {
   /** Centered heading. Omit when the body draws its own header. */
   title?: string;
   subtitle?: string;
+  /** Keep title and subtitle outside the scrolling choice area. */
+  fixedHeading?: boolean;
+  showHandle?: boolean;
   /** Wraps the sheet in a KeyboardAvoidingView; for sheets with text inputs. */
   keyboardAvoiding?: boolean;
   /** 48×48 close button in the top-right corner. */
   showCloseButton?: boolean;
+  closeButtonLabel?: string;
   children: React.ReactNode;
   /** Actions remain reachable while the body scrolls. */
   footer?: React.ReactNode;
@@ -57,12 +63,16 @@ export interface BottomSheetProps {
 export default function BottomSheet({
   visible,
   onClose,
+  onDismiss,
   dismissDisabled = false,
   closeAccessibilityLabel,
   title,
   subtitle,
+  fixedHeading = false,
+  showHandle = true,
   keyboardAvoiding = false,
   showCloseButton = true,
+  closeButtonLabel,
   children,
   footer,
   returnFocusRef,
@@ -78,7 +88,8 @@ export default function BottomSheet({
     const target =
       returnFocusRef?.current && findNodeHandle(returnFocusRef.current);
     if (target) AccessibilityInfo.setAccessibilityFocus(target);
-  }, [returnFocusRef]);
+    onDismiss?.();
+  }, [onDismiss, returnFocusRef]);
   useEffect(() => {
     if (Platform.OS !== 'android' || visible || !didShow.current) return;
     const task = InteractionManager.runAfterInteractions(restoreFocus);
@@ -111,6 +122,31 @@ export default function BottomSheet({
     if (!dismissDisabled) onClose();
   };
 
+  const heading = (
+    <>
+      {title ? (
+        <Text
+          variant="title"
+          accessibilityRole="header"
+          style={[styles.title, accessibleText, { color: colors.text }]}
+        >
+          {title}
+        </Text>
+      ) : null}
+      {subtitle ? (
+        <Text
+          style={[
+            styles.subtitle,
+            accessibleText,
+            { color: colors.textSecondary },
+          ]}
+        >
+          {subtitle}
+        </Text>
+      ) : null}
+    </>
+  );
+
   const sheet = (
     <Animated.View
       accessibilityViewIsModal
@@ -125,10 +161,12 @@ export default function BottomSheet({
         },
       ]}
     >
-      <View
-        accessible={false}
-        style={[styles.grabber, { backgroundColor: colors.ornament }]}
-      />
+      {showHandle && (
+        <View
+          accessible={false}
+          style={[styles.grabber, { backgroundColor: colors.ornament }]}
+        />
+      )}
       {showCloseButton ? (
         <TouchableOpacity
           ref={focusRef}
@@ -138,34 +176,22 @@ export default function BottomSheet({
           accessibilityLabel={closeAccessibilityLabel}
           style={styles.close}
         >
-          <GameSymbol name="close" size={22} color={colors.textSecondary} />
+          {closeButtonLabel ? (
+            <Text variant="label" style={{ color: colors.primary }}>
+              {closeButtonLabel}
+            </Text>
+          ) : (
+            <GameSymbol name="close" size={22} color={colors.textSecondary} />
+          )}
         </TouchableOpacity>
       ) : null}
+      {fixedHeading && heading}
       <ScrollView
         style={{ flexShrink: 1 }}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingBottom: Spacing.md }}
       >
-        {title ? (
-          <Text
-            variant="title"
-            accessibilityRole="header"
-            style={[styles.title, accessibleText, { color: colors.text }]}
-          >
-            {title}
-          </Text>
-        ) : null}
-        {subtitle ? (
-          <Text
-            style={[
-              styles.subtitle,
-              accessibleText,
-              { color: colors.textSecondary },
-            ]}
-          >
-            {subtitle}
-          </Text>
-        ) : null}
+        {!fixedHeading && heading}
         <View>{children}</View>
       </ScrollView>
       {footer ? (
@@ -232,8 +258,8 @@ const styles = StyleSheet.create({
   close: {
     alignSelf: 'flex-end',
     marginTop: -8,
-    width: 48,
-    height: 48,
+    minWidth: 48,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,

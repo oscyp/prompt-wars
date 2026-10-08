@@ -1,4 +1,4 @@
-import { GameText as Text, GameButton } from '@/components/game';
+import { GameText as Text, GameButton, CreditAmount } from '@/components/game';
 import BottomSheet from '@/components/sheets/BottomSheet';
 import { useBattlePresentationActive } from '@/components/game/battle/useBattlePresentationActive';
 import React, { useEffect, useState } from 'react';
@@ -231,18 +231,11 @@ export default function FirstTimeOfferModal({
             { backgroundColor: colors.backgroundTertiary },
           ]}
         >
-          <Text
-            style={[
-              styles.rewardValue,
-              NumericFontVariant,
-              { color: colors.primary },
-            ]}
-          >
-            {offer.credits}
-          </Text>
-          <Text style={[styles.rewardLabel, { color: colors.textSecondary }]}>
-            {offer.credits === 1 ? 'credit' : 'credits'}
-          </Text>
+          <CreditAmount
+            amount={offer.credits}
+            size="large"
+            accessible={false}
+          />
         </View>
         {offer.exclusive_cosmetic_slug ? (
           <View

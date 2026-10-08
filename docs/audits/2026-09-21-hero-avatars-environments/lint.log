@@ -1,0 +1,12 @@
+yarn run v1.22.22
+warning Skipping preferred cache folder "/Users/patdom/Library/Caches/Yarn" because it is not writable.
+warning Selected the next writable cache folder in the list, will be "/var/folders/s6/mdps3zk93v588msmq1kp3bn00000gn/T/.yarn-cache-501".
+$ /Users/patdom/sources/prompt-wars/node_modules/.bin/eslint app components hooks/useHeroArtworkBudget.ts hooks/usePlayerAvatars.ts utils/heroArtworkLayout.ts utils/playerAvatarCache.ts constants/BattleEnvironmentArt.ts
+warning Cannot find a suitable global folder. Tried these: "/usr/local, /Users/patdom/.yarn"
+
+/Users/patdom/sources/prompt-wars/app/_layout.tsx
+  29:3  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+✖ 1 problem (0 errors, 1 warning)
+
+Done in 3.87s.

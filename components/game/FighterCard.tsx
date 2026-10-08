@@ -18,6 +18,7 @@ import { GameBevel } from './GameBevel';
 import { GameText } from './GameText';
 import { FighterStatTray } from './FighterStatTray';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
+import { fighterArtworkWidth } from '@/utils/heroArtworkLayout';
 
 export interface FighterCardProps {
   variant?: 'hero' | 'compact' | 'collection';
@@ -32,6 +33,11 @@ export interface FighterCardProps {
   cosmetics?: EquippedCosmetics;
   onPress?: () => void;
   onImageError?: () => void;
+  maxArtworkHeight?: number;
+  onBodyHeight?: (height: number) => void;
+  onArtworkLoaded?: () => void;
+  onFrameLoaded?: () => void;
+  onFrameError?: () => void;
 }
 
 /** One identity treatment across Arena, Profile and the collection. Art never carries labels. */
@@ -48,6 +54,11 @@ export default function FighterCard({
   cosmetics = NO_COSMETICS,
   onPress,
   onImageError,
+  maxArtworkHeight,
+  onBodyHeight,
+  onArtworkLoaded,
+  onFrameLoaded,
+  onFrameError,
 }: FighterCardProps) {
   const colors = useThemedColors();
   const { width: viewport, fontScale } = useWindowDimensions();
@@ -58,10 +69,18 @@ export default function FighterCard({
   const source =
     uri && failedUri !== uri ? { uri } : getArchetypeAvatar(archetype);
   const copy = fighterCardCopy({ name, archetype, battleCry, itemName });
+  const portraitFrame = cosmetics.frame?.artwork?.portrait;
   const size = compact
     ? 64
-    : Math.max(48, Math.min(variant === 'hero' ? 360 : 220, available));
-  const portraitFrame = cosmetics.frame?.artwork?.portrait;
+    : fighterArtworkWidth(
+        available,
+        variant === 'hero' ? 360 : 220,
+        portraitFrame?.aspectRatio ?? 2 / 3,
+        maxArtworkHeight,
+      );
+  const artworkHeight = compact
+    ? size
+    : size / (portraitFrame?.aspectRatio ?? 2 / 3);
   const captionOverlap = portraitFrame
     ? (size / portraitFrame.aspectRatio) * (portraitFrame.captionOverlap ?? 0)
     : 0;
@@ -78,6 +97,9 @@ export default function FighterCard({
         size={size}
         accentColor={colors.ornament}
         onImageError={onError}
+        onImageLoad={onArtworkLoaded}
+        onFrameImageLoad={onFrameLoaded}
+        onFrameImageError={onFrameError}
       />
     ) : (
       <View
@@ -94,6 +116,7 @@ export default function FighterCard({
           source={source}
           resizeMode="contain"
           onError={onError}
+          onLoad={onArtworkLoaded}
           accessible={false}
           style={{ flex: 1, width: '100%' }}
         />
@@ -142,7 +165,13 @@ export default function FighterCard({
           compact && styles.compactCaption,
         ]}
       >
-        {!compact && <GameBevel color={colors.ornamentMuted} cut={8} />}
+        {!compact && (
+          <GameBevel
+            color={colors.ornamentMuted}
+            insetColor={colors.ornamentMuted}
+            cut={8}
+          />
+        )}
         <View style={styles.nameRow}>
           <GameText
             variant="fighter"
@@ -170,13 +199,28 @@ export default function FighterCard({
             {copy.subtitle}
           </GameText>
         )}
+        {!compact && !!copy.battleCry && (
+          <GameText
+            variant="caption"
+            style={{
+              color: colors.textSecondary,
+              textAlign: 'center',
+              paddingTop: 10,
+            }}
+          >
+            {copy.battleCry}
+          </GameText>
+        )}
       </View>
     </>
   );
   return (
     <View
       style={styles.root}
-      onLayout={(e) => setAvailable(Math.max(48, e.nativeEvent.layout.width))}
+      onLayout={(e) => {
+        setAvailable(Math.max(48, e.nativeEvent.layout.width));
+        onBodyHeight?.(e.nativeEvent.layout.height - artworkHeight);
+      }}
     >
       {onPress ? (
         <Pressable
@@ -205,18 +249,6 @@ export default function FighterCard({
           availableWidth={available}
           fontScale={fontScale}
         />
-      )}
-      {!compact && !!copy.battleCry && (
-        <GameText
-          variant="caption"
-          style={{
-            color: colors.textSecondary,
-            textAlign: 'center',
-            paddingTop: 10,
-          }}
-        >
-          {copy.battleCry}
-        </GameText>
       )}
     </View>
   );

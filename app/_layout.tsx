@@ -1,7 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useFonts } from 'expo-font';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import {
+  Stack,
+  useRouter,
+  useSegments,
+  useGlobalSearchParams,
+} from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -18,7 +23,7 @@ import {
   useEffectiveColorScheme,
   useThemedColors,
 } from '@/hooks/useThemedColors';
-import { GameButton, GamePanel, GameText } from '@/components/game';
+import { GameFeedback } from '@/components/game/GameFeedback';
 import { loadAudioPreferences } from '@/utils/audioSettings';
 import {
   addNotificationResponseListener,
@@ -43,8 +48,19 @@ SplashScreen.preventAutoHideAsync();
 const SPLASH_FAILSAFE_MS = 6000;
 
 function RootLayoutNav() {
-  const { session, loading, recoveryPending } = useAuth();
+  const {
+    session,
+    loading,
+    restorationError,
+    retrySessionRestore,
+    recoveryPending,
+    recoveryProcessing,
+    eligibility,
+    eligibilityLoading,
+    eligibilityError,
+  } = useAuth();
   const segments = useSegments();
+  const { switchAccount } = useGlobalSearchParams<{ switchAccount?: string }>();
   const router = useRouter();
   const colorScheme = useEffectiveColorScheme();
   const colors = useThemedColors();
@@ -56,6 +72,25 @@ function RootLayoutNav() {
   const inAuthGroup = segments[0] === '(auth)';
   const inOnboardingGroup = segments[0] === '(onboarding)';
   const onResetScreen = inAuthGroup && segments[1] === 'reset-password';
+  const onGuestAccountSwitch =
+    inAuthGroup &&
+    segments[1] === 'sign-in' &&
+    switchAccount === '1' &&
+    session?.user.is_anonymous === true;
+  const onEligibilityScreen = inAuthGroup && segments[1] === 'eligibility';
+  const onAccountManagement =
+    segments[0] === '(profile)' &&
+    ['settings', 'blocked'].includes(segments[1]);
+  const requiresEligibility =
+    process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED === '1' && !!userId;
+  const waitingForEligibility =
+    requiresEligibility &&
+    (eligibilityLoading || (!eligibility && !eligibilityError));
+  const accessAllowed =
+    !requiresEligibility ||
+    (!waitingForEligibility &&
+      !eligibilityError &&
+      eligibility?.can_play === true);
 
   const [characterCheck, setCharacterCheck] = useState<{
     accountId: string | null;
@@ -70,7 +105,13 @@ function RootLayoutNav() {
   // Derive the visible gate from the account in this render. Waiting for an
   // effect to clear old state would let notification routing see A's fighter
   // together with B's user id during a direct account switch.
-  const canCheckCharacter = !loading && !!userId && !recoveryPending;
+  const canCheckCharacter =
+    !loading &&
+    !restorationError &&
+    !!userId &&
+    !recoveryPending &&
+    !recoveryProcessing &&
+    accessAllowed;
   const ownsCheck = characterCheck.accountId === userId;
   const hasCharacter =
     canCheckCharacter && ownsCheck ? characterCheck.hasCharacter : null;
@@ -78,7 +119,7 @@ function RootLayoutNav() {
   const characterError = canCheckCharacter && ownsCheck && characterCheck.error;
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || restorationError || recoveryProcessing) return;
 
     if (!userId) {
       lastKnown.current = null;
@@ -88,7 +129,12 @@ function RootLayoutNav() {
         checking: false,
         error: false,
       });
-      if (!inAuthGroup) router.replace('/(auth)/sign-in');
+      if (!inAuthGroup)
+        router.replace(
+          process.env.EXPO_PUBLIC_SOCIAL_AUTH_ENABLED === '1'
+            ? '/(auth)/entry'
+            : '/(auth)/sign-in',
+        );
       return;
     }
 
@@ -103,6 +149,24 @@ function RootLayoutNav() {
         error: false,
       });
       if (!onResetScreen) router.replace('/(auth)/reset-password');
+      return;
+    }
+
+    if (!accessAllowed) {
+      lastKnown.current = null;
+      setCharacterCheck({
+        accountId: userId,
+        hasCharacter: null,
+        checking: false,
+        error: false,
+      });
+      if (
+        !waitingForEligibility &&
+        !onEligibilityScreen &&
+        !onAccountManagement &&
+        !onGuestAccountSwitch
+      )
+        router.replace('/(auth)/eligibility');
       return;
     }
 
@@ -171,9 +235,14 @@ function RootLayoutNav() {
         error: false,
       });
 
-      if (inAuthGroup) {
+      if (inAuthGroup && !onGuestAccountSwitch) {
         router.replace(has ? '/(tabs)/home' : '/(onboarding)/welcome');
-      } else if (!has && !inOnboardingGroup) {
+      } else if (
+        !has &&
+        !inOnboardingGroup &&
+        !onAccountManagement &&
+        !onGuestAccountSwitch
+      ) {
         router.replace('/(onboarding)/welcome');
       }
     })();
@@ -185,18 +254,32 @@ function RootLayoutNav() {
     userId,
     retryCheck,
     loading,
+    restorationError,
+    onGuestAccountSwitch,
     inAuthGroup,
     inOnboardingGroup,
     onResetScreen,
     recoveryPending,
+    recoveryProcessing,
+    accessAllowed,
+    waitingForEligibility,
+    onEligibilityScreen,
+    onAccountManagement,
     router,
   ]);
 
-  const resolved = !loading && !checking && !characterError;
+  const resolved =
+    !loading &&
+    !restorationError &&
+    !recoveryProcessing &&
+    (recoveryPending || !waitingForEligibility) &&
+    !checking &&
+    !characterError;
 
   useEffect(() => {
-    if (resolved || characterError) SplashScreen.hideAsync().catch(() => {});
-  }, [resolved, characterError]);
+    if (resolved || characterError || restorationError)
+      SplashScreen.hideAsync().catch(() => {});
+  }, [resolved, characterError, restorationError]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -224,12 +307,82 @@ function RootLayoutNav() {
   return (
     <RouteGateContext.Provider value={gate}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(battle)" />
-        <Stack.Screen name="(profile)" />
-      </Stack>
-      {characterError && (
+      <View
+        style={{ flex: 1 }}
+        pointerEvents={loading || restorationError ? 'none' : 'auto'}
+        accessibilityElementsHidden={loading || restorationError}
+        importantForAccessibility={
+          loading || restorationError ? 'no-hide-descendants' : 'auto'
+        }
+      >
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="(battle)" />
+          <Stack.Screen name="(profile)" />
+        </Stack>
+      </View>
+      {(loading || restorationError) && (
+        <View
+          accessibilityViewIsModal
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: colors.background,
+            justifyContent: 'center',
+            padding: 24,
+          }}
+        >
+          <GameFeedback
+            icon="shield-check"
+            title={
+              loading
+                ? 'Restoring your progress…'
+                : 'Could not restore your progress'
+            }
+            busy={loading}
+            message={
+              loading
+                ? undefined
+                : 'Check your connection and retry. Your saved account must be restored before you can continue.'
+            }
+            action={
+              loading
+                ? undefined
+                : {
+                    label: 'Retry',
+                    onPress: () => void retrySessionRestore(),
+                  }
+            }
+          />
+        </View>
+      )}
+      {waitingForEligibility &&
+        !loading &&
+        !restorationError &&
+        !recoveryPending &&
+        !recoveryProcessing &&
+        !onAccountManagement &&
+        !onGuestAccountSwitch &&
+        !onEligibilityScreen && (
+          <View
+            accessibilityViewIsModal
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: colors.background,
+              justifyContent: 'center',
+              padding: 24,
+            }}
+          >
+            <GameFeedback
+              icon="shield-check"
+              title="Checking account access…"
+              message="Your account stays protected while we check."
+              busy
+            />
+          </View>
+        )}
+      {characterError && !onAccountManagement && !onGuestAccountSwitch && (
         <View
           accessibilityViewIsModal
           style={{
@@ -241,16 +394,15 @@ function RootLayoutNav() {
             gap: 16,
           }}
         >
-          <GamePanel style={{ gap: 16 }}>
-            <GameText variant="title" accessibilityRole="header">
-              Couldn’t check your fighter
-            </GameText>
-            <GameText>Check your connection and retry to continue.</GameText>
-            <GameButton
-              label="Retry"
-              onPress={() => setRetryCheck((value) => value + 1)}
-            />
-          </GamePanel>
+          <GameFeedback
+            icon="shield-check"
+            title="Couldn’t check your fighter"
+            message="Check your connection and retry to continue."
+            action={{
+              label: 'Retry',
+              onPress: () => setRetryCheck((value) => value + 1),
+            }}
+          />
         </View>
       )}
     </RouteGateContext.Provider>

@@ -1,0 +1,34 @@
+{
+  "ios": {
+    "archive_path": "/tmp/prompt-wars-four-view-ios-upload-archive",
+    "files": 508,
+    "manifest_sha256": "935e94dd6b0616e3e302ef39398af0c112b2e3bc786c33480ef7b00b8f365d29",
+    "forbidden_paths": [],
+    "secret_markers": [],
+    "source_drift": [],
+    "supabase_files": [
+      "supabase/functions/_shared/composer-events.ts",
+      "supabase/functions/_shared/prompt-affordances.ts",
+      "supabase/functions/_shared/prompt-situations.ts"
+    ]
+  },
+  "android": {
+    "archive_path": "/tmp/prompt-wars-four-view-android-upload-archive",
+    "files": 508,
+    "manifest_sha256": "935e94dd6b0616e3e302ef39398af0c112b2e3bc786c33480ef7b00b8f365d29",
+    "forbidden_paths": [],
+    "secret_markers": [],
+    "source_drift": [],
+    "supabase_files": [
+      "supabase/functions/_shared/composer-events.ts",
+      "supabase/functions/_shared/prompt-affordances.ts",
+      "supabase/functions/_shared/prompt-situations.ts"
+    ]
+  },
+  "identical_platform_inputs": true,
+  "checked_at": "2026-10-07T12:57:27.819376+00:00",
+  "server_secret_value_scan": {
+    "checked_available_server_secret_values": 4,
+    "matching_files": []
+  }
+}

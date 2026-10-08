@@ -6,6 +6,7 @@ import { Spacing, Typography } from '@/constants/DesignTokens';
 import { RubricScoreSet } from '@/types/battle';
 
 export interface RubricBarsProps {
+  policyVersion?: string | null;
   scores: Partial<RubricScoreSet>;
   /** Optional opponent scores to render alongside for comparison. */
   opponentScores?: Partial<RubricScoreSet>;
@@ -22,6 +23,18 @@ export const RUBRIC_LABELS: Record<keyof RubricScoreSet, string> = {
   dramatic_potential: 'Dramatic Potential',
 };
 
+export function rubricLabels(policyVersion?: string | null) {
+  return policyVersion === 'v2.0.0-ideas'
+    ? {
+        ...RUBRIC_LABELS,
+        specificity: 'Cause and effect',
+        theme_fit: 'Situation fit',
+        archetype_fit: 'Consistency',
+        dramatic_potential: 'Scene consequence',
+      }
+    : RUBRIC_LABELS;
+}
+
 /**
  * Renders rubric category bars. Labels are NOT truncated (Dynamic Type
  * support).
@@ -36,11 +49,13 @@ export default function RubricBars({
   scores,
   opponentScores,
   max = 10,
+  policyVersion,
 }: RubricBarsProps) {
   const colors = useThemedColors();
   const keys = Object.keys(RUBRIC_LABELS) as (keyof RubricScoreSet)[];
   const safeMax = Math.max(1, max);
   const hasOpponent = Boolean(opponentScores);
+  const labels = rubricLabels(policyVersion);
 
   return (
     <View style={styles.wrap}>
@@ -86,13 +101,13 @@ export default function RubricBars({
             accessibilityRole="progressbar"
             accessibilityLabel={
               opp != null
-                ? `${RUBRIC_LABELS[k]}: you ${me.toFixed(1)} out of ${safeMax}, opponent ${opp.toFixed(1)}`
-                : `${RUBRIC_LABELS[k]}: ${me.toFixed(1)} out of ${safeMax}`
+                ? `${labels[k]}: you ${me.toFixed(1)} out of ${safeMax}, opponent ${opp.toFixed(1)}`
+                : `${labels[k]}: ${me.toFixed(1)} out of ${safeMax}`
             }
             accessibilityValue={{ min: 0, max: safeMax, now: me }}
           >
             <Text style={[styles.label, { color: colors.text }]}>
-              {RUBRIC_LABELS[k]}
+              {labels[k]}
             </Text>
             <View
               style={[

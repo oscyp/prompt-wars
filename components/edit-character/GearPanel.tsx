@@ -6,13 +6,19 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
-import { GameButton, GameField, GamePanel, GameText } from '@/components/game';
+import { GameButton, GameText } from '@/components/game';
 import { useThemedColors } from '@/hooks/useThemedColors';
 import { useSheetReturnFocus } from '@/hooks/useSheetReturnFocus';
 import type { CatalogSignatureItem } from '@/utils/characters';
 import InlineBanner from '../InlineBanner';
 import ItemDetailSheet from './ItemDetailSheet';
 import EditorItemArt from './EditorItemArt';
+import ItemFrame from './ItemFrame';
+const FEATURED_ITEMS = ['compass', 'hourglass', 'crown fragment', 'briefcase'];
+const featuredOrder = (item: CatalogSignatureItem) => {
+  const index = FEATURED_ITEMS.indexOf(item.name.trim().toLowerCase());
+  return index < 0 ? FEATURED_ITEMS.length : index;
+};
 export interface GearPanelProps {
   items: CatalogSignatureItem[];
   equippedId: string;
@@ -47,46 +53,58 @@ function GearTile({
   const { width, fontScale } = useWindowDimensions();
   const ref = useRef<View>(null);
   const [artFailed, setArtFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   return (
-    <GamePanel
-      tone={selected ? 'selected' : 'quiet'}
+    <ItemFrame
+      selected={selected}
       style={{
         width: width >= 390 && fontScale <= 1.15 ? '48%' : '100%',
-        alignItems: 'center',
-        gap: 7,
-        padding: 10,
       }}
     >
-      <EditorItemArt item={item} size={82} onError={() => setArtFailed(true)} />
-      <GameText variant="fighter" style={{ fontSize: 22, textAlign: 'center' }}>
-        {item.name}
-      </GameText>
-      <GameText variant="caption" style={{ color: colors.textSecondary }}>
-        {selected ? 'Selected' : 'Signature item'}
-      </GameText>
+      <EditorItemArt
+        item={item}
+        presentation="plate"
+        retryKey={retryKey}
+        onError={() => setArtFailed(true)}
+        onLoad={() => setArtFailed(false)}
+      />
+      <View style={[styles.tileLabel, { borderTopColor: colors.border }]}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <GameText variant="fighter" style={{ fontSize: 19 }}>
+            {item.name}
+          </GameText>
+          {selected && (
+            <GameText variant="caption" style={{ color: colors.primary }}>
+              Selected
+            </GameText>
+          )}
+        </View>
+        <GameButton
+          ref={ref}
+          label="Preview"
+          accessibilityLabel={'Preview ' + item.name}
+          accessibilityState={{ expanded: previewing || undefined, selected }}
+          endIcon="chevron-right"
+          chrome="text"
+          tone="secondary"
+          disabled={busy}
+          onPress={() => onPreview(ref)}
+          style={styles.previewButton}
+          labelStyle={{ fontSize: 17, textDecorationLine: 'none' }}
+        />
+      </View>
       {artFailed && (
         <GameButton
           label="Retry artwork"
           chrome="text"
           onPress={() => {
             setArtFailed(false);
+            setRetryKey((key) => key + 1);
             onRetry();
           }}
         />
       )}
-      <GameButton
-        ref={ref}
-        label="Preview"
-        accessibilityLabel={'Preview ' + item.name}
-        accessibilityState={{ expanded: previewing || undefined, selected }}
-        gameIcon="look"
-        chrome="text"
-        tone="secondary"
-        disabled={busy}
-        onPress={() => onPreview(ref)}
-        style={{ alignSelf: 'stretch' }}
-      />
-    </GamePanel>
+    </ItemFrame>
   );
 }
 export default function GearPanel({
@@ -105,28 +123,25 @@ export default function GearPanel({
   onEquip,
 }: GearPanelProps) {
   const colors = useThemedColors();
-  const [query, setQuery] = useState('');
+  const { fontScale } = useWindowDimensions();
+  const [currentArtFailed, setCurrentArtFailed] = useState(false);
+  const [currentRetryKey, setCurrentRetryKey] = useState(0);
   const [showAll, setShowAll] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const { remember, returnFocusRef } = useSheetReturnFocus();
   const predefinedItems = useMemo(
-    () => items.filter((item) => !item.isCustom),
+    () =>
+      items
+        .filter((item) => !item.isCustom)
+        .sort((a, b) => featuredOrder(a) - featuredOrder(b)),
     [items],
   );
-  const catalog = useMemo(
-    () =>
-      predefinedItems.filter((item) =>
-        (item.name + ' ' + item.description)
-          .toLowerCase()
-          .includes(query.trim().toLowerCase()),
-      ),
-    [predefinedItems, query],
-  );
+  const catalog = predefinedItems;
   const equipped =
     items.find((item) => item.id === equippedId) ??
     (currentItem?.id === equippedId ? currentItem : null);
   const preview = predefinedItems.find((item) => item.id === previewId) ?? null;
-  const visible = showAll || query.trim() ? catalog : catalog.slice(0, 6);
+  const visible = showAll ? catalog : catalog.slice(0, 6);
   if (loading && !items.length && !currentItem)
     return (
       <View style={{ padding: 32 }}>
@@ -144,13 +159,39 @@ export default function GearPanel({
             onAction={onRetry}
           />
         )}
-        <GamePanel
-          tone="ornate"
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}
+        <ItemFrame
+          style={{
+            flexDirection: fontScale > 1.3 ? 'column' : 'row',
+            alignItems: 'center',
+          }}
         >
-          {equipped && <EditorItemArt item={equipped} size={64} />}
-          <View style={{ flex: 1, gap: 5 }}>
-            <GameText variant="caption" style={{ color: colors.ornament }}>
+          {equipped && (
+            <EditorItemArt
+              item={equipped}
+              presentation="plate"
+              retryKey={currentRetryKey}
+              onError={() => setCurrentArtFailed(true)}
+              onLoad={() => setCurrentArtFailed(false)}
+              style={{ width: fontScale > 1.3 ? '100%' : '42%' }}
+            />
+          )}
+          <View
+            style={{
+              flex: fontScale > 1.3 ? undefined : 1,
+              alignSelf: 'stretch',
+              justifyContent: 'center',
+              gap: 5,
+              padding: 12,
+            }}
+          >
+            <GameText
+              variant="fighter"
+              style={{
+                fontSize: 14,
+                letterSpacing: 0.7,
+                color: colors.primary,
+              }}
+            >
               {savedItemId && savedItemId !== equippedId
                 ? 'SELECTED · NOT SAVED'
                 : 'CURRENT SIGNATURE ITEM'}
@@ -161,26 +202,37 @@ export default function GearPanel({
             <GameText variant="caption" style={{ color: colors.textSecondary }}>
               {equipped?.isCustom
                 ? 'Retained custom item'
-                : (equipped?.description ??
-                  'Your current item is kept. Retry to load its details.')}
+                : equipped
+                  ? 'Part of your fighter’s identity.'
+                  : 'Your current item is kept. Retry to load its details.'}
+            </GameText>
+            {currentArtFailed && (
+              <GameButton
+                label="Retry current artwork"
+                chrome="text"
+                onPress={() => {
+                  setCurrentArtFailed(false);
+                  setCurrentRetryKey((key) => key + 1);
+                  onRetry();
+                }}
+              />
+            )}
+          </View>
+        </ItemFrame>
+        <View style={{ gap: 4 }}>
+          <View style={styles.sectionHeading}>
+            <GameText
+              variant="fighter"
+              accessibilityRole="header"
+              style={{ fontSize: 19, letterSpacing: 1, color: colors.primary }}
+            >
+              CHOOSE A SIGNATURE ITEM
             </GameText>
           </View>
-        </GamePanel>
-        <GameText variant="title" style={{ fontSize: 23 }}>
-          Choose a signature item
-        </GameText>
-        <GameText variant="caption" style={{ color: colors.textSecondary }}>
-          All choices are free. A new drawing brings your chosen item into the
-          artwork.
-        </GameText>
-        {showAll && (
-          <GameField
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search the catalogue"
-            accessibilityLabel="Search the item catalogue"
-          />
-        )}
+          <GameText variant="caption" style={{ color: colors.textSecondary }}>
+            A new drawing brings your choice into the artwork.
+          </GameText>
+        </View>
         <View style={styles.grid}>
           {visible.map((item) => (
             <GearTile
@@ -200,11 +252,7 @@ export default function GearPanel({
           ))}
         </View>
         {!visible.length && (
-          <GameText variant="body">
-            {query.trim()
-              ? 'No matching items.'
-              : 'No catalogue items available.'}
-          </GameText>
+          <GameText variant="body">No catalogue items available.</GameText>
         )}
         {!showAll && catalog.length > visible.length && (
           <GameButton
@@ -238,6 +286,24 @@ export default function GearPanel({
 }
 const styles = StyleSheet.create({
   panel: { padding: 16, gap: 12 },
+  sectionHeading: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    columnGap: 8,
+    rowGap: 4,
+  },
+  tileLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingLeft: 10,
+    paddingRight: 6,
+    paddingVertical: 2,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  previewButton: { paddingHorizontal: 0, gap: 2, flexShrink: 0 },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
