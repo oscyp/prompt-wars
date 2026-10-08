@@ -16,11 +16,17 @@ never drags in the React Native web bundle.
 
 ```
 landing/
-├── index.html          # The page (semantic HTML + SEO + JSON-LD)
+├── index.html          # Arena landing page (semantic HTML + SEO + JSON-LD)
+├── arena.css           # Screenshot-free Arena layout and responsive styling
+├── arena.js            # Store availability and real launch-notification signup
+├── vercel.json         # Extensionless legal URL rewrites
+├── .vercelignore       # Excludes non-effective legal drafts and local-only files
 ├── privacy-policy.html # Static privacy policy for the landing/app legal links
 ├── terms-and-conditions.html # Static terms of service / AI content policy
-├── styles.css          # Design system (dark canvas, purple brand, move-type accents)
-├── script.js           # Progressive enhancement (nav, scroll-reveal, FAQ, waitlist)
+├── account-deletion.html # Public in-app/email deletion instructions and retained-data disclosure
+├── release-social-auth/ # Non-effective legal drafts; exclude from public deployments
+├── styles.css          # Existing legal-page design system (preserved)
+├── script.js           # Existing legal-page progressive enhancement (preserved)
 ├── site.webmanifest    # PWA manifest
 ├── robots.txt          # Crawl directives + sitemap pointer
 ├── sitemap.xml         # Single-page sitemap with image entry
@@ -36,13 +42,17 @@ landing/
 
 ## Design
 
-The visual language mirrors the app (`constants/Colors.ts`):
+The approved Arena design uses an obsidian canvas, antique gold, lavender,
+self-hosted Barlow display fonts and promotional fantasy illustrations. It contains
+no app screenshots. `arena.css` and `arena.js` are separate from the legacy files
+used by legal pages. The hero artwork is optimized as WebP and loaded eagerly;
+secondary illustrations load lazily.
 
-- **Canvas** `#0B0B0F` dark, **brand** purple `#8B5CF6` → `#7C3AED`
-- **Move-type accents** — Attack `#EF4444`, Defense `#3B82F6`, Finisher `#8B5CF6`
-- **Type** — Space Grotesk (display) + Inter (body) via Google Fonts
-- Fully responsive (mobile-first), accessible (skip link, focus styles, ARIA,
-  reduced-motion support), and usable with JavaScript disabled.
+Platform buttons remain visibly **Coming soon** while the corresponding public
+store URL in `arena.js` is empty. They open a real launch-notification form using
+`POST /api/subscribe`; success requires a successful HTTP response and `{ok:true}`.
+Configure only verified public App Store / Google Play URLs once those releases
+are live. Do not use App Store Connect or Play Console administrative URLs.
 
 ## SEO / sharing
 
@@ -51,11 +61,11 @@ The visual language mirrors the app (`constants/Colors.ts`):
 - `VideoGame` and `FAQPage` JSON-LD structured data
 - `robots.txt` + `sitemap.xml`, semantic landmarks, alt text
 
-> The public landing domain is `https://promptwars.gg/`. Re-generate `og-image.png`
-> from `og-image.svg` if you change the art (`sips -s format png
-assets/og-image.svg --out assets/og-image.png`). Wire the waitlist form in
-> `script.js` to your email provider, and drop in real App Store / Google Play
-> links once available.
+The public domain is `https://promptwars.gg/`. On 8 October 2026, live response
+headers identify Vercel and `/api/subscribe` returns the expected method restriction.
+Existing PNG social cards, icons, manifest, legal pages and support email are retained.
+The legal pages are available at their `.html` URLs; Vercel rewrites also serve
+`/privacy-policy` and `/terms-and-conditions` to match their canonical URLs.
 
 ## Preview locally
 
@@ -67,6 +77,22 @@ python3 -m http.server 8080
 
 ## Deploy
 
-Upload the `landing/` folder to any static host (Netlify, Vercel, Cloudflare
-Pages, GitHub Pages, S3 + CloudFront). No build command; output directory is the
-folder itself.
+Deploy this `landing/` directory to the existing Vercel project serving
+`promptwars.gg`. There is no frontend build step. Keep the existing project and its
+server-side `RESEND_API_KEY` / optional `RESEND_FROM` environment settings so the
+`api/subscribe.js` function continues working. Do not print or bundle those values.
+
+After authenticating and verifying the linked project, use the Vercel CLI from this
+directory. `.vercelignore` excludes `release-social-auth/`, README, local environment
+files and archives. Verify the resulting upload inventory before production deploy.
+Never publish the repository root or the mockup/output folders as the site.
+
+The staged social-authentication/13+ notices must not replace the current public
+policies until that separate release is activated. Follow
+[`release-social-auth/README.md`](release-social-auth/README.md) for its coordinated
+publication. Preserve the app's public `.html` legal URLs, `#support`, and the legacy
+navigation anchors `#how`, `#features`, `#archetypes`, `#faq`, and `#get`.
+
+A static-only host will not run `api/subscribe.js`. Do not report signup success if
+that endpoint is unavailable or returns HTML. Verify success and failure behavior
+with intercepted test responses, without sending real test-email signups.

@@ -1,0 +1,7 @@
+# Only the public landing page belongs in this deployment.
+release-social-auth/
+README.md
+.DS_Store
+*.zip
+*.log
+.env*
