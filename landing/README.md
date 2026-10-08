@@ -37,8 +37,8 @@ landing/
     ├── apple-touch-icon.png
     ├── icon-192.png        # PWA icon
     ├── icon-512.png        # PWA icon
-    ├── og-image.svg        # Source for the social-share card
-    └── og-image.png        # 1200×630 Open Graph / Twitter image
+    ├── og-arena-20261008.jpg # Current 1200×630 Arena social-share card
+    └── og-image.png        # Matching legacy image URL for cached metadata
 ```
 
 ## Design
@@ -64,7 +64,10 @@ are live. Do not use App Store Connect or Play Console administrative URLs.
 
 The public domain is `https://promptwars.gg/`. On 8 October 2026, live response
 headers identify Vercel and `/api/subscribe` returns the expected method restriction.
-Existing PNG social cards, legal pages and support email are retained. Browser and
+The social-share card follows the Arena artwork and slogan. Its versioned JPEG URL
+is shared by Open Graph, Twitter metadata, structured data and the sitemap. The
+legacy PNG URL also serves the new artwork. Sharing platforms control their page
+and message-preview caches. Legal pages and support email are retained. Browser and
 home-screen icons use the approved Battle emblem (`assets/branding/app-icon-square.png`
 in the app repository), resized without changing its artwork. Icon URLs are versioned
 to refresh cached branding. Manifest icons use `purpose: "any"` to avoid mask clipping.
