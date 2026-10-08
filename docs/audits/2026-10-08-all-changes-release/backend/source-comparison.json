@@ -1,0 +1,561 @@
+[
+  {
+    "function": "expire-battles",
+    "version": 35,
+    "verify_jwt": true,
+    "compared": 12,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/cinematic-prompt.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/providers.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "moderate-prompt",
+    "version": 30,
+    "verify_jwt": false,
+    "compared": 4,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/moderation.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "account-farm-guard",
+    "version": 28,
+    "verify_jwt": false,
+    "compared": 2,
+    "changes": []
+  },
+  {
+    "function": "matchmaking",
+    "version": 40,
+    "verify_jwt": false,
+    "compared": 18,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/cinematic-prompt.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/providers.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "report-intake",
+    "version": 28,
+    "verify_jwt": false,
+    "compared": 2,
+    "changes": []
+  },
+  {
+    "function": "revenuecat-webhook",
+    "version": 34,
+    "verify_jwt": false,
+    "compared": 3,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/utils.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "run-judge-calibration",
+    "version": 31,
+    "verify_jwt": false,
+    "compared": 16,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/cinematic-prompt.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/providers.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "block-profile",
+    "version": 28,
+    "verify_jwt": false,
+    "compared": 2,
+    "changes": []
+  },
+  {
+    "function": "grant-credits",
+    "version": 28,
+    "verify_jwt": false,
+    "compared": 2,
+    "changes": []
+  },
+  {
+    "function": "process-video-job",
+    "version": 40,
+    "verify_jwt": false,
+    "compared": 22,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/cinematic-prompt.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/providers.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/cinematic-generation.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/process-video-job/index.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "submit-prompt",
+    "version": 41,
+    "verify_jwt": false,
+    "compared": 6,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/moderation.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "unblock-profile",
+    "version": 28,
+    "verify_jwt": false,
+    "compared": 2,
+    "changes": []
+  },
+  {
+    "function": "appeal-battle",
+    "version": 31,
+    "verify_jwt": false,
+    "compared": 12,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/cinematic-prompt.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/providers.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "generate-tier0-reveal",
+    "version": 33,
+    "verify_jwt": true,
+    "compared": 8,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/cinematic-prompt.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/providers.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "moderate-video",
+    "version": 31,
+    "verify_jwt": false,
+    "compared": 5,
+    "changes": []
+  },
+  {
+    "function": "request-video-upgrade",
+    "version": 36,
+    "verify_jwt": false,
+    "compared": 13,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/cinematic-prompt.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/providers.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "resolve-appeal",
+    "version": 31,
+    "verify_jwt": false,
+    "compared": 12,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/cinematic-prompt.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/providers.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "resolve-battle",
+    "version": 48,
+    "verify_jwt": false,
+    "compared": 12,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/cinematic-prompt.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/providers.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "edit-character",
+    "version": 31,
+    "verify_jwt": false,
+    "compared": 7,
+    "changes": []
+  },
+  {
+    "function": "create-custom-signature-item",
+    "version": 32,
+    "verify_jwt": false,
+    "compared": 9,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/moderation.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "list-signature-items-catalog",
+    "version": 26,
+    "verify_jwt": false,
+    "compared": 3,
+    "changes": []
+  },
+  {
+    "function": "regenerate-portrait",
+    "version": 34,
+    "verify_jwt": false,
+    "compared": 12,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/moderation.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "generate-portrait",
+    "version": 35,
+    "verify_jwt": false,
+    "compared": 9,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/moderation.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "dev-generate-video",
+    "version": 28,
+    "verify_jwt": false,
+    "compared": 8,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/cinematic-prompt.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/providers.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "finalize-character-creation",
+    "version": 28,
+    "verify_jwt": false,
+    "compared": 6,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/moderation.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "leave-battle",
+    "version": 26,
+    "verify_jwt": false,
+    "compared": 12,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/cinematic-prompt.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/providers.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "send-push",
+    "version": 20,
+    "verify_jwt": true,
+    "compared": 3,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/utils.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "daily-meta",
+    "version": 21,
+    "verify_jwt": false,
+    "compared": 2,
+    "changes": []
+  },
+  {
+    "function": "first-time-offer",
+    "version": 21,
+    "verify_jwt": false,
+    "compared": 2,
+    "changes": []
+  },
+  {
+    "function": "cosmetics",
+    "version": 23,
+    "verify_jwt": false,
+    "compared": 4,
+    "changes": []
+  },
+  {
+    "function": "battle-advance",
+    "version": 32,
+    "verify_jwt": false,
+    "compared": 16,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/cinematic-prompt.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/providers.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "sign-battle-portraits",
+    "version": 30,
+    "verify_jwt": false,
+    "compared": 9,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/cinematic-prompt.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/providers.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "round-resolve",
+    "version": 32,
+    "verify_jwt": false,
+    "compared": 14,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/cinematic-prompt.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/providers.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "sign-battle-video",
+    "version": 22,
+    "verify_jwt": false,
+    "compared": 2,
+    "changes": []
+  },
+  {
+    "function": "delete-account",
+    "version": 20,
+    "verify_jwt": false,
+    "compared": 3,
+    "changes": []
+  },
+  {
+    "function": "moderation-queue",
+    "version": 19,
+    "verify_jwt": false,
+    "compared": 2,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/utils.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "generate-move-suggestions",
+    "version": 23,
+    "verify_jwt": false,
+    "compared": 10,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/move-suggestions.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "restore-portrait",
+    "version": 17,
+    "verify_jwt": true,
+    "compared": 5,
+    "changes": []
+  },
+  {
+    "function": "record-funnel-event",
+    "version": 17,
+    "verify_jwt": false,
+    "compared": 5,
+    "changes": []
+  },
+  {
+    "function": "respec-character",
+    "version": 14,
+    "verify_jwt": false,
+    "compared": 3,
+    "changes": []
+  },
+  {
+    "function": "tutorial",
+    "version": 15,
+    "verify_jwt": false,
+    "compared": 3,
+    "changes": []
+  },
+  {
+    "function": "starter-fighter",
+    "version": 14,
+    "verify_jwt": false,
+    "compared": 3,
+    "changes": []
+  },
+  {
+    "function": "prefetch-move-suggestions",
+    "version": 14,
+    "verify_jwt": false,
+    "compared": 8,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/move-suggestions.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/suggestion-service.ts",
+        "reason": "source-diff"
+      },
+      {
+        "file": "supabase/functions/_shared/moderation.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "sign-player-avatars",
+    "version": 8,
+    "verify_jwt": false,
+    "compared": 4,
+    "changes": []
+  },
+  {
+    "function": "registration",
+    "version": 6,
+    "verify_jwt": false,
+    "compared": 6,
+    "changes": []
+  },
+  {
+    "function": "eligibility",
+    "version": 6,
+    "verify_jwt": false,
+    "compared": 6,
+    "changes": []
+  },
+  {
+    "function": "guardian-consent-callback",
+    "version": 6,
+    "verify_jwt": false,
+    "compared": 7,
+    "changes": []
+  },
+  {
+    "function": "apple-authorization",
+    "version": 6,
+    "verify_jwt": false,
+    "compared": 3,
+    "changes": []
+  },
+  {
+    "function": "process-apple-revocations",
+    "version": 6,
+    "verify_jwt": false,
+    "compared": 3,
+    "changes": []
+  },
+  {
+    "function": "complete-move-suggestion",
+    "version": 3,
+    "verify_jwt": false,
+    "compared": 9,
+    "changes": [
+      {
+        "file": "supabase/functions/_shared/move-suggestions.ts",
+        "reason": "source-diff"
+      }
+    ]
+  },
+  {
+    "function": "reroll-move-step-suggestions",
+    "version": 3,
+    "verify_jwt": false,
+    "compared": 10,
+    "changes": []
+  }
+]

@@ -23,3 +23,32 @@ Read-only production inspection found all 126 local migrations already applied. 
 Existing Supabase advisor findings remain; this release does not claim a clean advisor report. Existing cinematic fidelity-matrix and native audible-playback QA gaps remain unverified. Mock tests do not substitute for those checks.
 
 Builds must use the committed source and reuse existing signing credentials. Verify exact build IDs and submission statuses before recording delivery. Deployment and submission outcomes will be recorded after execution.
+
+## Deployed backend
+
+- Source commit: `475d538aec619a35810fb0f826d436cf7bbf5c5c`.
+- All 26 pending function bundles deployed; all 51 functions ACTIVE.
+- Downloaded deployed sources match the committed checkout; JWT settings and feature gates unchanged.
+- Worker now version 41; all 126 migrations already present, none applied during this release.
+- Unauthenticated smoke: access denied by all 26 endpoints. Five handlers return denial as HTTP 500; their entrypoints and auth/error helper are byte-identical to the predeployment downloaded sources. No predeployment HTTP comparison was performed.
+- Evidence: `docs/audits/2026-10-08-all-changes-release/backend/`.
+
+## iOS TestFlight delivery
+
+- Version **1.3.4 (20)**, bundle `gg.promptwars.app`.
+- [EAS build](https://expo.dev/accounts/prompt-wars/projects/prompt-wars/builds/35c4b1d1-7d56-4f57-92e6-8d297254aefd): FINISHED, exact source commit above.
+- [Submission](https://expo.dev/accounts/prompt-wars/projects/prompt-wars/submissions/d8efec75-8b95-4d98-bcdd-9ca46df7db05): FINISHED.
+- Apple verified `VALID / IN_BETA_TESTING` at 2026-10-08 12:41:57 UTC.
+- Existing signing reused; IPA identity, ZIP integrity and strict recursive signature verification passed. Uploaded source showed no drift.
+- No public review submitted. Physical installation and exact tester-group membership not independently checked.
+- Evidence: `docs/audits/2026-10-08-all-changes-release/ios/`.
+
+## Android internal-testing delivery
+
+- [Production AAB build](https://expo.dev/accounts/prompt-wars/projects/prompt-wars/builds/f3ceb8ea-7074-4705-b1b8-b49c6b036913): FINISHED, source commit `475d538`, version **1.3.4 (10)**.
+- Actual manifest: `gg.promptwars.app`, version name `1.3.4`, version code `10`, debugging disabled.
+- Bundletool validation, ZIP integrity, JAR signature and existing upload-certificate checks passed.
+- AAB SHA256: `2f3938152f96778b8075fe316bdcf84b182d34d7914a3d22b57eac5184bca714`.
+- EAS has no assigned Google Play service-account key; authenticated Play Console is the delivery route.
+- Initial file upload was blocked by the ChatGPT Chrome extension's disabled “Allow access to file URLs” setting. User was asked to enable it. The internal-release draft was saved and confirmed by Play Console with release name `1.3.4 (10)` and en-US notes; no successful upload or release is claimed at this point.
+- Evidence: `docs/audits/2026-10-08-all-changes-release/android/aab-inspection.json`.

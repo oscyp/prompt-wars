@@ -1,0 +1,210 @@
+[
+  {
+    "name": "process-video-job",
+    "before_version": 40,
+    "version": 41,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462307746
+  },
+  {
+    "name": "expire-battles",
+    "before_version": 35,
+    "version": 36,
+    "status": "ACTIVE",
+    "verify_jwt": true,
+    "updated_at": 1791462334951
+  },
+  {
+    "name": "moderate-prompt",
+    "before_version": 30,
+    "version": 31,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462336829
+  },
+  {
+    "name": "matchmaking",
+    "before_version": 40,
+    "version": 41,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462338461
+  },
+  {
+    "name": "revenuecat-webhook",
+    "before_version": 34,
+    "version": 35,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462340481
+  },
+  {
+    "name": "run-judge-calibration",
+    "before_version": 31,
+    "version": 32,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462342288
+  },
+  {
+    "name": "submit-prompt",
+    "before_version": 41,
+    "version": 42,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462344266
+  },
+  {
+    "name": "appeal-battle",
+    "before_version": 31,
+    "version": 32,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462346174
+  },
+  {
+    "name": "generate-tier0-reveal",
+    "before_version": 33,
+    "version": 34,
+    "status": "ACTIVE",
+    "verify_jwt": true,
+    "updated_at": 1791462348044
+  },
+  {
+    "name": "request-video-upgrade",
+    "before_version": 36,
+    "version": 37,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462349836
+  },
+  {
+    "name": "resolve-appeal",
+    "before_version": 31,
+    "version": 32,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462351573
+  },
+  {
+    "name": "resolve-battle",
+    "before_version": 48,
+    "version": 49,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462353437
+  },
+  {
+    "name": "create-custom-signature-item",
+    "before_version": 32,
+    "version": 33,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462355495
+  },
+  {
+    "name": "regenerate-portrait",
+    "before_version": 34,
+    "version": 35,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462357278
+  },
+  {
+    "name": "generate-portrait",
+    "before_version": 35,
+    "version": 36,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462359170
+  },
+  {
+    "name": "dev-generate-video",
+    "before_version": 28,
+    "version": 29,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462361180
+  },
+  {
+    "name": "finalize-character-creation",
+    "before_version": 28,
+    "version": 29,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462364739
+  },
+  {
+    "name": "leave-battle",
+    "before_version": 26,
+    "version": 27,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462366464
+  },
+  {
+    "name": "send-push",
+    "before_version": 20,
+    "version": 21,
+    "status": "ACTIVE",
+    "verify_jwt": true,
+    "updated_at": 1791462368196
+  },
+  {
+    "name": "battle-advance",
+    "before_version": 32,
+    "version": 33,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462369990
+  },
+  {
+    "name": "sign-battle-portraits",
+    "before_version": 30,
+    "version": 31,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462371898
+  },
+  {
+    "name": "round-resolve",
+    "before_version": 32,
+    "version": 33,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462373848
+  },
+  {
+    "name": "moderation-queue",
+    "before_version": 19,
+    "version": 20,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462375704
+  },
+  {
+    "name": "generate-move-suggestions",
+    "before_version": 23,
+    "version": 24,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462377571
+  },
+  {
+    "name": "prefetch-move-suggestions",
+    "before_version": 14,
+    "version": 15,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462379408
+  },
+  {
+    "name": "complete-move-suggestion",
+    "before_version": 3,
+    "version": 4,
+    "status": "ACTIVE",
+    "verify_jwt": false,
+    "updated_at": 1791462381212
+  }
+]

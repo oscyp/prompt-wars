@@ -1,0 +1,30 @@
+{
+  "checkedAt": "2026-10-08T12:34:08.070941+00:00",
+  "buildId": "35c4b1d1-7d56-4f57-92e6-8d297254aefd",
+  "ipaBytes": 60599882,
+  "ipaSha256": "99d9e150e169ef6afb20539956fddcee50e48bd68efafb6c28666fe102173910",
+  "bundleIdentifier": "gg.promptwars.app",
+  "version": "1.3.4",
+  "buildNumber": "20",
+  "zipIntegrity": true,
+  "strictSignatureValid": true,
+  "bundleMarkers": {
+    "This may take a few seconds.": true,
+    "Check ideas": true,
+    "Your choices": true,
+    "HOLD TO LOCK IN": true,
+    "cinematic-preview": true,
+    "Move type: ": true
+  },
+  "excludedMarkers": {
+    "SUPABASE_SERVICE_ROLE_KEY": false,
+    "CinematicPreparationError": false,
+    "reserve_cinematic_round_funding": false,
+    "bot_policy_seeds": false,
+    "local-synthetic-preview": false,
+    "sb_publishable_fixture_placeholder": false
+  },
+  "applicationIdentifier": "9665HWDCCA.gg.promptwars.app",
+  "debuggerAllowed": false,
+  "pushEnvironment": "production"
+}

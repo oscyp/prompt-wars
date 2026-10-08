@@ -1,0 +1,22 @@
+{
+  "buildId": "f3ceb8ea-7074-4705-b1b8-b49c6b036913",
+  "gitCommitHash": "475d538aec619a35810fb0f826d436cf7bbf5c5c",
+  "buildUrl": "https://expo.dev/accounts/prompt-wars/projects/prompt-wars/builds/f3ceb8ea-7074-4705-b1b8-b49c6b036913",
+  "artifactPath": "/private/tmp/prompt-wars-android-10-release/prompt-wars-1.3.4-10.aab",
+  "artifactBytes": 104205262,
+  "artifactSha256": "2f3938152f96778b8075fe316bdcf84b182d34d7914a3d22b57eac5184bca714",
+  "manifest": {
+    "package": "gg.promptwars.app",
+    "versionName": "1.3.4",
+    "versionCode": "10"
+  },
+  "bundleValidationPassed": true,
+  "zipIntegrityPassed": true,
+  "jarSignatureVerified": true,
+  "uploadCertificateMatched": true,
+  "uploadCertificateSha1": "CA:44:24:45:80:B8:75:C4:5F:4B:72:9B:C1:9C:04:86:6B:65:56:A2",
+  "uploadCertificateSha256": "0C:64:AE:95:94:15:B1:40:6A:00:94:3D:AA:0B:B4:CA:E8:3C:9E:5F:81:6D:4B:E7:26:D8:08:9D:D3:61:2C:14",
+  "debuggable": false,
+  "nativeInstallOrPlaybackVerified": false,
+  "submittedToPlay": false
+}

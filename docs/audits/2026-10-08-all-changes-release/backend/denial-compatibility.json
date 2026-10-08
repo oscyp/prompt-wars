@@ -1,0 +1,100 @@
+{
+  "method": "Read-only source downloaded before this deployment, compared with committed source used for deployment. Entry points and authentication/error helpers are byte-identical for all five endpoints. No before-deployment HTTP smoke was captured in this run. The response status is therefore established as unchanged source behavior, not a before/after live traffic comparison.",
+  "endpoints": [
+    {
+      "function": "moderate-prompt",
+      "observed_status": 500,
+      "observed_body": "{\"error\":\"Unauthorized\"}",
+      "source_files": [
+        {
+          "path": "supabase/functions/moderate-prompt/index.ts",
+          "downloaded_before_sha256": "8e5de25f1117b12287f91333bb67b65d1ccfb776c8cc269fefca36d1687cef56",
+          "current_sha256": "8e5de25f1117b12287f91333bb67b65d1ccfb776c8cc269fefca36d1687cef56",
+          "unchanged": true
+        },
+        {
+          "path": "supabase/functions/_shared/utils.ts",
+          "downloaded_before_sha256": "0f113d4cb16e522af4a7575c7a3cdf2706ae6fd71a55f12dd0f77d6ada4b1166",
+          "current_sha256": "0f113d4cb16e522af4a7575c7a3cdf2706ae6fd71a55f12dd0f77d6ada4b1166",
+          "unchanged": true
+        }
+      ]
+    },
+    {
+      "function": "submit-prompt",
+      "observed_status": 500,
+      "observed_body": "{\"error\":\"Unauthorized\"}",
+      "source_files": [
+        {
+          "path": "supabase/functions/submit-prompt/index.ts",
+          "downloaded_before_sha256": "5df54a6c7ce32f9a2142ab4e77782594751989560a9efca5707b7ffd49b5bb9d",
+          "current_sha256": "5df54a6c7ce32f9a2142ab4e77782594751989560a9efca5707b7ffd49b5bb9d",
+          "unchanged": true
+        },
+        {
+          "path": "supabase/functions/_shared/utils.ts",
+          "downloaded_before_sha256": "0f113d4cb16e522af4a7575c7a3cdf2706ae6fd71a55f12dd0f77d6ada4b1166",
+          "current_sha256": "0f113d4cb16e522af4a7575c7a3cdf2706ae6fd71a55f12dd0f77d6ada4b1166",
+          "unchanged": true
+        }
+      ]
+    },
+    {
+      "function": "appeal-battle",
+      "observed_status": 500,
+      "observed_body": "{\"error\":\"Unauthorized\"}",
+      "source_files": [
+        {
+          "path": "supabase/functions/appeal-battle/index.ts",
+          "downloaded_before_sha256": "b9bbb703a94020ee9ce934da652c7f6257c0edc10caf97c246d5c048d7a8e3be",
+          "current_sha256": "b9bbb703a94020ee9ce934da652c7f6257c0edc10caf97c246d5c048d7a8e3be",
+          "unchanged": true
+        },
+        {
+          "path": "supabase/functions/_shared/utils.ts",
+          "downloaded_before_sha256": "0f113d4cb16e522af4a7575c7a3cdf2706ae6fd71a55f12dd0f77d6ada4b1166",
+          "current_sha256": "0f113d4cb16e522af4a7575c7a3cdf2706ae6fd71a55f12dd0f77d6ada4b1166",
+          "unchanged": true
+        }
+      ]
+    },
+    {
+      "function": "request-video-upgrade",
+      "observed_status": 500,
+      "observed_body": "{\"error\":\"Unauthorized\"}",
+      "source_files": [
+        {
+          "path": "supabase/functions/request-video-upgrade/index.ts",
+          "downloaded_before_sha256": "07c3e91c405898a009b7077a1d4da07c68af98bbac290cd3c0ece0b079f72146",
+          "current_sha256": "07c3e91c405898a009b7077a1d4da07c68af98bbac290cd3c0ece0b079f72146",
+          "unchanged": true
+        },
+        {
+          "path": "supabase/functions/_shared/utils.ts",
+          "downloaded_before_sha256": "0f113d4cb16e522af4a7575c7a3cdf2706ae6fd71a55f12dd0f77d6ada4b1166",
+          "current_sha256": "0f113d4cb16e522af4a7575c7a3cdf2706ae6fd71a55f12dd0f77d6ada4b1166",
+          "unchanged": true
+        }
+      ]
+    },
+    {
+      "function": "leave-battle",
+      "observed_status": 500,
+      "observed_body": "{\"error\":\"Could not leave the battle\"}",
+      "source_files": [
+        {
+          "path": "supabase/functions/leave-battle/index.ts",
+          "downloaded_before_sha256": "8d9160cba8bafba4455484e40b950e438212c9c78e813056efdcc9cdfaf9f819",
+          "current_sha256": "8d9160cba8bafba4455484e40b950e438212c9c78e813056efdcc9cdfaf9f819",
+          "unchanged": true
+        },
+        {
+          "path": "supabase/functions/_shared/utils.ts",
+          "downloaded_before_sha256": "0f113d4cb16e522af4a7575c7a3cdf2706ae6fd71a55f12dd0f77d6ada4b1166",
+          "current_sha256": "0f113d4cb16e522af4a7575c7a3cdf2706ae6fd71a55f12dd0f77d6ada4b1166",
+          "unchanged": true
+        }
+      ]
+    }
+  ]
+}

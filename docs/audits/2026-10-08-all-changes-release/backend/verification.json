@@ -1,0 +1,69 @@
+{
+  "project_ref": "uoyjhudegdpanrgllfoj",
+  "commit": "475d538aec619a35810fb0f826d436cf7bbf5c5c",
+  "checked_at": "2026-10-08T12:28:18.826782+00:00",
+  "local_validation": {
+    "deno_command": "env PROMPT_WARS_REMOTE_FUNCTION_TESTS=0 deno test --config supabase/functions/deno.json --allow-all supabase/functions/_tests/",
+    "passed": 592,
+    "steps": 74,
+    "failed": 0,
+    "ignored": 7,
+    "remote_integrations_enabled": false,
+    "changed_backend_typecheck": "passed"
+  },
+  "deployment": {
+    "functions_deployed": 26,
+    "functions_total": 51,
+    "all_active": true,
+    "untouched_functions": 25,
+    "jwt_settings_preserved": true,
+    "source_parity": true,
+    "metadata_issues": [],
+    "migrations_applied_this_release": 0,
+    "pending_migrations": []
+  },
+  "release_state": {
+    "auth_release": {
+      "enabled": false,
+      "guest_signup_enabled": false,
+      "minimum_client_version": "1.4.0"
+    },
+    "capabilities": {
+      "enabled": true,
+      "plus_duration_seconds": 20
+    },
+    "cinematic": {
+      "enabled": true,
+      "singleton": true,
+      "updated_at": "2026-10-08T11:11:44.005919+00:00"
+    },
+    "latest_migration": "20261008105415",
+    "migration_count": 126
+  },
+  "auth_smoke": {
+    "requests": 26,
+    "status_counts": {
+      "403": 8,
+      "401": 12,
+      "500": 5,
+      "404": 1
+    },
+    "note": "All 26 rejected requests without credentials. Five handlers return denial as HTTP 500: moderate-prompt, submit-prompt, appeal-battle, request-video-upgrade and leave-battle. Their entry points and auth/error helpers are byte-identical to sources downloaded before deployment; see denial-compatibility.json. This run did not capture their pre-deployment HTTP responses. Three gateway-only HTTP 401 checks do not establish handler readiness. The development endpoint returned HTTP 404, preserving its disabled gate. No jobs, purchases, notifications or paid AI calls were started."
+  },
+  "advisors": {
+    "total": 68,
+    "categories": {
+      "security_definer_view": 1,
+      "function_search_path_mutable": 4,
+      "authenticated_security_definer_function_executable": 5,
+      "auth_allow_anonymous_sign_ins": 57,
+      "auth_leaked_password_protection": 1
+    },
+    "note": "Baseline findings: intentional restricted public cosmetics owner-rights view, eligibility-aware RPCs, full guest policies, four mutable-search-path functions and disabled leaked-password protection. No schema changes were applied in this release."
+  },
+  "limits": [
+    "No real paid generation or live wallet purchase performed",
+    "No native audible playback verification in backend audit",
+    "Python URL smoke failed local CA trust before reaching endpoints; a successful repeat used curl system CA verification without disabling TLS."
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-10-08T12:25:40.811965+00:00",
+  "commit": "475d538aec619a35810fb0f826d436cf7bbf5c5c",
+  "gitClean": true,
+  "files": 527,
+  "bytes": 54404925,
+  "bannedFiles": [],
+  "secretPatternFiles": [],
+  "sourceDrift": [],
+  "sharedSupabaseFiles": [
+    "supabase/functions/_shared/prompt-situations.ts",
+    "supabase/functions/_shared/prompt-affordances.ts",
+    "supabase/functions/_shared/composer-events.ts"
+  ],
+  "manifestSha256": "8c6d9b82dde12af53578e950b074687fc3b0e2a10f891791435cab3344f184b7"
+}

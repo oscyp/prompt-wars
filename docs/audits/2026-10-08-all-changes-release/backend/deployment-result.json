@@ -1,0 +1,167 @@
+{
+  "project_ref": "uoyjhudegdpanrgllfoj",
+  "commit": "475d538aec619a35810fb0f826d436cf7bbf5c5c",
+  "started_at": "2026-10-08T12:25:33.447982+00:00",
+  "function_order": [
+    "process-video-job",
+    "expire-battles",
+    "moderate-prompt",
+    "matchmaking",
+    "revenuecat-webhook",
+    "run-judge-calibration",
+    "submit-prompt",
+    "appeal-battle",
+    "generate-tier0-reveal",
+    "request-video-upgrade",
+    "resolve-appeal",
+    "resolve-battle",
+    "create-custom-signature-item",
+    "regenerate-portrait",
+    "generate-portrait",
+    "dev-generate-video",
+    "finalize-character-creation",
+    "leave-battle",
+    "send-push",
+    "battle-advance",
+    "sign-battle-portraits",
+    "round-resolve",
+    "moderation-queue",
+    "generate-move-suggestions",
+    "prefetch-move-suggestions",
+    "complete-move-suggestion"
+  ],
+  "results": [
+    {
+      "function": "process-video-job",
+      "ok": true,
+      "verify_jwt": false,
+      "note": "deployed successfully with repository CLI before remaining closure"
+    },
+    {
+      "function": "expire-battles",
+      "ok": true,
+      "verify_jwt": true
+    },
+    {
+      "function": "moderate-prompt",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "matchmaking",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "revenuecat-webhook",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "run-judge-calibration",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "submit-prompt",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "appeal-battle",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "generate-tier0-reveal",
+      "ok": true,
+      "verify_jwt": true
+    },
+    {
+      "function": "request-video-upgrade",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "resolve-appeal",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "resolve-battle",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "create-custom-signature-item",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "regenerate-portrait",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "generate-portrait",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "dev-generate-video",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "finalize-character-creation",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "leave-battle",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "send-push",
+      "ok": true,
+      "verify_jwt": true
+    },
+    {
+      "function": "battle-advance",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "sign-battle-portraits",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "round-resolve",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "moderation-queue",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "generate-move-suggestions",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "prefetch-move-suggestions",
+      "ok": true,
+      "verify_jwt": false
+    },
+    {
+      "function": "complete-move-suggestion",
+      "ok": true,
+      "verify_jwt": false
+    }
+  ],
+  "finished_at": "2026-10-08T12:26:21.957738+00:00"
+}

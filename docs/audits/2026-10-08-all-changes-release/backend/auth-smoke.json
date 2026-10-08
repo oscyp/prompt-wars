@@ -1,0 +1,136 @@
+{
+  "checked_at": "2026-10-08T12:27:35.719138+00:00",
+  "transport": "curl system CA verification enabled",
+  "requests": [
+    {
+      "function": "process-video-job",
+      "status": 403,
+      "body": "{\"error\":\"Service role required\"}"
+    },
+    {
+      "function": "expire-battles",
+      "status": 401,
+      "body": "{\"code\":\"UNAUTHORIZED_NO_AUTH_HEADER\",\"message\":\"Missing authorization header\"}"
+    },
+    {
+      "function": "moderate-prompt",
+      "status": 500,
+      "body": "{\"error\":\"Unauthorized\"}"
+    },
+    {
+      "function": "matchmaking",
+      "status": 401,
+      "body": "{\"error\":\"Unauthorized\"}"
+    },
+    {
+      "function": "revenuecat-webhook",
+      "status": 401,
+      "body": "{\"error\":\"Unauthorized\"}"
+    },
+    {
+      "function": "run-judge-calibration",
+      "status": 403,
+      "body": "{\"error\":\"Service role required\"}"
+    },
+    {
+      "function": "submit-prompt",
+      "status": 500,
+      "body": "{\"error\":\"Unauthorized\"}"
+    },
+    {
+      "function": "appeal-battle",
+      "status": 500,
+      "body": "{\"error\":\"Unauthorized\"}"
+    },
+    {
+      "function": "generate-tier0-reveal",
+      "status": 401,
+      "body": "{\"code\":\"UNAUTHORIZED_NO_AUTH_HEADER\",\"message\":\"Missing authorization header\"}"
+    },
+    {
+      "function": "request-video-upgrade",
+      "status": 500,
+      "body": "{\"error\":\"Unauthorized\"}"
+    },
+    {
+      "function": "resolve-appeal",
+      "status": 403,
+      "body": "{\"error\":\"Service role required\"}"
+    },
+    {
+      "function": "resolve-battle",
+      "status": 403,
+      "body": "{\"error\":\"Service role or battle participant required\"}"
+    },
+    {
+      "function": "create-custom-signature-item",
+      "status": 401,
+      "body": "{\"ok\":false,\"error\":{\"code\":\"unauthorized\",\"message\":\"authentication required\"}}"
+    },
+    {
+      "function": "regenerate-portrait",
+      "status": 401,
+      "body": "{\"ok\":false,\"error\":{\"code\":\"unauthorized\",\"message\":\"authentication required\"}}"
+    },
+    {
+      "function": "generate-portrait",
+      "status": 401,
+      "body": "{\"ok\":false,\"error\":{\"code\":\"unauthorized\",\"message\":\"authentication required\"}}"
+    },
+    {
+      "function": "dev-generate-video",
+      "status": 404,
+      "body": "{\"error\":\"Not found\"}"
+    },
+    {
+      "function": "finalize-character-creation",
+      "status": 401,
+      "body": "{\"ok\":false,\"error\":{\"code\":\"unauthorized\",\"message\":\"authentication required\"}}"
+    },
+    {
+      "function": "leave-battle",
+      "status": 500,
+      "body": "{\"error\":\"Could not leave the battle\"}"
+    },
+    {
+      "function": "send-push",
+      "status": 401,
+      "body": "{\"code\":\"UNAUTHORIZED_NO_AUTH_HEADER\",\"message\":\"Missing authorization header\"}"
+    },
+    {
+      "function": "battle-advance",
+      "status": 403,
+      "body": "{\"error\":\"Service role required\"}"
+    },
+    {
+      "function": "sign-battle-portraits",
+      "status": 401,
+      "body": "{\"error\":\"Unauthorized\"}"
+    },
+    {
+      "function": "round-resolve",
+      "status": 403,
+      "body": "{\"error\":\"Service role required\"}"
+    },
+    {
+      "function": "moderation-queue",
+      "status": 403,
+      "body": "{\"error\":\"Service role required\"}"
+    },
+    {
+      "function": "generate-move-suggestions",
+      "status": 401,
+      "body": "{\"ok\":false,\"error\":{\"code\":\"unauthorized\",\"message\":\"authentication required\"}}"
+    },
+    {
+      "function": "prefetch-move-suggestions",
+      "status": 403,
+      "body": "{\"error\":\"Service role required\"}"
+    },
+    {
+      "function": "complete-move-suggestion",
+      "status": 401,
+      "body": "{\"ok\":false,\"error\":{\"code\":\"unauthorized\",\"message\":\"authentication required\"}}"
+    }
+  ]
+}
