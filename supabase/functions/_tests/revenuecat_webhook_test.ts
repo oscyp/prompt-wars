@@ -10,6 +10,8 @@ const migrations = new URL('../../migrations/', import.meta.url);
 const PROFILE = '00000000-0000-4000-8000-000000000001';
 const OTHER = '00000000-0000-4000-8000-000000000002';
 const migrationName = '20260922093341_revenuecat_transactional_fulfillment.sql';
+const promotionalMigration =
+  '20261008191802_revenuecat_finite_promotional_plus.sql';
 const read = (name: string) => Deno.readTextFile(new URL(name, migrations));
 
 function table(sql: string, name: string): string {
@@ -93,6 +95,7 @@ async function database(beforeMigration?: (db: PGlite) => Promise<void>) {
   );
   if (beforeMigration) await beforeMigration(db);
   await db.exec(await read(migrationName));
+  await db.exec(await read(promotionalMigration));
   return db;
 }
 
@@ -122,6 +125,435 @@ async function apply(db: PGlite, payload: Record<string, unknown>) {
   );
   return result.rows[0].result;
 }
+
+function promotion(overrides: Record<string, unknown> = {}) {
+  return event({
+    type: 'NON_RENEWING_PURCHASE',
+    product_id: 'rc_promo_plus_monthly',
+    transaction_id: 'provider-promo-transaction',
+    original_transaction_id: 'provider-promo-original',
+    store: 'PROMOTIONAL',
+    period_type: 'PROMOTIONAL',
+    environment: 'PRODUCTION',
+    entitlement_ids: ['plus'],
+    purchased_at_ms: Date.parse('2030-01-31T10:00:00Z'),
+    expiration_at_ms: Date.parse('2030-04-30T10:00:00Z'),
+    event_timestamp_ms: Date.parse('2030-01-31T10:00:00Z'),
+    price: 0,
+    price_in_purchased_currency: 0,
+    ...overrides,
+  });
+}
+
+Deno.test(
+  'finite promotional Plus follows provider evidence without minting purchases',
+  async (t) => {
+    const db = await database();
+    try {
+      // Exercise the production derived view, not a substitute entitlement gate.
+      await db.exec(
+        'ALTER TABLE profiles ADD updated_at timestamptz DEFAULT NOW()',
+      );
+      const views = await read('20260731131000_subscriber_expiry_fix.sql');
+      const start = views.indexOf('CREATE OR REPLACE VIEW entitlements AS');
+      await db.exec(views.slice(start, views.indexOf(';', start) + 1));
+      const reset = () =>
+        db.exec(
+          'TRUNCATE subscriptions, purchases, revenuecat_events, wallet_transactions CASCADE',
+        );
+      const entitled = async () =>
+        (
+          await db.query<{ is_subscriber: boolean }>(
+            'SELECT is_subscriber FROM entitlements WHERE profile_id = $1',
+            [PROFILE],
+          )
+        ).rows[0].is_subscriber;
+
+      await t.step(
+        'authentic finite Plus grant derives access and records only provider identity',
+        async () => {
+          await reset();
+          assertEquals(
+            (await apply(db, promotion())).type,
+            'promotional_plus_activated',
+          );
+          assertEquals(await entitled(), true);
+          const rows = (
+            await db.query<Record<string, unknown>>(
+              'SELECT revenuecat_subscription_id, revenuecat_promotional_transaction_id, product_id, tier, status, monthly_round_allowance, monthly_full_battle_cap FROM subscriptions',
+            )
+          ).rows;
+          assertEquals(rows, [
+            {
+              revenuecat_subscription_id: 'provider-promo-original',
+              revenuecat_promotional_transaction_id:
+                'provider-promo-transaction',
+              product_id: 'rc_promo_plus_monthly',
+              tier: 'plus',
+              status: 'active',
+              monthly_round_allowance: 90,
+              monthly_full_battle_cap: 30,
+            },
+          ]);
+          assertEquals(
+            (
+              await db.query<Record<string, unknown>>(
+                'SELECT (SELECT count(*)::int FROM purchases) AS purchases, (SELECT count(*)::int FROM wallet_transactions) AS credits',
+              )
+            ).rows,
+            [{ purchases: 0, credits: 0 }],
+          );
+          await db.exec(
+            "UPDATE subscriptions SET expires_at = NOW() - INTERVAL '1 second'",
+          );
+          assertEquals(await entitled(), false);
+        },
+      );
+
+      await t.step(
+        'wrong source, period, entitlement, environment, product and unsupported events never grant',
+        async () => {
+          await reset();
+          for (const invalid of [
+            { store: 'APP_STORE' },
+            { period_type: 'NORMAL' },
+            { environment: 'SANDBOX' },
+            { entitlement_ids: ['credits'] },
+            { entitlement_ids: 'plus' },
+            { product_id: 'promptwars_plus_monthly' },
+            { product_id: 'rc_promotional_impostor' },
+            { type: 'INITIAL_PURCHASE' },
+            { type: 'RENEWAL' },
+            { type: 'UNCANCELLATION' },
+          ]) {
+            assertEquals(
+              (await apply(db, promotion(invalid))).action,
+              'ignored',
+            );
+          }
+          assertEquals(await entitled(), false);
+          assertEquals(
+            (
+              await db.query<Record<string, unknown>>(
+                'SELECT (SELECT count(*)::int FROM subscriptions) AS subscriptions, (SELECT count(*)::int FROM purchases) AS purchases, (SELECT count(*)::int FROM revenuecat_events) AS events',
+              )
+            ).rows,
+            [{ subscriptions: 0, purchases: 0, events: 0 }],
+          );
+        },
+      );
+
+      await t.step(
+        'missing, nonnumeric, infinite and nonpositive provider evidence fail atomically',
+        async () => {
+          await reset();
+          for (const invalid of [
+            { transaction_id: null },
+            { transaction_id: ' ' },
+            { transaction_id: 17 },
+            { original_transaction_id: null },
+            { id: ' ' },
+            { expiration_at_ms: null },
+            { expiration_at_ms: 'Infinity' },
+            { expiration_at_ms: '1898550000000' },
+            { expiration_at_ms: 0 },
+            { purchased_at_ms: null },
+            { event_timestamp_ms: null },
+            { expiration_at_ms: Date.parse('2030-01-31T10:00:00Z') },
+          ])
+            await assertRejects(() => apply(db, promotion(invalid)));
+          assertEquals(
+            (
+              await db.query<Record<string, unknown>>(
+                'SELECT count(*)::int AS n FROM revenuecat_events',
+              )
+            ).rows[0].n,
+            0,
+          );
+          assertEquals(await entitled(), false);
+        },
+      );
+
+      await t.step(
+        'duplicate grant and parallel replay never reset spent allowance or extend expiry',
+        async () => {
+          await reset();
+          const payload = promotion();
+          await apply(db, payload);
+          await db.exec(
+            'UPDATE subscriptions SET monthly_round_allowance_used = 23',
+          );
+          const results = await Promise.all(
+            Array.from({ length: 8 }, () => apply(db, payload)),
+          );
+          assertEquals(
+            results.every((result) => result.duplicate === true),
+            true,
+          );
+          await apply(db, {
+            ...payload,
+            id: crypto.randomUUID(),
+            expiration_at_ms: Date.parse('2031-04-30T10:00:00Z'),
+          });
+          const row = (
+            await db.query<{ used: number; expires_at: Date }>(
+              'SELECT monthly_round_allowance_used AS used, expires_at FROM subscriptions',
+            )
+          ).rows[0];
+          assertEquals(row.used, 23);
+          assertEquals(
+            new Date(row.expires_at).toISOString(),
+            '2030-04-30T10:00:00.000Z',
+          );
+        },
+      );
+
+      await t.step(
+        'revocation and expiry immediately end promo access, including out of order delivery',
+        async () => {
+          for (const type of ['CANCELLATION', 'EXPIRATION']) {
+            await reset();
+            const grant = promotion();
+            const terminal = promotion({
+              type,
+              event_timestamp_ms: Date.parse('2030-02-01T10:00:00Z'),
+            });
+            // A terminal event can precede the corresponding activation: preserve
+            // its evidence so retries or even a later timestamp cannot revive it.
+            await apply(db, terminal);
+            await apply(db, grant);
+            await apply(
+              db,
+              promotion({
+                event_timestamp_ms: Date.parse('2030-02-02T10:00:00Z'),
+              }),
+            );
+            assertEquals(await entitled(), false);
+            assertEquals(
+              (
+                await db.query<Record<string, unknown>>(
+                  'SELECT status FROM subscriptions',
+                )
+              ).rows,
+              [{ status: 'expired' }],
+            );
+            await reset();
+            await apply(db, grant);
+            await db.exec(
+              'UPDATE subscriptions SET monthly_round_allowance_used = 12',
+            );
+            await apply(db, terminal);
+            await apply(db, grant);
+            assertEquals(await entitled(), false);
+            assertEquals(
+              (
+                await db.query<Record<string, unknown>>(
+                  'SELECT monthly_round_allowance_used FROM subscriptions',
+                )
+              ).rows[0].monthly_round_allowance_used,
+              12,
+            );
+          }
+        },
+      );
+
+      await t.step(
+        'promotional lifecycle preserves paid access and rejects cross-profile or cross-origin identities',
+        async () => {
+          await reset();
+          await apply(
+            db,
+            event({ expiration_at_ms: Date.parse('2031-01-31T10:00:00Z') }),
+          );
+          await db.exec(
+            'UPDATE subscriptions SET monthly_round_allowance_used = 19',
+          );
+          await assertRejects(() =>
+            apply(db, promotion({ original_transaction_id: 'original-txn' })),
+          );
+          await apply(db, promotion());
+          await assertRejects(() =>
+            apply(db, promotion({ app_user_id: OTHER })),
+          );
+          await assertRejects(() =>
+            apply(
+              db,
+              promotion({ transaction_id: 'different-promo-transaction' }),
+            ),
+          );
+          await assertRejects(() =>
+            apply(
+              db,
+              event({
+                original_transaction_id: 'provider-promo-original',
+                transaction_id: 'paid-collision',
+              }),
+            ),
+          );
+          await apply(
+            db,
+            promotion({
+              type: 'CANCELLATION',
+              event_timestamp_ms: Date.parse('2030-02-01T10:00:00Z'),
+            }),
+          );
+          assertEquals(await entitled(), true);
+          assertEquals(
+            (
+              await db.query<Record<string, unknown>>(
+                "SELECT status, monthly_round_allowance_used FROM subscriptions WHERE product_id = 'promptwars_plus_monthly'",
+              )
+            ).rows,
+            [{ status: 'active', monthly_round_allowance_used: 19 }],
+          );
+          assertEquals(
+            (
+              await db.query<Record<string, unknown>>(
+                'SELECT count(*)::int AS n FROM purchases',
+              )
+            ).rows[0].n,
+            1,
+          );
+        },
+      );
+
+      await t.step(
+        'terminal events may omit entitlement lists only for an already validated Plus identity',
+        async () => {
+          await reset();
+          await assertRejects(() =>
+            apply(
+              db,
+              promotion({ type: 'CANCELLATION', entitlement_ids: null }),
+            ),
+          );
+          assertEquals(
+            (
+              await db.query<{ n: number }>(
+                'SELECT count(*)::int AS n FROM revenuecat_events',
+              )
+            ).rows[0].n,
+            0,
+          );
+          for (const type of ['CANCELLATION', 'EXPIRATION']) {
+            await reset();
+            await apply(db, promotion());
+            await apply(
+              db,
+              promotion({
+                type,
+                entitlement_ids: null,
+                expiration_at_ms: null,
+              }),
+            );
+            assertEquals(await entitled(), false);
+          }
+        },
+      );
+
+      await t.step(
+        'terminal events may omit store only for an already validated promotional identity',
+        async () => {
+          await reset();
+          await assertRejects(() =>
+            apply(db, promotion({ type: 'CANCELLATION', store: null })),
+          );
+          for (const type of ['CANCELLATION', 'EXPIRATION']) {
+            await reset();
+            await apply(db, promotion());
+            assertEquals(
+              (await apply(db, promotion({ type, store: 'APP_STORE' }))).action,
+              'ignored',
+            );
+            assertEquals(await entitled(), true);
+            await apply(db, promotion({ type, store: null }));
+            assertEquals(await entitled(), false);
+          }
+        },
+      );
+
+      await t.step(
+        'failed subscription write rolls back event claim and retry succeeds once',
+        async () => {
+          await reset();
+          const grant = promotion();
+          await db.exec(
+            "ALTER TABLE subscriptions ADD CONSTRAINT reject_promo CHECK (product_id NOT LIKE 'rc_promo%')",
+          );
+          await assertRejects(() => apply(db, grant));
+          assertEquals(
+            (
+              await db.query<Record<string, unknown>>(
+                'SELECT count(*)::int AS n FROM revenuecat_events',
+              )
+            ).rows[0].n,
+            0,
+          );
+          await db.exec(
+            'ALTER TABLE subscriptions DROP CONSTRAINT reject_promo',
+          );
+          await apply(db, grant);
+          assertEquals((await apply(db, grant)).duplicate, true);
+          assertEquals(await entitled(), true);
+        },
+      );
+
+      await t.step(
+        'longer finite promotions reset monthly, expiry caps resets, and RPC stays service only',
+        async () => {
+          await reset();
+          await apply(db, promotion());
+          await db.exec(
+            'UPDATE subscriptions SET monthly_round_allowance_used = 90',
+          );
+          assertEquals(
+            (
+              await db.query<Record<string, unknown>>(
+                "SELECT internal.reset_subscription_allowances('2030-02-28T10:00:00Z') AS n",
+              )
+            ).rows[0].n,
+            1,
+          );
+          assertEquals(
+            (
+              await db.query<Record<string, unknown>>(
+                "SELECT internal.reset_subscription_allowances('2030-02-28T10:00:00Z') AS n",
+              )
+            ).rows[0].n,
+            0,
+          );
+          assertEquals(
+            (
+              await db.query<Record<string, unknown>>(
+                'SELECT monthly_round_allowance_used FROM subscriptions',
+              )
+            ).rows[0].monthly_round_allowance_used,
+            0,
+          );
+          assertEquals(
+            (
+              await db.query<Record<string, unknown>>(
+                "SELECT internal.reset_subscription_allowances('2030-04-30T10:00:00Z') AS n",
+              )
+            ).rows[0].n,
+            0,
+          );
+          await db.exec(await read(promotionalMigration));
+          const privileges = (
+            await db.query<Record<string, unknown>>(
+              "SELECT has_function_privilege('anon', 'internal.process_revenuecat_promotion(jsonb)', 'EXECUTE') AS anon, has_function_privilege('authenticated', 'internal.process_revenuecat_promotion(jsonb)', 'EXECUTE') AS authenticated, has_function_privilege('service_role', 'internal.process_revenuecat_promotion(jsonb)', 'EXECUTE') AS service",
+            )
+          ).rows;
+          assertEquals(privileges, [
+            { anon: false, authenticated: false, service: true },
+          ]);
+        },
+      );
+    } finally {
+      await db.close();
+    }
+  },
+);
 
 Deno.test(
   'RevenueCat fulfillment is atomic, idempotent, and follows subscription identity',
