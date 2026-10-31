@@ -2,9 +2,6 @@
 (function () {
   'use strict';
 
-  // Set each URL only when its public store listing is live. An empty URL keeps
-  // the Coming soon label and offers an email notification instead.
-  var storeUrls = { iOS: '', Android: '' };
   var dialog = document.getElementById('waitlist-dialog');
   var form = document.getElementById('waitlist');
   var note = document.getElementById('form-note');
@@ -13,18 +10,10 @@
   var defaultNote = note.textContent;
   var pending = false;
 
-  document.querySelectorAll('[data-platform]').forEach(function (link) {
-    var platform = link.dataset.platform;
+  document.querySelectorAll('[data-notify-platform]').forEach(function (link) {
+    var platform = link.dataset.notifyPlatform;
+    link.hidden = false;
     var store = platform === 'iOS' ? 'App Store' : 'Google Play';
-    var url = storeUrls[platform];
-    if (url) {
-      link.href = url;
-      link.removeAttribute('aria-haspopup');
-      link.setAttribute('aria-label', 'Play on ' + platform + ' — ' + store);
-      link.querySelector('small').textContent =
-        'PLAY ON ' + platform.toUpperCase();
-      return;
-    }
     link.addEventListener('click', function (event) {
       event.preventDefault();
       document.getElementById('waitlist-title').textContent =
@@ -85,7 +74,7 @@
         );
       }
       note.textContent =
-        'You’re on the list! We’ll email you when Prompt Wars launches.';
+        'You’re on the list! We’ll email you when Prompt Wars launches on iOS.';
       note.classList.add('success');
       form.reset();
     } catch (error) {

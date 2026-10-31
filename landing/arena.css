@@ -1484,3 +1484,31 @@ dialog .consent {
 .footer-row img {
   height: auto;
 }
+
+/* Store availability remains clear with and without JavaScript. */
+.store-button.store-unavailable,
+.store-button.store-unavailable:hover {
+  background: #14121b;
+  border-color: #625967;
+  color: #b9b3c1;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.store-unavailable > svg {
+  opacity: 0.65;
+}
+.ios-notify {
+  margin-top: 18px;
+  padding: 8px 4px;
+  border: 0;
+  border-bottom: 1px solid #c6ad83;
+  background: none;
+  color: var(--paper);
+  font: 14px Arial, sans-serif;
+}
+.ios-notify[hidden] {
+  display: none;
+}
+.legal {
+  flex-wrap: wrap;
+}

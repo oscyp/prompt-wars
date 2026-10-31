@@ -18,7 +18,9 @@ never drags in the React Native web bundle.
 landing/
 ├── index.html          # Arena landing page (semantic HTML + SEO + JSON-LD)
 ├── arena.css           # Screenshot-free Arena layout and responsive styling
-├── arena.js            # Store availability and real launch-notification signup
+├── arena.js            # Existing iOS launch-notification signup
+├── analytics.js        # Consent-gated Google Analytics 4
+├── analytics.css       # Shared analytics choice panel
 ├── vercel.json         # Extensionless legal URL rewrites
 ├── .vercelignore       # Excludes non-effective legal drafts and local-only files
 ├── privacy-policy.html # Static privacy policy for the landing/app legal links
@@ -49,11 +51,13 @@ no app screenshots. `arena.css` and `arena.js` are separate from the legacy file
 used by legal pages. The hero artwork is optimized as WebP and loaded eagerly;
 secondary illustrations load lazily.
 
-Platform buttons remain visibly **Coming soon** while the corresponding public
-store URL in `arena.js` is empty. They open a real launch-notification form using
-`POST /api/subscribe`; success requires a successful HTTP response and `{ok:true}`.
-Configure only verified public App Store / Google Play URLs once those releases
-are live. Do not use App Store Connect or Play Console administrative URLs.
+Google Play buttons link directly to the verified public listing for
+`gg.promptwars.app`, including without JavaScript. Apple badges are disabled and
+visibly **Coming soon** because app `6788787677` has no public listing yet. The
+separate iOS notification button retains the existing `POST /api/subscribe` flow;
+success requires a successful HTTP response and `{ok:true}`. When iOS is live,
+replace both disabled badges with verified public store links and update the
+availability text and structured data. Do not use store administrative URLs.
 
 ## SEO / sharing
 
@@ -103,3 +107,55 @@ navigation anchors `#how`, `#features`, `#archetypes`, `#faq`, and `#get`.
 A static-only host will not run `api/subscribe.js`. Do not report signup success if
 that endpoint is unavailable or returns HTML. Verify success and failure behavior
 with intercepted test responses, without sending real test-email signups.
+
+## Website measurement (31 October 2026)
+
+GA4 measurement ID: `G-Q17QEN6GLW`. Property: `561785035`; web stream: `16244678280`; account: `379285196`.
+The shared `analytics.js` is loaded on the homepage, privacy policy, terms, and
+account-deletion page. Google itself is not loaded until analytics is accepted.
+The equally weighted Accept/Reject panel is nonblocking; the footer's **Analytics
+settings** button reopens it. The choice is stored under
+`promptwars.analytics-consent.v1`. Rejection/withdrawal disables collection and
+clears `_ga` cookies; browser storage failures fail closed on the next page load.
+Advertising consent always remains denied. Google signals and ad personalization
+are disabled. Website query strings and fragments are excluded from the reported
+page URL, and only the referrer's origin is retained. No form values or email
+addresses are sent. First-party analytics cookies expire after 180 days.
+
+Campaign attribution is passed explicitly through these six fields only:
+`utm_source` → `campaign_source`, `utm_medium` → `campaign_medium`,
+`utm_campaign` → `campaign_name`, `utm_id` → `campaign_id`,
+`utm_content` → `campaign_content`, and `utm_term` → `campaign_term`.
+Use non-personal campaign identifiers of 1–80 ASCII letters, digits, underscores,
+or hyphens, starting with a letter or digit (for example, `newsletter`, `email`,
+`android_launch`, `launch-2026`, `hero`, `prompt_battles`). Use lowercase consistently.
+Never place names, email addresses, phone numbers, account IDs, or other personal
+information in campaign tags. Email/URL punctuation, spaces/free text, overlong
+values, duplicate parameters, and phone-like strings of seven or more digits,
+underscores, or hyphens are rejected. Unknown query parameters are never forwarded.
+This format filter is not a general personal-data detector: campaign authors must
+keep the permitted labels non-personal. Full query strings still never enter
+`page_location` or `page_referrer`.
+
+| Event | Trigger | Parameters |
+| --- | --- | --- |
+| `page_view` | Once per document, only after consent | Sanitized page location and referrer from configuration |
+| `app_store_clicked` | An available store link is clicked, after consent | `store_platform` (`Android`), `placement` (`hero` or `join`) |
+
+Page views are sent explicitly with `send_page_view: false` to avoid an automatic
+initial duplicate. Keep enhanced measurement disabled in this web stream, including
+automatic outbound clicks, forms, scrolling, search, video, downloads, and history-change
+page views. This static site uses real document loads; anchors should not create
+new page views.
+`app_store_clicked` is configured as a key event, counted once per session, with
+no default monetary value. Raw clicks remain available in event reports. It measures
+store visits, not installs. No App Store event fires while the iOS badge is disabled.
+
+Search Console uses the verification meta tag on the homepage. Submit
+`https://promptwars.gg/sitemap.xml` for the `https://promptwars.gg/` URL-prefix
+property after deploying. Keep the verification tag when changing analytics.
+
+Before publishing, verify first-visit reject/accept, remembered choices,
+withdrawal, a blocked-storage browser, one page view per load, both Play links,
+the existing iOS notification dialog, and all four public pages. Do not send real
+test-email signups. Staged `release-social-auth/` pages remain excluded and unchanged.

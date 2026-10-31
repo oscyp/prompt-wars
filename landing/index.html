@@ -3,11 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Prompt Wars — The AI Prompt Battle Game for iOS &amp; Android</title>
+    <title>Prompt Wars — The AI Prompt Battle Game</title>
     <meta
       name="description"
-      content="Your words. Your weapon. Build a fighter, shape your move and face a rival in AI-judged 1v1 battles. Coming soon to iOS and Android."
+      content="Your words. Your weapon. Build a fighter, shape your move and face a rival in AI-judged 1v1 battles. Available on Android. Coming soon to iOS."
     />
+    <meta name="google-site-verification" content="YWGgJw99mup69uJZRE81a3KWgEBaeaU9nuqO9V_IiSw" />
     <meta name="author" content="Prompt Wars" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta name="theme-color" content="#0b0b13" />
@@ -21,7 +22,7 @@
     />
     <meta
       property="og:description"
-      content="Your words. Your weapon. Build a fighter, shape your move and face a rival in AI-judged 1v1 battles. Coming soon to iOS and Android."
+      content="Your words. Your weapon. Build a fighter, shape your move and face a rival in AI-judged 1v1 battles. Available on Android. Coming soon to iOS."
     />
     <meta property="og:url" content="https://promptwars.gg/" />
     <meta property="og:image" content="https://promptwars.gg/assets/og-arena-20261008.jpg" />
@@ -31,7 +32,7 @@
     <meta property="og:image:alt" content="Prompt Wars — Your words. Your weapon. Two fantasy rivals face off at a stormy citadel." />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Prompt Wars — Your words. Your weapon." />
-    <meta name="twitter:description" content="Your words. Your weapon. Build a fighter, shape your move and face a rival in AI-judged 1v1 battles. Coming soon to iOS and Android." />
+    <meta name="twitter:description" content="Your words. Your weapon. Build a fighter, shape your move and face a rival in AI-judged 1v1 battles. Available on Android. Coming soon to iOS." />
     <meta name="twitter:image" content="https://promptwars.gg/assets/og-arena-20261008.jpg" />
     <meta name="twitter:image:alt" content="Prompt Wars — Your words. Your weapon. Two fantasy rivals face off at a stormy citadel." />
     <meta property="og:locale" content="en_US" />
@@ -68,11 +69,11 @@
         "name": "Prompt Wars",
         "url": "https://promptwars.gg/",
         "image": "https://promptwars.gg/assets/og-arena-20261008.jpg",
-        "description": "Your words. Your weapon. Build a fighter, shape your move and face a rival in AI-judged 1v1 battles. Coming soon to iOS and Android.",
+        "description": "Your words. Your weapon. Build a fighter, shape your move and face a rival in AI-judged 1v1 battles. Available on Android. Coming soon to iOS.",
         "genre": ["Strategy", "Competitive", "Word Game"],
-        "gamePlatform": ["iOS", "Android"],
+        "gamePlatform": ["Android"],
         "applicationCategory": "GameApplication",
-        "operatingSystem": "iOS, Android",
+        "operatingSystem": "Android",
         "playMode": "MultiPlayer",
         "publisher": {
           "@type": "Organization",
@@ -111,15 +112,17 @@
           },
           {
             "@type": "Question",
-            "name": "Where will I be able to play?",
+            "name": "Where can I play?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Prompt Wars is coming soon to iOS and Android. Choose your platform to get a launch notification."
+              "text": "Prompt Wars is available on Google Play for Android. The iOS version is coming soon to the App Store. You can request an iOS launch notification."
             }
           }
         ]
       }
     </script>
+    <link rel="stylesheet" href="/analytics.css" />
+    <script src="/analytics.js" defer></script>
   </head>
   <body id="top">
     <a href="#main" class="skip">Skip to content</a>
@@ -163,11 +166,10 @@
           <div class="hero-actions">
             <p class="lock-label">LOCK IN NOW.</p>
             <div class="store-row" aria-label="Choose your platform">
-              <a
-                class="store-button"
-                href="#join"
-                aria-haspopup="dialog"
-                data-platform="iOS"
+              <button
+                class="store-button store-unavailable"
+                type="button"
+                disabled
                 aria-label="App Store — coming soon on iOS"
                 ><svg viewBox="0 0 24 24" aria-hidden="true">
                   <path
@@ -176,20 +178,20 @@
                   /></svg
                 ><span
                   ><small>COMING SOON</small><strong>App Store</strong></span
-                ><span class="store-arrow" aria-hidden="true">↗</span></a
+                ></button
               ><a
                 class="store-button"
-                href="#join"
-                aria-haspopup="dialog"
-                data-platform="Android"
-                aria-label="Google Play — coming soon on Android"
+                href="https://play.google.com/store/apps/details?id=gg.promptwars.app"
+                data-store-platform="Android"
+                data-store-placement="hero"
+                aria-label="Get Prompt Wars on Google Play"
                 ><svg viewBox="0 0 28 30" aria-hidden="true">
                   <path fill="#66c4ff" d="M2 2 15 15 2 28Z" />
                   <path fill="#70d39b" d="m2 2 17 10-4 3Z" />
                   <path fill="#ffcf66" d="m19 12 7 4-7 4-4-5Z" />
                   <path fill="#f57d93" d="M2 28 19 20 15 15Z" /></svg
                 ><span
-                  ><small>COMING SOON</small><strong>Google Play</strong></span
+                  ><small>GET IT ON</small><strong>Google Play</strong></span
                 ><span class="store-arrow" aria-hidden="true">↗</span></a
               >
             </div>
@@ -480,10 +482,10 @@
             </p>
           </details>
           <details>
-            <summary>Where will I be able to play?</summary>
+            <summary>Where can I play?</summary>
             <p>
-              Prompt Wars is coming soon to iOS and Android. Choose your
-              platform to get a launch notification.
+              Prompt Wars is available on Google Play for Android. The iOS version
+              is coming soon to the App Store. You can request an iOS launch notification.
             </p>
           </details>
         </div>
@@ -494,11 +496,10 @@
         <h2>LOCK IN.<br /><span>MAKE YOUR MOVE.</span></h2>
         <p>One scene. Two fighters. Your words decide what happens next.</p>
         <div class="store-row" aria-label="Choose your platform">
-          <a
-            class="store-button"
-            href="#join"
-            aria-haspopup="dialog"
-            data-platform="iOS"
+          <button
+            class="store-button store-unavailable"
+            type="button"
+            disabled
             aria-label="App Store — coming soon on iOS"
             ><svg viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -506,24 +507,27 @@
                 d="M17.1 12.6c0-2.1 1.7-3.2 1.8-3.3-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.7.8-3.4.8-.7 0-1.7-.8-2.9-.8C7.9 7.7 6.5 8.6 5.7 10c-1.6 2.8-.4 7 1.1 9.2.7 1.1 1.6 2.2 2.7 2.2 1.1 0 1.5-.7 2.9-.7s1.8.7 3 .7 2-1.1 2.7-2.1c.8-1.2 1.2-2.3 1.2-2.4-.1 0-2.2-.9-2.2-3.3v-1Zm-2.2-6.4c.6-.8 1.1-1.8 1-2.9-1 .1-2.1.7-2.8 1.4-.6.7-1.2 1.8-1 2.8 1.1.1 2.1-.5 2.8-1.3Z"
               /></svg
             ><span><small>COMING SOON</small><strong>App Store</strong></span
-            ><span class="store-arrow" aria-hidden="true">↗</span></a
+            ></button
           ><a
             class="store-button"
-            href="#join"
-            aria-haspopup="dialog"
-            data-platform="Android"
-            aria-label="Google Play — coming soon on Android"
+            href="https://play.google.com/store/apps/details?id=gg.promptwars.app"
+            data-store-platform="Android"
+            data-store-placement="join"
+            aria-label="Get Prompt Wars on Google Play"
             ><svg viewBox="0 0 28 30" aria-hidden="true">
               <path fill="#66c4ff" d="M2 2 15 15 2 28Z" />
               <path fill="#70d39b" d="m2 2 17 10-4 3Z" />
               <path fill="#ffcf66" d="m19 12 7 4-7 4-4-5Z" />
               <path fill="#f57d93" d="M2 28 19 20 15 15Z" /></svg
-            ><span><small>COMING SOON</small><strong>Google Play</strong></span
+            ><span><small>GET IT ON</small><strong>Google Play</strong></span
             ><span class="store-arrow" aria-hidden="true">↗</span></a
           >
         </div>
+        <button class="ios-notify" type="button" data-notify-platform="iOS" aria-haspopup="dialog" aria-controls="waitlist-dialog" hidden>
+          Notify me about iOS
+        </button>
         <div class="platforms">
-          IOS &nbsp; / &nbsp; ANDROID &nbsp; / &nbsp; FREE CORE BATTLES
+          ANDROID AVAILABLE &nbsp; / &nbsp; IOS COMING SOON &nbsp; / &nbsp; FREE CORE BATTLES
         </div>
       </section>
     </main>
@@ -542,6 +546,7 @@
           ><a href="terms-and-conditions.html">Terms</a
           ><a href="account-deletion.html">Account deletion</a
           ><a href="mailto:hello@promptwars.gg">Contact</a>
+          <button class="analytics-settings" type="button" data-analytics-settings hidden>Analytics settings</button>
         </nav>
         <p>© <span id="year">2026</span> Prompt Wars</p>
       </div>
@@ -592,8 +597,8 @@
     </dialog>
     <noscript
       ><p class="no-script">
-        Prompt Wars is coming soon to iOS and Android. Enable JavaScript to join
-        the launch list, or contact
+        Prompt Wars is available on Google Play for Android. iOS is coming soon.
+        Enable JavaScript for iOS launch notifications, or contact
         <a href="mailto:hello@promptwars.gg">hello@promptwars.gg</a>.
       </p></noscript
     >
